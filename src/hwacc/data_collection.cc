@@ -1,7 +1,10 @@
 #include "data_collection.hh"
+#include "debug/SALAMResults.hh"
+#include "debug/SALAMResultsCSV.hh"
 
 void
 Results::print() {
+    if (!DTRACE(SALAMResults)) return;
 
     std::cout << "********************************************************************************" << std::endl;
     std::cout << "   ========= Performance Analysis =================" << std::endl;
@@ -73,7 +76,7 @@ Results::print() {
     std::cout << "   Private Read Bus Width:          " << read_bus_width << std::endl;
     std::cout << "   Private Write Bus Width:         " << write_bus_width << std::endl;
     std::cout << "       Memory Reads:                " << dma_reads << std::endl;
-    std::cout << "       Memory Writes:               " << dma_writes << std::endl;    
+    std::cout << "       Memory Writes:               " << dma_writes << std::endl;
     std::cout << "   ========= Power Analysis ======================" << std::endl;
     std::cout << "   FU Leakage Power:                " << fu_leakage << " mW " << std::endl;
     std::cout << "   FU Dynamic Power:                " << fu_dynamic << " mW " << std::endl;
@@ -103,7 +106,7 @@ Results::print() {
     std::cout << "   FU Area:                         " << fu_area << " um^2 (" << fu_area/1000000 << " mm^2)" << std::endl;
     std::cout << "   Register Area:                   " << reg_area << " um^2 (" << reg_area/1000000 << " mm^2)" << std::endl;
     std::cout << "   SPM Area:                        " << spm_area << " um^2 (" << spm_area/1000000 << " mm^2)" << std::endl;
-    std::cout << "   Cache Area:                      " << cache_area << " um^2 (" << cache_area/1000000 << " mm^2)" << std::endl; 
+    std::cout << "   Cache Area:                      " << cache_area << " um^2 (" << cache_area/1000000 << " mm^2)" << std::endl;
     std::cout << std::endl;
     std::cout << "   Accelerator Area:                " << total_area << " um^2 (" << total_area/1000000 << " mm^2)" << std::endl;
     std::cout << "   Accelerator Area (SPM):          " << acc_spm_total_area << " um^2 (" << acc_spm_total_area/1000000 << " mm^2)" << std::endl;
@@ -113,13 +116,13 @@ Results::print() {
     std::cout << "   SPM Optimized Leakage Power:     " << spm_opt_leakage << " mW" << std::endl;
     std::cout << "   SPM Opt Area:                    " << spm_opt_area << " um^2" << std::endl;
     std::cout << std::endl;
-
-
 }
 
 
 void
 Results::simpleStats() {
+    if (!DTRACE(SALAMResultsCSV)) return;
+
     std::cout << std::fixed << std::setprecision(6) << std::endl;
     std::cout << "StatsStart:";
     std::cout << "\n" << setupTime;
@@ -240,5 +243,4 @@ Results::unitCorrections() {
     spm_opt_area = spm_opt_area/1000;
     acc_spm_total_area = total_area + spm_area;
     acc_cache_total_area = total_area + cache_area;
-
 }

@@ -964,8 +964,8 @@ class GetElementPtr : public Instruction {
         void initialize(llvm::Value * irval,
                         irvmap * irmap,
                         SALAM::valueListTy * valueList);
-        GetElementPtr &setA() { std::cout << "a\n"; return *this; }
-        GetElementPtr &setB() { std::cout << "b\n"; return *this; }
+        GetElementPtr &setA() { return *this; }
+        GetElementPtr &setB() { return *this; }
         uint64_t getCycleCount() { return conditions.at(0).at(2); }
         virtual bool isGEP() override { return true; }
         void compute();

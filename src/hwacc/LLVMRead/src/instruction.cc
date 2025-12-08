@@ -1,9 +1,11 @@
 #include "instruction.hh"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
-#include "llvm/IR/DataLayout.h"
-#include "sim/sim_object.hh"
 
 #include <cmath>
+
+#include "base/logging.hh"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "sim/sim_object.hh"
 
 namespace SALAM
 {
@@ -150,9 +152,6 @@ SALAM::Instruction::launch()
     if (hasFunctionalUnit()) {
         if(!hw_interface->availableFunctionalUnit(getFunctionalUnit())) {
             return false;
-            std::cout << "Waiting on next available FU\n"; 
-        } else {
-            
         }
     }
     launched = true;
@@ -394,8 +393,9 @@ Br::initialize(llvm::Value * irval,
     llvm::Value * defaultDestValue = br->getSuccessor(0);
     auto mapit = irmap->find(defaultDestValue);
     if(mapit == irmap->end()) {
-        if (dbg) DPRINTFS(Runtime, owner, "ERROR. Could not find default successor for Br in IR map.");
-        assert(0);
+        if (dbg)
+            DPRINTFS(Runtime, owner, "Could not find Br successor");
+        panic("Could not find branch successor in IR map");
     } else {
         defaultDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(mapit->second);
     }
@@ -403,8 +403,9 @@ Br::initialize(llvm::Value * irval,
         llvm::Value * condValue = br->getCondition();
         mapit = irmap->find(condValue);
         if(mapit == irmap->end()) {
-            if (dbg) DPRINTFS(Runtime, owner, "ERROR. Could not find condition for Br in IR map.");
-            assert(0);
+            if (dbg)
+                DPRINTFS(Runtime, owner, "Could not find Br condition");
+            panic("Could not find branch condition in IR map");
         } else {
             condition = mapit->second;
             staticDependencies.push_back(condition);
@@ -413,8 +414,9 @@ Br::initialize(llvm::Value * irval,
             llvm::Value * falseDestValue = br->getSuccessor(1);
             mapit = irmap->find(falseDestValue);
             if(mapit == irmap->end()) {
-                if (dbg) DPRINTFS(Runtime, owner, "ERROR. Could not find secondary successor for Br in IR map.");
-                assert(0);
+                if (dbg)
+                    DPRINTFS(Runtime, owner, "Could not find Br false");
+                panic("Could not find false branch in IR map");
             } else {
                 falseDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(mapit->second);
             }

@@ -1,5 +1,6 @@
 // LLVMInterface Includes
 #include "hwacc/llvm_interface.hh"
+#include "debug/SALAMResults.hh"
 
 LLVMInterface::LLVMInterface(const LLVMInterfaceParams &p):
     ComputeUnit(p),
@@ -217,7 +218,9 @@ LLVMInterface::ActiveFunction::processQueues()
     if (owner->hw->hw_statistics->use_cycle_tracking()) {
         auto hwStart = std::chrono::high_resolution_clock::now();
         for (auto fu : hw->functional_units->functional_unit_list) {
-            std::cout << fu->get_alias() << " - " << fu->get_in_use() << "\n";
+            if (dbg)
+                DPRINTFS(Runtime, owner, "%s - %d\n",
+                         fu->get_alias().c_str(), fu->get_in_use());
         }
 
 
@@ -759,6 +762,8 @@ LLVMInterface::printResults() {
 
     std::map<uint64_t, uint64_t> totals_reads;
     std::map<uint64_t, uint64_t> totals_writes;
+
+    if (!DTRACE(SALAMResults)) return;
 
     std::cout << "********************************************************************************" << std::endl;
     std::cout << name() << std::endl;

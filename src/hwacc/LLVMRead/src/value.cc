@@ -1,6 +1,8 @@
 #include "value.hh"
-#include "llvm/Support/raw_ostream.h"
+
+#include "base/logging.hh"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/raw_ostream.h"
 #include "sim/sim_object.hh"
 
 SALAM::Value::Value(uint64_t id, gem5::SimObject * _owner, bool _dbg) {
@@ -261,8 +263,9 @@ SALAM::Value::setRegisterValue(uint8_t * data) {
         }
         default:
         {
-            if (dbg) DPRINTFS(Runtime, owner, "Unsupported type for register operation\n");
-            assert(0);
+            if (dbg)
+                DPRINTFS(Runtime, owner, "Unsupported register type\n");
+            panic("Unsupported LLVM type %d for register", valueTy);
         }
     }
 }

@@ -84,7 +84,11 @@ if env['TARGET_ISA'] == 'arm':
     DebugFlag('StreamDma')
     DebugFlag('Trace')
     DebugFlag('Step')
+    DebugFlag('SALAMResults')      # Performance/stats output
+    DebugFlag('SALAMResultsCSV')   # CSV format for scripting
 
     #
-    CompoundFlag('JDEV', ['LLVMInterface','CommInterface', 'Runtime', 'RuntimeCompute', 'RuntimeQueues', 'SALAM_Debug'])
+    CompoundFlag('JDEV', ['LLVMInterface', 'CommInterface', 'Runtime',
+                          'RuntimeCompute', 'RuntimeQueues', 'SALAM_Debug',
+                          'SALAMResults'])
     CompoundFlag('HWACC', ['CommInterface', 'LLVMInterface'])

@@ -1,6 +1,7 @@
 #include "operand.hh"
-#include "sim/sim_object.hh"
 
+#include "base/logging.hh"
+#include "sim/sim_object.hh"
 
 SALAM::Constant::Constant(uint64_t id, gem5::SimObject * owner, bool dbg) :
                           Value(id, owner, dbg)
@@ -293,10 +294,10 @@ SALAM::Constant::initialize(llvm::Value * irval,
                 break;
             }
             default:
-                assert(0); // We do not support this nested ConstantExpr
+                panic("Unsupported ConstantExpr opcode %d", ce->getOpcode());
         }
     } else {
-        assert(0); // The value is not a supported type of llvm::Constant
+        panic("Unsupported LLVM constant type");
     }
 }
 
@@ -395,7 +396,9 @@ SALAM::Operand::initOperandReg()
     } else {
         if (dbg) DPRINTFS(Runtime, owner, "Invalid register type. Dumping Operand details\n");
         dump();
-        assert(0); // Type is invalid for a register
+        panic("SALAM Error: Invalid register type for operand\n"
+              "The operand type is not valid for a hardware register.\n"
+              "Check your LLVM IR for unsupported data types.");
     }
 }
 
