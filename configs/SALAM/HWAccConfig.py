@@ -1,3 +1,10 @@
+"""
+gem5-SALAM Hardware Accelerator Configuration
+
+Configures accelerator functional units and instructions with dynamic loading.
+Replaces hardcoded instantiations with registry-based dynamic instantiation.
+"""
+
 import m5
 from m5.objects import *
 from m5.util import *
@@ -5,129 +12,324 @@ from configparser import ConfigParser
 from pathlib import Path
 import yaml
 import os
+import logging
+
+# Set up logging
+logger = logging.getLogger("salam.HWAccConfig")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter('[%(levelname)s] %(name)s: %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+# =============================================================================
+# Functional Unit Registry
+# Maps configuration names to gem5 SimObject classes
+# =============================================================================
+_FU_REGISTRY = {
+    'bit_register': BitRegister,
+    'bit_shifter': BitShifter,
+    'bitwise_operations': BitwiseOperations,
+    'integer_adder': IntegerAdder,
+    'integer_multiplier': IntegerMultiplier,
+    'float_adder': FloatAdder,
+    'float_multiplier': FloatMultiplier,
+    'float_divider': FloatDivider,
+    'double_adder': DoubleAdder,
+    'double_multiplier': DoubleMultiplier,
+    'double_divider': DoubleDivider,
+}
+
+# =============================================================================
+# Instruction Registry
+# Maps LLVM IR instruction names to gem5 SimObject classes
+# =============================================================================
+_INST_REGISTRY = {
+    # Arithmetic - Integer
+    'add': Add,
+    'sub': Sub,
+    'mul': Mul,
+    'sdiv': Sdiv,
+    'udiv': Udiv,
+    'srem': Srem,
+    'urem': Urem,
+
+    # Arithmetic - Floating Point
+    'fadd': Fadd,
+    'fsub': Fsub,
+    'fmul': Fmul,
+    'fdiv': Fdiv,
+    'frem': Frem,
+
+    # Bitwise Operations
+    'and_inst': AndInst,
+    'or_inst': OrInst,
+    'xor_inst': XorInst,
+
+    # Shift Operations
+    'shl': Shl,
+    'ashr': Ashr,
+    'lshr': Lshr,
+
+    # Comparison
+    'icmp': Icmp,
+    'fcmp': Fcmp,
+
+    # Memory Operations
+    'load': Load,
+    'store': Store,
+    'gep': Gep,
+    'alloca': Alloca,
+    'fence': Fence,
+
+    # Type Conversions
+    'sext': Sext,
+    'zext': Zext,
+    'trunc': Trunc,
+    'fpext': Fpext,
+    'fptrunc': Fptrunc,
+    'fptosi': Fptosi,
+    'fptoui': Fptoui,
+    'uitofp': Uitofp,
+    # Note: sitofp is implemented in C++ but has no separate SimObject class.
+    # It uses cycle count from CycleCounts.py sitofp parameter (default: 1 cycle).
+    'inttoptr': Inttoptr,
+    'ptrtoint': Ptrtoint,
+    'bitcast': Bitcast,
+    'addrspacecast': Addrspacecast,
+
+    # Control Flow
+    'br': Br,
+    'indirectbr': Indirectbr,
+    'switch_inst': SwitchInst,
+    'call': Call,
+    'invoke': Invoke,
+    'ret': Ret,
+    'resume': Resume,
+    'unreachable': Unreachable,
+
+    # Other
+    'phi': Phi,
+    'select': Select,
+    'vaarg': Vaarg,
+    'landingpad': Landingpad,
+}
+
+
+def _load_hw_config(config_file, benchname, bench_path=None, m5_path_len=0):
+    """
+    Load hw_config from YAML configuration file.
+
+    Args:
+        config_file: Path to YAML configuration file
+        benchname: Name of the benchmark
+        bench_path: Path parts for mobilenetv2 special handling
+        m5_path_len: Length of M5_PATH for mobilenetv2 handling
+
+    Returns:
+        Dictionary with instructions and their runtime_cycles, or None
+    """
+    try:
+        with open(config_file, 'r') as f:
+            # Check for mobilenetv2 multi-document format
+            if bench_path and len(bench_path) > m5_path_len + 1:
+                if bench_path[m5_path_len + 1] == 'mobilenetv2':
+                    for yaml_inst_list in yaml.safe_load_all(f):
+                        document = yaml_inst_list.get('acc_cluster', [{}])
+                        if document:
+                            current_acc = document[0].get('Name', '') + '_' + benchname
+                            if len(bench_path) > 9 and bench_path[9] == document[0].get('Name'):
+                                logger.info(f"{current_acc} Profile Loaded")
+                                return yaml_inst_list.get('hw_config', {}).get(current_acc)
+                    return None
+
+            # Standard single-document format
+            yaml_data = yaml.safe_load(f)
+            if yaml_data and 'hw_config' in yaml_data:
+                hw_config = yaml_data['hw_config'].get(benchname)
+                if hw_config:
+                    logger.info(f"Loaded hw_config for benchmark: {benchname}")
+                    return hw_config
+                else:
+                    logger.debug(f"No hw_config found for benchmark: {benchname}")
+            return None
+
+    except FileNotFoundError:
+        logger.warning(f"Config file not found: {config_file}")
+        return None
+    except yaml.YAMLError as e:
+        logger.error(f"YAML parsing error in {config_file}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error loading config: {e}")
+        return None
+
+
+def _instantiate_functional_units(acc, hw_config=None):
+    """
+    Dynamically instantiate all functional units from registry.
+
+    Args:
+        acc: Accelerator SimObject
+        hw_config: Optional hw_config dict with FU overrides
+    """
+    acc.hw_interface.functional_units = FunctionalUnits()
+
+    fu_config = {}
+    if hw_config and 'functional_units' in hw_config:
+        fu_config = hw_config['functional_units']
+
+    instantiated = 0
+    for fu_name, fu_class in _FU_REGISTRY.items():
+        try:
+            fu_instance = fu_class()
+
+            # Apply any configuration overrides
+            if fu_name in fu_config:
+                cfg = fu_config[fu_name]
+                if 'cycles' in cfg and hasattr(fu_instance, 'cycles'):
+                    fu_instance.cycles = cfg['cycles']
+                    logger.debug(f"Set {fu_name}.cycles = {cfg['cycles']}")
+                if 'limit' in cfg and hasattr(fu_instance, 'limit'):
+                    fu_instance.limit = cfg['limit']
+                    logger.debug(f"Set {fu_name}.limit = {cfg['limit']}")
+
+            setattr(acc.hw_interface.functional_units, fu_name, fu_instance)
+            instantiated += 1
+            logger.debug(f"Instantiated FU: {fu_name}")
+
+        except Exception as e:
+            logger.warning(f"Failed to instantiate FU {fu_name}: {e}")
+
+    logger.info(f"Instantiated {instantiated}/{len(_FU_REGISTRY)} functional units")
+
+
+def _instantiate_instructions(acc, hw_config=None):
+    """
+    Dynamically instantiate all instructions from registry.
+
+    Args:
+        acc: Accelerator SimObject
+        hw_config: Optional hw_config dict with instruction overrides
+    """
+    acc.hw_interface.inst_config = InstConfig()
+
+    inst_config = {}
+    if hw_config and 'instructions' in hw_config:
+        inst_config = hw_config['instructions']
+
+    instantiated = 0
+    configured = 0
+    for inst_name, inst_class in _INST_REGISTRY.items():
+        try:
+            inst_instance = inst_class()
+
+            # Apply instruction configuration from hw_config
+            # config.yml uses same names as Python (and_inst, or_inst, xor_inst, switch_inst)
+            if inst_name in inst_config:
+                cfg = inst_config[inst_name]
+                if 'functional_unit' in cfg and hasattr(inst_instance, 'functional_unit'):
+                    inst_instance.functional_unit = cfg['functional_unit']
+                    logger.debug(f"Set {inst_name}.functional_unit = {cfg['functional_unit']}")
+                if 'functional_unit_limit' in cfg and hasattr(inst_instance, 'functional_unit_limit'):
+                    inst_instance.functional_unit_limit = cfg['functional_unit_limit']
+                if 'opcode_num' in cfg and hasattr(inst_instance, 'opcode_num'):
+                    inst_instance.opcode_num = cfg['opcode_num']
+                configured += 1
+
+            setattr(acc.hw_interface.inst_config, inst_name, inst_instance)
+            instantiated += 1
+            logger.debug(f"Instantiated instruction: {inst_name}")
+
+        except Exception as e:
+            logger.warning(f"Failed to instantiate instruction {inst_name}: {e}")
+
+    logger.info(f"Instantiated {instantiated}/{len(_INST_REGISTRY)} instructions ({configured} configured from hw_config)")
+
+
+# Name mapping for config.yml -> CycleCounts.py parameters
+# Python keywords like 'and', 'or', 'xor' need _inst suffix in CycleCounts
+_CYCLE_COUNT_NAME_MAP = {
+    'and': 'and_inst',
+    'or': 'or_inst',
+    'xor': 'xor_inst',
+}
+
+def _apply_cycle_counts(acc, hw_config):
+    """
+    Apply runtime cycle counts from hw_config.
+
+    Args:
+        acc: Accelerator SimObject
+        hw_config: hw_config dict with instruction cycle counts
+    """
+    if not hw_config or 'instructions' not in hw_config:
+        logger.debug("No instruction cycle counts to apply")
+        return
+
+    applied = 0
+    for inst_name, inst_cfg in hw_config['instructions'].items():
+        if 'runtime_cycles' in inst_cfg:
+            try:
+                # Map config name to CycleCounts parameter name
+                param_name = _CYCLE_COUNT_NAME_MAP.get(inst_name, inst_name)
+                setattr(acc.hw_interface.cycle_counts, param_name, inst_cfg['runtime_cycles'])
+                applied += 1
+                logger.debug(f"Set {param_name} runtime_cycles = {inst_cfg['runtime_cycles']}")
+            except Exception as e:
+                logger.warning(f"Failed to set cycle count for {inst_name}: {e}")
+
+    if applied > 0:
+        logger.info(f"Applied {applied} instruction cycle count overrides")
+
 
 def AccConfig(acc, bench_file, config_file):
+    """
+    Configure accelerator with dynamic FU and instruction instantiation.
+
+    Args:
+        acc: Accelerator SimObject to configure
+        bench_file: Path to benchmark LLVM IR file
+        config_file: Path to YAML configuration file
+    """
+    logger.info(f"Configuring accelerator for: {bench_file}")
+
     # Initialize LLVMInterface Objects
     acc.llvm_interface = LLVMInterface()
-
-    # Benchmark path
     acc.llvm_interface.in_file = bench_file
+
+    # Extract benchmark information
     M5_Path = os.getenv('M5_PATH')
     benchname = os.path.splitext(os.path.basename(bench_file))[0]
-
-
-    # lenet config launcher custom stuff
     benchPath = Path(bench_file).parts
-    m5PathLen = len(Path(M5_Path).parts)
+    m5PathLen = len(Path(M5_Path).parts) if M5_Path else 0
 
-    # Set scheduling constraints
-    #acc.llvm_interface.sched_threshold = ConfigSectionMap("Scheduler")['sched_threshold']
-    #acc.llvm_interface.clock_period = ConfigSectionMap("AccConfig")['clock_period']
-    #acc.llvm_interface.lockstep_mode = Config.getboolean("Scheduler", 'lockstep_mode')
+    logger.debug(f"Benchmark name: {benchname}")
+    logger.debug(f"Config file: {config_file}")
 
-    #TODO: Auto generate the functional unit list
-
-	# Initialize HWInterface Objects
+    # Initialize HWInterface Objects
     acc.hw_interface = HWInterface()
-    # Define HW Counts
     acc.hw_interface.cycle_counts = CycleCounts()
-    #acc.hw_interface.cycle_counts
-    
-    if benchPath[m5PathLen+1] == 'mobilenetv2':
-        fu_yaml = open(config_file, 'r')
-        for yaml_inst_list in yaml.safe_load_all(fu_yaml):
-            document = yaml_inst_list['acc_cluster']
-            current_acc = document[0]['Name'] + '_' + benchname 
-            if(benchPath[9] == document[0]['Name']):
-                print(current_acc + " Profile Loaded")
-                # print(yaml_inst_list['hw_config'][benchname])
-                inst_list = yaml_inst_list['hw_config'][current_acc]['instructions'].keys()
-                for instruction in inst_list:
-                    setattr(acc.hw_interface.cycle_counts, instruction, yaml_inst_list['hw_config'][current_acc]['instructions'][instruction]['runtime_cycles'])
-        fu_yaml.close()
-    
-    else:
-        fu_yaml = open(config_file, 'r')
-        yaml_inst_list = yaml.safe_load(fu_yaml)
-        if yaml_inst_list['hw_config'][benchname] is not None:
-            inst_list = yaml_inst_list['hw_config'][benchname]['instructions'].keys()
-            for instruction in inst_list:
-                setattr(acc.hw_interface.cycle_counts, instruction, yaml_inst_list['hw_config'][benchname]['instructions'][instruction]['runtime_cycles'])
-        fu_yaml.close()
 
-    #TODO Automate the generation of the list below
-    # Functional Units
-    acc.hw_interface.functional_units = FunctionalUnits()
-    acc.hw_interface.functional_units.double_multiplier = DoubleMultiplier() 
-    acc.hw_interface.functional_units.bit_register = BitRegister()
-    acc.hw_interface.functional_units.bitwise_operations = BitwiseOperations()
-    acc.hw_interface.functional_units.double_adder = DoubleAdder()
-    acc.hw_interface.functional_units.float_divider = FloatDivider()
-    acc.hw_interface.functional_units.bit_shifter = BitShifter()
-    acc.hw_interface.functional_units.integer_multiplier = IntegerMultiplier()
-    acc.hw_interface.functional_units.integer_adder = IntegerAdder()
-    acc.hw_interface.functional_units.double_divider = DoubleDivider()
-    acc.hw_interface.functional_units.float_adder = FloatAdder()
-    acc.hw_interface.functional_units.float_multiplier = FloatMultiplier()
+    # Load hw_config from YAML (handles mobilenetv2 special case internally)
+    hw_config = _load_hw_config(config_file, benchname, benchPath, m5PathLen)
 
-    #TODO Automate the generation of the list below
-    # Instructions
-    acc.hw_interface.inst_config = InstConfig()
-    acc.hw_interface.inst_config.add = Add()
-    acc.hw_interface.inst_config.addrspacecast = Addrspacecast()
-    acc.hw_interface.inst_config.alloca = Alloca()
-    acc.hw_interface.inst_config.and_inst = AndInst()
-    acc.hw_interface.inst_config.ashr = Ashr()
-    acc.hw_interface.inst_config.bitcast = Bitcast()
-    acc.hw_interface.inst_config.br = Br()
-    acc.hw_interface.inst_config.call = Call()
-    acc.hw_interface.inst_config.fadd = Fadd()
-    acc.hw_interface.inst_config.fcmp = Fcmp()
-    acc.hw_interface.inst_config.fdiv = Fdiv()
-    acc.hw_interface.inst_config.fence = Fence()
-    acc.hw_interface.inst_config.fmul = Fmul()
-    acc.hw_interface.inst_config.fpext = Fpext()
-    acc.hw_interface.inst_config.fptosi = Fptosi()
-    acc.hw_interface.inst_config.fptoui = Fptoui()
-    acc.hw_interface.inst_config.fptrunc = Fptrunc()
-    acc.hw_interface.inst_config.frem = Frem()
-    acc.hw_interface.inst_config.fsub = Fsub()
-    acc.hw_interface.inst_config.gep = Gep()
-    acc.hw_interface.inst_config.icmp = Icmp()
-    acc.hw_interface.inst_config.indirectbr = Indirectbr()
-    acc.hw_interface.inst_config.inttoptr = Inttoptr()
-    acc.hw_interface.inst_config.invoke = Invoke()
-    acc.hw_interface.inst_config.landingpad = Landingpad()
-    acc.hw_interface.inst_config.load = Load()
-    acc.hw_interface.inst_config.lshr = Lshr()
-    acc.hw_interface.inst_config.mul = Mul()
-    acc.hw_interface.inst_config.or_inst = OrInst()
-    acc.hw_interface.inst_config.phi = Phi()
-    acc.hw_interface.inst_config.ptrtoint = Ptrtoint()
-    acc.hw_interface.inst_config.resume = Resume()
-    acc.hw_interface.inst_config.ret = Ret()
-    acc.hw_interface.inst_config.sdiv = Sdiv()
-    acc.hw_interface.inst_config.select = Select()
-    acc.hw_interface.inst_config.sext = Sext()
-    acc.hw_interface.inst_config.shl = Shl()
-    acc.hw_interface.inst_config.srem = Srem()
-    acc.hw_interface.inst_config.store = Store()
-    acc.hw_interface.inst_config.sub = Sub()
-    acc.hw_interface.inst_config.switch_inst = SwitchInst()
-    acc.hw_interface.inst_config.trunc = Trunc()
-    acc.hw_interface.inst_config.udiv = Udiv()
-    acc.hw_interface.inst_config.uitofp = Uitofp()
-    acc.hw_interface.inst_config.unreachable = Unreachable()
-    acc.hw_interface.inst_config.urem = Urem()
-    acc.hw_interface.inst_config.vaarg = Vaarg()
-    acc.hw_interface.inst_config.xor_inst = XorInst()
-    acc.hw_interface.inst_config.zext = Zext()
+    # Dynamic functional unit instantiation from registry
+    _instantiate_functional_units(acc, hw_config)
 
+    # Dynamic instruction instantiation from registry
+    _instantiate_instructions(acc, hw_config)
 
+    # Apply cycle count overrides from hw_config
+    _apply_cycle_counts(acc, hw_config)
+
+    # Initialize power model and statistics
     acc.hw_interface.salam_power_model = SALAMPowerModel()
     acc.hw_interface.hw_statistics = HWStatistics()
     acc.hw_interface.simulator_config = SimulatorConfig()
     acc.hw_interface.opcodes = InstOpCodes()
+
+    logger.info("AccConfig complete")
 
 #def AccSPMConfig(acc, spm, config_file):
     # Setup config file parser

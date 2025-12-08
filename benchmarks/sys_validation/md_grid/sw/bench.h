@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "defines.h"
 #include "data.h"
 #include <cmath>

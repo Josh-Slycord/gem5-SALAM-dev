@@ -1,0 +1,24 @@
+# Force Unix line endings for all text files
+* text=auto eol=lf
+
+# Explicitly set line endings for script files
+*.sh text eol=lf
+*.py text eol=lf
+*.pl text eol=lf
+SConstruct text eol=lf
+SConscript text eol=lf
+SConsopts text eol=lf
+Makefile text eol=lf
+*.mk text eol=lf
+
+# Config files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+
+# Binary files - don't touch
+*.o binary
+*.a binary
+*.so binary
+*.ll binary

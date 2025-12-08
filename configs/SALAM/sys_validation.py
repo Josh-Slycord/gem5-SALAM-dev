@@ -44,7 +44,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import optparse
+import argparse
 import sys
 
 import m5
@@ -130,7 +130,7 @@ def build_test_system(np):
                                              test_sys.cpu_voltage_domain)
 
     if options.kernel is not None:
-        test_sys.kernel = binary(options.kernel)
+        test_sys.workload.object_file = binary(options.kernel)
     else:
         print("Error: a kernel must be provided to run in full system mode")
         sys.exit(1)
@@ -284,7 +284,7 @@ def build_drive_system(np):
     drive_sys.cpu.createInterruptController()
     drive_sys.cpu.connectAllPorts(drive_sys.membus)
     if options.kernel is not None:
-        drive_sys.kernel = binary(options.kernel)
+        drive_sys.workload.object_file = binary(options.kernel)
     else:
         print("Error: a kernel must be provided to run in full system mode")
         sys.exit(1)
@@ -294,8 +294,8 @@ def build_drive_system(np):
 
     drive_sys.iobridge = Bridge(delay='50ns',
                                 ranges = drive_sys.mem_ranges)
-    drive_sys.iobridge.slave = drive_sys.iobus.master
-    drive_sys.iobridge.master = drive_sys.membus.slave
+    drive_sys.iobridge.cpu_side_ports = drive_sys.iobus.mem_side_ports
+    drive_sys.iobridge.mem_side_port = drive_sys.membus.cpu_side_ports
 
     # Create the appropriate memory controllers and connect them to the
     # memory bus
@@ -309,19 +309,23 @@ def build_drive_system(np):
     return drive_sys
 
 # Add options
-parser = optparse.OptionParser()
+parser = argparse.ArgumentParser()
 Options.addCommonOptions(parser)
 Options.addFSOptions(parser)
+
+# Add SALAM-specific options
+parser.add_argument("--accpath", type=str, default="",
+                    help="Path to accelerator benchmark directory")
+parser.add_argument("--accbench", type=str, default="",
+                    help="Name of the accelerator benchmark")
+parser.add_argument("--acc_cache", action="store_true",
+                    help="Enable accelerator cache")
 
 # Add the ruby specific and protocol specific options
 if '--ruby' in sys.argv:
     Ruby.define_options(parser)
 
-(options, args) = parser.parse_args()
-
-if args:
-    print("Error: script doesn't take any positional arguments")
-    sys.exit(1)
+options = parser.parse_args()
 
 # system under test can be any CPU
 (TestCPUClass, test_mem_mode, FutureClass) = Simulation.setCPUClass(options)
@@ -337,13 +341,15 @@ if options.benchmark:
         print("Valid benchmarks are: %s" % DefinedBenchmarks)
         sys.exit(1)
 else:
+    # options.disk_image is already a list (action="append"), pass directly or None if empty
+    disk_images = options.disk_image if options.disk_image else None
     if options.dual:
-        bm = [SysConfig(disk=options.disk_image, rootdev=options.root_device,
+        bm = [SysConfig(disks=disk_images, rootdev=options.root_device,
                         mem=options.mem_size, os_type=options.os_type),
-              SysConfig(disk=options.disk_image, rootdev=options.root_device,
+              SysConfig(disks=disk_images, rootdev=options.root_device,
                         mem=options.mem_size, os_type=options.os_type)]
     else:
-        bm = [SysConfig(disk=options.disk_image, rootdev=options.root_device,
+        bm = [SysConfig(disks=disk_images, rootdev=options.root_device,
                         mem=options.mem_size, os_type=options.os_type)]
 
 np = options.num_cpus

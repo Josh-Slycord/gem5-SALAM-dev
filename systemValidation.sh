@@ -1,6 +1,7 @@
 #!/bin/bash
-FLAGS="SALAM_Debug"
-BENCH=""
+export M5_PATH=/home/jslycord/gem5-SALAM-dev
+FLAGS="JDEV"
+BENCH="gemm"
 DEBUG="false"
 PRINT_TO_FILE="false"
 VALGRIND="false"

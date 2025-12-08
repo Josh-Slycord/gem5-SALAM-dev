@@ -26,6 +26,13 @@ void top(uint64_t npoints,
 	*DmaFlags   = DEV_INIT;
 	//Poll DMA for finish
 	while ((*DmaFlags & DEV_INTR) != DEV_INTR);
+	//Transfer M3 (force initialized to 0)
+	*DmaRdAddr  = force;
+	*DmaWrAddr  = FORCE;
+	*DmaCopyLen = grid_size;
+	*DmaFlags   = DEV_INIT;
+	//Poll DMA for finish
+	while ((*DmaFlags & DEV_INTR) != DEV_INTR);
 
 	//Start the accelerated function
 	*MD_GRIDFlags = DEV_INIT;

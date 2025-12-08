@@ -1,0 +1,95 @@
+acc_cluster:
+- Name: gemm_clstr
+- DMA:
+  - Name: main_dma
+    Type: NonCoherent
+    MaxReqSize: 128
+    BufferSize: 256
+- Accelerator:
+  - Name: compute_unit
+    IrPath: hw/compute.ll
+    PIOSize: 32
+global:
+  memory:
+    base_address: '0x10020000'
+    alignment: 64
+hw_config:
+  gemm:
+    cycle_time: 10ns
+    functional_units:
+      bit_register:
+        cycles: 1
+        limit: 0
+      bit_shifter:
+        cycles: 1
+        limit: 0
+      bitwise_operations:
+        cycles: 1
+        limit: 0
+      integer_adder:
+        cycles: 1
+        limit: 0
+      integer_multiplier:
+        cycles: 1
+        limit: 0
+      float_adder:
+        cycles: 5
+        limit: 0
+      float_multiplier:
+        cycles: 4
+        limit: 0
+      float_divider:
+        cycles: 16
+        limit: 0
+      double_adder:
+        cycles: 5
+        limit: 0
+      double_multiplier:
+        cycles: 5
+        limit: 0
+      double_divider:
+        cycles: 32
+        limit: 0
+    instructions:
+      add:
+        runtime_cycles: 1
+        functional_unit: integer_adder
+      sub:
+        runtime_cycles: 1
+        functional_unit: integer_adder
+      mul:
+        runtime_cycles: 1
+        functional_unit: integer_multiplier
+      fadd:
+        runtime_cycles: 5
+        functional_unit: float_adder
+      fsub:
+        runtime_cycles: 5
+        functional_unit: float_adder
+      fmul:
+        runtime_cycles: 4
+        functional_unit: float_multiplier
+      fdiv:
+        runtime_cycles: 16
+        functional_unit: float_divider
+      load:
+        runtime_cycles: 1
+        functional_unit: bit_register
+      store:
+        runtime_cycles: 1
+        functional_unit: bit_register
+      shl:
+        runtime_cycles: 1
+        functional_unit: bit_shifter
+      lshr:
+        runtime_cycles: 1
+        functional_unit: bit_shifter
+      and:
+        runtime_cycles: 1
+        functional_unit: bitwise_operations
+      or:
+        runtime_cycles: 1
+        functional_unit: bitwise_operations
+      xor:
+        runtime_cycles: 1
+        functional_unit: bitwise_operations

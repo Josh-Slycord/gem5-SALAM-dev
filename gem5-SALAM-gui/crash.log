@@ -1,0 +1,11 @@
+Error: f-string expression part cannot include a backslash (wsl.py, line 229)
+
+Traceback (most recent call last):
+  File "installer.py", line 20, in main
+    from gui.main_window import MainWindow
+  File "/home/jslycord/gem5-SALAM-dev/gem5-SALAM-gui/src/gui/main_window.py", line 118, in <module>
+    from utils.wsl import (
+  File "/home/jslycord/gem5-SALAM-dev/gem5-SALAM-gui/src/utils/wsl.py", line 229
+    return f"{drive}:\\{rest.replace('/', '\\')}"
+           ^
+SyntaxError: f-string expression part cannot include a backslash

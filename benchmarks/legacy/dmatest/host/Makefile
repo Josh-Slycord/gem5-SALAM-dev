@@ -36,7 +36,7 @@ include ../../common/Makefile
 #OBJS         = boot.o ../../common/syscalls.o main.o isr.o
 OBJS         = boot.o ../../common/syscalls.o ../../common/queue_dma.o main.o isr.o
 
-all: clean main.elf
+all: main.elf
 
 main.elf: $(OBJS) $(LNK_SCRIPT) Makefile
 	$(CC) $(LNK_FILE_OPT) -o $@ $(OBJS) $(LNK_OPT)
@@ -49,4 +49,3 @@ start64.o: Makefile
 
 clean:
 	rm -f *.o *.elf
-	rm -f ../../common/*.o

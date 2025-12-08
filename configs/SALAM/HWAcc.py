@@ -1,7 +1,7 @@
 import m5
 from m5.objects import *
 from m5.util import *
-import ConfigParser
+from configparser import ConfigParser  # Python 3 compatible
 from HWAccConfig import *
 
 
@@ -12,7 +12,7 @@ def makeHWAcc(options, system):
 
     # Specify the path to the config file for an accelerator
     # acc_config = <Absolute path to the config file>
-    #acc_config = options.accpath + "/" + options.accbench + "/config.ini"
+    acc_config = options.accpath + "/" + options.accbench + "/config.ini"
 
     ############################# Creating the Accelerator Cluster #################################
     # Create a new Accelerator Cluster

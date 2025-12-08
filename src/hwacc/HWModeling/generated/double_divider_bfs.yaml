@@ -1,0 +1,21 @@
+functional_unit:
+  parameters:
+    alias: double_divider
+    cycles: 16
+    enum_value: 10
+    limit: 0
+    stages: 3
+  power_model:
+    area: 15764.22
+    dynamic_energy: 92.93833
+    dynamic_power: 6.195889
+    internal_power: 2.253656
+    latency: 5
+    leakage_power: 0.1402072
+    path_delay: 0.0
+    switch_power: 3.942233
+    units:
+      area: um^2
+      energy: pJ
+      power: mW
+      time: ns

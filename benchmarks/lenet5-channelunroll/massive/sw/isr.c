@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include "host.h"
 void isr(void)

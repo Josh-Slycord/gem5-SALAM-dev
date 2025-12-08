@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include "conv.h"
 #include "relu.h"

@@ -2,8 +2,8 @@
 #define __DEFINES_H__
 #define CHECK
 
-#define TYPE double
-#define ROW 64
-#define COL 64
+#define TYPE int
+#define ROW 8
+#define COL 8
 
 #endif

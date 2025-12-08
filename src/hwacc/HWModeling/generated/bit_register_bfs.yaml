@@ -1,0 +1,21 @@
+functional_unit:
+  parameters:
+    alias: bit_register
+    cycles: 1
+    enum_value: 0
+    limit: 0
+    stages: 1
+  power_model:
+    area: 5.981433
+    dynamic_energy: 0.00553531
+    dynamic_power: 0.0001107062
+    internal_power: 0.0001107062
+    latency: 5
+    leakage_power: 7.358945e-05
+    path_delay: 0.0
+    switch_power: 3.601464e-05
+    units:
+      area: um^2
+      energy: pJ
+      power: mW
+      time: ns

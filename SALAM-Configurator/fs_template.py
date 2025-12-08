@@ -185,8 +185,8 @@ def build_test_system(np):
             test_sys.iocache.mem_side = test_sys.membus.cpu_side_ports
         elif not args.external_memory_system:
             test_sys.iobridge = Bridge(delay='50ns', ranges = test_sys.mem_ranges)
-            test_sys.iobridge.cpu_side_ports = test_sys.iobus.mem_side_ports
-            test_sys.iobridge.mem_side_ports = test_sys.membus.cpu_side_ports
+            test_sys.iobridge.cpu_side_port = test_sys.iobus.mem_side_ports
+            test_sys.iobridge.mem_side_port = test_sys.membus.cpu_side_ports
 
         # Sanity check
         if args.simpoint_profile:
@@ -292,8 +292,8 @@ def build_drive_system(np):
 
     drive_sys.iobridge = Bridge(delay='50ns',
                                 ranges = drive_sys.mem_ranges)
-    drive_sys.iobridge.cpu_side_ports = drive_sys.iobus.mem_side_ports
-    drive_sys.iobridge.mem_side_ports = drive_sys.membus.cpu_side_ports
+    drive_sys.iobridge.cpu_side_port = drive_sys.iobus.mem_side_ports
+    drive_sys.iobridge.mem_side_port = drive_sys.membus.cpu_side_ports
 
     # Create the appropriate memory controllers and connect them to the
     # memory bus

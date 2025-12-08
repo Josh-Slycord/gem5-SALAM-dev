@@ -1,9 +1,13 @@
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include "bench.h"
 #include "../../../common/m5ops.h"
 #include "../bfs_clstr_hw_defines.h"
+
+// Definition of stage variable (declared extern in bench.h)
+volatile int stage;
 
 bfs_struct bfs;
 

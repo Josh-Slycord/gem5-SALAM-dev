@@ -1,0 +1,21 @@
+functional_unit:
+  parameters:
+    alias: float_multiplier
+    cycles: 4
+    enum_value: 6
+    limit: 0
+    stages: 3
+  power_model:
+    area: 5421.698
+    dynamic_energy: 26.59543
+    dynamic_power: 0.8865146
+    internal_power: 0.2908399
+    latency: 10
+    leakage_power: 0.04476567
+    path_delay: 0.0
+    switch_power: 0.5956748
+    units:
+      area: um^2
+      energy: pJ
+      power: mW
+      time: ns

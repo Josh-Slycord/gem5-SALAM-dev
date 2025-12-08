@@ -1,0 +1,21 @@
+functional_unit:
+  parameters:
+    alias: double_adder
+    cycles: 5
+    enum_value: 7
+    limit: 0
+    stages: 3
+  power_model:
+    area: 5116.643
+    dynamic_energy: 23.26946
+    dynamic_power: 1.551297
+    internal_power: 0.6272768
+    latency: 5
+    leakage_power: 0.03505479
+    path_delay: 0.0
+    switch_power: 0.9240008
+    units:
+      area: um^2
+      energy: pJ
+      power: mW
+      time: ns

@@ -1,0 +1,21 @@
+functional_unit:
+  parameters:
+    alias: bit_shifter
+    cycles: 1
+    enum_value: 3
+    limit: 0
+    stages: 1
+  power_model:
+    area: 249.6461
+    dynamic_energy: 0.4150581
+    dynamic_power: 0.04150581
+    internal_power: 0.008120019
+    latency: 10
+    leakage_power: 0.0016951
+    path_delay: 0.7
+    switch_power: 0.03338565
+    units:
+      area: um^2
+      energy: pJ
+      power: mW
+      time: ns

@@ -1,11 +1,11 @@
 #ifndef __DEFINES_H__
 #define __DEFINES_H__
 
-//#define SPM
-//#define CHECK
+#define SPM
+#define CHECK
 
-#define TYPE double
-#define ROW 64
-#define COL 64
+#define TYPE int
+#define ROW 8
+#define COL 8
 
 #endif

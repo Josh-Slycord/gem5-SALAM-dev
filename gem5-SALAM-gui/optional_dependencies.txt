@@ -1,0 +1,37 @@
+# gem5-SALAM Optional Dependencies
+# These provide additional visualization and debugging capabilities
+
+# =============================================================================
+# Python Packages (pip install)
+# =============================================================================
+pydot>=1.4.0          # Python interface to Graphviz DOT language
+graphviz>=0.20        # Python bindings for Graphviz graph visualization
+
+# =============================================================================
+# System Packages (apt install on Ubuntu/Debian)
+# =============================================================================
+# graphviz             # Graph visualization tools (dot, neato, etc.)
+#                      # Required for: CFG visualization, dependency graphs
+#                      # Install: sudo apt install graphviz
+#
+# valgrind             # Memory debugging and profiling
+#                      # Required for: Memory leak detection, cache simulation
+#                      # Install: sudo apt install valgrind
+#
+# kcachegrind          # Visualization for valgrind/callgrind output
+#                      # Install: sudo apt install kcachegrind
+
+# =============================================================================
+# Installation Commands
+# =============================================================================
+# Python packages:
+#   pip install pydot graphviz
+#
+# System packages (Ubuntu/Debian):
+#   sudo apt install graphviz valgrind kcachegrind
+#
+# Verify graphviz:
+#   dot -V
+#
+# Verify valgrind:
+#   valgrind --version

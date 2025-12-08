@@ -1,0 +1,72 @@
+2025-12-01 01:06:15.975323: [DEBUG] InstallWorker.run() started
+2025-12-01 01:06:15.975659: [DEBUG] Script path: C:\Users\Local_Only_Slycord\gem5-SALAM\gem5-SALAM-Installer\scripts\install_deps.sh
+2025-12-01 01:06:15.976178: [DEBUG] WSL script path: /mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/install_deps.sh
+2025-12-01 01:06:15.976439: [DEBUG] Distro: Ubuntu-20.04
+2025-12-01 01:06:15.976677: [DEBUG] Command: bash '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/install_deps.sh'
+2025-12-01 01:06:15.978380: [DEBUG] About to start WSL process...
+2025-12-01 01:06:15.983120: [DEBUG] Process started with PID: 100724
+2025-12-01 01:06:16.099873: [DEBUG] Process exited with code: 127
+2025-12-01 01:09:31.024337: [DEBUG] InstallWorker.run() started
+2025-12-01 01:09:31.024661: [DEBUG] Script path: C:\Users\Local_Only_Slycord\gem5-SALAM\gem5-SALAM-Installer\scripts\install_deps.sh
+2025-12-01 01:09:31.024875: [DEBUG] WSL script path: /mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/install_deps.sh
+2025-12-01 01:09:31.025357: [DEBUG] Distro: Ubuntu-20.04
+2025-12-01 01:09:31.025822: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/install_deps.sh' | bash
+2025-12-01 01:09:31.028467: [DEBUG] About to start WSL process...
+2025-12-01 01:09:31.033499: [DEBUG] Process started with PID: 112812
+2025-12-01 01:45:07.311630: [DEBUG] BuildWorker.run() started
+2025-12-01 01:45:07.312215: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:45:07.312497: [DEBUG] Distro: Ubuntu
+2025-12-01 01:45:07.318212: [DEBUG] Process started with PID: 131176
+2025-12-01 01:45:11.216972: [DEBUG] Process exited with code: 2
+2025-12-01 01:45:39.767599: [DEBUG] BuildWorker.run() started
+2025-12-01 01:45:39.767935: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:45:39.768148: [DEBUG] Distro: Ubuntu
+2025-12-01 01:45:39.778876: [DEBUG] Process started with PID: 120488
+2025-12-01 01:45:43.268354: [DEBUG] Process exited with code: 2
+2025-12-01 01:47:21.540228: [DEBUG] BuildWorker.run() started
+2025-12-01 01:47:21.540621: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:47:21.540996: [DEBUG] Distro: Ubuntu-20.04
+2025-12-01 01:47:21.546394: [DEBUG] Process started with PID: 69052
+2025-12-01 01:50:34.351503: [DEBUG] BuildWorker.run() started
+2025-12-01 01:50:34.351864: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:50:34.352078: [DEBUG] Distro: Ubuntu
+2025-12-01 01:50:34.358840: [DEBUG] Process started with PID: 97576
+2025-12-01 01:50:40.229689: [DEBUG] Process exited with code: 1
+2025-12-01 01:51:19.074978: [DEBUG] BuildWorker.run() started
+2025-12-01 01:51:19.075312: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:51:19.075558: [DEBUG] Distro: Ubuntu
+2025-12-01 01:51:19.081034: [DEBUG] Process started with PID: 122800
+2025-12-01 01:51:27.041939: [DEBUG] BuildWorker.run() started
+2025-12-01 01:51:27.042301: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:51:27.042531: [DEBUG] Distro: Ubuntu-20.04
+2025-12-01 01:51:27.047954: [DEBUG] Process started with PID: 105728
+2025-12-01 01:53:59.771798: [DEBUG] Process exited with code: 2
+2025-12-01 01:57:21.343737: [DEBUG] BuildWorker.run() started
+2025-12-01 01:57:21.344304: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 01:57:21.344698: [DEBUG] Distro: Ubuntu
+2025-12-01 01:57:21.349964: [DEBUG] Process started with PID: 76764
+2025-12-01 01:57:28.245054: [DEBUG] Process exited with code: 1
+2025-12-01 14:16:45.024258: [DEBUG] BuildWorker.run() started
+2025-12-01 14:16:45.024592: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-01 14:16:45.024813: [DEBUG] Distro: Ubuntu-20.04
+2025-12-01 14:16:45.030520: [DEBUG] Process started with PID: 120520
+2025-12-01 14:36:56.321509: [DEBUG] Process exited with code: 0
+2025-12-02 23:06:41.971485: [DEBUG] BuildWorker.run() started
+2025-12-02 23:06:41.972026: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_cacti.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-02 23:06:41.972247: [DEBUG] Distro: Ubuntu-20.04
+2025-12-02 23:06:41.979254: [DEBUG] Process started with PID: 17260
+2025-12-02 23:06:42.060609: [DEBUG] Process exited with code: 1
+2025-12-02 23:06:47.889343: [DEBUG] BuildWorker.run() started
+2025-12-02 23:06:47.889939: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-02 23:06:47.890159: [DEBUG] Distro: Ubuntu-20.04
+2025-12-02 23:06:47.895923: [DEBUG] Process started with PID: 165620
+2025-12-02 23:17:02.802320: [DEBUG] Process exited with code: 0
+2025-12-03 00:28:45.010128: [DEBUG] BuildWorker.run() started
+2025-12-03 00:28:45.010453: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-03 00:28:45.010716: [DEBUG] Distro: Ubuntu-20.04
+2025-12-03 00:28:45.015614: [DEBUG] Process started with PID: 66024
+2025-12-03 00:37:41.145036: [DEBUG] Process exited with code: 0
+2025-12-03 16:10:45.702792: [DEBUG] BuildWorker.run() started
+2025-12-03 16:10:45.703150: [DEBUG] Command: tr -d '\r' < '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-Installer/scripts/build_gem5.sh' | bash -s -- --dir '/mnt/c/Users/Local_Only_Slycord/gem5-SALAM/gem5-SALAM-dev' --type opt 
+2025-12-03 16:10:45.703369: [DEBUG] Distro: Ubuntu-20.04
+2025-12-03 16:10:45.709680: [DEBUG] Process started with PID: 169716

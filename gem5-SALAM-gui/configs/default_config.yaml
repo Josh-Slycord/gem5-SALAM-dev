@@ -1,0 +1,46 @@
+# gem5-SALAM Installer Default Configuration
+#
+# This file contains default settings for the installer.
+# User-specific settings are stored in ~/.gem5-salam-installer/
+
+# Installation settings
+installation:
+  # Default build type: opt, debug, or fast
+  build_type: opt
+
+  # LLVM version to install (if available)
+  llvm_version: 14
+
+  # Components to install
+  components:
+    build_essentials: true
+    python: true
+    llvm: true
+    arm_toolchain: true
+    gem5_deps: true
+    multilib: true  # Required for CACTI
+
+# Build settings
+build:
+  # Default number of parallel jobs (null = auto-detect)
+  parallel_jobs: null
+
+  # Target ISA for gem5
+  target_isa: ARM
+
+# WSL settings
+wsl:
+  # Preferred distributions (in order of preference)
+  preferred_distros:
+    - Ubuntu-22.04
+    - Ubuntu-20.04
+    - Ubuntu
+    - Debian
+
+# UI settings
+ui:
+  # Theme: dark or light
+  theme: dark
+
+  # Show advanced options by default
+  show_advanced: false
