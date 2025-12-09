@@ -25,16 +25,34 @@ SYS_VALIDATION = [
     'bfs', 'fft', 'gemm', 'md_grid', 'md_knn',
     'mergesort', 'nw', 'spmv', 'stencil2d', 'stencil3d'
 ]
-LENET5_VARIANTS = ['lenet5_naive']
+LENET5_VARIANTS = [
+    'lenet5_naive',
+    'lenet5_nounroll_massive',
+    'lenet5_nounroll_stream',
+    'lenet5_kernelunroll_naive',
+    'lenet5_kernelunroll_massive',
+    'lenet5_kernelunroll_stream',
+    'lenet5_channelunroll_naive',
+    'lenet5_channelunroll_massive',
+]
 ALL_BENCHMARKS = SYS_VALIDATION + LENET5_VARIANTS
 
 KNOWN_ISSUES = {
     'md_grid': 'Floating-point precision causes timeout',
+    'lenet5_nounroll_stream': 'Config missing required Size field',
+    'lenet5_kernelunroll_stream': 'Config missing required Size field',
 }
 
 BENCHMARK_PATHS = {
     **{b: f'benchmarks/sys_validation/{b}' for b in SYS_VALIDATION},
     'lenet5_naive': 'benchmarks/lenet5-nounroll/naive',
+    'lenet5_nounroll_massive': 'benchmarks/lenet5-nounroll/massive',
+    'lenet5_nounroll_stream': 'benchmarks/lenet5-nounroll/stream',
+    'lenet5_kernelunroll_naive': 'benchmarks/lenet5-kernelunroll/naive',
+    'lenet5_kernelunroll_massive': 'benchmarks/lenet5-kernelunroll/massive',
+    'lenet5_kernelunroll_stream': 'benchmarks/lenet5-kernelunroll/stream',
+    'lenet5_channelunroll_naive': 'benchmarks/lenet5-channelunroll/naive',
+    'lenet5_channelunroll_massive': 'benchmarks/lenet5-channelunroll/massive',
 }
 
 

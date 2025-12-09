@@ -19,6 +19,7 @@ This directory contains documentation for the gem5-SALAM project.
 | [BENCHMARKS.md](BENCHMARKS.md) | Benchmark documentation | Complete |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions | Complete |
 | [TESTING_SALAM.md](TESTING_SALAM.md) | SALAM-specific testing guide | Complete |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture deep dive | Complete |
 
 ### Existing Documentation
 | Document | Description |
@@ -30,7 +31,6 @@ This directory contains documentation for the gem5-SALAM project.
 ### Planned Documentation
 | Document | Description | Status |
 |----------|-------------|--------|
-| ARCHITECTURE.md | System architecture deep dive | Planned |
 | CONFIGURATION.md | Configuration system guide | Merged into GENERATION.md |
 
 ## Configuration Tools
