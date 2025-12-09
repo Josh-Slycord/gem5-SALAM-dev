@@ -10,58 +10,76 @@ This directory contains documentation for the gem5-SALAM project.
 
 ## Documentation Index
 
-### Core Documentation
-| Document | Description |
-|----------|-------------|
-| [CHANGELOG.md](CHANGELOG.md) | Version history and change tracking |
-| [GENERATION.md](GENERATION.md) | File generation system documentation (TODO) |
+### Reference Documentation
+| Document | Description | Status |
+|----------|-------------|--------|
+| [DEBUG_FLAGS.md](DEBUG_FLAGS.md) | Debug flag reference (16 flags) | Complete |
+| [ASSERTION_ANALYSIS.md](ASSERTION_ANALYSIS.md) | Assertion usage analysis | Complete |
+| [GENERATION.md](GENERATION.md) | Config generation & tool comparison | Complete |
+| [BENCHMARKS.md](BENCHMARKS.md) | Benchmark documentation | Complete |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions | Complete |
+| [TESTING_SALAM.md](TESTING_SALAM.md) | SALAM-specific testing guide | Complete |
 
 ### Existing Documentation
 | Document | Description |
 |----------|-------------|
 | [Building_and_Integrating_Accelerators.md](Building_and_Integrating_Accelerators.md) | Guide for creating and integrating hardware accelerators |
 | [SALAM_Object_Overview.md](SALAM_Object_Overview.md) | Overview of SALAM object hierarchy |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and change tracking |
 
 ### Planned Documentation
 | Document | Description | Status |
 |----------|-------------|--------|
 | ARCHITECTURE.md | System architecture deep dive | Planned |
-| BENCHMARKS.md | Benchmark documentation and results | Planned |
-| CONFIGURATION.md | Configuration system guide | Planned |
+| CONFIGURATION.md | Configuration system guide | Merged into GENERATION.md |
 
-## File Generation System
+## Configuration Tools
 
-gem5-SALAM uses several scripts to generate configuration files:
+gem5-SALAM has **two** configuration systems:
 
-### SALAM-Configurator
-- **systembuilder.py** - Main generation script
-  - Reads: `config.yml` from benchmark directories
-  - Generates: Python configs in `configs/SALAM/generated/`
-  - Generates: C headers (`*_clstr_hw_defines.h`) in benchmark directories
+### SALAM-Configurator (for simulation)
+```bash
+python SALAM-Configurator/systembuilder.py --sysName <name> --benchDir <dir>
+```
+Generates: Python configs, full system files, C headers
 
-### Generated File Markers
-- C headers use `//BEGIN GENERATED CODE` and `//END GENERATED CODE`
-- Python configs currently have no markers (improvement planned)
+### salam_config (for validation)
+```bash
+python -m salam_config.cli validate -c config.yml
+python -m salam_config.cli list-fus --cycle-time 5ns
+```
+Provides: Validation, power model data, system info
+
+See [GENERATION.md](GENERATION.md) for detailed comparison and workflow.
 
 ## Directory Structure
 
 ```
 gem5-SALAM-dev/
-├── SALAM-Configurator/     # Configuration generation scripts
+├── SALAM-Configurator/     # Legacy config generation
 │   ├── systembuilder.py    # Main generator
-│   ├── parser.py           # YAML parser
+│   ├── parser.py           # YAML parser classes
 │   └── fs_template.py      # Full system template
+├── salam_config/           # Modern config module
+│   ├── cli.py             # CLI interface
+│   ├── core/              # Validation, logging
+│   └── models/            # Power model database
 ├── configs/SALAM/
 │   ├── generated/          # Generated Python configs
-│   ├── HWAcc.py           # Hardware accelerator setup
 │   └── HWAccConfig.py     # Accelerator configuration
 ├── benchmarks/
 │   └── sys_validation/     # System validation benchmarks
-├── docs/                   # This directory
-└── gem5-SALAM-gui/        # GUI configuration tool (planned)
+└── docs/                   # This directory
 ```
 
-## Future: Wiki Generation
+## Test Status
 
-This documentation is structured to support future automatic wiki generation.
-Markdown files follow consistent formatting for easy parsing.
+| Benchmark | Status |
+|-----------|--------|
+| bfs, fft, gemm, md_knn | Passing |
+| mergesort, nw, spmv | Passing |
+| stencil2d, stencil3d | Passing |
+| md_grid | Known Issue (timeout) |
+| LeNet5 | Config Valid |
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for md_grid details.
