@@ -279,6 +279,127 @@ def cmd_info(args):
         return 1
 
 
+def cmd_export(args):
+    """Export configuration or power model data as JSON."""
+    import json
+
+    try:
+        if args.type == "power-model":
+            from salam_config.models.power_model import get_power_model
+
+            pm = get_power_model()
+            data = {
+                "metadata": {
+                    "technology_node": pm.technology_node,
+                    "supported_cycle_times": SUPPORTED_CYCLE_TIMES,
+                    "functional_unit_count": len(pm.list_functional_units()),
+                    "instruction_count": len(pm.list_instructions()),
+                },
+                "functional_units": {},
+                "instruction_mapping": {},
+            }
+
+            # Export functional units
+            for fu_name in pm.list_functional_units():
+                fu = pm.get_functional_unit(fu_name)
+                fu_data = {
+                    "enum_value": fu.enum_value,
+                    "default_cycles": fu.default_cycles,
+                    "instructions": fu.instructions,
+                    "timing": {},
+                }
+                for ct in SUPPORTED_CYCLE_TIMES:
+                    try:
+                        timing = fu.get_timing(ct)
+                        fu_data["timing"][ct] = {
+                            "int_power": timing.int_power,
+                            "switch_power": timing.switch_power,
+                            "dyn_power": timing.dyn_power,
+                            "dyn_energy": timing.dyn_energy,
+                            "leak_power": timing.leak_power,
+                            "area": timing.area,
+                        }
+                    except Exception:
+                        pass
+                data["functional_units"][fu_name] = fu_data
+
+            # Export instruction mapping
+            for inst in pm.list_instructions():
+                fu = pm.get_functional_unit_for_instruction(inst)
+                data["instruction_mapping"][inst] = fu
+
+        elif args.type == "config":
+            if not args.config:
+                print(
+                    "Error: --config is required for config export",
+                    file=sys.stderr,
+                )
+                return 1
+
+            import yaml
+
+            with open(args.config, "r") as f:
+                config = yaml.safe_load(f)
+            data = config
+
+        else:
+            print(f"Unknown export type: {args.type}", file=sys.stderr)
+            return 1
+
+        # Output
+        if args.output:
+            with open(args.output, "w") as f:
+                json.dump(data, f, indent=2)
+            print(f"Exported to: {args.output}")
+        else:
+            print(json.dumps(data, indent=2))
+
+        return 0
+
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        if hasattr(args, "verbose") and args.verbose:
+            import traceback
+
+            traceback.print_exc()
+        return 1
+
+
+def cmd_validate_json(args):
+    """Validate configuration and output results as JSON."""
+    import json
+
+    try:
+        from salam_config.core.schema_validator import validate_config_file
+
+        result = validate_config_file(args.config)
+
+        output = {
+            "config_file": str(args.config),
+            "is_valid": result.is_valid,
+            "errors": result.errors,
+            "warnings": result.warnings,
+        }
+
+        if args.output:
+            with open(args.output, "w") as f:
+                json.dump(output, f, indent=2)
+        else:
+            print(json.dumps(output, indent=2))
+
+        return 0 if result.is_valid else 1
+
+    except Exception as e:
+        error_output = {
+            "config_file": str(args.config),
+            "is_valid": False,
+            "errors": [str(e)],
+            "warnings": [],
+        }
+        print(json.dumps(error_output, indent=2))
+        return 1
+
+
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(
@@ -392,6 +513,44 @@ Examples:
     # info command
     info_parser = subparsers.add_parser("info", help="Show system information")
     info_parser.set_defaults(func=cmd_info)
+
+    # export command
+    export_parser = subparsers.add_parser("export", help="Export data as JSON")
+    export_parser.add_argument(
+        "-t",
+        "--type",
+        choices=["power-model", "config"],
+        default="power-model",
+        help="Type of data to export (default: power-model)",
+    )
+    export_parser.add_argument(
+        "-c",
+        "--config",
+        help="Configuration file (required for config type)",
+    )
+    export_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file (prints to stdout if not specified)",
+    )
+    export_parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Verbose output"
+    )
+    export_parser.set_defaults(func=cmd_export)
+
+    # validate-json command
+    val_json_parser = subparsers.add_parser(
+        "validate-json", help="Validate config with JSON output"
+    )
+    val_json_parser.add_argument(
+        "-c", "--config", required=True, help="Path to configuration YAML file"
+    )
+    val_json_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file (prints to stdout if not specified)",
+    )
+    val_json_parser.set_defaults(func=cmd_validate_json)
 
     args = parser.parse_args()
 
