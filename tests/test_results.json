@@ -1,0 +1,69 @@
+{
+  "timestamp": "2025-12-08T15:46:12.634071",
+  "results": {
+    "bfs": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 2.8007,
+      "known": false
+    },
+    "fft": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 8.986087,
+      "known": false
+    },
+    "gemm": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 3.285055,
+      "known": false
+    },
+    "md_grid": {
+      "passed": false,
+      "message": "Timeout 600s",
+      "duration": 600,
+      "known": true
+    },
+    "md_knn": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 11.0251,
+      "known": false
+    },
+    "mergesort": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 222.174,
+      "known": false
+    },
+    "nw": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 4.2971,
+      "known": false
+    },
+    "spmv": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 3.31444,
+      "known": false
+    },
+    "stencil2d": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 36.42481,
+      "known": false
+    },
+    "stencil3d": {
+      "passed": true,
+      "message": "Completed",
+      "duration": 31.93223,
+      "known": false
+    }
+  },
+  "summary": {
+    "total": 10,
+    "passed": 9
+  }
+}
