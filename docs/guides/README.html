@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gem5-SALAM GUI - gem5-SALAM Documentation</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="../guides/README.html">Guides</a>
+        <a href="../benchmarks/README.html">Benchmarks</a>
+        <a href="../python/index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>gem5-SALAM GUI</h1>
+<p>Interactive visualization tool for gem5-SALAM hardware accelerator simulations.</p>
+<h2>Features</h2>
+<ul>
+<li><strong>CDFG Visualizer</strong>: Interactive Control Data Flow Graph viewer with pan/zoom</li>
+<li><strong>Performance Dashboard</strong>: Key metrics at a glance</li>
+<li><strong>File Browser</strong>: Navigate simulation outputs</li>
+<li><strong>Stats Parser</strong>: Parse gem5 statistics into structured data</li>
+</ul>
+<h2>Installation</h2>
+<pre><code class="language-bash"># From gem5-SALAM directory
+cd scripts/salam_gui</p>
+<h1>Install dependencies</h1>
+pip install -r requirements.txt</p>
+<h1>Or install individually</h1>
+pip install PyQt6 pyqtgraph networkx pydot pandas matplotlib PyYAML pyzmq
+</code></pre>
+<h2>Usage</h2>
+<pre><code class="language-bash"># Launch GUI
+python -m salam_gui</p>
+<h1>Load specific simulation output</h1>
+python -m salam_gui --load /path/to/m5out</p>
+<h1>Load CDFG directly</h1>
+python -m salam_gui --cdfg cdfg.dot</p>
+<h1>Use dark theme</h1>
+python -m salam_gui --dark
+</code></pre>
+<h2>Enabling CDFG Export in gem5-SALAM</h2>
+<p>To generate CDFG files for visualization, enable the export in your gem5 config:</p>
+<pre><code class="language-python">llvm_if = LLVMInterface(
+    export_cdfg=True,
+    cdfg_output="cdfg.dot"
+)
+</code></pre>
+<p>Then visualize the generated <code>cdfg.dot</code> file with this GUI.</p>
+<h2>Project Structure</h2>
+<pre><code class="language-">salam_gui/
+├── __init__.py          # Package init
+├── __main__.py          # Entry point
+├── app.py               # QApplication setup
+├── main_window.py       # Main window with docking
+├── widgets/
+│   ├── cdfg_viewer.py   # CDFG graph widget
+│   ├── stats_dashboard.py  # Metrics cards
+│   └── file_browser.py  # File tree browser
+├── data/
+│   ├── dot_parser.py    # Parse CDFG .dot files
+│   ├── stats_parser.py  # Parse gem5 stats
+│   └── config_loader.py # Load YAML configs
+├── requirements.txt
+└── README.md
+</code></pre>
+<h2>Keyboard Shortcuts</h2>
+<table>
+<thead><tr>
+<th>Key</th><th>Action</th>
+</tr></thead><tbody>
+<tr>
+<td>Ctrl+O</td><td>Open directory</td>
+</tr>
+<tr>
+<td>Ctrl+G</td><td>Open CDFG file</td>
+</tr>
+<tr>
+<td>Ctrl+T</td><td>Open stats file</td>
+</tr>
+<tr>
+<td>Ctrl++</td><td>Zoom in</td>
+</tr>
+<tr>
+<td>Ctrl+-</td><td>Zoom out</td>
+</tr>
+<tr>
+<td>Ctrl+0</td><td>Fit to view</td>
+</tr>
+<tr>
+<td>Ctrl+L</td><td>Connect live</td>
+</tr>
+<tr>
+<td>Ctrl+Q</td><td>Quit</td>
+</tr>
+</tbody></table>
+<h2>Roadmap</h2>
+<ul>
+<li>[x] Phase 1: CDFG viewer + Stats dashboard (MVP)</li>
+<li>[ ] Phase 2: Queue monitor, FU utilization, power/area</li>
+<li>[ ] Phase 3: Real-time simulation connection</li>
+<li>[ ] Phase 4: Config editor, PDF export</li>
+</ul>
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

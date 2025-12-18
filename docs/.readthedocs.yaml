@@ -1,0 +1,47 @@
+# =============================================================================
+# Read the Docs Configuration
+# =============================================================================
+# This file configures the build on Read the Docs for gem5-SALAM documentation.
+#
+# Documentation: https://docs.readthedocs.io/en/stable/config-file/v2.html
+# =============================================================================
+
+version: 2
+
+# Build configuration
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
+  # Install system packages needed for documentation
+  apt_packages:
+    - doxygen
+    - graphviz
+
+  # Run commands before the build
+  jobs:
+    pre_build:
+      # Generate Doxygen XML for Breathe
+      - cd $READTHEDOCS_OUTPUT/../ && doxygen docs/Doxyfile.salam
+
+# Sphinx configuration
+sphinx:
+  configuration: docs/conf.py
+  builder: html
+  fail_on_warning: false
+
+# Python environment
+python:
+  install:
+    - requirements: docs/requirements.txt
+
+# Build formats
+formats:
+  - pdf
+  - epub
+
+# Submodules (if any)
+submodules:
+  include: []
+  recursive: false

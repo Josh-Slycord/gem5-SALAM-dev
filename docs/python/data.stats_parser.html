@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>data.stats_parser - gem5-SALAM Python API</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>data.stats_parser</h1>
+
+    <div class="module-doc">
+        <pre>No module documentation available.</pre>
+    </div>
+
+    <h2>Classes</h2>
+                <div class="card">
+                    <h3><code>class PerformanceMetrics</code></h3>
+                    <p>Core performance metrics.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class FunctionalUnitStats</code></h3>
+                    <p>Functional unit utilization statistics.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class PowerStats</code></h3>
+                    <p>Power consumption statistics.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class AreaStats</code></h3>
+                    <p>Area statistics in um^2.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class SimulationStats</code></h3>
+                    <p>Container for all simulation statistics.</p>
+                </div>
+                
+    <h2>Functions</h2>
+                <div class="card">
+                    <h3><code>parse_stats_output()</code></h3>
+                    <p>Parse gem5-SALAM statistics from output file.
+
+    Handles multiple formats:
+    - StatsStart: CSV format
+    - JSON format
+    - Plain text with key: value pairs
+
+    Args:
+        file_path: Path to statistics file
+
+    Returns:
+        SimulationStats containing parsed data</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>format_cycles()</code></h3>
+                    <p>Format cycle count for display.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>format_power()</code></h3>
+                    <p>Format power in appropriate units.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>format_area()</code></h3>
+                    <p>Format area in appropriate units.</p>
+                </div>
+                
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

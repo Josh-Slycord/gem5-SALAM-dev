@@ -1,0 +1,126 @@
+
+/* gem5-SALAM Documentation Stylesheet */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --code-bg: #f4f4f4;
+    --border-color: #e0e0e0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-color);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: var(--bg-color);
+}
+
+h1, h2, h3, h4 {
+    color: var(--primary-color);
+    margin-top: 1.5em;
+}
+
+h1 {
+    border-bottom: 3px solid var(--secondary-color);
+    padding-bottom: 10px;
+}
+
+h2 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+pre, code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+pre {
+    padding: 15px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+}
+
+code {
+    padding: 2px 6px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+th, td {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background: var(--code-bg);
+    font-weight: 600;
+}
+
+.nav {
+    background: var(--primary-color);
+    padding: 15px;
+    margin: -20px -20px 20px -20px;
+}
+
+.nav a {
+    color: white;
+    margin-right: 20px;
+    font-weight: 500;
+}
+
+.nav a:hover {
+    text-decoration: none;
+    opacity: 0.8;
+}
+
+.card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 15px 0;
+    transition: box-shadow 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+    margin-top: 0;
+    color: var(--secondary-color);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.footer {
+    margin-top: 50px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    color: #666;
+    font-size: 0.9em;
+}

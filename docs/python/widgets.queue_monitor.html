@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>widgets.queue_monitor - gem5-SALAM Python API</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>widgets.queue_monitor</h1>
+
+    <div class="module-doc">
+        <pre>No module documentation available.</pre>
+    </div>
+
+    <h2>Classes</h2>
+                <div class="card">
+                    <h3><code>class QueueSnapshot</code></h3>
+                    <p>State of all queues at a specific cycle.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class QueueHistory</code></h3>
+                    <p>Time series of queue states.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class QueueDepthChart</code></h3>
+                    <p>Custom widget for drawing queue depth over time.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class QueueSnapshotPanel</code></h3>
+                    <p>Panel showing queue state at a specific cycle.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class QueueMonitor</code></h3>
+                    <p>Main queue monitoring widget.</p>
+                </div>
+                
+    <h2>Functions</h2>
+                <div class="card">
+                    <h3><code>max_cycle()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>max_queue_depth()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>set_history()</code></h3>
+                    <p>Set the queue history to display.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>set_selected_cycle()</code></h3>
+                    <p>Highlight a specific cycle.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>paintEvent()</code></h3>
+                    <p>Draw the queue depth chart.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>mousePressEvent()</code></h3>
+                    <p>Handle click to select cycle.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>set_snapshot()</code></h3>
+                    <p>Update display with snapshot data.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>set_history()</code></h3>
+                    <p>Load queue history data.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>parse_queue_debug_output()</code></h3>
+                    <p>Parse RuntimeQueues debug output into QueueHistory.
+
+    Expected format (from gem5 debug output):
+    cycle: 1234 read: 5 write: 2 compute: 10 ...</p>
+                </div>
+                
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

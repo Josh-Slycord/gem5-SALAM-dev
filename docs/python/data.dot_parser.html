@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>data.dot_parser - gem5-SALAM Python API</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>data.dot_parser</h1>
+
+    <div class="module-doc">
+        <pre>No module documentation available.</pre>
+    </div>
+
+    <h2>Classes</h2>
+                <div class="card">
+                    <h3><code>class InstructionNode</code></h3>
+                    <p>Represents a single instruction in the CDFG.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class CDFGEdge</code></h3>
+                    <p>Represents an edge in the CDFG.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class CDFGGraph</code></h3>
+                    <p>Container for parsed CDFG data.</p>
+                </div>
+                
+    <h2>Functions</h2>
+                <div class="card">
+                    <h3><code>label()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>nx_graph()</code></h3>
+                    <p>Convert to NetworkX graph for layout algorithms.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>parse_cdfg_dot()</code></h3>
+                    <p>Parse a CDFG DOT file into a CDFGGraph structure.
+
+    Args:
+        file_path: Path to the .dot file
+
+    Returns:
+        CDFGGraph containing parsed nodes and edges</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>get_node_positions()</code></h3>
+                    <p>Calculate node positions using NetworkX layout algorithms.
+
+    Args:
+        graph: The CDFG graph
+
+    Returns:
+        Dictionary mapping node UIDs to (x, y) positions</p>
+                </div>
+                
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

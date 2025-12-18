@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running unit tests - gem5-SALAM Documentation</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="../guides/README.html">Guides</a>
+        <a href="../benchmarks/README.html">Benchmarks</a>
+        <a href="../python/index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <p>This file explains how to use gem5's updated testing infrastructure. Running
+tests before submitting a patch is <em>incredibly important</em> so unexpected bugs
+don't creep into gem5.</p>
+<p>gem5's testing infrastructure has the following goals:
+ <em> Simple for </em>all* users to run
+ * Fast execution in the simple case
+ * High coverage of gem5 code</p>
+<h1>Running unit tests</h1>
+<p>gem5 comes with unit tests, created using the Google Test framework. These can
+be built through SCons.</p>
+<p>To build and run all the unit tests:</p>
+<pre><code class="language-shell">scons build/NULL/unittests.opt
+</code></pre>
+<p>All unit tests should be run prior to posting a patch to
+https://gem5-review.googlesource.com</p>
+<p>To compile and run just one set of tests (e.g. those declared within
+<code>src/base/bitunion.test.cc</code>):</p>
+<pre><code class="language-shell">scons build/NULL/base/bitunion.test.opt
+./build/NULL/base/bitunion.test.opt
+</code></pre>
+<p>To list the available test functions from a test file:</p>
+<pre><code class="language-shell">./build/NULL/base/bitunion.test.opt --gtest_list_tests
+</code></pre>
+<p>To run a specific test function (e.g., BitUnionData.NormalBitfield):</p>
+<pre><code class="language-shell">./build/NULL/base/bitunion.test.opt --gtest_filter=BitUnionData.NormalBitfield
+</code></pre>
+<h1>Running system-level tests</h1>
+<p>Within the <code>tests</code> directory we have system-level tests. These tests run
+the gem5 framework against various hardware configurations, with different
+ISAs, then verify the simulations execute correctly. These should be seen as
+high-level, coarse-grained tests to compliment the unit-tests.</p>
+<p>Below is the most common way the tests are run. This will run all of the
+"quick" tests for X86, ARM, and RISC-V. These tests make up our best-supported
+platforms and use cases. When running these tests, you will likely want to us
+the option <code>-j <CPUs></code> where <code>CPUs</code> is as large as you can make it.
+Additionally, it is often a good idea to run longer tests (e.g., linux boot)
+before submitting your patch.</p>
+<pre><code class="language-shell">cd tests
+./main.py run
+</code></pre>
+<p>The above is the <em>minumum</em> you should run before posting a patch to
+https://gem5-review.googlesource.com</p>
+<h2>Running tests from multiple directories</h2>
+<p>The command line above will walk the directory tree starting from the cwd
+(tests), and it will run every test it encounters in its path. It is possible
+to specify multiple root directories by providing several positional
+arguments:</p>
+<pre><code class="language-shell">./main.py run &lt;directory1&gt; &lt;directory2&gt; [...]
+</code></pre>
+<p>This will load every test in directory1 and directory2 (and their
+subdirectories).</p>
+<h2>Specifying a subset of tests to run</h2>
+<p>You can use the tag query interface to specify the exact tests you want to run.
+For instance, if you want to run only with <code>gem5.opt</code>, you can use</p>
+<pre><code class="language-shell">./main.py run --variant opt
+</code></pre>
+<p>Or, if you want to just run X86 tests with the <code>gem5.opt</code> binary:</p>
+<pre><code class="language-shell">./main.py run --length quick --variant opt --isa X86
+</code></pre>
+<p>To view all of the available tags, use</p>
+<pre><code class="language-shell">./main.py list --all-tags
+</code></pre>
+<p>The output is split into tag <em>types</em> (e.g., isa, variant, length) and the
+tags for each type are listed after the type name.</p>
+<p>You can specify "or" between tags within the same type by using the tag flag
+multiple times. For instance, to run everything that is tagged "opt" or "fast"
+use</p>
+<pre><code class="language-shell">./main.py run --variant opt --variant fast
+</code></pre>
+<p>You can also specify "and" between different types of tags by specifying more
+than one type on the command line. For instance, this will only run tests with
+both the "X86" and "opt" tags.</p>
+<pre><code class="language-shell">./main.py run --isa X86 --variant opt
+</code></pre>
+<h2>Running tests in batch</h2>
+<p>The testing infrastructure provides the two needed methods to run tests in
+batch. First, you can list all of the tests based on the same tags as above in
+a machine-readable format by passing the <code>-q</code> flag. This will list all of the
+<em>suites</em> that match the given tag(s).</p>
+<pre><code class="language-shell">./main.py list -q --suites
+SuiteUID:tests/gem5/hello_se/test_hello_se.py:testhello64-static-X86-opt
+SuiteUID:tests/gem5/hello_se/test_hello_se.py:testhello64-dynamic-X86-opt
+SuiteUID:tests/gem5/hello_se/test_hello_se.py:testhello32-static-X86-opt
+SuiteUID:tests/gem5/hello_se/test_hello_se.py:testhello64-static-ARM-opt
+SuiteUID:tests/gem5/hello_se/test_hello_se.py:testhello32-static-ARM-opt
+SuiteUID:tests/gem5/m5_util/test_exit.py:m5_exit_test-X86-opt
+SuiteUID:tests/gem5/test_build/test_build.py:build-X86-opt
+SuiteUID:tests/gem5/test_build/test_build.py:build-RISCV-opt
+SuiteUID:tests/gem5/test_build/test_build.py:build-ARM-opt
+</code></pre>
+<p>Next, you can run a single <em>suite</em> from the command line by passing the option
+<code>--uid</code>. For instance,</p>
+<pre><code class="language-shell">./main.py run --skip-build \
+    --uid SuiteUID:tests/gem5/m5_util/test_exit.py:m5_exit_test-X86-opt
+</code></pre>
+<p>With this method, you can only run a <em>single</em> suite at a time. If you want to
+run more than one uid, you must call <code>./main.py</code> multiple times.</p>
+<p>Currently, you must specify <code>--skip-build</code> if you want to run a single suite or
+run in batch mode. Otherwise, you will build gem5 for all architectures.</p>
+<h2>Rerunning failed tests</h2>
+<p>While developing software a common practice is to run tests, make a change, and
+assert that the tests still pass. If tests fail you'll likely want to
+rerun and fix those specific tests without running redundant ones. The testing
+infrastructure allows you to rerun tests which failed in the last execution by
+using the <code>rerun</code> command.</p>
+<pre><code class="language-shell">./main.py run
+#
+<h1> Some tests fail...</h1>
+#</p>
+<h1>Rerun only the failed test suites (not the ones which passed).</h1>
+./main.py rerun
+</code></pre>
+<h2>If something goes wrong</h2>
+<p>The first step is to turn up the verbosity of the output using <code>-v</code>. This will
+allow you to see what tests are running and why a test is failing.</p>
+<p>If a test fails, the temporary directory where the gem5 output was saved is kept
+and the path to the directory is printed in the terminal.</p>
+<h2>Debugging the testing infrastructure</h2>
+<p>Every command takes an option for the verbosity. <code>-v</code>, <code>-vv</code>, <code>-vvv</code> will
+increase the verbosity level. If something isn't working correctly, you can
+start here.</p>
+<p>Most of the code for the testing infrastructure is in ext/testlib. This code
+contains the base code for tests, suites, fixtures, etc. The code in tests/gem5
+is <em>gem5-specific</em> code. For the most part, the code in tests/gem5 extends the
+structures in ext/testlib.</p>
+<h2>Common errors</h2>
+<p>You may see a number of lines of output during test discovery that look like
+the following:</p>
+<pre><code class="language-shell">    Tried to load tests from ... but failed with an exception.
+    Tried to load tests from ... but failed with an exception.
+    ...
+</code></pre>
+<p>The testing library searches all python files in the <code>tests/</code> directory. The
+test library executes each python file it finds searching for tests. It's okay
+if the file causes an exception. This means there are no tests in that file
+(e.g., it's not a new-style test).</p>
+<h2>Binary test applications</h2>
+<p>The code for some test binaries that are run in the gem5 guest during
+testing can be found in <code>tests/test-progs</code>.
+There's one directory per test application.
+The source code is under the <code>source</code> directory.</p>
+<p>You may have a <code>bin</code> directory as well.
+The <code>bin</code> directory is automatically created when running the test case that
+uses the test binary.
+This is not the case when a test is run via the --bin-path option.
+In that scenario a bin directory will be created in the selected path
+rather than in <code>tests/test-progs</code>.
+The binary is downloaded from the gem5 servers the first
+time it is referenced by a test.</p>
+<p>Some other tests (like Linux-boot) don't have sources inside gem5 and
+are simply downloaded from gem5 servers.</p>
+<h2>Updating the test binaries</h2>
+<p>The test infrastructure should check with the gem5 servers to ensure you have
+the latest binaries. However, if you believe your binaries are out of date,
+simply delete the <code>bin</code> directory and they will be re-downloaded to your local
+machine.</p>
+<h2>Building (new-style) test binaries</h2>
+<p>In each <code>src/</code> directory under <code>tests/test-progs</code>, there is a Makefile.
+This Makefile downloads a docker image and builds the test binary for some ISA
+(e.g., Makefile.x86 builds the binary for x86). Additionally, if you run <code>make
+upload</code> it will upload the binaries to the gem5 server, if you have access to
+modify the binaries. *If you need to modify the binaries for updating a test or
+adding a new test and you don't have access to the gem5 server, contact a
+maintainer (see MAINTAINERS).*</p>
+<h2>Running Tests in Parallel</h2>
+<p>Whimsy has support for parallel testing baked in. This system supports
+running multiple suites at the same time on the same computer. To run 
+suites in parallel, supply the <code>-t <number-tests></code> flag to the run command.</p>
+<p>For example, to run up to three test suites at the same time::</p>
+<p>    ./main.py run --skip-build -t 3</p>
+
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

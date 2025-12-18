@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>C++ API - gem5-SALAM Documentation</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="../guides/README.html">Guides</a>
+        <a href="../python/index.html">Python API</a>
+        <a href="index.html">C++ API</a>
+    </nav>
+
+    <h1>C++ API Reference</h1>
+    <p>API documentation for the gem5-SALAM simulation framework.</p>
+    <p><em>Install Doxygen for full C++ documentation generation.</em></p>
+
+    <div class="grid">
+        
+            <div class="card">
+                <h3>hsa_queue_entry.hh</h3>
+                <p><code>src/gpu-compute/hsa_queue_entry.hh</code></p>
+                <p>Classes: HSAQueueEntry</p>
+            </div>
+            
+            <div class="card">
+                <h3>wavefront.hh</h3>
+                <p><code>src/gpu-compute/wavefront.hh</code></p>
+                <p>Classes: Wavefront</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_exec_context.hh</h3>
+                <p><code>src/gpu-compute/gpu_exec_context.hh</code></p>
+                <p>Classes: GPUExecContext</p>
+            </div>
+            
+            <div class="card">
+                <h3>scalar_memory_pipeline.hh</h3>
+                <p><code>src/gpu-compute/scalar_memory_pipeline.hh</code></p>
+                <p>Classes: ScalarMemPipeline</p>
+            </div>
+            
+            <div class="card">
+                <h3>tlb_coalescer.hh</h3>
+                <p><code>src/gpu-compute/tlb_coalescer.hh</code></p>
+                <p>Classes: TLBCoalescer, CpuSidePort, MemSidePort</p>
+            </div>
+            
+            <div class="card">
+                <h3>shader.hh</h3>
+                <p><code>src/gpu-compute/shader.hh</code></p>
+                <p>Classes: Shader</p>
+            </div>
+            
+            <div class="card">
+                <h3>misc.hh</h3>
+                <p><code>src/gpu-compute/misc.hh</code></p>
+                <p>Classes: WaitClass, Float16</p>
+            </div>
+            
+            <div class="card">
+                <h3>lds_state.hh</h3>
+                <p><code>src/gpu-compute/lds_state.hh</code></p>
+                <p>Classes: LdsChunk, LdsState, TickEvent, CuSidePort</p>
+            </div>
+            
+            <div class="card">
+                <h3>fetch_stage.hh</h3>
+                <p><code>src/gpu-compute/fetch_stage.hh</code></p>
+                <p>Classes: FetchStage</p>
+            </div>
+            
+            <div class="card">
+                <h3>scheduling_policy.hh</h3>
+                <p><code>src/gpu-compute/scheduling_policy.hh</code></p>
+                <p>Classes: SchedulingPolicy, __SchedulingPolicy</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_dyn_inst.hh</h3>
+                <p><code>src/gpu-compute/gpu_dyn_inst.hh</code></p>
+                <p>Classes: AtomicOpCAS, RegisterOperandInfo, GPUDynInst</p>
+            </div>
+            
+            <div class="card">
+                <h3>pool_manager.hh</h3>
+                <p><code>src/gpu-compute/pool_manager.hh</code></p>
+                <p>Classes: PoolManager</p>
+            </div>
+            
+            <div class="card">
+                <h3>scheduler.hh</h3>
+                <p><code>src/gpu-compute/scheduler.hh</code></p>
+                <p>Classes: Scheduler</p>
+            </div>
+            
+            <div class="card">
+                <h3>static_register_manager_policy.hh</h3>
+                <p><code>src/gpu-compute/static_register_manager_policy.hh</code></p>
+                <p>Classes: StaticRegisterManagerPolicy</p>
+            </div>
+            
+            <div class="card">
+                <h3>local_memory_pipeline.hh</h3>
+                <p><code>src/gpu-compute/local_memory_pipeline.hh</code></p>
+                <p>Classes: LocalMemPipeline</p>
+            </div>
+            
+            <div class="card">
+                <h3>exec_stage.hh</h3>
+                <p><code>src/gpu-compute/exec_stage.hh</code></p>
+                <p>Classes: ExecStage</p>
+            </div>
+            
+            <div class="card">
+                <h3>vector_register_file.hh</h3>
+                <p><code>src/gpu-compute/vector_register_file.hh</code></p>
+                <p>Classes: VectorRegisterFile</p>
+            </div>
+            
+            <div class="card">
+                <h3>scoreboard_check_stage.hh</h3>
+                <p><code>src/gpu-compute/scoreboard_check_stage.hh</code></p>
+                <p>Classes: ScoreboardCheckStage</p>
+            </div>
+            
+            <div class="card">
+                <h3>register_manager_policy.hh</h3>
+                <p><code>src/gpu-compute/register_manager_policy.hh</code></p>
+                <p>Classes: RegisterManagerPolicy</p>
+            </div>
+            
+            <div class="card">
+                <h3>comm.hh</h3>
+                <p><code>src/gpu-compute/comm.hh</code></p>
+                <p>Classes: PipeStageIFace, ScoreboardCheckToSchedule, ScheduleToExecute</p>
+            </div>
+            
+            <div class="card">
+                <h3>fetch_unit.hh</h3>
+                <p><code>src/gpu-compute/fetch_unit.hh</code></p>
+                <p>Classes: FetchUnit, FetchBufDesc</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_compute_driver.hh</h3>
+                <p><code>src/gpu-compute/gpu_compute_driver.hh</code></p>
+                <p>Classes: DriverWakeupEvent, EventTableEntry, EventList</p>
+            </div>
+            
+            <div class="card">
+                <h3>global_memory_pipeline.hh</h3>
+                <p><code>src/gpu-compute/global_memory_pipeline.hh</code></p>
+                <p>Classes: GlobalMemPipeline</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_tlb.hh</h3>
+                <p><code>src/gpu-compute/gpu_tlb.hh</code></p>
+                <p>Classes: GpuTLB, Translation, CpuSidePort, MemSidePort, TLBEvent</p>
+            </div>
+            
+            <div class="card">
+                <h3>simple_pool_manager.hh</h3>
+                <p><code>src/gpu-compute/simple_pool_manager.hh</code></p>
+                <p>Classes: SimplePoolManager</p>
+            </div>
+            
+            <div class="card">
+                <h3>register_manager.hh</h3>
+                <p><code>src/gpu-compute/register_manager.hh</code></p>
+                <p>Classes: RegisterManager</p>
+            </div>
+            
+            <div class="card">
+                <h3>scalar_register_file.hh</h3>
+                <p><code>src/gpu-compute/scalar_register_file.hh</code></p>
+                <p>Classes: ScalarRegisterFile</p>
+            </div>
+            
+            <div class="card">
+                <h3>compute_unit.hh</h3>
+                <p><code>src/gpu-compute/compute_unit.hh</code></p>
+                <p>Classes: WFBarrier, ComputeUnit, GMTokenPort, DataPort, ScalarDataPort</p>
+            </div>
+            
+            <div class="card">
+                <h3>schedule_stage.hh</h3>
+                <p><code>src/gpu-compute/schedule_stage.hh</code></p>
+                <p>Classes: ScheduleStage</p>
+            </div>
+            
+            <div class="card">
+                <h3>operand_info.hh</h3>
+                <p><code>src/gpu-compute/operand_info.hh</code></p>
+                <p>Classes: OperandInfo</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_command_processor.hh</h3>
+                <p><code>src/gpu-compute/gpu_command_processor.hh</code></p>
+                <p>Classes: GPUCommandProcessor</p>
+            </div>
+            
+            <div class="card">
+                <h3>gpu_static_inst.hh</h3>
+                <p><code>src/gpu-compute/gpu_static_inst.hh</code></p>
+                <p>Classes: GPUStaticInst, KernelLaunchStaticInst</p>
+            </div>
+            
+            <div class="card">
+                <h3>register_file.hh</h3>
+                <p><code>src/gpu-compute/register_file.hh</code></p>
+                <p>Classes: RegisterFile, RegisterEvent, MarkRegFreeScbEvent, MarkRegBusyScbEvent</p>
+            </div>
+            
+            <div class="card">
+                <h3>dyn_pool_manager.hh</h3>
+                <p><code>src/gpu-compute/dyn_pool_manager.hh</code></p>
+                <p>Classes: DynPoolManager</p>
+            </div>
+            
+            <div class="card">
+                <h3>dispatcher.hh</h3>
+                <p><code>src/gpu-compute/dispatcher.hh</code></p>
+                <p>Classes: GPUDispatcher</p>
+            </div>
+            
+            <div class="card">
+                <h3>data_collection.hh</h3>
+                <p><code>src/hwacc/data_collection.hh</code></p>
+                <p>Classes: Results</p>
+            </div>
+            
+            <div class="card">
+                <h3>dma_write_fifo.hh</h3>
+                <p><code>src/hwacc/dma_write_fifo.hh</code></p>
+                <p>Classes: DmaWriteFifo, DmaDoneEvent</p>
+            </div>
+            
+            <div class="card">
+                <h3>stream_buffer.hh</h3>
+                <p><code>src/hwacc/stream_buffer.hh</code></p>
+                <p>Classes: StreamBuffer</p>
+            </div>
+            
+            <div class="card">
+                <h3>noncoherent_dma.hh</h3>
+                <p><code>src/hwacc/noncoherent_dma.hh</code></p>
+                <p>Classes: NoncoherentDma</p>
+            </div>
+            
+            <div class="card">
+                <h3>scratchpad_memory.hh</h3>
+                <p><code>src/hwacc/scratchpad_memory.hh</code></p>
+                <p>Classes: ScratchpadResponsePort, ScratchpadRequestPort, ScratchpadMemory, DeferredPacket, MemoryPort</p>
+            </div>
+            
+            <div class="card">
+                <h3>llvm_interface.hh</h3>
+                <p><code>src/hwacc/llvm_interface.hh</code></p>
+                <p>Classes: LLVMInterface, ActiveFunction</p>
+            </div>
+            
+            <div class="card">
+                <h3>stream_dma.hh</h3>
+                <p><code>src/hwacc/stream_dma.hh</code></p>
+                <p>Classes: StreamDma, TickEvent</p>
+            </div>
+            
+            <div class="card">
+                <h3>gui_publisher.hh</h3>
+                <p><code>src/hwacc/gui_publisher.hh</code></p>
+                <p>Classes: GUIPublisher</p>
+            </div>
+            
+            <div class="card">
+                <h3>comm_interface.hh</h3>
+                <p><code>src/hwacc/comm_interface.hh</code></p>
+                <p>Classes: CommInterface, MemSidePort, SPMPort, RegPort, TickEvent</p>
+            </div>
+            
+            <div class="card">
+                <h3>stream_port.hh</h3>
+                <p><code>src/hwacc/stream_port.hh</code></p>
+                <p>Classes: StreamResponsePort, StreamResponsePortT, StreamRequestPort, StatusPort</p>
+            </div>
+            
+            <div class="card">
+                <h3>io_acc.hh</h3>
+                <p><code>src/hwacc/io_acc.hh</code></p>
+                <p>Classes: IOAcc, MemSidePort, TickEvent</p>
+            </div>
+            
+    </div>
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

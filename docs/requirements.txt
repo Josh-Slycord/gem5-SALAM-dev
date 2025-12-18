@@ -1,0 +1,27 @@
+# =============================================================================
+# gem5-SALAM Documentation Dependencies
+# =============================================================================
+# Install with: pip install -r docs/requirements.txt
+# =============================================================================
+
+# Core Sphinx
+sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
+
+# C++ documentation integration
+breathe>=4.35.0
+
+# Docstring parsing
+sphinx-autodoc-typehints>=1.24.0
+
+# Optional: Markdown support
+myst-parser>=2.0.0
+
+# Optional: Better code blocks
+sphinx-copybutton>=0.5.0
+
+# Optional: Tabs for code examples
+sphinx-tabs>=3.4.0
+
+# Development tools
+sphinx-autobuild>=2021.3.14

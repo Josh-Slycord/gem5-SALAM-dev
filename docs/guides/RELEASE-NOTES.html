@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version 21.1.0.1 - gem5-SALAM Documentation</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="../guides/README.html">Guides</a>
+        <a href="../benchmarks/README.html">Benchmarks</a>
+        <a href="../python/index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>Version 21.1.0.1</h1>
+<p><strong>[HOTFIX]</strong> <a href="https://gem5.atlassian.net/browse/GEM5-1063">A "'deprecated' attribute directive ignored" warning was being thrown frequently when trying to build v21.1.0.0</a>. While this issue did not break the build, it made reading the build output difficult and caused confused. As such a patch has been applied to fix this issue.</p>
+<h1>Version 21.1.0.0</h1>
+<p>Since v21.0 we have received 780 commits with 48 unique contributors, closing 64 issues on our <a href="https://gem5.atlassian.net/">Jira Issue Tracker</a>.
+In addition to our <a href="#version-21.0.1.0">first gem5 minor release</a>, we have included a range of new features, and API changes which we outline below.</p>
+<h2>Added the Components Library [Alpha Release]</h2>
+<p>The purpose of the gem5 components library is to provide gem5 users a standard set of common and useful gem5 components, pre-built, to add to their experiments.
+The gem5 components library adopts a modular architecture design so components may be easily added, removed, and extended, as needed.</p>
+<p>Examples of using the gem5 components library can be found in <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.1.0.0/configs/example/components-library"><code>configs/example/components-library</code></a>.</p>
+<p><strong>Important Disclaimer:</strong>
+This is a pre-alpha release.
+The purpose of this release is to get community feedback.
+Though some testing has been done, we expect regular fixes and improvements until the library reaches a stable state.
+A Jira Ticket outlining TODOs and known bugs can be found at <https://gem5.atlassian.net/browse/GEM5-648>.</p>
+<h2>Improvements to GPU simulation</h2>
+<h3>ROCm 4.0 support</h3>
+<p>ROCm 4.0 is now officially supported.</p>
+<h3>gfx801 (Carrizo) and gfx803 (Fiji) support</h3>
+<p>gfx801 (Carrizo) and gfx803 (Fiji) are both supported and tested with the gem5-resources applications.</p>
+<h3>Better scoreboarding support</h3>
+<p>Better scoreboarding support has been added.
+This reduces stalls by up to 42%.</p>
+<h2>Accuracy and coverage stat added to prefetcher caches</h2>
+<p>Accuracy and coverage stats have been added for prefetcher caches.
+Accuracy is defined as the ratio of the number of prefetch requests counted as useful over the total number of prefetch requests issued.
+Coverage is defined as the ratio of the number of prefetch requests counted as useful over the number of useful prefetch request plus the remaining demand misses.</p>
+<h2>POWER 64-bit SE mode</h2>
+<p>The POWER 64-bit ISA is now supported in Syscall Execution mode.</p>
+<h2>RISC-V PMP now supported</h2>
+<p>gem5 now supports simulation of RISC-V Physical Memory Protection (PMP).
+Simulations can boot and run Keystone and Eyrie.</p>
+<h2>Improvements to the replacement policies</h2>
+<p>The gem5 replacement policies framework now supports more complex algorithms.
+It now allows using addresses, PC, and other information within a policy.</p>
+<p><strong>Note:</strong>
+Assuming this information is promptly available at the cache may be unrealistic.</p>
+<h3>Set Dueling</h3>
+<p>Classes that handle set dueling have been created (<a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.1.0.0/src/mem/cache/tags/dueling.hh">Dueler and DuelingMonitor</a>).
+They can be used in conjunction with different cache policies.
+A <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.1.0.0/src/mem/cache/replacement_policies/dueling_rp.hh">replacement policy that uses it</a> has been added for guidance.</p>
+<h2>RISC-V is now supported as a host machine.</h2>
+<p>gem5 is now compilable and runnable on a RISC-V host system.</p>
+<h2>New Deprecation MARCOs added</h2>
+<p>Deprecation MACROS have been added for deprecating namespaces (<code>GEM5_DEPRECATED_NAMESPACE</code>), and deprecating other MACROs (<code>GEM5_DEPRECATED_MACRO</code>).</p>
+<p><strong>Note:</strong>
+For technical reasons, using old macros won't produce any deprecation warnings.
+<h2>Refactoring of the gem5 Namespaces</h2>
+<p>Snake case has been adopted as the new convention for name spaces.
+As a consequence, multiple namespaces have been renamed:</p>
+<ul>
+<li><code>Minor</code> -> <code>minor</code></li>
+<li><code>Loader</code> -> <code>loader</code></li>
+<li><code>Stats</code> -> <code>statistics</code></li>
+<li><code>Enums</code> -> <code>enums</code></li>
+<li><code>Net</code> -> <code>networking</code></li>
+<li><code>ProbePoints</code> -> <code>probing</code></li>
+<li><code>ContextSwitchTaskId</code> -> <code>context_switch_task_id</code></li>
+<li><code>Prefetcher</code> -> <code>prefetch</code></li>
+<li><code>Encoder</code> -> <code>encoder</code></li>
+<li><code>Compressor</code> -> <code>compression</code></li>
+<li><code>QoS</code> -> <code>qos</code></li>
+<li><code>ReplacementPolicy</code> -> <code>replacement_policy</code></li>
+<li><code>Mouse</code> -> <code>mouse</code></li>
+<li><code>Keyboard</code> -> <code>keyboard</code></li>
+<li><code>Int</code> -> <code>as_int</code></li>
+<li><code>Float</code> -> <code>as_float</code></li>
+<li><code>FastModel</code> -> <code>fastmodel</code></li>
+<li><code>GuestABI</code> -> <code>guest_abi</code></li>
+<li><code>LockedMem</code> -> <code>locked_mem</code></li>
+<li><code>DeliveryMode</code> -> <code>delivery_mode</code></li>
+<li><code>PseudoInst</code> -> <code>pseudo_inst</code></li>
+<li><code>DecodeCache</code> -> <code>decode_cache</code></li>
+<li><code>BitfieldBackend</code> -> <code>bitfield_backend</code></li>
+<li><code>FreeBSD</code> -> <code>free_bsd</code></li>
+<li><code>Linux</code> -> <code>linux</code></li>
+<li><code>Units</code> -> <code>units</code></li>
+<li><code>SimClock</code> -> <code>sim_clock</code></li>
+<li><code>BloomFilter</code> -> <code>bloom_filter</code></li>
+<li><code>X86Macroop</code> -> <code>x86_macroop</code></li>
+<li><code>ConditionTests</code> -> <code>condition_tests</code></li>
+<li><code>IntelMP</code> -> <code>intelmp</code></li>
+<li><code>SMBios</code> -> <code>smbios</code></li>
+<li><code>RomLables</code> -> <code>rom_labels</code></li>
+<li><code>SCMI</code> -> <code>scmi</code></li>
+<li><code>iGbReg</code> -> <code>igbreg</code></li>
+<li><code>Ps2</code> -> <code>ps2</code></li>
+<li><code>CopyEngineReg</code> -> <code>copy_engine_reg</code></li>
+<li><code>TxdOp</code> -> <code>txd_op</code></li>
+<li><code>Sinic</code> -> <code>sinic</code></li>
+<li><code>Debug</code> -> <code>debug</code></li>
+</ul>
+<p>In addition some other namespaces were added:</p>
+<ul>
+<li><code>gem5::ruby</code>, for Ruby-related files</li>
+<li><code>gem5::ruby::garnet</code>, for garnet-related files</li>
+<li><code>gem5::o3</code>, for the O3-cpu's related files</li>
+<li><code>gem5::memory</code>, for files related to memories</li>
+</ul>
+<p>Finally, the <code>m5</code> namespace has been renamed <code>gem5</code>.</p>
+<h2>MACROs in <code>base/compiler.hh</code></h2>
+<p>The MACROs in base/compiler.hh of the form <code>M5_<em></code> have been deprecated and replaced with macros of the form <code>GEM5_</em></code>, with some other minor name adjustments.</p>
+<h2>MemObject Removed</h2>
+<p>MemObject simobject had been marked for deprecation and has now been officially removed from the gem5 codebase.</p>
+<h2>Minimum GCC version increased to 7; minimum Clang version increased to 6; Clang 10 and 11 supported; C++17 supported</h2>
+<p>GCC version 5 and 6 are no longer supported.
+GCC 7 is now the minimum GCC compiler version supported.
+This changes allows has allowed us to move to the C++17 standard for development.</p>
+<p>In addition, the minimum Clang version has increased to 6, and Clang 10 and 11 are now officially supported.</p>
+<h1>Version 21.0.1.0</h1>
+<p>Version 21.0.1 is a minor gem5 release consisting of bug fixes. The 21.0.1 release:</p>
+<ul>
+<li>Fixes the <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/util/dockerfiles/gcn-gpu/Dockerfile">GCN-GPU Dockerfile</a> to pull from the v21-0 bucket.</li>
+<li>Fixes the tests to download from the v21-0 bucket instead of the develop bucket.</li>
+<li>Fixes the Temperature class:</li>
+</ul>
+    * Fixes <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/configs/example/arm/fs_power.py">fs_power.py</a>, which was producing a <a href="https://gem5.atlassian.net/browse/GEM5-951">"Temperature is not JSON serializable" error</a>.
+    * Fixes temperature printing in <code>config.ini</code>.
+    * Fixes the pybind export for the <code>from_kelvin</code> function.
+<ul>
+<li>Eliminates a duplicated name warning in <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/src/systemc/channel/sc_clock.cc">ClockTick</a>.</li>
+<li>Fixes the <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/util/dockerfiles/ubuntu-20.04_all-dependencies/Dockerfile">Ubuntu 18.04 Dockerfile</a> to use Python3 instead of Python2.</li>
+<li>Makes <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/src/systemc/tests/verify.py">verify.py</a> compatible with Python3.</li>
+<li>Fixes GCN3_X86 builds for aarch64 hosts.</li>
+<li>Fixes building with <code>SLICC_HTML=True</code>.</li>
+<li>Fixes the <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/util/cpt_upgrader.py">cpt_upgrader.py</a> string formatter.</li>
+<li>Fixes typo in <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/util/cpt_upgrader.py">cpy_upgrader.py</a> where module <code>errno</code> was incorrectly put as <code>ennro</code>.</li>
+<li>Sets the <code>--restore-simpoint-checkpoint</code> flag default to "False" instead of the ambiguous "None".</li>
+<li>Fixes a nonsensical check in <a href="https://gem5.googlesource.com/public/gem5/+/refs/tags/v21.0.1.0/src/mem/ruby/protocol/MOESI_CMP_token-L1cache.sm">MOESI_CMP_token-L1cache</a> which caused compilation bugs in Clang-11.</li>
+<li>Fixes the <code>scx_get_parameter_list</code> for ARM fast models.</li>
+<li>Fixes <a href="https://gem5.atlassian.net/browse/GEM5-1003">bloated object binaries, known to cause issues during linking</a>.</li>
+<li>Due to LTO causing unacceptably long link times for some users, and stripping debug symbols in some setups, it is no longer enabled by default. It may be enabled with the <code>--with-lto</code> flag. The <code>--no-lto</code> flag has been removed.</li>
+</ul>
+<h1>Version 21.0.0.0</h1>
+<p>Version 21.0 marks <em>one full year</em> of gem5 releases, and on this anniversary, I think we have some of the biggest new features yet!
+This has been a very productive release with <a href="https://gem5.atlassian.net/">100 issues</a>, over 813  commits, and 49 unique contributors.</p>
+<h2>21.0 New features</h2>
+<h3>AMBA CHI protocol implemented in SLICC: Contributed by <em>Tiago Mück</em></h3>
+<p>This new protocol provides a single cache controller that can be reused at multiple levels of the cache hierarchy and configured to model multiple instances of MESI and MOESI cache coherency protocols.
+This implementation is based of Arm’s <a href="https://static.docs.arm.com/ihi0050/d/IHI0050D_amba_5_chi_architecture_spec.pdf">AMBA 5 CHI specification</a> and provides a scalable framework for the design space exploration of large SoC designs.</p>
+<p>See <a href="http://www.gem5.org/documentation/general_docs/ruby/CHI/">the gem5 documentation</a> for more details.
+There is also a <a href="http://www.gem5.org/2020/05/29/flexible-cache.html">gem5 blog post</a> on this new protocol as well.</p>
+<h3>Full support for AMD's GCN3 GPU model</h3>
+<p>In previous releases, this model was only partially supported.
+As of gem5 21.0, this model has been fully integrated and is tested nightly.
+This model currently only works in syscall emulation mode and requires using the gcn docker container to get the correct version of the ROCm stack.
+More information can be found in <a href="http://www.gem5.org/2020/05/27/modern-gpu-applications.html">this blog post</a>.</p>
+<p>With this full support, we are also providing many applications as well.
+See <a href="http://resources.gem5.org/">gem5-resources</a> for more information.</p>
+<h3>RISC-V Full system Linux boot support: Contributed by <em>Peter Yuen</em></h3>
+<p>The RISC-V model in gem5 can now boot unmodified Linux!
+Additionally, we have implemented DTB generation and support the Berkeley Boot Loader as the stage 1 boot loader.
+We have also released a set of resources for you to get started: <https://gem5.googlesource.com/public/gem5-resources/+/refs/heads/develop/src/riscv-fs/></p>
+<h3>New/Changed APIs</h3>
+<p>There are multiple places where the developers have reduced boilerplate.</p>
+<ul>
+<li><strong>[API CHANGE]</strong>: No more <code>create()</code> functions! Previously, every <code>SimObject</code> required a <code><SimObjectParams>::create()</code> function to be manually defined. Forgetting to do this resulted in confusing errors. Now, this function is created for you automatically. You can still override it if you need to handle any special cases.</li>
+<li><strong>[API CHANGE]</strong>: <code>params()</code>: Rather than defining a typedef and the <code>params()</code> function for every <code>SimObject</code>, you can now use the <code>PARAMS</code> macro.</li>
+</ul>
+<p>See <http://doxygen.gem5.org/release/current/classSimObject.html#details> for more details on these two API changes.</p>
+<p><em> <strong>[API CHANGE]</strong>: All stats are now using </em>new style* groups instead of the older manual stat interface.
+  * The previous API (creating stats that are not part of a <code>Group</code>) is still supported, but it is now deprecated.
+  * If a stat is not created with the new <code>Group</code> API, it may not be automatically dumped using new stat APIs (e.g., the Python API).
+  * Next release, there will be a warning for all old-style stats.</p>
+<h3>Platforms no longer support</h3>
+<p><em> <strong>[USER-FACING CHANGE]</strong>: Python 2.7 is </em>no longer supported*. You must use Python 3.6+.
+<ul>
+<li>CLANG minimum version is now 3.9</li>
+<li>Bump minimum C++ to C++14</li>
+</ul>
+<h3>Other improvements and new features</h3>
+<ul>
+<li>Extra options to build m5ops</li>
+<li>m5term improvements</li>
+</ul>
+<em> There is a new python-based library for handling statistics. This library </em>works*, but hasn't been thoroughly tested yet. Stay tuned for more on this next release.
+<ul>
+<li>Many improvements and additions to unit tests</li>
+<li>Cleaning up the <code>StaticInst</code> type</li>
+<li>Workload API changes</li>
+<li>Many updates and changes to the m5 guest utility</li>
+<li><a href="https://gem5.atlassian.net/browse/GEM5-787">Support for running arm64 Linux kernel v5.8</a></li>
+<li><a href="https://gem5.atlassian.net/browse/GEM5-768">Arm SCMI implemented</a></li>
+</ul>
+<h1>Version 20.1.0.5</h1>
+<p><strong>[HOTFIX]</strong> This hotfix release fixes three known bugs:</p>
+<ul>
+<li><code>src/python/m5/util/convert.py</code> incorrectly stated kibibytes as 'kiB' instead of 'KiB'. This has been fixed.</li>
+<li>Atomic accesses were not checking the access permission bits in the page table descriptors. They were incorrectly using the nature of the request itself. This is now fixed.</li>
+<li><code>num_l2chaches_per_cluster</code> and <code>num_cpus_per_cluster</code> were cast to floats in <code>configs/ruby/MESI_Three_Level_HTM.py</code>, which caused errors. This has been fixed so they are correctly cast to integers.</li>
+</ul>
+<h1>Version 20.1.0.4</h1>
+<p><strong>[HOTFIX]</strong> <a href="https://gem5.atlassian.net/browse/GEM5-916">gem5 was failing to build with SCons 4.0.1 and 4.1.0</a>.
+This hotfix makes the necessary changes to <code>site_scons/site_tools/default.py</code> for gem5 to compile successfully on these versions of SCons.</p>
+<h1>Version 20.1.0.3</h1>
+<p><strong>[HOTFIX]</strong> A patch was apply to fix an <a href="https://gem5.atlassian.net/browse/GEM5-901">error where booting Linux stalled when using the ARM ISA</a>.
+This fix adds the parameter <code>have_vhe</code> to enable FEAT_VHE on demand, and is disabled by default to resolve this issue.</p>
+<h1>Version 20.1.0.2</h1>
+<p><strong>[HOTFIX]</strong> This hotfix release fixes known two bugs:</p>
+<ul>
+<li>A "ValueError: invalid literal for int() with base..." error was being thrown in certain circumstances due to a non-integer being passed to "MemorySize" via a division operation. This has been rectified.</li>
+<li>An assertion in Stats could be triggered due to a name collision between two ThreadStateStats objects, due to both erroneously sharing the same ThreadID. This has been fixed.</li>
+</ul>
+<h1>Version 20.1.0.1</h1>
+<p><strong>[HOTFIX]</strong> A patch was applied to fix the Garnet network interface stats.
+Previously, the flit source delay was computed using both tick and cycles.
+This bug affected the overall behavior of the Garnet Network Model.</p>
+<h1>Version 20.1.0.0</h1>
+<p>Thank you to everyone that made this release possible!
+This has been a very productive release with <a href="https://gem5.atlassian.net/">150 issues</a>, over 650  commits (a 25% increase from the 20.0 release), and 58 unique contributors (a 100% increase!).</p>
+<h2>Process changes</h2>
+<p>We are no longer using the "master" branch.
+Instead, we will have two branches:</p>
+<ul>
+<li>"stable": This will point to the latest stable release (gem5-20.1 as of today)</li>
+<li>"develop": This is the latest development code that will be merged in to the "stable" branch at each release.</li>
+</ul>
+<p>We suggest all <em>users</em> use the stable (default) branch.
+However, to contribute your fixes and new changes to gem5, it should be contributed to the develop branch.
+See CONTRIBUTING.md for more details.</p>
+<p>gem5 has also implemented a project code of conduct.
+See the CODE-OF-CONDUCT.md file for details.
+In the code of conduct "we pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community."</p>
+<h2>New features in 20.1</h2>
+<h3>New DRAM interface: Contributed by <em>Wendy Elsasser</em></h3>
+<p>You can find details about this on the <a href="http://www.gem5.org/2020/05/27/memory-controller.html">gem5 blog</a> or Wendy's talks on YouTube: <a href="https://www.youtube.com/watch?v=t2PRoZPwwpk">Talk on new interface and NVM</a> and the <a href="https://www.youtube.com/watch?v=ttJ9_I_Avyc">talk on LPDDR5</a></p>
+<p><em> <strong>[PYTHON API CHANGE]</strong>: The DRAM models are now </em>DRAM interfaces<em> which is a child of the </em>memory controller*. Example change shown <a href="http://www.gem5.org/project/2020/07/18/gem5-20-1.html">in the blog post</a>.
+  * The DRAM is split into a memory controller and a DRAM interface
+  * <code>SimpleMemory</code> is no longer a drop-in replacement for a DRAM-based memory controller.
+<ul>
+<li>LPDDR5 model added</li>
+<li>NVM model added</li>
+<li>New memory controller model that can use both NVM and DRAM</li>
+</ul>
+<h3>Improved on-chip interconnect model, HeteroGarnet: Contributed by <em>Srikant Bharadwaj</em></h3>
+<p>You can find details about this on the <a href="http://www.gem5.org/2020/05/27/heterogarnet.html">gem5 blog</a> and <a href="https://www.youtube.com/watch?v=AH9r44r2lHA">Srikant's talk on YouTube</a>.</p>
+<ul>
+<li><strong>[USER-FACING CHANGE]</strong>: The network type options are now "simple" and "garnet" instead of "garnet2.0". (If "garnet2.0" is used, you will get a warning until gem5-20.2)</li>
+<li>Added models for clock domain crossings and serialization/deserialization (SERDES)</li>
+</ul>
+<h3>Transactional memory support: Contributed by <em>Timothy Hayes</em></h3>
+<p>You can find details on the <a href="https://gem5.atlassian.net/browse/GEM5-587">Jira issue</a></p>
+<ul>
+<li>gem5 now supports Arm TME (transactional memory extensions)</li>
+<li>Transactional memory is only implemented in the <code>MESI_Three_Level_HTM</code> Ruby protocol, and it is only implemented in Ruby.</li>
+<li>This implements a checkpointing mechanism for the architectural state and buffering of speculative memory updates.</li>
+</ul>
+<em> IBM POWER and x86 HTM extensions have </em>not* been implemented.</p>
+<h3>Other new features</h3>
+<ul>
+<li>External simulator integrations</li>
+</ul>
+  * Added support for DRAMSim3
+  * Added back support for DRAMSim2
+<ul>
+<li>Armv8-A Self Hosted Debug extension added</li>
+<li>KVM support for Armv8-A  hosts without GICv2 hardware</li>
+<li>Implemented Secure EL2 for Armv8-A</li>
+</ul>
+<h2>Removed features</h2>
+<ul>
+<li>Dropped support for mercurial version control</li>
+</ul>
+<h2>New supported platforms</h2>
+<ul>
+<li>GCC up to 10.2 is now supported. Minimum GCC is now 5.0.</li>
+<li>Clang up to version 9. Minimum Clang is now 3.9.</li>
+</ul>
+<h2>Platforms no longer support</h2>
+<ul>
+<li><strong>[USER-FACING CHANGE]</strong>: Python 2 is officially deprecated. We will drop support for Python 2 in the next release. In this release you will get a warning if you're using Python 2.</li>
+<li><strong>[USER-FACING CHANGE]</strong>: We have dropped support for GCC 4.X</li>
+<li><strong>[USER-FACING CHANGE]</strong>: We have dropped support for Scons 2.x (Note: this is the default in Ubuntu 16.04. Use pip to install a newer scons.)</li>
+</ul>
+<p>See <http://www.gem5.org/documentation/general_docs/building> for gem5's current dependencies.</p>
+<h2>Other changes</h2>
+<h3>Deprecating "master" and "slave"</h3>
+<ul>
+<li><strong>[API CHANGE]</strong>: The names "master" and "slave" have been deprecated</li>
+</ul>
+  * Special thanks to Lakin Smith, Shivani Parekh, Eden Avivi, and Emily Brickey.
+  * Below is a guide to most of the name changes.
+  * The goal was to replace problematic language with more descriptive and precise terms.
+<ul>
+<li>There may be some bugs introduced with this change as there were many places in the Python configurations which relied on "duck typing".</li>
+<li>This change is mostly backwards compatible and warning will be issued until at least gem5-20.2.</li>
+</ul>
+<pre><code class="language-">MasterPort -&gt; RequestorPort
+SlavePort -&gt; ResponsePort</p>
+<p>xbar.slave -&gt; xbar.cpu_side
+xbar.master -&gt; xbar.mem_side</p>
+<p>MasterId -&gt; RequestorId
+</code></pre>
+<h3>Testing improvements</h3>
+<ul>
+<li>We now have Jenkins server (<http://jenkins.gem5.org/>) running nightly and other large tests. Special thanks to Mike Upton for setting this up!</li>
+</ul>
+  * Nightly tests run the "long" regression tests (many tests added).
+  * Compiler tests run gem5 build for many targets and all compilers once a week.
+<ul>
+<li>Updated CI tester (kokoro) to use a more up-to-date environment.</li>
+<li>Improved the testing infrastructure.</li>
+</ul>
+  * Almost all testing resources now available in <a href="https://gem5.googlesource.com/public/gem5-resources/">gem5-resources repository</a>.
+  * Generally cleaned up the <code>tests/</code> directory in mainline gem5.
+  * Many general testlib improvements.</p>
+<h3>More changes</h3>
+<ul>
+<li><strong>[PYTHON API CHANGE]</strong>: m5.stats.dump() root argument renamed to roots to reflect the fact that it now takes a list of SimObjects</li>
+<li><strong>[USER-FACING CHANGE]</strong>: Checkpoint compatibility may be broken by the following changes</li>
+</ul>
+  * <https://gem5-review.googlesource.com/c/public/gem5/+/25145>
+  * <https://gem5-review.googlesource.com/c/public/gem5/+/31874>
+<ul>
+<li><strong>[API CHANGE]</strong> Changed <code>setCPU</code> to <code>setThreadContext</code> in Interrupts</li>
+<li>Added a <code>Compressor</code> namespace.</li>
+<li><strong>[API CHANGE]</strong> The <code>Callback</code> class was removed and replaced with C++ lambdas.</li>
+<li>Many objects' stats have been updated to the "new" stats style.</li>
+<li>Many more objects have had their APIs formalized. See <http://www.gem5.org/documentation/general_docs/gem5-apis></li>
+</ul>
+<p>----------------------------------------------------------------------------------------------------</p>
+<h1>Version 20.0.0.3</h1>
+<p><strong>[HOTFIX]</strong> When using the ARM ISA, gem5 could crash when a guest tried to call m5ops. This was due to <code>m5ops_base</code> being incorrectly declared in <code>src/arch/arm/ArmSystem.py</code>. A fix was applied to remove this declaration.</p>
+<h1>Version 20.0.0.2</h1>
+<p><strong>[HOTFIX]</strong> A patch was applied to fix the RubyPrefetcher with MESI_Three_Level. Prior to this fix a segfault occurred.</p>
+<h1>Version 20.0.0.1</h1>
+<p><strong>[HOTFIX]</strong> A fix was applied to stop incorrect clock frequences being reported due to rounding errors.</p>
+<h1>Version 20.0.0.0</h1>
+<p>Welcome to our first "official" gem5 release!
+gem5 v19.0.0.0 was a "test" release, but this one has release notes, so it must be official!</p>
+<p>Thank you to everyone that made this release possible!
+This has been a very productive release with over <a href="https://gem5.atlassian.net/">70 issues closed</a>, over 500 commits, and 31 unique contributors.
+Below are some of the highlights, though I'm sure I've missed some important changes.</p>
+<h2>New features</h2>
+<ul>
+<li><a href="https://gem5.googlesource.com/public/gem5-resources/">gem5-resources repository</a></li>
+</ul>
+  <em> This new repository will store all of the </em>sources* (e.g., code) used to create testing and research resources. This includes disk images, testing binaries, kernel binaries, etc.
+  * Binaries created with the sources are hosted on dist.gem5.org.
+  * Details on the new page for resources: <http://www.gem5.org/documentation/general_docs/gem5_resources>.
+<ul>
+<li>Memory SimObjects can now be initialized using an image file using the image_file parameter.</li>
+<li><strong>[USER-FACING CHANGE]</strong> The m5 utility has been revamped with a new build system based on scons, tests, and updated and more consistent feature support.</li>
+</ul>
+  * To build, now use <code>scons build/<arch>/out/m5</code>, not <code>make</code>.
+  * <a href="http://www.gem5.org/documentation/general_docs/m5ops/">Documentation</a> coming soon.
+<ul>
+<li>Robust support for marshalling data from a function call inside the simulation to a function within gem5 using a predefined set of rules.</li>
+</ul>
+  * Developers can specify an ABI for guest<->simulator calls and then "just call functions".
+  * Unifies pseudo-inst, syscall, and other support.
+  * Code within gem5 has been updated. However, users which added new pseudo-ops may have to update their code.
+<ul>
+<li><strong>[PYTHON API CHANGE]</strong> Workload configuration pulled out into its own object, simplifying the System object and making workload configuration more modular and flexible.</li>
+</ul>
+  * All full system config/run scripts must be updated (e.g., anything that used the <code>LinuxX86System</code> or similar SimObject).
+  * Many of the parameters of <code>System</code> are now parameters of the <code>Workload</code> (see <code>src/sim/Workload.py</code>).
+    * For instance, many parameters of <code>LinuxX86System</code> are now part of <code>X86FsLinux</code> which is now the <code>workload</code> parameter of the <code>System</code> SimObject.
+  * See https://gem5-review.googlesource.com/c/public/gem5/+/24283/ and https://gem5-review.googlesource.com/c/public/gem5/+/26466 for more details.
+<ul>
+<li>Sv39 paging has been added to the RISC-V ISA, bringing gem5 close to running Linux on RISC-V.</li>
+</ul>
+  * (Some) Baremetal OSes are now supported.
+<ul>
+<li>Improvements to DRAM model:</li>
+</ul>
+  * Added support for verifying available command bandwidth.
+  * Added support for multi-cycle commands.
+  * Added new timing parameters.
+  * Added ability to interleave bursts.
+  * Added LPDDR5 configurations.
+<ul>
+<li><strong>[Developer change]</strong> We are beginning to document gem5 APIs.</li>
+</ul>
+  * Currently, only SimObjects and the APIs they depend on have been documented.
+  * We are using doxygen to mark "stable APIs" and will use manual code review to make sure the APIs stay stable.
+  * More information will be coming during gem5-20.1 development.</p>
+<h2>Removed features</h2>
+<ul>
+<li>Support for the ALPHA ISA has been dropped.</li>
+</ul>
+  * All ALPHA ISA code has been removed
+  * Old "rcS" scripts for ALPHA have been removed</p>
+<h2>New supported platforms</h2>
+<ul>
+<li>Compiling and running gem5 with Python 3 is now fully supported.</li>
+</ul>
+  * Lots of code changes required for this.
+  * There may still be some python code that's not up to date. Please open a <a href="https://gem5.atlassian.net/">Jira ticket</a> if you find any code that doesn't work with python3.
+<ul>
+<li>gem5 now supports Ubuntu 20.04.</li>
+<li>Compiling gem5 with GCC 8 and 9 is now supported.</li>
+<li>Compiling with clang up to version 9 is now supported.</li>
+</ul>
+<h2>Testing improvements</h2>
+<ul>
+<li>Scons-based tests have been migrated to the testlib framework.</li>
+</ul>
+  * Tests can now be run with <code>tests/main.py</code>, except for the unittests.
+  * Please consult TESTING.md for more information on how these may be run.
+<ul>
+<li>We are continuing to work on CI tests. Most of the plumbing is there for Google Cloud Build integration. See <a href="https://gem5.atlassian.net/browse/GEM5-237">the Jira issue</a> for details.</li>
+</ul>
+<h2>Other API changes</h2>
+<ul>
+<li><strong>[API CHANGE]</strong> Ruby's prefetcher renamed to RubyPrefetcher.</li>
+</ul>
+  * Any SLICC protocols with prefetchers need to be updated.
+  * Some config scripts for Ruby protocols with prefetchers may need to be updated.
+<ul>
+<li><strong>[API CHANGE]</strong> SE mode improvements.</li>
+</ul>
+  * Better support for the mmap and related syscalls.
+  * A new virtual memory area API for tracking SE mode allocations.
+  * When implementing syscalls, the way that guest memory is allocated changes. All code in gem5 is updated, but if there are any external syscalls, they may need be updated.
+<ul>
+<li><strong>[COMMAND LINE CHANGE]</strong> The <code>--disk-image</code> argument to <code>fs.py</code> is now optional.</li>
+</ul>
+  <em> However, the disk image names </em>are no longer implied*.
+  * The script still implicitly searches <code>M5_PATH</code>, but the name of the disk image must be specified.
+<ul>
+<li><strong>[API CHANGE]</strong> SLICC <code>queueMemory</code> is now <code>enqueue</code>.</li>
+</ul>
+  * All protocol configs must be updated with another message buffer in the memory controllers (directories).
+  * All protocol SLICC files must replace <code>queueMemoryRead</code> and <code>queueMemoryWrite</code> with <code>enqueue</code> to another "special" message buffer named <code>memQueue</code>.
+  * This allows finite buffering between the cache controllers and DRAMCtrl.
+<ul>
+<li><strong>[API CHANGE]</strong> Added Prefetcher namespace</li>
+</ul>
+  <em> All prefetchers' names have changed from <code></em>Prefetcher</code> to <code>Prefetcher::*</code>
+  * If you have any prefetchers that are not in the gem5 mainline, your code will likely need to be updated.</p>
+<h2>Other changes</h2>
+<ul>
+<li>Implemented ARMv8.3-CompNum, SIMD complex number extension.</li>
+<li>Support for Arm Trusted Firmware + u-boot with the new VExpress_GEM5_Foundation platform</li>
+<li>Removed author list from source files.</li>
+</ul>
+  * This was originally so future people would know who to contact.
+  * However, it was difficult to maintain and quickly out of date.
+  * Copyright is unchanged.
+<ul>
+<li>Improvements to gem5's power model.</li>
+<li>MESI_Three_Level Ruby protocol bugfixes.</li>
+<li>Ruby functional reads now work in more cases.</li>
+<li>Indirect branch stats work correctly now.</li>
+</ul>
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

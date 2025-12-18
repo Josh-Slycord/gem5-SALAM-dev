@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>data.realtime_connection - gem5-SALAM Python API</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>data.realtime_connection</h1>
+
+    <div class="module-doc">
+        <pre>No module documentation available.</pre>
+    </div>
+
+    <h2>Classes</h2>
+                <div class="card">
+                    <h3><code>class ConnectionState</code></h3>
+                    <p>Connection states.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class MessageType</code></h3>
+                    <p>Types of messages from the simulation.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class SimulationMessage</code></h3>
+                    <p>A message received from the simulation.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class SimulationReceiver</code></h3>
+                    <p>Background thread that receives messages from a running simulation.
+
+    Uses ZeroMQ SUB socket to receive published simulation events.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class SimulationConnection</code></h3>
+                    <p>Manages connection to a running gem5-SALAM simulation.
+
+    Provides high-level interface for connecting/disconnecting and
+    dispatches received messages to registered handlers.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>class LiveDataBuffer</code></h3>
+                    <p>Buffer for accumulating live data for widget updates.
+
+    Aggregates high-frequency updates and provides periodic snapshots
+    to avoid overwhelming the UI.</p>
+                </div>
+                
+    <h2>Functions</h2>
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>connect_to()</code></h3>
+                    <p>Set the address to connect to.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>run()</code></h3>
+                    <p>Main receiver loop - runs in background thread.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>stop()</code></h3>
+                    <p>Signal the receiver to stop.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>is_connected()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>connect()</code></h3>
+                    <p>Connect to a running simulation.
+
+        Args:
+            address: ZeroMQ address (e.g., "tcp://localhost:5555")</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>disconnect()</code></h3>
+                    <p>Disconnect from the simulation.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>register_handler()</code></h3>
+                    <p>Register a handler for a specific message type.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>unregister_handler()</code></h3>
+                    <p>Unregister a message handler.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>__init__()</code></h3>
+                    <p>No documentation available.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>add_queue_state()</code></h3>
+                    <p>Add queue state snapshot.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>add_fu_state()</code></h3>
+                    <p>Add FU state snapshot.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>add_instruction_event()</code></h3>
+                    <p>Add instruction issue/complete event.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>add_stall_event()</code></h3>
+                    <p>Add stall event.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>get_queue_history()</code></h3>
+                    <p>Get copy of queue history.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>get_fu_history()</code></h3>
+                    <p>Get copy of FU history.</p>
+                </div>
+                
+                <div class="card">
+                    <h3><code>clear()</code></h3>
+                    <p>Clear all buffered data.</p>
+                </div>
+                
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>

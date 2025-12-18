@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEMM Benchmark - gem5-SALAM Documentation</title>
+    <link rel="stylesheet" href="../_static/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <a href="../index.html">Home</a>
+        <a href="../guides/README.html">Guides</a>
+        <a href="../benchmarks/README.html">Benchmarks</a>
+        <a href="../python/index.html">Python API</a>
+        <a href="../cpp/index.html">C++ API</a>
+    </nav>
+
+    <h1>GEMM Benchmark</h1>
+<p>General Matrix Multiplication (GEMM) benchmark for gem5-SALAM accelerator evaluation.</p>
+<h2>Overview</h2>
+<p>Computes C = A × B for dense matrices using a triple-nested loop structure.
+This is a fundamental kernel for linear algebra and neural network workloads.</p>
+<h2>Files</h2>
+<table>
+<thead><tr>
+<th>File</th><th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td><code>bench/gemm.c</code></td><td>Accelerator kernel (compiled to LLVM IR)</td>
+</tr>
+<tr>
+<td><code>bench/gemm.h</code></td><td>Type definitions and test harness</td>
+</tr>
+<tr>
+<td><code>bench/gemm.ll</code></td><td>Generated LLVM IR for simulation</td>
+</tr>
+<tr>
+<td><code>bench/support.h</code></td><td>Data generation utilities</td>
+</tr>
+<tr>
+<td><code>host/main.cpp</code></td><td>Host driver program</td>
+</tr>
+<tr>
+<td><code>host/boot.s</code></td><td>Bare-metal ARM boot code</td>
+</tr>
+<tr>
+<td><code>config.yml</code></td><td>Accelerator configuration</td>
+</tr>
+<tr>
+<td><code>defines.h</code></td><td>Matrix dimensions (ROW, COL)</td>
+</tr>
+<tr>
+<td><code>hw/gemm_hw_defines.h</code></td><td>Generated memory-mapped addresses</td>
+</tr>
+</tbody></table>
+<h2>Configuration</h2>
+<h3>Matrix Dimensions (<code>defines.h</code>)</h3>
+<pre><code class="language-c">#define ROW 8   // Number of rows
+#define COL 8   // Number of columns
+</code></pre>
+<h3>Accelerator Setup (<code>config.yml</code>)</h3>
+<ul>
+<li><strong>Cluster</strong>: <code>gemm_clstr</code></li>
+<li><strong>DMA</strong>: NonCoherent, 128B max request, 256B buffer</li>
+<li><strong>Compute Unit</strong>: Single accelerator from <code>hw/compute.ll</code></li>
+</ul>
+<h3>Functional Units</h3>
+<table>
+<thead><tr>
+<th>Unit</th><th>Cycles</th><th>Usage</th>
+</tr></thead><tbody>
+<tr>
+<td><code>integer_adder</code></td><td>1</td><td>Index calculations</td>
+</tr>
+<tr>
+<td><code>integer_multiplier</code></td><td>1</td><td>Array indexing</td>
+</tr>
+<tr>
+<td><code>float_adder</code></td><td>5</td><td>Accumulation</td>
+</tr>
+<tr>
+<td><code>float_multiplier</code></td><td>4</td><td>Matrix multiply</td>
+</tr>
+</tbody></table>
+<h2>Building</h2>
+<pre><code class="language-bash"># Build all files
+make</p>
+<h1>Build specific targets</h1>
+make -C bench    # Generate LLVM IR
+make -C host     # Build host binary
+</code></pre>
+<h2>Running</h2>
+<h3>With gem5-SALAM GUI</h3>
+1. Load <code>config.yml</code> in SALAM GUI
+2. Set simulation parameters
+3. Run and analyze results</p>
+<h3>Command Line</h3>
+<pre><code class="language-bash"># Generate configuration
+python SALAM-Configurator/systembuilder.py config.yml</p>
+<h1>Run simulation</h1>
+./build/ARM/gem5.opt configs/SALAM/generated/gemm.py
+</code></pre>
+<h2>Memory Layout</h2>
+<pre><code class="language-">Address Range          Content
+--------------         -------
+0x80c00000            Matrix A (input 1)
+0x80c00000 + 8*N      Matrix B (input 2)
+0x80c00000 + 16*N     Matrix C (output)
+0x80c00000 + 24*N     Check data (verification)</p>
+<p>0x2f100000 (SPM)      Scratchpad base (if SPM enabled)
+</code></pre>
+<h2>Verification</h2>
+<p>When compiled with <code>-DCHECK</code>, the host code verifies accelerator
+results against a software reference implementation:</p>
+<pre><code class="language-">Expected:1.234 Actual:1.234
+...
+Check Passed
+</code></pre>
+<h2>Performance Metrics</h2>
+<p>Key statistics from <code>stats.txt</code>:
+<ul>
+<li><code>system.acc.cycles</code> - Total accelerator cycles</li>
+<li><code>system.acc.fu_utilization.*</code> - Per-FU utilization</li>
+<li><code>system.dma.bytes_transferred</code> - DMA data movement</li>
+</ul>
+<h2>Variants</h2>
+<p>See related benchmarks with different optimization strategies:
+<ul>
+<li><code>gemm-no-unroll/</code> - No loop unrolling</li>
+<li><code>gemm-partial-unroll/</code> - Partial inner loop unroll</li>
+<li><code>gemm-full-unroll/</code> - Full loop unrolling (this benchmark)</li>
+</ul>
+
+    <div class="footer">
+        <p>gem5-SALAM Documentation | Generated 2025-12-17 11:30</p>
+    </div>
+</body>
+</html>
