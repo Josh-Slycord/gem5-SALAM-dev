@@ -10,6 +10,9 @@ Import('main')
 env = main.Clone()
 
 # Suppress warnings from CACTI code (it's third-party)
+# Define NTHREADS for multi-threaded cache exploration
+env.Append(CPPDEFINES=['NTHREADS=8'])
+
 if env['GCC']:
     env.Append(CCFLAGS=['-w'])  # Disable all warnings
 elif env['CLANG']:

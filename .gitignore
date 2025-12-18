@@ -93,3 +93,6 @@ simout
 # Generated Configuration
 # =============================================================================
 configs/*/generated/
+
+# Benchmark run outputs
+md_grid*/
