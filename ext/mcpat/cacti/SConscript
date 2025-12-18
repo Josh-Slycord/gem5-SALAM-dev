@@ -1,0 +1,50 @@
+# -*- mode:python -*-
+
+# Copyright (c) 2024 gem5-SALAM Contributors
+# All rights reserved.
+#
+# CACTI integration for gem5-SALAM
+
+Import('main')
+
+env = main.Clone()
+
+# Suppress warnings from CACTI code (it's third-party)
+if env['GCC']:
+    env.Append(CCFLAGS=['-w'])  # Disable all warnings
+elif env['CLANG']:
+    env.Append(CCFLAGS=['-w'])
+
+# CACTI source files (excluding main.cc as it's standalone)
+cacti_files = []
+
+def CactiFile(filename):
+    cacti_files.append(File('./' + filename))
+
+CactiFile('Ucache.cc')
+CactiFile('arbiter.cc')
+CactiFile('area.cc')
+CactiFile('bank.cc')
+CactiFile('basic_circuit.cc')
+CactiFile('cacti_interface.cc')
+CactiFile('component.cc')
+CactiFile('crossbar.cc')
+CactiFile('decoder.cc')
+CactiFile('htree2.cc')
+CactiFile('io.cc')
+CactiFile('mat.cc')
+CactiFile('nuca.cc')
+CactiFile('parameter.cc')
+CactiFile('router.cc')
+CactiFile('subarray.cc')
+CactiFile('technology.cc')
+CactiFile('uca.cc')
+CactiFile('wire.cc')
+
+# Build as static library
+env.Library('cacti', [env.SharedObject(f) for f in cacti_files])
+
+# Add include path and link library
+main.Prepend(CPPPATH=Dir('./'))
+main.Append(LIBS=['cacti'])
+main.Prepend(LIBPATH=[Dir('.')])

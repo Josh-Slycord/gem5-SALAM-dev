@@ -10,7 +10,7 @@
 #include "functional_units.hh"
 #include "instruction_config.hh"
 #include "salam_power_model.hh"
-//#include "cacti_wrapper.hh"
+#include "cacti_wrapper.hh"
 #include "hw_statistics.hh"
 #include "simulator_config.hh"
 #include "opcodes.hh"
