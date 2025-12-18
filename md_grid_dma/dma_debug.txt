@@ -1,8 +1,0 @@
-504706000: system.md_grid_clstr.dma: SRC:0x0000000080c00000, DST:0x00000000100200c0, LEN:256
-505046000: system.md_grid_clstr.dma: Transfer completed in 0.34 us
-505566000: system.md_grid_clstr.dma: SRC:0x0000000080c03d00, DST:0x0000000010023e40, LEN:15360
-520826000: system.md_grid_clstr.dma: Transfer completed in 15.26 us
-521406000: system.md_grid_clstr.dma: SRC:0x0000000080c00100, DST:0x0000000010020200, LEN:15360
-537816000: system.md_grid_clstr.dma: Transfer completed in 16.41 us
-5272016000: system.md_grid_clstr.dma: SRC:0x0000000010020200, DST:0x0000000080c00100, LEN:15360
-5285246000: system.md_grid_clstr.dma: Transfer completed in 13.23 us
