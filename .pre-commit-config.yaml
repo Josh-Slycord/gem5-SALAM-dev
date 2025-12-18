@@ -1,0 +1,59 @@
+# gem5-SALAM Pre-commit Configuration
+# Based on gem5 standard hooks
+# See: https://www.gem5.org/contributing
+
+minimum_pre_commit_version: "2.18"
+
+default_language_version:
+  python: python3
+
+exclude: |
+  (?x)^(
+    ext/.*|
+    build/.*|
+    src/systemc/ext/.*|
+    src/systemc/tests/.*/.*|
+    src/python/m5/ext/pyfdt/.*|
+    tests/.*/ref/.*
+  )$
+
+default_stages: [commit]
+
+repos:
+  # Standard pre-commit hooks (gem5 standard)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-json
+      - id: check-yaml
+        exclude: ^benchmarks/.*\.yml$
+      - id: check-added-large-files
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-case-conflict
+
+  # Black formatter (gem5 standard)
+  - repo: https://github.com/psf/black
+    rev: 22.6.0
+    hooks:
+      - id: black
+
+  # gem5 style checkers (uses existing scripts in util/)
+  - repo: local
+    hooks:
+      - id: gem5-style-checker
+        name: gem5 style checker
+        entry: util/git-pre-commit.py
+        always_run: true
+        exclude: ".*"
+        language: system
+        description: 'The gem5 style checker hook.'
+
+      - id: gem5-commit-msg-checker
+        name: gem5 commit msg checker
+        entry: ext/git-commit-msg
+        language: system
+        stages: [commit-msg]
+        description: 'The gem5 commit message checker hook.'

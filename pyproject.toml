@@ -1,0 +1,31 @@
+[project]
+name = "gem5-salam"
+version = "1.0.0"
+description = "gem5-SALAM Hardware Accelerator Simulator"
+requires-python = ">=3.8"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+exclude = '''
+/(
+    ext
+    | build
+    | docs/_build
+    | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+skip = ["ext", "build"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/pyunit"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true
+exclude = ["ext/", "build/"]
