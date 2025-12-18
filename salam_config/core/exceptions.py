@@ -5,6 +5,9 @@ Provides structured exception handling with context information
 for better debugging and error reporting.
 """
 
+
+__version__ = "3.0.0.pre[1.0.0]"
+
 from typing import Optional, List, Dict, Any
 
 
@@ -31,7 +34,7 @@ class ValidationError(SALAMConfigError):
         message: str,
         file_path: Optional[str] = None,
         line_number: Optional[int] = None,
-        errors: Optional[List[str]] = None
+        errors: Optional[List[str]] = None,
     ):
         context = {}
         if file_path:
@@ -65,7 +68,7 @@ class GenerationError(SALAMConfigError):
         self,
         message: str,
         generator: Optional[str] = None,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
     ):
         context = {}
         if generator:
@@ -85,7 +88,7 @@ class PowerModelError(SALAMConfigError):
         self,
         message: str,
         functional_unit: Optional[str] = None,
-        cycle_time: Optional[str] = None
+        cycle_time: Optional[str] = None,
     ):
         context = {}
         if functional_unit:
@@ -104,7 +107,7 @@ class ConfigFileNotFoundError(SALAMConfigError):
     def __init__(self, file_path: str, expected_type: str = "configuration"):
         super().__init__(
             f"{expected_type.capitalize()} file not found: {file_path}",
-            {"path": file_path, "type": expected_type}
+            {"path": file_path, "type": expected_type},
         )
         self.file_path = file_path
         self.expected_type = expected_type
@@ -119,7 +122,7 @@ class InvalidCycleTimeError(SALAMConfigError):
         super().__init__(
             f"Unsupported cycle time: {cycle_time}. "
             f"Supported values: {', '.join(self.SUPPORTED_CYCLE_TIMES)}",
-            {"cycle_time": cycle_time}
+            {"cycle_time": cycle_time},
         )
         self.cycle_time = cycle_time
 
@@ -131,7 +134,7 @@ class AcceleratorConfigError(SALAMConfigError):
         self,
         message: str,
         accelerator_name: Optional[str] = None,
-        field: Optional[str] = None
+        field: Optional[str] = None,
     ):
         context = {}
         if accelerator_name:
@@ -151,7 +154,7 @@ class DMAConfigError(SALAMConfigError):
         self,
         message: str,
         dma_name: Optional[str] = None,
-        dma_type: Optional[str] = None
+        dma_type: Optional[str] = None,
     ):
         context = {}
         if dma_name:
@@ -172,7 +175,7 @@ class AddressAllocationError(SALAMConfigError):
         message: str,
         requested_size: Optional[int] = None,
         current_address: Optional[int] = None,
-        max_address: Optional[int] = None
+        max_address: Optional[int] = None,
     ):
         context = {}
         if requested_size:

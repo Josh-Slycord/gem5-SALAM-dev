@@ -20,7 +20,7 @@ from salam_config.core.logging_config import SALAMLogger, get_logger
 from salam_config.core.exceptions import (
     SALAMConfigError,
     ValidationError,
-    InvalidCycleTimeError
+    InvalidCycleTimeError,
 )
 
 logger = get_logger("cli")
@@ -40,8 +40,10 @@ def cmd_generate(args):
             benchmark=args.benchmark,
             bench_dir=args.bench_dir,
             cycle_time=args.cycle_time,
-            base_address=int(args.base_address, 16) if args.base_address.startswith("0x") else int(args.base_address),
-            dry_run=args.dry_run
+            base_address=int(args.base_address, 16)
+            if args.base_address.startswith("0x")
+            else int(args.base_address),
+            dry_run=args.dry_run,
         )
 
         if result.success:
@@ -60,6 +62,7 @@ def cmd_generate(args):
         logger.error(f"Unexpected error: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 
@@ -67,7 +70,9 @@ def cmd_generate(args):
 def cmd_generate_hw(args):
     """Generate hardware profile C++ classes."""
     logger.info(f"Generating HW profile for benchmark: {args.benchmark}")
-    logger.info(f"  Model: {args.model}, Latency: {args.latency}, Profile: {args.profile}")
+    logger.info(
+        f"  Model: {args.model}, Latency: {args.latency}, Profile: {args.profile}"
+    )
 
     try:
         from salam_config.generators.hw_profile_generator import HWProfileGenerator
@@ -77,7 +82,7 @@ def cmd_generate_hw(args):
             bench_dir=args.bench_dir,
             model=args.model,
             latency=args.latency,
-            profile=args.profile
+            profile=args.profile,
         )
 
         result = generator.generate()
@@ -109,7 +114,9 @@ def cmd_generate_hw(args):
         for fu_name in pm.list_functional_units():
             try:
                 timing = pm.get_timing(fu_name, args.latency)
-                print(f"  {fu_name}: area={timing.area:.2f} um^2, power={timing.dyn_power:.4f} mW")
+                print(
+                    f"  {fu_name}: area={timing.area:.2f} um^2, power={timing.dyn_power:.4f} mW"
+                )
             except Exception:
                 pass
 
@@ -155,11 +162,12 @@ def cmd_validate(args):
 
         # Basic YAML validation
         import yaml
+
         try:
-            with open(args.config, 'r') as f:
+            with open(args.config, "r") as f:
                 config = yaml.safe_load(f)
 
-            if 'acc_cluster' in config:
+            if "acc_cluster" in config:
                 print(f"Configuration appears valid (basic check): {args.config}")
                 print(f"  Found acc_cluster section")
                 return 0
@@ -184,16 +192,22 @@ def cmd_list_fus(args):
 
         print(f"\nFunctional Units ({pm.technology_node}, {cycle_time}):")
         print("=" * 80)
-        print(f"{'Name':<25} {'Enum':<6} {'Cycles':<8} {'Area (um^2)':<12} {'Power (mW)':<12}")
+        print(
+            f"{'Name':<25} {'Enum':<6} {'Cycles':<8} {'Area (um^2)':<12} {'Power (mW)':<12}"
+        )
         print("-" * 80)
 
         for fu_name in pm.list_functional_units():
             fu = pm.get_functional_unit(fu_name)
             try:
                 timing = fu.get_timing(cycle_time)
-                print(f"{fu_name:<25} {fu.enum_value:<6} {fu.default_cycles:<8} {timing.area:<12.2f} {timing.dyn_power:<12.4f}")
+                print(
+                    f"{fu_name:<25} {fu.enum_value:<6} {fu.default_cycles:<8} {timing.area:<12.2f} {timing.dyn_power:<12.4f}"
+                )
             except Exception:
-                print(f"{fu_name:<25} {fu.enum_value:<6} {fu.default_cycles:<8} {'N/A':<12} {'N/A':<12}")
+                print(
+                    f"{fu_name:<25} {fu.enum_value:<6} {fu.default_cycles:<8} {'N/A':<12} {'N/A':<12}"
+                )
 
         print("")
         return 0
@@ -244,7 +258,7 @@ def cmd_info(args):
         print(f"Version: {__version__}")
 
         # Check M5_PATH
-        m5_path = os.environ.get('M5_PATH', 'Not set')
+        m5_path = os.environ.get("M5_PATH", "Not set")
         print(f"M5_PATH: {m5_path}")
 
         # Power model info
@@ -286,135 +300,107 @@ Examples:
 
   # Show system info
   python -m salam_config.cli info
-"""
+""",
     )
 
     parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose output"
+        "-v", "--verbose", action="store_true", help="Enable verbose output"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # generate command
     gen_parser = subparsers.add_parser(
-        "generate",
-        help="Generate all configurations for a benchmark"
+        "generate", help="Generate all configurations for a benchmark"
     )
+    gen_parser.add_argument("-b", "--benchmark", required=True, help="Benchmark name")
     gen_parser.add_argument(
-        "-b", "--benchmark",
-        required=True,
-        help="Benchmark name"
-    )
-    gen_parser.add_argument(
-        "-d", "--bench-dir",
+        "-d",
+        "--bench-dir",
         default="benchmarks/sys_validation",
-        help="Benchmark directory (default: benchmarks/sys_validation)"
+        help="Benchmark directory (default: benchmarks/sys_validation)",
     )
     gen_parser.add_argument(
         "--cycle-time",
         default="5ns",
         choices=SUPPORTED_CYCLE_TIMES,
-        help="Cycle time (default: 5ns)"
+        help="Cycle time (default: 5ns)",
     )
     gen_parser.add_argument(
         "--base-address",
         default="0x10020000",
-        help="Base memory address (default: 0x10020000)"
+        help="Base memory address (default: 0x10020000)",
     )
     gen_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be generated without creating files"
+        help="Show what would be generated without creating files",
     )
     gen_parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose output"
+        "-v", "--verbose", action="store_true", help="Enable verbose output"
     )
     gen_parser.set_defaults(func=cmd_generate)
 
     # generate-hw command
     hw_parser = subparsers.add_parser(
-        "generate-hw",
-        help="Generate HW profile C++ classes"
+        "generate-hw", help="Generate HW profile C++ classes"
+    )
+    hw_parser.add_argument("-b", "--benchmark", required=True, help="Benchmark name")
+    hw_parser.add_argument(
+        "--model", default="40nm_model", help="Technology model (default: 40nm_model)"
     )
     hw_parser.add_argument(
-        "-b", "--benchmark",
-        required=True,
-        help="Benchmark name"
-    )
-    hw_parser.add_argument(
-        "--model",
-        default="40nm_model",
-        help="Technology model (default: 40nm_model)"
-    )
-    hw_parser.add_argument(
-        "-l", "--latency",
+        "-l",
+        "--latency",
         default="5ns",
         choices=SUPPORTED_CYCLE_TIMES,
-        help="Cycle time (default: 5ns)"
+        help="Cycle time (default: 5ns)",
     )
     hw_parser.add_argument(
         "--profile",
         default="default_profile",
-        help="Profile name (default: default_profile)"
+        help="Profile name (default: default_profile)",
     )
     hw_parser.add_argument(
-        "--bench-dir",
-        default="benchmarks/sys_validation",
-        help="Benchmark directory"
+        "--bench-dir", default="benchmarks/sys_validation", help="Benchmark directory"
     )
     hw_parser.set_defaults(func=cmd_generate_hw)
 
     # validate command
-    val_parser = subparsers.add_parser(
-        "validate",
-        help="Validate configuration YAML"
-    )
+    val_parser = subparsers.add_parser("validate", help="Validate configuration YAML")
     val_parser.add_argument(
-        "-c", "--config",
-        required=True,
-        help="Path to configuration YAML file"
+        "-c", "--config", required=True, help="Path to configuration YAML file"
     )
     val_parser.set_defaults(func=cmd_validate)
 
     # list-fus command
-    list_fus_parser = subparsers.add_parser(
-        "list-fus",
-        help="List functional units"
-    )
+    list_fus_parser = subparsers.add_parser("list-fus", help="List functional units")
     list_fus_parser.add_argument(
         "--cycle-time",
         default="5ns",
         choices=SUPPORTED_CYCLE_TIMES,
-        help="Cycle time for power data (default: 5ns)"
+        help="Cycle time for power data (default: 5ns)",
     )
     list_fus_parser.set_defaults(func=cmd_list_fus)
 
     # list-instructions command
     list_inst_parser = subparsers.add_parser(
-        "list-instructions",
-        help="List instruction mappings"
+        "list-instructions", help="List instruction mappings"
     )
     list_inst_parser.set_defaults(func=cmd_list_instructions)
 
     # info command
-    info_parser = subparsers.add_parser(
-        "info",
-        help="Show system information"
-    )
+    info_parser = subparsers.add_parser("info", help="Show system information")
     info_parser.set_defaults(func=cmd_info)
 
     args = parser.parse_args()
 
     # Set up logging level
     if args.verbose:
-        SALAMLogger().set_console_level('DEBUG')
+        SALAMLogger().set_console_level("DEBUG")
 
     # Run command
-    if hasattr(args, 'func'):
+    if hasattr(args, "func"):
         sys.exit(args.func(args))
     else:
         parser.print_help()

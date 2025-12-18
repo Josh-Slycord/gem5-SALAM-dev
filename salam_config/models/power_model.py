@@ -4,6 +4,9 @@ Power Model Database Loader
 Loads and provides access to the centralized power model data for all functional units.
 """
 
+
+__version__ = "3.0.0.pre[1.0.0]"
+
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -18,31 +21,33 @@ logger = get_logger("power_model")
 @dataclass
 class TimingData:
     """Power and timing data for a specific cycle time."""
-    int_power: float      # Internal power (mW)
-    switch_power: float   # Switching power (mW)
-    dyn_power: float      # Dynamic power (mW)
-    dyn_energy: float     # Dynamic energy (pJ)
-    leak_power: float     # Leakage power (mW)
-    area: float           # Area (um^2)
+
+    int_power: float  # Internal power (mW)
+    switch_power: float  # Switching power (mW)
+    dyn_power: float  # Dynamic power (mW)
+    dyn_energy: float  # Dynamic energy (pJ)
+    leak_power: float  # Leakage power (mW)
+    area: float  # Area (um^2)
     critical_path: Optional[float] = None  # Critical path delay (ns)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, float]) -> 'TimingData':
+    def from_dict(cls, data: Dict[str, float]) -> "TimingData":
         """Create TimingData from dictionary."""
         return cls(
-            int_power=data.get('int_power', 0.0),
-            switch_power=data.get('switch_power', 0.0),
-            dyn_power=data.get('dyn_power', 0.0),
-            dyn_energy=data.get('dyn_energy', 0.0),
-            leak_power=data.get('leak_power', 0.0),
-            area=data.get('area', 0.0),
-            critical_path=data.get('critical_path')
+            int_power=data.get("int_power", 0.0),
+            switch_power=data.get("switch_power", 0.0),
+            dyn_power=data.get("dyn_power", 0.0),
+            dyn_energy=data.get("dyn_energy", 0.0),
+            leak_power=data.get("leak_power", 0.0),
+            area=data.get("area", 0.0),
+            critical_path=data.get("critical_path"),
         )
 
 
 @dataclass
 class FunctionalUnitModel:
     """Model for a functional unit with all timing data."""
+
     name: str
     enum_value: int
     description: str
@@ -55,16 +60,16 @@ class FunctionalUnitModel:
         """Get timing data for a specific cycle time."""
         if cycle_time not in self.timing:
             # Fall back to 5ns if available
-            if '5ns' in self.timing:
+            if "5ns" in self.timing:
                 logger.warning(
                     f"Cycle time {cycle_time} not available for {self.name}, "
                     f"using 5ns fallback"
                 )
-                return self.timing['5ns']
+                return self.timing["5ns"]
             raise PowerModelError(
                 f"No timing data available for cycle time {cycle_time}",
                 functional_unit=self.name,
-                cycle_time=cycle_time
+                cycle_time=cycle_time,
             )
         return self.timing[cycle_time]
 
@@ -77,7 +82,7 @@ class PowerModelDatabase:
     for functional unit power/area/timing characteristics.
     """
 
-    SUPPORTED_CYCLE_TIMES = ['1ns', '2ns', '3ns', '4ns', '5ns', '6ns', '10ns']
+    SUPPORTED_CYCLE_TIMES = ["1ns", "2ns", "3ns", "4ns", "5ns", "6ns", "10ns"]
 
     def __init__(self, data_path: Optional[Path] = None):
         """
@@ -89,7 +94,7 @@ class PowerModelDatabase:
         """
         if data_path is None:
             # Default to package data directory
-            data_path = Path(__file__).parent.parent / 'data' / 'power_model_40nm.yaml'
+            data_path = Path(__file__).parent.parent / "data" / "power_model_40nm.yaml"
 
         self.data_path = data_path
         self._data: Dict[str, Any] = {}
@@ -102,36 +107,34 @@ class PowerModelDatabase:
     def _load(self):
         """Load power model data from YAML file."""
         if not self.data_path.exists():
-            raise PowerModelError(
-                f"Power model file not found: {self.data_path}"
-            )
+            raise PowerModelError(f"Power model file not found: {self.data_path}")
 
         logger.info(f"Loading power model from {self.data_path}")
 
         try:
-            with open(self.data_path, 'r') as f:
+            with open(self.data_path, "r") as f:
                 self._data = yaml.safe_load(f)
         except yaml.YAMLError as e:
             raise PowerModelError(f"Failed to parse power model YAML: {e}")
 
         # Parse functional units
-        for name, fu_data in self._data.get('functional_units', {}).items():
+        for name, fu_data in self._data.get("functional_units", {}).items():
             timing = {}
-            for cycle_time, timing_data in fu_data.get('timing', {}).items():
+            for cycle_time, timing_data in fu_data.get("timing", {}).items():
                 timing[cycle_time] = TimingData.from_dict(timing_data)
 
             self._functional_units[name] = FunctionalUnitModel(
                 name=name,
-                enum_value=fu_data.get('enum_value', 0),
-                description=fu_data.get('description', ''),
-                default_cycles=fu_data.get('default_cycles', 1),
-                instructions=fu_data.get('instructions', []),
+                enum_value=fu_data.get("enum_value", 0),
+                description=fu_data.get("description", ""),
+                default_cycles=fu_data.get("default_cycles", 1),
+                instructions=fu_data.get("instructions", []),
                 timing=timing,
-                per_bit=fu_data.get('per_bit', False)
+                per_bit=fu_data.get("per_bit", False),
             )
 
         # Parse instruction mapping
-        self._instruction_mapping = self._data.get('instruction_mapping', {})
+        self._instruction_mapping = self._data.get("instruction_mapping", {})
 
         self._loaded = True
         logger.info(
@@ -142,17 +145,17 @@ class PowerModelDatabase:
     @property
     def metadata(self) -> Dict[str, Any]:
         """Get power model metadata."""
-        return self._data.get('metadata', {})
+        return self._data.get("metadata", {})
 
     @property
     def technology_node(self) -> str:
         """Get technology node."""
-        return self.metadata.get('technology_node', '40nm')
+        return self.metadata.get("technology_node", "40nm")
 
     @property
     def default_latencies(self) -> Dict[str, int]:
         """Get default latencies for operation types."""
-        return self._data.get('default_latencies', {})
+        return self._data.get("default_latencies", {})
 
     def get_functional_unit(self, name: str) -> FunctionalUnitModel:
         """
@@ -169,8 +172,7 @@ class PowerModelDatabase:
         """
         if name not in self._functional_units:
             raise PowerModelError(
-                f"Unknown functional unit: {name}",
-                functional_unit=name
+                f"Unknown functional unit: {name}", functional_unit=name
             )
         return self._functional_units[name]
 
@@ -189,14 +191,10 @@ class PowerModelDatabase:
         """
         if instruction not in self._instruction_mapping:
             logger.warning(f"No mapping for instruction: {instruction}")
-            return 'bit_register'  # Default to register
+            return "bit_register"  # Default to register
         return self._instruction_mapping[instruction]
 
-    def get_timing(
-        self,
-        functional_unit: str,
-        cycle_time: str
-    ) -> TimingData:
+    def get_timing(self, functional_unit: str, cycle_time: str) -> TimingData:
         """
         Get timing data for a functional unit at a specific cycle time.
 
@@ -211,11 +209,7 @@ class PowerModelDatabase:
         fu = self.get_functional_unit(functional_unit)
         return fu.get_timing(cycle_time)
 
-    def get_power(
-        self,
-        functional_unit: str,
-        cycle_time: str
-    ) -> Dict[str, float]:
+    def get_power(self, functional_unit: str, cycle_time: str) -> Dict[str, float]:
         """
         Get power data for a functional unit.
 
@@ -228,10 +222,10 @@ class PowerModelDatabase:
         """
         timing = self.get_timing(functional_unit, cycle_time)
         return {
-            'internal_power': timing.int_power,
-            'switch_power': timing.switch_power,
-            'dynamic_power': timing.dyn_power,
-            'leakage_power': timing.leak_power
+            "internal_power": timing.int_power,
+            "switch_power": timing.switch_power,
+            "dynamic_power": timing.dyn_power,
+            "leakage_power": timing.leak_power,
         }
 
     def get_area(self, functional_unit: str, cycle_time: str) -> float:
@@ -257,11 +251,7 @@ class PowerModelDatabase:
         if cycle_time not in self.SUPPORTED_CYCLE_TIMES:
             raise InvalidCycleTimeError(cycle_time)
 
-    def to_yaml_config(
-        self,
-        functional_unit: str,
-        cycle_time: str
-    ) -> Dict[str, Any]:
+    def to_yaml_config(self, functional_unit: str, cycle_time: str) -> Dict[str, Any]:
         """
         Generate YAML-compatible configuration for a functional unit.
 
@@ -278,30 +268,30 @@ class PowerModelDatabase:
         timing = fu.get_timing(cycle_time)
 
         return {
-            'functional_unit': {
-                'parameters': {
-                    'alias': fu.name,
-                    'stages': 3 if 'float' in fu.name or 'double' in fu.name else 1,
-                    'cycles': fu.default_cycles,
-                    'enum_value': fu.enum_value,
-                    'limit': 0
+            "functional_unit": {
+                "parameters": {
+                    "alias": fu.name,
+                    "stages": 3 if "float" in fu.name or "double" in fu.name else 1,
+                    "cycles": fu.default_cycles,
+                    "enum_value": fu.enum_value,
+                    "limit": 0,
                 },
-                'power_model': {
-                    'units': {
-                        'power': 'mW',
-                        'energy': 'pJ',
-                        'time': 'ns',
-                        'area': 'um^2'
+                "power_model": {
+                    "units": {
+                        "power": "mW",
+                        "energy": "pJ",
+                        "time": "ns",
+                        "area": "um^2",
                     },
-                    'latency': int(cycle_time.replace('ns', '')),
-                    'internal_power': timing.int_power,
-                    'switch_power': timing.switch_power,
-                    'dynamic_power': timing.dyn_power,
-                    'dynamic_energy': timing.dyn_energy,
-                    'leakage_power': timing.leak_power,
-                    'area': timing.area,
-                    'path_delay': timing.critical_path or 0.0
-                }
+                    "latency": int(cycle_time.replace("ns", "")),
+                    "internal_power": timing.int_power,
+                    "switch_power": timing.switch_power,
+                    "dynamic_power": timing.dyn_power,
+                    "dynamic_energy": timing.dyn_energy,
+                    "leakage_power": timing.leak_power,
+                    "area": timing.area,
+                    "path_delay": timing.critical_path or 0.0,
+                },
             }
         }
 

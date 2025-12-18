@@ -7,6 +7,9 @@ Core configuration management modules.
 - exceptions: Custom exception classes
 """
 
+
+__version__ = "3.0.0.pre[1.0.0]"
+
 from .logging_config import SALAMLogger, get_logger
 from .exceptions import (
     SALAMConfigError,
@@ -17,37 +20,37 @@ from .exceptions import (
     InvalidCycleTimeError,
     AcceleratorConfigError,
     DMAConfigError,
-    AddressAllocationError
+    AddressAllocationError,
 )
 from .config_manager import ConfigManager, GenerationResult, create_manager
 from .schema_validator import (
     SchemaValidator,
     ValidationResult,
     validate_config,
-    validate_config_file
+    validate_config_file,
 )
 
 __all__ = [
     # Logging
-    'SALAMLogger',
-    'get_logger',
+    "SALAMLogger",
+    "get_logger",
     # Config Manager
-    'ConfigManager',
-    'GenerationResult',
-    'create_manager',
+    "ConfigManager",
+    "GenerationResult",
+    "create_manager",
     # Schema Validator
-    'SchemaValidator',
-    'ValidationResult',
-    'validate_config',
-    'validate_config_file',
+    "SchemaValidator",
+    "ValidationResult",
+    "validate_config",
+    "validate_config_file",
     # Exceptions
-    'SALAMConfigError',
-    'ValidationError',
-    'GenerationError',
-    'PowerModelError',
-    'ConfigFileNotFoundError',
-    'InvalidCycleTimeError',
-    'AcceleratorConfigError',
-    'DMAConfigError',
-    'AddressAllocationError',
+    "SALAMConfigError",
+    "ValidationError",
+    "GenerationError",
+    "PowerModelError",
+    "ConfigFileNotFoundError",
+    "InvalidCycleTimeError",
+    "AcceleratorConfigError",
+    "DMAConfigError",
+    "AddressAllocationError",
 ]

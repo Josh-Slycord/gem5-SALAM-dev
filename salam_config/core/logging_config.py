@@ -8,6 +8,9 @@ Provides:
 - Context-aware log formatting
 """
 
+
+__version__ = "3.0.0.pre[1.0.0]"
+
 import logging
 import logging.handlers
 import sys
@@ -21,12 +24,12 @@ class ColorFormatter(logging.Formatter):
 
     # ANSI color codes
     COLORS = {
-        'DEBUG': '\033[36m',     # Cyan
-        'INFO': '\033[32m',      # Green
-        'WARNING': '\033[33m',   # Yellow
-        'ERROR': '\033[31m',     # Red
-        'CRITICAL': '\033[35m',  # Magenta
-        'RESET': '\033[0m'       # Reset
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
+        "CRITICAL": "\033[35m",  # Magenta
+        "RESET": "\033[0m",  # Reset
     }
 
     def __init__(self, fmt: str, use_colors: bool = True):
@@ -51,7 +54,7 @@ class SALAMLogger:
     Supports both file and console output with configurable levels.
     """
 
-    _instance: Optional['SALAMLogger'] = None
+    _instance: Optional["SALAMLogger"] = None
     _initialized: bool = False
 
     def __new__(cls):
@@ -80,24 +83,19 @@ class SALAMLogger:
         # File handler with rotation
         log_file = self.log_dir / f"salam_{datetime.now().strftime('%Y%m%d')}.log"
         file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
-            maxBytes=10 * 1024 * 1024,  # 10MB
-            backupCount=5,
-            encoding='utf-8'
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 10MB
         )
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         file_handler.setFormatter(file_formatter)
 
         # Console handler with colors
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
-        console_formatter = ColorFormatter(
-            '[%(levelname)s] %(name)s: %(message)s'
-        )
+        console_formatter = ColorFormatter("[%(levelname)s] %(name)s: %(message)s")
         console_handler.setFormatter(console_formatter)
 
         self.root.addHandler(file_handler)
@@ -126,11 +124,11 @@ class SALAMLogger:
             level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         """
         level_map = {
-            'DEBUG': logging.DEBUG,
-            'INFO': logging.INFO,
-            'WARNING': logging.WARNING,
-            'ERROR': logging.ERROR,
-            'CRITICAL': logging.CRITICAL
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
         }
         if level.upper() in level_map:
             self.root.setLevel(level_map[level.upper()])
@@ -143,16 +141,17 @@ class SALAMLogger:
             level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         """
         level_map = {
-            'DEBUG': logging.DEBUG,
-            'INFO': logging.INFO,
-            'WARNING': logging.WARNING,
-            'ERROR': logging.ERROR,
-            'CRITICAL': logging.CRITICAL
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
         }
         if level.upper() in level_map:
             for handler in self.root.handlers:
-                if isinstance(handler, logging.StreamHandler) and \
-                   not isinstance(handler, logging.FileHandler):
+                if isinstance(handler, logging.StreamHandler) and not isinstance(
+                    handler, logging.FileHandler
+                ):
                     handler.setLevel(level_map[level.upper()])
 
     def get_log_file(self) -> Path:

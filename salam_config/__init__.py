@@ -12,13 +12,14 @@ Main components:
 - data: Power model database and schemas
 """
 
-__version__ = "2.0.0"
+__version__ = "3.0.0.pre[1.0.0]"
 __author__ = "gem5-SALAM Team"
 
 from .core.logging_config import SALAMLogger
 
 # Initialize logging on import
 _logger = SALAMLogger()
+
 
 def get_logger(name: str):
     """Get a logger for the specified module."""

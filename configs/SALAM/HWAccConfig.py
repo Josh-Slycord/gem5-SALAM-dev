@@ -5,6 +5,9 @@ Configures accelerator functional units and instructions with dynamic loading.
 Replaces hardcoded instantiations with registry-based dynamic instantiation.
 """
 
+
+__version__ = "3.0.0.pre[1.0.0]"
+
 import m5
 from m5.objects import *
 from m5.util import *
@@ -15,29 +18,32 @@ import os
 import logging
 
 # Set up logging
+# Log level can be controlled via SALAM_LOG_LEVEL environment variable
+# or --salam-log-level command line option (which sets the env var)
 logger = logging.getLogger("salam.HWAccConfig")
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('[%(levelname)s] %(name)s: %(message)s'))
+    handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s: %(message)s"))
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    log_level = os.getenv("SALAM_LOG_LEVEL", "INFO").upper()
+    logger.setLevel(getattr(logging, log_level, logging.INFO))
 
 # =============================================================================
 # Functional Unit Registry
 # Maps configuration names to gem5 SimObject classes
 # =============================================================================
 _FU_REGISTRY = {
-    'bit_register': BitRegister,
-    'bit_shifter': BitShifter,
-    'bitwise_operations': BitwiseOperations,
-    'integer_adder': IntegerAdder,
-    'integer_multiplier': IntegerMultiplier,
-    'float_adder': FloatAdder,
-    'float_multiplier': FloatMultiplier,
-    'float_divider': FloatDivider,
-    'double_adder': DoubleAdder,
-    'double_multiplier': DoubleMultiplier,
-    'double_divider': DoubleDivider,
+    "bit_register": BitRegister,
+    "bit_shifter": BitShifter,
+    "bitwise_operations": BitwiseOperations,
+    "integer_adder": IntegerAdder,
+    "integer_multiplier": IntegerMultiplier,
+    "float_adder": FloatAdder,
+    "float_multiplier": FloatMultiplier,
+    "float_divider": FloatDivider,
+    "double_adder": DoubleAdder,
+    "double_multiplier": DoubleMultiplier,
+    "double_divider": DoubleDivider,
 }
 
 # =============================================================================
@@ -46,73 +52,65 @@ _FU_REGISTRY = {
 # =============================================================================
 _INST_REGISTRY = {
     # Arithmetic - Integer
-    'add': Add,
-    'sub': Sub,
-    'mul': Mul,
-    'sdiv': Sdiv,
-    'udiv': Udiv,
-    'srem': Srem,
-    'urem': Urem,
-
+    "add": Add,
+    "sub": Sub,
+    "mul": Mul,
+    "sdiv": Sdiv,
+    "udiv": Udiv,
+    "srem": Srem,
+    "urem": Urem,
     # Arithmetic - Floating Point
-    'fadd': Fadd,
-    'fsub': Fsub,
-    'fmul': Fmul,
-    'fdiv': Fdiv,
-    'frem': Frem,
-
+    "fadd": Fadd,
+    "fsub": Fsub,
+    "fmul": Fmul,
+    "fdiv": Fdiv,
+    "frem": Frem,
     # Bitwise Operations
-    'and_inst': AndInst,
-    'or_inst': OrInst,
-    'xor_inst': XorInst,
-
+    "and_inst": AndInst,
+    "or_inst": OrInst,
+    "xor_inst": XorInst,
     # Shift Operations
-    'shl': Shl,
-    'ashr': Ashr,
-    'lshr': Lshr,
-
+    "shl": Shl,
+    "ashr": Ashr,
+    "lshr": Lshr,
     # Comparison
-    'icmp': Icmp,
-    'fcmp': Fcmp,
-
+    "icmp": Icmp,
+    "fcmp": Fcmp,
     # Memory Operations
-    'load': Load,
-    'store': Store,
-    'gep': Gep,
-    'alloca': Alloca,
-    'fence': Fence,
-
+    "load": Load,
+    "store": Store,
+    "gep": Gep,
+    "alloca": Alloca,
+    "fence": Fence,
     # Type Conversions
-    'sext': Sext,
-    'zext': Zext,
-    'trunc': Trunc,
-    'fpext': Fpext,
-    'fptrunc': Fptrunc,
-    'fptosi': Fptosi,
-    'fptoui': Fptoui,
-    'uitofp': Uitofp,
+    "sext": Sext,
+    "zext": Zext,
+    "trunc": Trunc,
+    "fpext": Fpext,
+    "fptrunc": Fptrunc,
+    "fptosi": Fptosi,
+    "fptoui": Fptoui,
+    "uitofp": Uitofp,
     # Note: sitofp is implemented in C++ but has no separate SimObject class.
     # It uses cycle count from CycleCounts.py sitofp parameter (default: 1 cycle).
-    'inttoptr': Inttoptr,
-    'ptrtoint': Ptrtoint,
-    'bitcast': Bitcast,
-    'addrspacecast': Addrspacecast,
-
+    "inttoptr": Inttoptr,
+    "ptrtoint": Ptrtoint,
+    "bitcast": Bitcast,
+    "addrspacecast": Addrspacecast,
     # Control Flow
-    'br': Br,
-    'indirectbr': Indirectbr,
-    'switch_inst': SwitchInst,
-    'call': Call,
-    'invoke': Invoke,
-    'ret': Ret,
-    'resume': Resume,
-    'unreachable': Unreachable,
-
+    "br": Br,
+    "indirectbr": Indirectbr,
+    "switch_inst": SwitchInst,
+    "call": Call,
+    "invoke": Invoke,
+    "ret": Ret,
+    "resume": Resume,
+    "unreachable": Unreachable,
     # Other
-    'phi': Phi,
-    'select': Select,
-    'vaarg': Vaarg,
-    'landingpad': Landingpad,
+    "phi": Phi,
+    "select": Select,
+    "vaarg": Vaarg,
+    "landingpad": Landingpad,
 }
 
 
@@ -130,23 +128,27 @@ def _load_hw_config(config_file, benchname, bench_path=None, m5_path_len=0):
         Dictionary with instructions and their runtime_cycles, or None
     """
     try:
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             # Check for mobilenetv2 multi-document format
             if bench_path and len(bench_path) > m5_path_len + 1:
-                if bench_path[m5_path_len + 1] == 'mobilenetv2':
+                if bench_path[m5_path_len + 1] == "mobilenetv2":
                     for yaml_inst_list in yaml.safe_load_all(f):
-                        document = yaml_inst_list.get('acc_cluster', [{}])
+                        document = yaml_inst_list.get("acc_cluster", [{}])
                         if document:
-                            current_acc = document[0].get('Name', '') + '_' + benchname
-                            if len(bench_path) > 9 and bench_path[9] == document[0].get('Name'):
+                            current_acc = document[0].get("Name", "") + "_" + benchname
+                            if len(bench_path) > 9 and bench_path[9] == document[0].get(
+                                "Name"
+                            ):
                                 logger.info(f"{current_acc} Profile Loaded")
-                                return yaml_inst_list.get('hw_config', {}).get(current_acc)
+                                return yaml_inst_list.get("hw_config", {}).get(
+                                    current_acc
+                                )
                     return None
 
             # Standard single-document format
             yaml_data = yaml.safe_load(f)
-            if yaml_data and 'hw_config' in yaml_data:
-                hw_config = yaml_data['hw_config'].get(benchname)
+            if yaml_data and "hw_config" in yaml_data:
+                hw_config = yaml_data["hw_config"].get(benchname)
                 if hw_config:
                     logger.info(f"Loaded hw_config for benchmark: {benchname}")
                     return hw_config
@@ -176,8 +178,8 @@ def _instantiate_functional_units(acc, hw_config=None):
     acc.hw_interface.functional_units = FunctionalUnits()
 
     fu_config = {}
-    if hw_config and 'functional_units' in hw_config:
-        fu_config = hw_config['functional_units']
+    if hw_config and "functional_units" in hw_config:
+        fu_config = hw_config["functional_units"]
 
     instantiated = 0
     for fu_name, fu_class in _FU_REGISTRY.items():
@@ -187,11 +189,11 @@ def _instantiate_functional_units(acc, hw_config=None):
             # Apply any configuration overrides
             if fu_name in fu_config:
                 cfg = fu_config[fu_name]
-                if 'cycles' in cfg and hasattr(fu_instance, 'cycles'):
-                    fu_instance.cycles = cfg['cycles']
+                if "cycles" in cfg and hasattr(fu_instance, "cycles"):
+                    fu_instance.cycles = cfg["cycles"]
                     logger.debug(f"Set {fu_name}.cycles = {cfg['cycles']}")
-                if 'limit' in cfg and hasattr(fu_instance, 'limit'):
-                    fu_instance.limit = cfg['limit']
+                if "limit" in cfg and hasattr(fu_instance, "limit"):
+                    fu_instance.limit = cfg["limit"]
                     logger.debug(f"Set {fu_name}.limit = {cfg['limit']}")
 
             setattr(acc.hw_interface.functional_units, fu_name, fu_instance)
@@ -215,8 +217,8 @@ def _instantiate_instructions(acc, hw_config=None):
     acc.hw_interface.inst_config = InstConfig()
 
     inst_config = {}
-    if hw_config and 'instructions' in hw_config:
-        inst_config = hw_config['instructions']
+    if hw_config and "instructions" in hw_config:
+        inst_config = hw_config["instructions"]
 
     instantiated = 0
     configured = 0
@@ -228,13 +230,19 @@ def _instantiate_instructions(acc, hw_config=None):
             # config.yml uses same names as Python (and_inst, or_inst, xor_inst, switch_inst)
             if inst_name in inst_config:
                 cfg = inst_config[inst_name]
-                if 'functional_unit' in cfg and hasattr(inst_instance, 'functional_unit'):
-                    inst_instance.functional_unit = cfg['functional_unit']
-                    logger.debug(f"Set {inst_name}.functional_unit = {cfg['functional_unit']}")
-                if 'functional_unit_limit' in cfg and hasattr(inst_instance, 'functional_unit_limit'):
-                    inst_instance.functional_unit_limit = cfg['functional_unit_limit']
-                if 'opcode_num' in cfg and hasattr(inst_instance, 'opcode_num'):
-                    inst_instance.opcode_num = cfg['opcode_num']
+                if "functional_unit" in cfg and hasattr(
+                    inst_instance, "functional_unit"
+                ):
+                    inst_instance.functional_unit = cfg["functional_unit"]
+                    logger.debug(
+                        f"Set {inst_name}.functional_unit = {cfg['functional_unit']}"
+                    )
+                if "functional_unit_limit" in cfg and hasattr(
+                    inst_instance, "functional_unit_limit"
+                ):
+                    inst_instance.functional_unit_limit = cfg["functional_unit_limit"]
+                if "opcode_num" in cfg and hasattr(inst_instance, "opcode_num"):
+                    inst_instance.opcode_num = cfg["opcode_num"]
                 configured += 1
 
             setattr(acc.hw_interface.inst_config, inst_name, inst_instance)
@@ -244,16 +252,19 @@ def _instantiate_instructions(acc, hw_config=None):
         except Exception as e:
             logger.warning(f"Failed to instantiate instruction {inst_name}: {e}")
 
-    logger.info(f"Instantiated {instantiated}/{len(_INST_REGISTRY)} instructions ({configured} configured from hw_config)")
+    logger.info(
+        f"Instantiated {instantiated}/{len(_INST_REGISTRY)} instructions ({configured} configured from hw_config)"
+    )
 
 
 # Name mapping for config.yml -> CycleCounts.py parameters
 # Python keywords like 'and', 'or', 'xor' need _inst suffix in CycleCounts
 _CYCLE_COUNT_NAME_MAP = {
-    'and': 'and_inst',
-    'or': 'or_inst',
-    'xor': 'xor_inst',
+    "and": "and_inst",
+    "or": "or_inst",
+    "xor": "xor_inst",
 }
+
 
 def _apply_cycle_counts(acc, hw_config):
     """
@@ -263,19 +274,25 @@ def _apply_cycle_counts(acc, hw_config):
         acc: Accelerator SimObject
         hw_config: hw_config dict with instruction cycle counts
     """
-    if not hw_config or 'instructions' not in hw_config:
+    if not hw_config or "instructions" not in hw_config:
         logger.debug("No instruction cycle counts to apply")
         return
 
     applied = 0
-    for inst_name, inst_cfg in hw_config['instructions'].items():
-        if 'runtime_cycles' in inst_cfg:
+    for inst_name, inst_cfg in hw_config["instructions"].items():
+        if "runtime_cycles" in inst_cfg:
             try:
                 # Map config name to CycleCounts parameter name
                 param_name = _CYCLE_COUNT_NAME_MAP.get(inst_name, inst_name)
-                setattr(acc.hw_interface.cycle_counts, param_name, inst_cfg['runtime_cycles'])
+                setattr(
+                    acc.hw_interface.cycle_counts,
+                    param_name,
+                    inst_cfg["runtime_cycles"],
+                )
                 applied += 1
-                logger.debug(f"Set {param_name} runtime_cycles = {inst_cfg['runtime_cycles']}")
+                logger.debug(
+                    f"Set {param_name} runtime_cycles = {inst_cfg['runtime_cycles']}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to set cycle count for {inst_name}: {e}")
 
@@ -298,8 +315,13 @@ def AccConfig(acc, bench_file, config_file):
     acc.llvm_interface = LLVMInterface()
     acc.llvm_interface.in_file = bench_file
 
+    # Check for CDFG export (set via SALAM_EXPORT_CDFG environment variable)
+    if os.getenv("SALAM_EXPORT_CDFG", "").lower() in ("1", "true", "yes"):
+        acc.llvm_interface.export_cdfg = True
+        logger.info("CDFG export enabled - will generate cdfg.dot")
+
     # Extract benchmark information
-    M5_Path = os.getenv('M5_PATH')
+    M5_Path = os.getenv("M5_PATH")
     benchname = os.path.splitext(os.path.basename(bench_file))[0]
     benchPath = Path(bench_file).parts
     m5PathLen = len(Path(M5_Path).parts) if M5_Path else 0
@@ -331,30 +353,31 @@ def AccConfig(acc, bench_file, config_file):
 
     logger.info("AccConfig complete")
 
-#def AccSPMConfig(acc, spm, config_file):
-    # Setup config file parser
-    #Config = ConfigParser.ConfigParser()
-    #Config.read((config_file))
-    #Config.sections()
-    #def ConfigSectionMap(section):
-    #    dict1 = {}
-    #    options = Config.options(section)
-    #    for option in options:
-    #        try:
-    #            dict1[option] = Config.get(section, option)
-    #            if dict1[option] == -1:
-    #                DebugPrint("skip: %s" % option)
-    #        except:
-    #            print("exception on %s!" % option)
-    #            dict1[option] = None
-    #    return dict1
 
-    #spm.range = AddrRange(ConfigSectionMap("Memory")['addr_range'], \
-    #                      size=ConfigSectionMap("Memory")['size'])
-    #spm.latency = ConfigSectionMap("Memory")['latency']
-    #spm.conf_table_reported = False
-    #spm.ready_mode = Config.getboolean("Memory", 'ready_mode')
-    #spm.reset_on_scratchpad_read = Config.getboolean("Memory", 'reset_on_private_read')
-    #num_ports = ConfigSectionMap("Memory")['ports']
-    #for i in range(int(num_ports)):
-    #    acc.spm[i] = spm.spm_ports[i]
+# def AccSPMConfig(acc, spm, config_file):
+# Setup config file parser
+# Config = ConfigParser.ConfigParser()
+# Config.read((config_file))
+# Config.sections()
+# def ConfigSectionMap(section):
+#    dict1 = {}
+#    options = Config.options(section)
+#    for option in options:
+#        try:
+#            dict1[option] = Config.get(section, option)
+#            if dict1[option] == -1:
+#                DebugPrint("skip: %s" % option)
+#        except:
+#            print("exception on %s!" % option)
+#            dict1[option] = None
+#    return dict1
+
+# spm.range = AddrRange(ConfigSectionMap("Memory")['addr_range'], \
+#                      size=ConfigSectionMap("Memory")['size'])
+# spm.latency = ConfigSectionMap("Memory")['latency']
+# spm.conf_table_reported = False
+# spm.ready_mode = Config.getboolean("Memory", 'ready_mode')
+# spm.reset_on_scratchpad_read = Config.getboolean("Memory", 'reset_on_private_read')
+# num_ports = ConfigSectionMap("Memory")['ports']
+# for i in range(int(num_ports)):
+#    acc.spm[i] = spm.spm_ports[i]
