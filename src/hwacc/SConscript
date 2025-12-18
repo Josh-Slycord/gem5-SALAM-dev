@@ -69,6 +69,10 @@ if env['TARGET_ISA'] == 'arm':
     Source('HWModeling/src/salam_power_model.cc')
     Source('HWModeling/src/simulator_config.cc')
 
+    # GUI Publisher (optional ZeroMQ support)
+    # Compiles without ZeroMQ but functionality is disabled
+    Source('gui_publisher.cc')
+
     #
     DebugFlag('CommInterface')
     DebugFlag('CommInterfaceQueues')
