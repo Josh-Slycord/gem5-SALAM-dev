@@ -5,7 +5,7 @@ description = "gem5-SALAM Hardware Accelerator Simulator"
 requires-python = ">=3.8"
 
 [tool.black]
-line-length = 88
+line-length = 79
 target-version = ['py38']
 exclude = '''
 /(
