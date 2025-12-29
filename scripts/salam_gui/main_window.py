@@ -97,6 +97,7 @@ from .widgets.execution_timeline import (
 )
 from .widgets.comparison import ComparisonWidget
 from .widgets.simulation_panel import SimulationPanel
+from .widgets.live_stats_widget import LiveStatsWidget
 from .widgets.help_browser import HelpBrowser
 from .data.dot_parser import parse_cdfg_dot
 from .data.stats_parser import (
@@ -281,6 +282,18 @@ class MainWindow(QMainWindow):
         )
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, stats_dock)
 
+        # Live Stats Dashboard (right side, tabbed with stats)
+        self.live_stats_widget = LiveStatsWidget()
+        live_stats_dock = QDockWidget("Live Statistics", self)
+        live_stats_dock.setWidget(self.live_stats_widget)
+        live_stats_dock.setAllowedAreas(
+            Qt.DockWidgetArea.RightDockWidgetArea
+            | Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, live_stats_dock)
+        # Tab the live stats with the performance summary
+        self.tabifyDockWidget(stats_dock, live_stats_dock)
+
         # Queue Monitor (bottom)
         self.queue_monitor = QueueMonitor()
         queue_dock = QDockWidget("Queue Monitor", self)
@@ -441,6 +454,8 @@ class MainWindow(QMainWindow):
         # Connect signals for live updates
         self.connection.connected.connect(self._on_connected)
         self.connection.disconnected.connect(self._on_disconnected)
+        # Connect live stats widget
+        self.live_stats_widget.connect_to_simulation(self.connection)
         self.connection.connection_error.connect(self._on_connection_error)
         self.connection.cycle_updated.connect(self._on_cycle_updated)
         self.connection.queue_state_updated.connect(

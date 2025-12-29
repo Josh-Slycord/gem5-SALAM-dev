@@ -1,0 +1,90 @@
+{
+  "salam_stats": {
+    "version": "3.0",
+    "timestamp": "2025-12-29T01:45:06",
+    "accelerator_name": "test_accelerator",
+    "performance": {
+      "setup_time_ns": 903.8278382593069,
+      "sim_time_ns": 25041.572583405294,
+      "clock_period_ns": 1,
+      "sys_clock_ghz": 1.0,
+      "total_cycles": 38947,
+      "stall_cycles": 8863,
+      "executed_nodes": 39614
+    },
+    "memory_access": {
+      "cache_hits": 4521,
+      "cache_misses": 498,
+      "cache_read_hits": 1906,
+      "cache_read_misses": 199,
+      "cache_write_hits": 4993,
+      "cache_write_misses": 77,
+      "spm_reads": 4051,
+      "spm_writes": 1088,
+      "dma_reads": 84,
+      "dma_writes": 25,
+      "avg_read_latency": 16.948858506808197,
+      "avg_write_latency": 123.72386316040597,
+      "max_read_latency": 331,
+      "max_write_latency": 1108,
+      "read_port_contentions": 56,
+      "write_port_contentions": 52
+    },
+    "dataflow": {
+      "critical_path_length": 464,
+      "critical_path_instructions": 269,
+      "critical_path_loads": 52,
+      "critical_path_stores": 30,
+      "critical_path_computes": 138,
+      "avg_ready_instructions": 1.4900240745209934,
+      "avg_issued_per_cycle": 3.8307367692027587,
+      "max_parallel_ops": 7,
+      "total_instructions": 8378,
+      "true_dependencies": 7784,
+      "anti_dependencies": 486,
+      "output_dependencies": 362,
+      "control_dependencies": 44,
+      "memory_dependencies": 906,
+      "avg_dependency_depth": 2.822683478843964,
+      "max_dependency_depth": 17,
+      "total_dependency_edges": 15741
+    },
+    "stall_breakdown": {
+      "total_stalls": 1958,
+      "no_stall_cycles": 8948,
+      "memory_latency": 271,
+      "raw_hazard": 715,
+      "waw_hazard": 97,
+      "war_hazard": 165,
+      "fu_contention": 366,
+      "port_contention": 102,
+      "control_flow": 67,
+      "dma_pending": 6,
+      "resource_limit": 145
+    },
+    "power": {
+      "fu_leakage": 0.007932065295324486,
+      "fu_dynamic": 0.0735144441854869,
+      "fu_total": 0.09690689605082664,
+      "reg_leakage": 0.0026873609498316757,
+      "reg_dynamic": 0.013425953419364377,
+      "reg_total": 0.08355689888313207,
+      "spm_leakage": 0.009928888796628444,
+      "spm_total": 0.056662196390533014,
+      "cache_leakage": 0.004247834548197255,
+      "cache_total": 0.11786185459180437,
+      "total_leakage": 0.056289517479943506,
+      "total_dynamic": 0.8500806999070855,
+      "total_power": 0.6201155674133781,
+      "total_energy_nj": 4098.312837821053
+    },
+    "area": {
+      "fu_area_um2": 9419.932094716632,
+      "reg_area_um2": 2359.4211801430793,
+      "spm_area_um2": 3699.255592725418,
+      "cache_area_um2": 23539.164170667704,
+      "total_area_um2": 85473.40526516513,
+      "total_area_mm2": 0.0986759566569567
+    }
+  }
+}
