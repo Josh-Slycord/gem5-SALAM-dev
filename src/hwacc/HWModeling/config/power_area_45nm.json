@@ -1,0 +1,103 @@
+{
+  "technology_node": "45nm",
+  "voltage": 1.0,
+  "temperature_c": 25.0,
+  "register": {
+    "area_per_bit_um2": 5.981433,
+    "leakage_per_bit_mw": 7.395312e-05,
+    "dynamic_read_mw": 0.001322600,
+    "dynamic_write_mw": 0.0001792126
+  },
+  "spm": {
+    "leakage_per_kb_mw": 0.5,
+    "read_dynamic_per_access_mw": 0.1,
+    "write_dynamic_per_access_mw": 0.15,
+    "area_per_kb_um2": 10000.0
+  },
+  "cache": {
+    "leakage_per_kb_mw": 0.8,
+    "read_dynamic_per_access_mw": 0.2,
+    "write_dynamic_per_access_mw": 0.25,
+    "area_per_kb_um2": 15000.0
+  },
+  "functional_units": {
+    "counter": {
+      "area_um2": 50.0,
+      "leakage_mw": 0.0005,
+      "dynamic_read_mw": 0.001,
+      "dynamic_write_mw": 0.0008
+    },
+    "int_addsub": {
+      "area_um2": 179.443,
+      "leakage_mw": 0.002380803,
+      "dynamic_read_mw": 0.008115300,
+      "dynamic_write_mw": 0.006162853
+    },
+    "int_muldiv": {
+      "area_um2": 4595.0,
+      "leakage_mw": 0.04817683,
+      "dynamic_read_mw": 0.5725752,
+      "dynamic_write_mw": 0.8662890
+    },
+    "int_shift": {
+      "area_um2": 100.0,
+      "leakage_mw": 0.001,
+      "dynamic_read_mw": 0.002,
+      "dynamic_write_mw": 0.0015
+    },
+    "int_bitwise": {
+      "area_um2": 50.36996,
+      "leakage_mw": 0.0006111633,
+      "dynamic_read_mw": 0.001680942,
+      "dynamic_write_mw": 0.001322420
+    },
+    "fp_float_addsub": {
+      "area_um2": 1500.0,
+      "leakage_mw": 0.015,
+      "dynamic_read_mw": 0.05,
+      "dynamic_write_mw": 0.04
+    },
+    "fp_float_muldiv": {
+      "area_um2": 3000.0,
+      "leakage_mw": 0.03,
+      "dynamic_read_mw": 0.1,
+      "dynamic_write_mw": 0.08
+    },
+    "fp_double_addsub": {
+      "area_um2": 3000.0,
+      "leakage_mw": 0.03,
+      "dynamic_read_mw": 0.1,
+      "dynamic_write_mw": 0.08
+    },
+    "fp_double_muldiv": {
+      "area_um2": 6000.0,
+      "leakage_mw": 0.06,
+      "dynamic_read_mw": 0.2,
+      "dynamic_write_mw": 0.15
+    },
+    "zero_cycle": {
+      "area_um2": 0.0,
+      "leakage_mw": 0.0,
+      "dynamic_read_mw": 0.0,
+      "dynamic_write_mw": 0.0
+    },
+    "gep": {
+      "area_um2": 200.0,
+      "leakage_mw": 0.002,
+      "dynamic_read_mw": 0.005,
+      "dynamic_write_mw": 0.004
+    },
+    "conversion": {
+      "area_um2": 150.0,
+      "leakage_mw": 0.0015,
+      "dynamic_read_mw": 0.004,
+      "dynamic_write_mw": 0.003
+    },
+    "other": {
+      "area_um2": 100.0,
+      "leakage_mw": 0.001,
+      "dynamic_read_mw": 0.002,
+      "dynamic_write_mw": 0.0015
+    }
+  }
+}

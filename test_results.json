@@ -1,69 +1,23 @@
 {
-  "timestamp": "2025-12-08T13:26:21.546838",
+  "timestamp": "2025-12-29T12:23:46.207209",
+  "version": "2.0",
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "known_issues": 0
+  },
   "results": {
-    "bfs": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 2.826413,
-      "known": false
-    },
-    "fft": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 8.488364,
-      "known": false
-    },
     "gemm": {
       "passed": true,
       "message": "Completed",
-      "duration": 3.113939,
-      "known": false
-    },
-    "md_grid": {
-      "passed": false,
-      "message": "Timeout 300s",
-      "duration": 300,
-      "known": true
-    },
-    "md_knn": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 10.697462,
-      "known": false
-    },
-    "mergesort": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 217.697989,
-      "known": false
-    },
-    "nw": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 4.285059,
-      "known": false
-    },
-    "spmv": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 3.253114,
-      "known": false
-    },
-    "stencil2d": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 36.125054,
-      "known": false
-    },
-    "stencil3d": {
-      "passed": true,
-      "message": "Completed",
-      "duration": 31.291401,
+      "duration": 3.139542,
       "known": false
     }
   },
-  "summary": {
-    "total": 10,
-    "passed": 9
+  "known_issues": {
+    "md_grid": "Floating-point precision causes timeout",
+    "lenet5_nounroll_stream": "Config missing required Size field",
+    "lenet5_kernelunroll_stream": "Config missing required Size field"
   }
 }
