@@ -1,4 +1,15 @@
 //BEGIN GENERATED CODE
+/**
+ * @file gemm_clstr_hw_defines.h
+ * @brief Memory-mapped register addresses for gemm_clstr cluster
+ *
+ * @warning GENERATED CODE - DO NOT MODIFY
+ *          Regenerate using: ./systembuilder.py
+ *
+ * These defines provide the memory-mapped addresses for accessing
+ * DMA controllers, accelerators, and scratchpad memory in the
+ * gem5-SALAM simulation environment.
+ */
 //Cluster: GEMM_CLSTR
 //NonCoherentDMA
 #define DMA_Flags 0x10020000

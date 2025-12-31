@@ -1,0 +1,52 @@
+{
+  "variant": "full",
+  "description": "Expected results for full configuration (all features)",
+  "features_enabled": [
+    "NonCoherentDMA",
+    "StreamDMA",
+    "StreamBuffer",
+    "ClusterCache",
+    "ReadyMode SPM",
+    "WriteOnValid SPM",
+    "ResetOnRead SPM",
+    "GUI Publisher"
+  ],
+  "performance": {
+    "cluster0": {
+      "integer_stress_cycles": {"min": 4500, "max": 14000},
+      "bitwise_stress_cycles": {"min": 3500, "max": 11000}
+    },
+    "cluster1": {
+      "float_stress_cycles": {"min": 7500, "max": 24000}
+    },
+    "cluster2": {
+      "double_stress_cycles": {"min": 14000, "max": 48000},
+      "stream_producer_cycles": {"min": 2000, "max": 10000},
+      "stream_consumer_cycles": {"min": 2000, "max": 10000}
+    }
+  },
+  "cache": {
+    "cluster0_cache_hit_rate": {"min": 70, "max": 99},
+    "cluster1_cache_hit_rate": {"min": 70, "max": 99},
+    "cluster2_cache_hit_rate": {"min": 75, "max": 99}
+  },
+  "streaming": {
+    "buffer_utilization_percent": {"min": 50, "max": 100}
+  },
+  "power": {
+    "units": "mW",
+    "total_dynamic": {"min": 10, "max": 100},
+    "total_leakage": {"min": 1, "max": 10}
+  },
+  "area": {
+    "units": "um2",
+    "total": {"min": 200000, "max": 1000000}
+  },
+  "validation": {
+    "cluster0_pass": true,
+    "cluster1_pass": true,
+    "cluster2_pass": true,
+    "streaming_pass": true,
+    "cache_coherency_pass": true
+  }
+}

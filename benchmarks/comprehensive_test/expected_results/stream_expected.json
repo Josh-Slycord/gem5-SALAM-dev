@@ -1,0 +1,39 @@
+{
+  "variant": "stream",
+  "description": "Expected results for stream configuration (StreamDMA + StreamBuffer)",
+  "performance": {
+    "cluster0": {
+      "integer_stress_cycles": {"min": 5000, "max": 15000},
+      "bitwise_stress_cycles": {"min": 4000, "max": 12000}
+    },
+    "cluster1": {
+      "float_stress_cycles": {"min": 8000, "max": 25000}
+    },
+    "cluster2": {
+      "double_stress_cycles": {"min": 15000, "max": 50000},
+      "stream_producer_cycles": {"min": 2000, "max": 10000},
+      "stream_consumer_cycles": {"min": 2000, "max": 10000}
+    }
+  },
+  "streaming": {
+    "buffer_utilization_percent": {"min": 50, "max": 100},
+    "producer_stalls": {"min": 0, "max": 1000},
+    "consumer_stalls": {"min": 0, "max": 1000}
+  },
+  "power": {
+    "units": "mW",
+    "stream_dma_dynamic": {"min": 0.5, "max": 5.0},
+    "stream_buffer_dynamic": {"min": 0.1, "max": 1.0}
+  },
+  "area": {
+    "units": "um2",
+    "stream_dma_total": {"min": 5000, "max": 30000},
+    "stream_buffer_total": {"min": 2000, "max": 10000}
+  },
+  "validation": {
+    "cluster0_pass": true,
+    "cluster1_pass": true,
+    "cluster2_pass": true,
+    "streaming_pass": true
+  }
+}

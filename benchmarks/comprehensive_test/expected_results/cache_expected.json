@@ -1,0 +1,47 @@
+{
+  "variant": "cache",
+  "description": "Expected results for cache configuration (ClusterCache)",
+  "performance": {
+    "cluster0": {
+      "integer_stress_cycles": {"min": 4500, "max": 14000},
+      "bitwise_stress_cycles": {"min": 3500, "max": 11000}
+    },
+    "cluster1": {
+      "float_stress_cycles": {"min": 7500, "max": 24000}
+    },
+    "cluster2": {
+      "double_stress_cycles": {"min": 14000, "max": 48000}
+    }
+  },
+  "cache": {
+    "cluster0_cache": {
+      "hit_rate_percent": {"min": 70, "max": 99},
+      "miss_rate_percent": {"min": 1, "max": 30}
+    },
+    "cluster1_cache": {
+      "hit_rate_percent": {"min": 70, "max": 99},
+      "miss_rate_percent": {"min": 1, "max": 30}
+    },
+    "cluster2_cache": {
+      "hit_rate_percent": {"min": 75, "max": 99},
+      "miss_rate_percent": {"min": 1, "max": 25}
+    }
+  },
+  "power": {
+    "units": "mW",
+    "cluster0_cache_dynamic": {"min": 0.5, "max": 3.0},
+    "cluster1_cache_dynamic": {"min": 0.5, "max": 3.0},
+    "cluster2_cache_dynamic": {"min": 1.0, "max": 5.0}
+  },
+  "area": {
+    "units": "um2",
+    "cluster0_cache_total": {"min": 20000, "max": 100000},
+    "cluster1_cache_total": {"min": 20000, "max": 100000},
+    "cluster2_cache_total": {"min": 40000, "max": 200000}
+  },
+  "validation": {
+    "cluster0_pass": true,
+    "cluster1_pass": true,
+    "cluster2_pass": true
+  }
+}

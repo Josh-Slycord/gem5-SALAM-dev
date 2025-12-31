@@ -1,0 +1,876 @@
+# ==============================================================================
+# Comprehensive Test Benchmark - Cache Configuration
+# ==============================================================================
+# Extends base configuration with ClusterCache testing.
+# This variant enables cache coherency features.
+#
+# Differences from base config:
+#   - Each cluster has a ClusterCache
+#   - Accelerators use cached memory access
+# ==============================================================================
+
+M5_PATH: ../../../..
+benchmark: comprehensive_test
+
+# ==============================================================================
+# CLUSTER 0: Integer/Bitwise Operations with Cache
+# ==============================================================================
+
+cluster0:
+  # DMA Controller
+  Dma:
+    - Name: cluster0_dma
+      InterruptNum: 68
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10020000
+      pio_size: 64
+      MaxReqSize: 64
+      debug: false
+      int_num: 68
+
+  # Cluster Cache
+  ClusterCache:
+    - Name: cluster0_cache
+      size: 16384
+      assoc: 4
+      block_size: 64
+      latency: 2
+      write_buffers: 8
+      debug: false
+
+  Acc:
+    - Name: cluster0_top
+      IrPath: hw/ir/cluster0/top.ll
+      ConfigPath: hw/configs/cluster0/top.ini
+      InterruptNum: 69
+      pio_addr: 0x10020080
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: false
+      # Use cluster cache
+      use_cache: true
+      cache: cluster0_cache
+
+    - Name: integer_stress
+      IrPath: hw/ir/cluster0/integer_stress.ll
+      ConfigPath: hw/configs/cluster0/integer_stress.ini
+      InterruptNum: 70
+      pio_addr: 0x100200C0
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: false
+      use_cache: true
+      cache: cluster0_cache
+
+    - Name: bitwise_stress
+      IrPath: hw/ir/cluster0/bitwise_stress.ll
+      ConfigPath: hw/configs/cluster0/bitwise_stress.ini
+      InterruptNum: 71
+      pio_addr: 0x10020100
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: false
+      use_cache: true
+      cache: cluster0_cache
+
+  Spm:
+    - Name: c0_input_a
+      pio_addr: 0x10021000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c0_input_b
+      pio_addr: 0x10022000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c0_output
+      pio_addr: 0x10023000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: false
+
+    - Name: c0_bitwise_in
+      pio_addr: 0x10024000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c0_bitwise_out
+      pio_addr: 0x10025000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: false
+
+    - Name: c0_regbank
+      pio_addr: 0x10026000
+      pio_size: 256
+      read_ports: 4
+      write_ports: 4
+      latency: 0
+      debug: false
+
+# ==============================================================================
+# CLUSTER 1: Float Operations with Cache
+# ==============================================================================
+
+cluster1:
+  Dma:
+    - Name: cluster1_dma
+      InterruptNum: 72
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10030000
+      pio_size: 64
+      MaxReqSize: 64
+      debug: false
+      int_num: 72
+
+  ClusterCache:
+    - Name: cluster1_cache
+      size: 16384
+      assoc: 4
+      block_size: 64
+      latency: 2
+      write_buffers: 8
+      debug: false
+
+  Acc:
+    - Name: cluster1_top
+      IrPath: hw/ir/cluster1/top.ll
+      ConfigPath: hw/configs/cluster1/top.ini
+      InterruptNum: 73
+      pio_addr: 0x10030080
+      pio_size: 64
+      local_range_start: 0x10030000
+      local_range_end: 0x10038000
+      debug: false
+      use_cache: true
+      cache: cluster1_cache
+
+    - Name: float_stress
+      IrPath: hw/ir/cluster1/float_stress.ll
+      ConfigPath: hw/configs/cluster1/float_stress.ini
+      InterruptNum: 74
+      pio_addr: 0x100300C0
+      pio_size: 64
+      local_range_start: 0x10030000
+      local_range_end: 0x10038000
+      debug: false
+      use_cache: true
+      cache: cluster1_cache
+
+  Spm:
+    - Name: c1_input_a
+      pio_addr: 0x10031000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c1_input_b
+      pio_addr: 0x10032000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c1_output
+      pio_addr: 0x10033000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: false
+
+    - Name: c1_sync_spm
+      pio_addr: 0x10034000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      reset_on_read: true
+      debug: false
+
+# ==============================================================================
+# CLUSTER 2: Double Operations with Cache
+# ==============================================================================
+
+cluster2:
+  Dma:
+    - Name: cluster2_dma
+      InterruptNum: 75
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10040000
+      pio_size: 64
+      MaxReqSize: 64
+      debug: false
+      int_num: 75
+
+  ClusterCache:
+    - Name: cluster2_cache
+      size: 32768
+      assoc: 8
+      block_size: 64
+      latency: 3
+      write_buffers: 16
+      debug: false
+
+  Acc:
+    - Name: cluster2_top
+      IrPath: hw/ir/cluster2/top.ll
+      ConfigPath: hw/configs/cluster2/top.ini
+      InterruptNum: 76
+      pio_addr: 0x10040080
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: false
+      use_cache: true
+      cache: cluster2_cache
+
+    - Name: double_stress
+      IrPath: hw/ir/cluster2/double_stress.ll
+      ConfigPath: hw/configs/cluster2/double_stress.ini
+      InterruptNum: 77
+      pio_addr: 0x100400C0
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: false
+      use_cache: true
+      cache: cluster2_cache
+
+  Spm:
+    - Name: c2_input_a
+      pio_addr: 0x10041000
+      pio_size: 8192
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c2_input_b
+      pio_addr: 0x10043000
+      pio_size: 8192
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: false
+
+    - Name: c2_output
+      pio_addr: 0x10045000
+      pio_size: 8192
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: false
+
+    - Name: c2_sync_spm
+      pio_addr: 0x10047000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      write_on_valid: true
+      debug: false
+
+gui_publisher:
+  status_base: 0x100F0000
+  cluster0_status: 0x100F0000
+  cluster1_status: 0x100F0010
+  cluster2_status: 0x100F0020
+  global_status: 0x100F0030
+hw_config:
+  # --------------------------------------------------------------------------
+  # Cluster 0: Integer Stress Test
+  # --------------------------------------------------------------------------
+  integer_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 16
+      int_multiplier:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_shifter:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_bitwise:
+        fu_pipelined: true
+        cycles: 1
+        limit: 8
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      # IntegerAdder operations
+      add:
+        runtime_cycles: 1
+        functional_unit: 1
+      sub:
+        runtime_cycles: 1
+        functional_unit: 1
+      # IntegerMultiplier operations
+      mul:
+        runtime_cycles: 1
+        functional_unit: 2
+      sdiv:
+        runtime_cycles: 8
+        functional_unit: 2
+      udiv:
+        runtime_cycles: 8
+        functional_unit: 2
+      srem:
+        runtime_cycles: 8
+        functional_unit: 2
+      urem:
+        runtime_cycles: 8
+        functional_unit: 2
+      # BitShifter operations
+      shl:
+        runtime_cycles: 1
+        functional_unit: 3
+      lshr:
+        runtime_cycles: 1
+        functional_unit: 3
+      ashr:
+        runtime_cycles: 1
+        functional_unit: 3
+      # BitwiseOperations
+      and_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      or_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      xor_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      # Comparison (maps to IntegerAdder)
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 1
+      # Memory operations
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      # Control flow
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      # Type conversions
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 1
+
+  # --------------------------------------------------------------------------
+  # Cluster 0: Bitwise Stress Test
+  # --------------------------------------------------------------------------
+  bitwise_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_shifter:
+        fu_pipelined: true
+        cycles: 1
+        limit: 8
+      int_bitwise:
+        fu_pipelined: true
+        cycles: 1
+        limit: 16
+      bit_register:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      # Shifter operations (high parallelism)
+      shl:
+        runtime_cycles: 1
+        functional_unit: 2
+      lshr:
+        runtime_cycles: 1
+        functional_unit: 2
+      ashr:
+        runtime_cycles: 1
+        functional_unit: 2
+      # Bitwise operations (very high parallelism)
+      and_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      or_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      xor_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      # BitRegister operations
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+      # Support operations
+      add:
+        runtime_cycles: 1
+        functional_unit: 1
+      sub:
+        runtime_cycles: 1
+        functional_unit: 1
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 1
+      # Memory
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      # Control
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      # Conversions
+      sext:
+        runtime_cycles: 1
+        functional_unit: 3
+      zext:
+        runtime_cycles: 1
+        functional_unit: 3
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 3
+      select:
+        runtime_cycles: 1
+        functional_unit: 3
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 1
+
+  # --------------------------------------------------------------------------
+  # Cluster 1: Float Stress Test
+  # --------------------------------------------------------------------------
+  float_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      float_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 8
+      float_multiplier:
+        fu_pipelined: true
+        cycles: 4
+        limit: 8
+      float_divider:
+        fu_pipelined: false
+        cycles: 16
+        limit: 2
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      # FloatAdder operations
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fsub:
+        runtime_cycles: 5
+        functional_unit: 1
+      # FloatMultiplier operations
+      fmul:
+        runtime_cycles: 4
+        functional_unit: 2
+      # FloatDivider operations (limited, expensive)
+      fdiv:
+        runtime_cycles: 16
+        functional_unit: 3
+      # Float comparisons
+      fcmp:
+        runtime_cycles: 2
+        functional_unit: 1
+      # Type conversions
+      fpext:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptrunc:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptosi:
+        runtime_cycles: 3
+        functional_unit: 1
+      fptoui:
+        runtime_cycles: 3
+        functional_unit: 1
+      sitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      uitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      # Integer support
+      add:
+        runtime_cycles: 1
+        functional_unit: 4
+      sub:
+        runtime_cycles: 1
+        functional_unit: 4
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 4
+      # Memory
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      # Control
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      # Conversions
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 4
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+
+  # --------------------------------------------------------------------------
+  # Cluster 2: Double Stress Test
+  # --------------------------------------------------------------------------
+  double_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      double_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 4
+      double_multiplier:
+        fu_pipelined: true
+        cycles: 5
+        limit: 4
+      double_divider:
+        fu_pipelined: false
+        cycles: 32
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      # DoubleAdder operations
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fsub:
+        runtime_cycles: 5
+        functional_unit: 1
+      # DoubleMultiplier operations
+      fmul:
+        runtime_cycles: 5
+        functional_unit: 2
+      # DoubleDivider operations (single unit bottleneck test)
+      fdiv:
+        runtime_cycles: 32
+        functional_unit: 3
+      # Double comparisons
+      fcmp:
+        runtime_cycles: 2
+        functional_unit: 1
+      # Type conversions
+      fpext:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptrunc:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptosi:
+        runtime_cycles: 3
+        functional_unit: 1
+      fptoui:
+        runtime_cycles: 3
+        functional_unit: 1
+      sitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      uitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      # Integer support
+      add:
+        runtime_cycles: 1
+        functional_unit: 4
+      sub:
+        runtime_cycles: 1
+        functional_unit: 4
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 4
+      # Memory
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      # Control
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      # Conversions
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 4
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+
+  # --------------------------------------------------------------------------
+  # Top controllers (minimal config)
+  # --------------------------------------------------------------------------
+  cluster0_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+  cluster1_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+  cluster2_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+# ==============================================================================
+# SYSTEM CONFIGURATION
+# ==============================================================================
+
+
+system:
+  cpu_type: atomic
+  mem_size: 512MB
+  kernel: vmlinux.arm
+  disk: linux-arm.img

@@ -1,0 +1,1077 @@
+# ==============================================================================
+# Comprehensive Test Benchmark - Full Configuration
+# ==============================================================================
+# Complete configuration with ALL features enabled:
+#   - NonCoherent DMA for bulk transfers
+#   - StreamDMA and StreamBuffer for streaming
+#   - ClusterCache for cache coherency
+#   - All SPM synchronization modes
+#   - GUI Publisher integration
+#   - Debug hooks enabled
+#
+# This is the most comprehensive test variant.
+# ==============================================================================
+
+M5_PATH: ../../../..
+benchmark: comprehensive_test
+
+# ==============================================================================
+# CLUSTER 0: Integer/Bitwise Operations
+# Full config: DMA + Cache + All SPM modes
+# ==============================================================================
+
+cluster0:
+  Dma:
+    - Name: cluster0_dma
+      InterruptNum: 68
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10020000
+      pio_size: 64
+      MaxReqSize: 64
+      debug: true
+      int_num: 68
+
+  ClusterCache:
+    - Name: cluster0_cache
+      size: 16384
+      assoc: 4
+      block_size: 64
+      latency: 2
+      write_buffers: 8
+      debug: true
+
+  Acc:
+    - Name: cluster0_top
+      IrPath: hw/ir/cluster0/top.ll
+      ConfigPath: hw/configs/cluster0/top.ini
+      InterruptNum: 69
+      pio_addr: 0x10020080
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: true
+      use_cache: true
+      cache: cluster0_cache
+
+    - Name: integer_stress
+      IrPath: hw/ir/cluster0/integer_stress.ll
+      ConfigPath: hw/configs/cluster0/integer_stress.ini
+      InterruptNum: 70
+      pio_addr: 0x100200C0
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: true
+      use_cache: true
+      cache: cluster0_cache
+
+    - Name: bitwise_stress
+      IrPath: hw/ir/cluster0/bitwise_stress.ll
+      ConfigPath: hw/configs/cluster0/bitwise_stress.ini
+      InterruptNum: 71
+      pio_addr: 0x10020100
+      pio_size: 64
+      local_range_start: 0x10020000
+      local_range_end: 0x10028000
+      debug: true
+      use_cache: true
+      cache: cluster0_cache
+
+  Spm:
+    - Name: c0_input_a
+      pio_addr: 0x10021000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c0_input_b
+      pio_addr: 0x10022000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c0_output
+      pio_addr: 0x10023000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: true
+
+    - Name: c0_bitwise_in
+      pio_addr: 0x10024000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c0_bitwise_out
+      pio_addr: 0x10025000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: true
+
+    - Name: c0_regbank
+      pio_addr: 0x10026000
+      pio_size: 256
+      read_ports: 4
+      write_ports: 4
+      latency: 0
+      debug: true
+
+    # SPM with ReadyMode for synchronization
+    - Name: c0_sync_ready
+      pio_addr: 0x10027000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      reset_on_read: true
+      debug: true
+
+# ==============================================================================
+# CLUSTER 1: Float Operations
+# Full config: DMA + Cache + SPM sync modes
+# ==============================================================================
+
+cluster1:
+  Dma:
+    - Name: cluster1_dma
+      InterruptNum: 72
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10030000
+      pio_size: 64
+      MaxReqSize: 64
+      debug: true
+      int_num: 72
+
+  ClusterCache:
+    - Name: cluster1_cache
+      size: 16384
+      assoc: 4
+      block_size: 64
+      latency: 2
+      write_buffers: 8
+      debug: true
+
+  Acc:
+    - Name: cluster1_top
+      IrPath: hw/ir/cluster1/top.ll
+      ConfigPath: hw/configs/cluster1/top.ini
+      InterruptNum: 73
+      pio_addr: 0x10030080
+      pio_size: 64
+      local_range_start: 0x10030000
+      local_range_end: 0x10038000
+      debug: true
+      use_cache: true
+      cache: cluster1_cache
+
+    - Name: float_stress
+      IrPath: hw/ir/cluster1/float_stress.ll
+      ConfigPath: hw/configs/cluster1/float_stress.ini
+      InterruptNum: 74
+      pio_addr: 0x100300C0
+      pio_size: 64
+      local_range_start: 0x10030000
+      local_range_end: 0x10038000
+      debug: true
+      use_cache: true
+      cache: cluster1_cache
+
+  Spm:
+    - Name: c1_input_a
+      pio_addr: 0x10031000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c1_input_b
+      pio_addr: 0x10032000
+      pio_size: 4096
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c1_output
+      pio_addr: 0x10033000
+      pio_size: 4096
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: true
+
+    - Name: c1_sync_spm
+      pio_addr: 0x10034000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      reset_on_read: true
+      debug: true
+
+    # SPM with WriteOnValid
+    - Name: c1_valid_spm
+      pio_addr: 0x10035000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      write_on_valid: true
+      debug: true
+
+# ==============================================================================
+# CLUSTER 2: Double + Streaming Operations
+# Full config: StreamDMA + NonCoherent DMA + Cache + StreamBuffer + All SPM modes
+# ==============================================================================
+
+cluster2:
+  # StreamDMA for streaming data transfers
+  StreamDma:
+    - Name: cluster2_stream_dma
+      InterruptNum: 75
+      BufferSize: 64
+      gic: gic
+      pio_addr: 0x10040000
+      pio_size: 128
+      debug: true
+      int_num: 75
+      mm2s_fifo_depth: 16
+      s2mm_fifo_depth: 16
+
+  # NonCoherent DMA for bulk transfers
+  Dma:
+    - Name: cluster2_dma
+      InterruptNum: 78
+      BufferSize: 64
+      MaxPendingReads: 4
+      MaxPendingWrites: 4
+      gic: gic
+      pio_addr: 0x10040200
+      pio_size: 64
+      MaxReqSize: 64
+      debug: true
+      int_num: 78
+
+  ClusterCache:
+    - Name: cluster2_cache
+      size: 32768
+      assoc: 8
+      block_size: 64
+      latency: 3
+      write_buffers: 16
+      debug: true
+
+  # StreamBuffer between producer and consumer
+  StreamBuffer:
+    - Name: producer_to_consumer
+      pio_addr: 0x10048000
+      pio_size: 1024
+      buffer_size: 64
+      debug: true
+      InCon: stream_producer:0
+      OutCon: stream_consumer:0
+
+  Acc:
+    - Name: cluster2_top
+      IrPath: hw/ir/cluster2/top.ll
+      ConfigPath: hw/configs/cluster2/top.ini
+      InterruptNum: 76
+      pio_addr: 0x10040080
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: true
+      use_cache: true
+      cache: cluster2_cache
+
+    - Name: double_stress
+      IrPath: hw/ir/cluster2/double_stress.ll
+      ConfigPath: hw/configs/cluster2/double_stress.ini
+      InterruptNum: 77
+      pio_addr: 0x100400C0
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: true
+      use_cache: true
+      cache: cluster2_cache
+
+    - Name: stream_producer
+      IrPath: hw/ir/cluster2/stream_producer.ll
+      ConfigPath: hw/configs/cluster2/stream_producer.ini
+      InterruptNum: 79
+      pio_addr: 0x10040100
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: true
+
+    - Name: stream_consumer
+      IrPath: hw/ir/cluster2/stream_consumer.ll
+      ConfigPath: hw/configs/cluster2/stream_consumer.ini
+      InterruptNum: 80
+      pio_addr: 0x10040140
+      pio_size: 64
+      local_range_start: 0x10040000
+      local_range_end: 0x10050000
+      debug: true
+
+  Spm:
+    - Name: c2_input_a
+      pio_addr: 0x10041000
+      pio_size: 8192
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c2_input_b
+      pio_addr: 0x10043000
+      pio_size: 8192
+      read_ports: 2
+      write_ports: 1
+      latency: 1
+      debug: true
+
+    - Name: c2_output
+      pio_addr: 0x10045000
+      pio_size: 8192
+      read_ports: 1
+      write_ports: 2
+      latency: 1
+      debug: true
+
+    - Name: c2_sync_spm
+      pio_addr: 0x10047000
+      pio_size: 256
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      write_on_valid: true
+      debug: true
+
+    - Name: c2_stream_in
+      pio_addr: 0x10049000
+      pio_size: 1024
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      reset_on_read: true
+      debug: true
+      InCon: stream_producer:1
+
+    - Name: c2_stream_out
+      pio_addr: 0x1004A000
+      pio_size: 1024
+      read_ports: 1
+      write_ports: 1
+      latency: 1
+      ready_mode: true
+      write_on_valid: true
+      debug: true
+      OutCon: stream_consumer:1
+
+gui_publisher:
+  status_base: 0x100F0000
+  cluster0_status: 0x100F0000
+  cluster1_status: 0x100F0010
+  cluster2_status: 0x100F0020
+  global_status: 0x100F0030
+  enabled: true
+hw_config:
+  integer_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 16
+      int_multiplier:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_shifter:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_bitwise:
+        fu_pipelined: true
+        cycles: 1
+        limit: 8
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      add:
+        runtime_cycles: 1
+        functional_unit: 1
+      sub:
+        runtime_cycles: 1
+        functional_unit: 1
+      mul:
+        runtime_cycles: 1
+        functional_unit: 2
+      sdiv:
+        runtime_cycles: 8
+        functional_unit: 2
+      udiv:
+        runtime_cycles: 8
+        functional_unit: 2
+      srem:
+        runtime_cycles: 8
+        functional_unit: 2
+      urem:
+        runtime_cycles: 8
+        functional_unit: 2
+      shl:
+        runtime_cycles: 1
+        functional_unit: 3
+      lshr:
+        runtime_cycles: 1
+        functional_unit: 3
+      ashr:
+        runtime_cycles: 1
+        functional_unit: 3
+      and_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      or_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      xor_inst:
+        runtime_cycles: 1
+        functional_unit: 4
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 1
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 1
+
+  bitwise_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      int_shifter:
+        fu_pipelined: true
+        cycles: 1
+        limit: 8
+      int_bitwise:
+        fu_pipelined: true
+        cycles: 1
+        limit: 16
+      bit_register:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      shl:
+        runtime_cycles: 1
+        functional_unit: 2
+      lshr:
+        runtime_cycles: 1
+        functional_unit: 2
+      ashr:
+        runtime_cycles: 1
+        functional_unit: 2
+      and_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      or_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      xor_inst:
+        runtime_cycles: 1
+        functional_unit: 3
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+      add:
+        runtime_cycles: 1
+        functional_unit: 1
+      sub:
+        runtime_cycles: 1
+        functional_unit: 1
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 1
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      sext:
+        runtime_cycles: 1
+        functional_unit: 3
+      zext:
+        runtime_cycles: 1
+        functional_unit: 3
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 3
+      select:
+        runtime_cycles: 1
+        functional_unit: 3
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 1
+
+  float_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      float_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 8
+      float_multiplier:
+        fu_pipelined: true
+        cycles: 4
+        limit: 8
+      float_divider:
+        fu_pipelined: false
+        cycles: 16
+        limit: 2
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fsub:
+        runtime_cycles: 5
+        functional_unit: 1
+      fmul:
+        runtime_cycles: 4
+        functional_unit: 2
+      fdiv:
+        runtime_cycles: 16
+        functional_unit: 3
+      fcmp:
+        runtime_cycles: 2
+        functional_unit: 1
+      fpext:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptrunc:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptosi:
+        runtime_cycles: 3
+        functional_unit: 1
+      fptoui:
+        runtime_cycles: 3
+        functional_unit: 1
+      sitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      uitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      add:
+        runtime_cycles: 1
+        functional_unit: 4
+      sub:
+        runtime_cycles: 1
+        functional_unit: 4
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 4
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 4
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+
+  double_stress:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      double_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 4
+      double_multiplier:
+        fu_pipelined: true
+        cycles: 5
+        limit: 4
+      double_divider:
+        fu_pipelined: false
+        cycles: 32
+        limit: 1
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 4
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fsub:
+        runtime_cycles: 5
+        functional_unit: 1
+      fmul:
+        runtime_cycles: 5
+        functional_unit: 2
+      fdiv:
+        runtime_cycles: 32
+        functional_unit: 3
+      fcmp:
+        runtime_cycles: 2
+        functional_unit: 1
+      fpext:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptrunc:
+        runtime_cycles: 2
+        functional_unit: 1
+      fptosi:
+        runtime_cycles: 3
+        functional_unit: 1
+      fptoui:
+        runtime_cycles: 3
+        functional_unit: 1
+      sitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      uitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      add:
+        runtime_cycles: 1
+        functional_unit: 4
+      sub:
+        runtime_cycles: 1
+        functional_unit: 4
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 4
+      load:
+        runtime_cycles: 1
+        functional_unit: 5
+      store:
+        runtime_cycles: 1
+        functional_unit: 5
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      sext:
+        runtime_cycles: 1
+        functional_unit: 4
+      zext:
+        runtime_cycles: 1
+        functional_unit: 4
+      trunc:
+        runtime_cycles: 1
+        functional_unit: 4
+      select:
+        runtime_cycles: 1
+        functional_unit: 4
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 4
+      bitcast:
+        runtime_cycles: 1
+        functional_unit: 4
+
+  # Stream producer hw_config
+  stream_producer:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      double_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 2
+      double_multiplier:
+        fu_pipelined: true
+        cycles: 5
+        limit: 2
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 2
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fmul:
+        runtime_cycles: 5
+        functional_unit: 2
+      sitofp:
+        runtime_cycles: 3
+        functional_unit: 1
+      add:
+        runtime_cycles: 1
+        functional_unit: 3
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 3
+      sext:
+        runtime_cycles: 1
+        functional_unit: 3
+      zext:
+        runtime_cycles: 1
+        functional_unit: 3
+      load:
+        runtime_cycles: 1
+        functional_unit: 4
+      store:
+        runtime_cycles: 1
+        functional_unit: 4
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 3
+
+  # Stream consumer hw_config
+  stream_consumer:
+    cycle_time: 5
+    pipelined: true
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      double_adder:
+        fu_pipelined: true
+        cycles: 5
+        limit: 2
+      double_multiplier:
+        fu_pipelined: true
+        cycles: 5
+        limit: 2
+      int_adder:
+        fu_pipelined: true
+        cycles: 1
+        limit: 2
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 2
+    instructions:
+      fadd:
+        runtime_cycles: 5
+        functional_unit: 1
+      fsub:
+        runtime_cycles: 5
+        functional_unit: 1
+      fmul:
+        runtime_cycles: 5
+        functional_unit: 2
+      add:
+        runtime_cycles: 1
+        functional_unit: 3
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 3
+      sext:
+        runtime_cycles: 1
+        functional_unit: 3
+      zext:
+        runtime_cycles: 1
+        functional_unit: 3
+      load:
+        runtime_cycles: 1
+        functional_unit: 4
+      store:
+        runtime_cycles: 1
+        functional_unit: 4
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+      getelementptr:
+        runtime_cycles: 1
+        functional_unit: 3
+
+  # Top controllers (minimal config)
+  cluster0_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+  cluster1_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+  cluster2_top:
+    cycle_time: 5
+    pipelined: false
+    functional_units:
+      counter:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+      memory:
+        fu_pipelined: false
+        cycles: 1
+        limit: 1
+    instructions:
+      load:
+        runtime_cycles: 1
+        functional_unit: 1
+      store:
+        runtime_cycles: 1
+        functional_unit: 1
+      br:
+        runtime_cycles: 1
+        functional_unit: 0
+      ret:
+        runtime_cycles: 1
+        functional_unit: 0
+      add:
+        runtime_cycles: 1
+        functional_unit: 0
+      icmp:
+        runtime_cycles: 1
+        functional_unit: 0
+      phi:
+        runtime_cycles: 0
+        functional_unit: 0
+
+# ==============================================================================
+# SYSTEM CONFIGURATION
+# ==============================================================================
+
+
+
+# ==============================================================================
+# SYSTEM CONFIGURATION
+# ==============================================================================
+
+system:
+  cpu_type: atomic
+  mem_size: 512MB
+  kernel: vmlinux.arm
+  disk: linux-arm.img
+
+# ==============================================================================
+# DEBUG FLAGS
+# ==============================================================================
+# Enable all debug flags for comprehensive testing
+
+debug_flags:
+  - CommInterface
+  - CommInterfaceQueues
+  - DeviceMMR
+  - LLVMInterface
+  - NoncoherentDma
+  - LLVMParse
+  - Runtime
+  - RuntimeCompute
+  - RuntimeQueues
+  - SALAM_Debug
+  - StreamDma
+  - Trace

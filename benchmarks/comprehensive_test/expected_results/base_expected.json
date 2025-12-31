@@ -1,0 +1,58 @@
+{
+  "variant": "base",
+  "description": "Expected results for base configuration (DMA only)",
+  "performance": {
+    "cluster0": {
+      "integer_stress_cycles": {"min": 5000, "max": 15000},
+      "bitwise_stress_cycles": {"min": 4000, "max": 12000}
+    },
+    "cluster1": {
+      "float_stress_cycles": {"min": 8000, "max": 25000}
+    },
+    "cluster2": {
+      "double_stress_cycles": {"min": 15000, "max": 50000}
+    }
+  },
+  "power": {
+    "units": "mW",
+    "cluster0": {
+      "int_adder_dynamic": {"min": 0.1, "max": 2.0},
+      "int_multiplier_dynamic": {"min": 0.2, "max": 3.0},
+      "int_shifter_dynamic": {"min": 0.05, "max": 1.0},
+      "int_bitwise_dynamic": {"min": 0.05, "max": 1.0}
+    },
+    "cluster1": {
+      "float_adder_dynamic": {"min": 0.5, "max": 5.0},
+      "float_multiplier_dynamic": {"min": 0.5, "max": 5.0},
+      "float_divider_dynamic": {"min": 1.0, "max": 10.0}
+    },
+    "cluster2": {
+      "double_adder_dynamic": {"min": 1.0, "max": 8.0},
+      "double_multiplier_dynamic": {"min": 1.0, "max": 8.0},
+      "double_divider_dynamic": {"min": 2.0, "max": 15.0}
+    }
+  },
+  "area": {
+    "units": "um2",
+    "cluster0": {
+      "int_adder_total": {"min": 500, "max": 5000},
+      "int_multiplier_total": {"min": 1000, "max": 10000},
+      "spm_total": {"min": 10000, "max": 50000}
+    },
+    "cluster1": {
+      "float_adder_total": {"min": 2000, "max": 15000},
+      "float_multiplier_total": {"min": 2000, "max": 15000},
+      "float_divider_total": {"min": 5000, "max": 30000}
+    },
+    "cluster2": {
+      "double_adder_total": {"min": 4000, "max": 25000},
+      "double_multiplier_total": {"min": 4000, "max": 25000},
+      "double_divider_total": {"min": 10000, "max": 50000}
+    }
+  },
+  "validation": {
+    "cluster0_pass": true,
+    "cluster1_pass": true,
+    "cluster2_pass": true
+  }
+}
