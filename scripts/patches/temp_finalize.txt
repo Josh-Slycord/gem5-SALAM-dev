@@ -1,0 +1,45 @@
+LLVMInterface::finalize() {
+    // Simulation Times
+    simStop = std::chrono::high_resolution_clock::now();
+    simTotal = simStop - timeStart;
+
+    // Collect statistics into HWStatistics for new JSON output
+    auto setupNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        setupTime).count();
+    auto simNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        simTime).count();
+
+    hw->hw_statistics->setAcceleratorName(name());
+    hw->hw_statistics->collectPerformanceStats(
+        static_cast<double>(setupNs),
+        static_cast<double>(simNs),
+        clock_period / 1000,  // Convert to ns
+        cycle,
+        stalls
+    );
+
+    // Always print brief summary
+    hw->hw_statistics->printSummary(std::cout);
+
+    // Write JSON file if enabled
+    if (hw->hw_statistics->isOutputEnabled()) {
+        hw->hw_statistics->writeJSONFile();
+    }
+
+    // Verbose output if debug flag enabled
+    if (DTRACE(SALAMResults)) {
+        hw->hw_statistics->printDetailed(std::cout);
+    }
+
+    // Publish final stats to GUI if enabled
+    if (hw->hw_statistics->isGuiEnabled()) {
+        hw->hw_statistics->publishFinalToGUI();
+    }
+
+    // Legacy output (kept for backward compatibility)
+    printResults();
+
+    functions.clear();
+    values.clear();
+    comm->finish();
+}
