@@ -3,7 +3,7 @@
 # gem5-SALAM Installation Script
 #
 # Automates the installation of gem5-SALAM and all dependencies on a fresh
-# Ubuntu 20.04 system (including WSL).
+# Ubuntu system (20.04 or 24.04, including WSL).
 #
 # Usage:
 #   ./install.sh                    # Full installation
@@ -11,16 +11,21 @@
 #   ./install.sh --llvm-only        # LLVM installation only
 #   ./install.sh --python-only      # Python dependencies only
 #   ./install.sh --with-gui         # Include GUI dependencies
-#   ./install.sh --llvm-version 14  # Specify LLVM version (9, 11, or 14)
+#   ./install.sh --llvm-version 14  # Specify LLVM version
 #   ./install.sh --verify           # Run verification after install
 #   ./install.sh --help             # Show this help
 #
+# LLVM Version Availability:
+#   Ubuntu 20.04: LLVM 9, 11, 12, 14 (default: 9)
+#   Ubuntu 24.04: LLVM 14, 15, 17, 18 (default: 14)
+#
 # Environment:
 #   GEM5_SALAM_PATH   Path to gem5-SALAM-dev (default: /home/$USER/gem5-SALAM-dev)
-#   LLVM_VERSION      LLVM version to install (default: 9)
+#   LLVM_VERSION      LLVM version to install (auto-detected if not set)
 #
 # Author: @agent_1 (gem5-SALAM Specialist)
 # Created: 2026-01-05
+# Updated: 2026-01-06 (Ubuntu 24.04 support)
 #===============================================================================
 
 set -e  # Exit on error
@@ -31,12 +36,16 @@ set -e  # Exit on error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GEM5_SALAM_PATH="${GEM5_SALAM_PATH:-/home/$USER/gem5-SALAM-dev}"
-LLVM_VERSION="${LLVM_VERSION:-9}"
+LLVM_VERSION="${LLVM_VERSION:-}"  # Will be auto-detected if not set
 INSTALL_GUI=false
 VERIFY_AFTER=false
 DEPS_ONLY=false
 LLVM_ONLY=false
 PYTHON_ONLY=false
+
+# Ubuntu version detection (set after parsing args)
+UBUNTU_VERSION=""
+UBUNTU_CODENAME=""
 
 #-------------------------------------------------------------------------------
 # Colors and Logging
@@ -58,7 +67,7 @@ log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 #-------------------------------------------------------------------------------
 
 show_help() {
-    head -30 "$0" | tail -20
+    head -34 "$0" | tail -28
     exit 0
 }
 
@@ -80,24 +89,96 @@ while [[ $# -gt 0 ]]; do
 done
 
 #-------------------------------------------------------------------------------
-# Validation
+# Ubuntu Version Detection
 #-------------------------------------------------------------------------------
 
-validate_llvm_version() {
-    case $LLVM_VERSION in
-        9|11|12|14) log_info "LLVM version: $LLVM_VERSION" ;;
-        *) log_error "Unsupported LLVM version: $LLVM_VERSION (use 9, 11, 12, or 14)"; exit 1 ;;
-    esac
-}
-
-check_ubuntu_version() {
+detect_ubuntu_version() {
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
         if [[ "$ID" != "ubuntu" ]]; then
             log_warn "This script is designed for Ubuntu. Detected: $ID"
+            log_warn "Attempting to continue anyway..."
         fi
-        log_info "OS: $PRETTY_NAME"
+        UBUNTU_VERSION="$VERSION_ID"
+        UBUNTU_CODENAME="$VERSION_CODENAME"
+        log_info "Detected: $PRETTY_NAME"
+    else
+        log_warn "Cannot detect OS version. Assuming Ubuntu 20.04."
+        UBUNTU_VERSION="20.04"
+        UBUNTU_CODENAME="focal"
     fi
+}
+
+get_default_llvm_version() {
+    case "$UBUNTU_VERSION" in
+        20.04|20.*)  echo "9" ;;
+        22.04|22.*)  echo "14" ;;
+        24.04|24.*)  echo "14" ;;
+        *)           echo "14" ;;  # Default to 14 for unknown versions
+    esac
+}
+
+get_supported_llvm_versions() {
+    case "$UBUNTU_VERSION" in
+        20.04|20.*)  echo "9, 11, 12, 14" ;;
+        22.04|22.*)  echo "11, 12, 13, 14, 15" ;;
+        24.04|24.*)  echo "14, 15, 17, 18" ;;
+        *)           echo "14, 15, 17, 18" ;;
+    esac
+}
+
+validate_llvm_version() {
+    local supported=""
+    case "$UBUNTU_VERSION" in
+        20.04|20.*)
+            case $LLVM_VERSION in
+                9|11|12|14) : ;;  # Valid
+                *) supported="9, 11, 12, 14" ;;
+            esac
+            ;;
+        22.04|22.*)
+            case $LLVM_VERSION in
+                11|12|13|14|15) : ;;  # Valid
+                *) supported="11, 12, 13, 14, 15" ;;
+            esac
+            ;;
+        24.04|24.*)
+            case $LLVM_VERSION in
+                14|15|17|18) : ;;  # Valid
+                *) supported="14, 15, 17, 18" ;;
+            esac
+            ;;
+        *)
+            case $LLVM_VERSION in
+                14|15|17|18) : ;;  # Default to 24.04 support
+                *) supported="14, 15, 17, 18" ;;
+            esac
+            ;;
+    esac
+
+    if [[ -n "$supported" ]]; then
+        log_error "LLVM $LLVM_VERSION is not available on Ubuntu $UBUNTU_VERSION"
+        log_error "Supported versions: $supported"
+        exit 1
+    fi
+
+    log_info "LLVM version: $LLVM_VERSION"
+}
+
+#-------------------------------------------------------------------------------
+# pip Compatibility
+#-------------------------------------------------------------------------------
+
+# Ubuntu 24.04 requires --break-system-packages for pip
+get_pip_flags() {
+    case "$UBUNTU_VERSION" in
+        24.04|24.*|23.10|23.*)
+            echo "--break-system-packages"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
 }
 
 #-------------------------------------------------------------------------------
@@ -202,16 +283,21 @@ setup_llvm_alternatives() {
 install_python_deps() {
     log_info "Installing Python dependencies..."
 
+    local pip_flags=$(get_pip_flags)
+    if [[ -n "$pip_flags" ]]; then
+        log_info "Using pip flags: $pip_flags"
+    fi
+
     # Upgrade pip
-    python3 -m pip install --upgrade pip
+    python3 -m pip install --upgrade pip $pip_flags
 
     # Core dependencies
-    pip3 install --user \
+    pip3 install --user $pip_flags \
         "PyYAML>=5.0" \
         "pydot>=1.4.0"
 
     # Development dependencies
-    pip3 install --user \
+    pip3 install --user $pip_flags \
         "black>=22.6.0" \
         "isort>=5.10.0" \
         "mypy>=1.0.0" \
@@ -220,7 +306,7 @@ install_python_deps() {
         "pre-commit>=3.0.0"
 
     # Documentation
-    pip3 install --user \
+    pip3 install --user $pip_flags \
         "sphinx>=7.0.0" \
         "breathe>=4.35.0" \
         "sphinx-rtd-theme>=2.0.0" \
@@ -232,7 +318,9 @@ install_python_deps() {
 install_gui_deps() {
     log_info "Installing GUI dependencies..."
 
-    pip3 install --user \
+    local pip_flags=$(get_pip_flags)
+
+    pip3 install --user $pip_flags \
         "PySide6>=6.5.0" \
         "pyqtgraph>=0.13.0" \
         "networkx>=3.0" \
@@ -257,8 +345,11 @@ setup_environment() {
     cat > "$env_file" << ENV_EOF
 # gem5-SALAM Environment Configuration
 # Generated by install.sh on $(date)
+# Ubuntu: $UBUNTU_VERSION ($UBUNTU_CODENAME)
+# LLVM: $LLVM_VERSION
 
 export M5_PATH="$GEM5_SALAM_PATH"
+export LLVM_VERSION="$LLVM_VERSION"
 export PYTHONPATH="\$M5_PATH/packages/salam-config:\$PYTHONPATH"
 
 # Optional: Add gem5 build to PATH
@@ -293,11 +384,21 @@ main() {
     echo "========================================"
     echo ""
 
+    # Detect Ubuntu version first
+    detect_ubuntu_version
+
+    # Set default LLVM version if not specified
+    if [[ -z "$LLVM_VERSION" ]]; then
+        LLVM_VERSION=$(get_default_llvm_version)
+        log_info "Auto-selected LLVM version: $LLVM_VERSION"
+    fi
+
     validate_llvm_version
-    check_ubuntu_version
 
     echo ""
     log_info "Installation options:"
+    log_info "  Ubuntu version: $UBUNTU_VERSION ($UBUNTU_CODENAME)"
+    log_info "  Supported LLVM: $(get_supported_llvm_versions)"
     log_info "  GEM5_SALAM_PATH: $GEM5_SALAM_PATH"
     log_info "  LLVM_VERSION: $LLVM_VERSION"
     log_info "  INSTALL_GUI: $INSTALL_GUI"

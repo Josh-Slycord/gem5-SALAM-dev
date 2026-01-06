@@ -49,30 +49,30 @@ class CodeImporter(object):
         # when the importer module was loaded and CodeImporter was
         # defined are not available when load_module is actually
         # called. Soooo, the imports must live here.
-        import imp
+        import types
         import os
         import sys
 
         try:
             mod = sys.modules[fullname]
         except KeyError:
-            mod = imp.new_module(fullname)
+            mod = types.ModuleType(fullname)
             sys.modules[fullname] = mod
 
         try:
             mod.__loader__ = self
-            srcfile,abspath,code = self.modules[fullname]
+            srcfile, abspath, code = self.modules[fullname]
 
-            override = os.environ.get('M5_OVERRIDE_PY_SOURCE', 'false').lower()
-            if override in ('true', 'yes') and  os.path.exists(abspath):
-                src = open(abspath, 'r').read()
-                code = compile(src, abspath, 'exec')
+            override = os.environ.get("M5_OVERRIDE_PY_SOURCE", "false").lower()
+            if override in ("true", "yes") and os.path.exists(abspath):
+                src = open(abspath, "r").read()
+                code = compile(src, abspath, "exec")
 
-            if os.path.basename(srcfile) == '__init__.py':
-                mod.__path__ = fullname.split('.')
+            if os.path.basename(srcfile) == "__init__.py":
+                mod.__path__ = fullname.split(".")
                 mod.__package__ = fullname
             else:
-                mod.__package__ = fullname.rpartition('.')[0]
+                mod.__package__ = fullname.rpartition(".")[0]
             mod.__file__ = srcfile
 
             exec(code, mod.__dict__)
@@ -82,10 +82,12 @@ class CodeImporter(object):
 
         return mod
 
+
 # Create an importer and add it to the meta_path so future imports can
 # use it.  There's currently nothing in the importer, but calls to
 # add_module can be used to add code.
 import sys
+
 importer = CodeImporter()
 add_module = importer.add_module
 sys.meta_path.append(importer)

@@ -41,7 +41,7 @@ import array
 import bisect
 import distutils.spawn
 import functools
-import imp
+import types
 import os
 import re
 import sys
@@ -857,7 +857,7 @@ class DictImporter(object):
         return None
 
     def load_module(self, fullname):
-        mod = imp.new_module(fullname)
+        mod = types.ModuleType(fullname)
         sys.modules[fullname] = mod
         self.installed.add(fullname)
 

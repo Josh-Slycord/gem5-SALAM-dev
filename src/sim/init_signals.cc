@@ -59,12 +59,22 @@
 #include "sim/async.hh"
 #include "sim/backtrace.hh"
 #include "sim/eventq.hh"
+// SIGSTKSZ is no longer constexpr in glibc 2.34+ (Ubuntu 24.04)
+#ifndef FATAL_SIG_STACK_SIZE
+#if defined(SIGSTKSZ) && \
+    (!defined(__GLIBC__) || __GLIBC__ < 2 || \
+     (__GLIBC__ == 2 && __GLIBC_MINOR__ < 34))
+#define FATAL_SIG_STACK_SIZE (2 * SIGSTKSZ)
+#else
+#define FATAL_SIG_STACK_SIZE (2 * 32768)  // 64KB fallback
+#endif
+#endif
 
 namespace gem5
 {
 
 // Use an separate stack for fatal signal handlers
-static uint8_t fatalSigStack[2 * SIGSTKSZ];
+static uint8_t fatalSigStack[FATAL_SIG_STACK_SIZE];
 
 static bool
 setupAltStack()

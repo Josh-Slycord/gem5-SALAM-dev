@@ -18,6 +18,7 @@
 #
 # Author: @agent_1 (gem5-SALAM Specialist)
 # Created: 2026-01-05
+# Updated: 2026-01-06 (Ubuntu 24.04 Python 3.10 support)
 #===============================================================================
 
 #-------------------------------------------------------------------------------
@@ -46,6 +47,38 @@ log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
+
+#-------------------------------------------------------------------------------
+# Ubuntu/Python Detection
+#-------------------------------------------------------------------------------
+
+detect_scons_command() {
+    # Detect Ubuntu version and configure appropriate scons command
+    # Ubuntu 24.04 requires Python 3.10 for gem5 (due to pybind11 compatibility)
+
+    local ubuntu_version=""
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        ubuntu_version="$VERSION_ID"
+    fi
+
+    # Check if we need to use Python 3.10 (Ubuntu 24.04)
+    case "$ubuntu_version" in
+        24.04|24.*)
+            if command -v python3.10 &> /dev/null; then
+                SCONS_CMD="python3.10 $(which scons)"
+                log_info "Ubuntu 24.04 detected - using Python 3.10 for scons"
+            else
+                log_warn "Ubuntu 24.04 detected but Python 3.10 not found"
+                log_warn "gem5 may fail to build - install with: sudo apt install python3.10"
+                SCONS_CMD="scons"
+            fi
+            ;;
+        *)
+            SCONS_CMD="scons"
+            ;;
+    esac
+}
 
 #-------------------------------------------------------------------------------
 # Usage
@@ -88,6 +121,9 @@ if [[ ! -d "$M5_PATH" ]]; then
     exit 1
 fi
 
+# Detect correct scons command for this Ubuntu version
+detect_scons_command
+
 #-------------------------------------------------------------------------------
 # Build gem5
 #-------------------------------------------------------------------------------
@@ -105,7 +141,7 @@ build_gem5() {
 
     local start_time=$(date +%s)
 
-    if scons "build/ARM/gem5.$target" -j"$JOBS"; then
+    if $SCONS_CMD "build/ARM/gem5.$target" -j"$JOBS"; then
         local end_time=$(date +%s)
         local duration=$((end_time - start_time))
         log_success "gem5.$target built successfully in ${duration}s"
@@ -204,6 +240,7 @@ main() {
     log_info "Jobs: $JOBS"
     log_info "Build gem5: $BUILD_GEM5"
     log_info "Build benchmarks: $BUILD_BENCHMARKS"
+    log_info "Scons command: $SCONS_CMD"
     echo ""
 
     local gem5_result=0
