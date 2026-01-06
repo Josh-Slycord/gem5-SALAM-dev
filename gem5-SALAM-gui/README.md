@@ -34,11 +34,12 @@ A graphical installer and build tool for gem5-SALAM (System for Automated Logic 
 - **Dependency Management**: Installs all required packages for gem5-SALAM
 - **Build Automation**: Compiles gem5-SALAM and CACTI with progress tracking
 - **Live Output**: Shows real-time build output in the console
+- **Interactive Tutorial**: Step-by-step onboarding via Help → Getting Started Tutorial
 
 ## Project Structure
 
 ```
-gem5-SALAM-Installer/
+gem5-SALAM-gui/
 ├── installer.py          # Main entry point
 ├── run_installer.bat     # Windows launcher
 ├── requirements.txt      # Python dependencies
@@ -48,9 +49,16 @@ gem5-SALAM-Installer/
 │   ├── install_deps.sh   # Dependency installer
 │   ├── build_gem5.sh     # gem5 build script
 │   └── build_cacti.sh    # CACTI build script
+├── tutorials/
+│   └── getting_started.yaml  # Interactive tutorial definition
 └── src/
     ├── gui/
     │   └── main_window.py
+    ├── tutorial_overlay/     # Tutorial/onboarding system
+    │   ├── core/             # Schema, targeting, manager
+    │   ├── widgets/          # Spotlight, tooltip, navigator
+    │   ├── animations/       # Highlight effects
+    │   └── loaders/          # YAML tutorial loader
     └── utils/
         ├── wsl.py        # WSL utilities
         └── config.py     # Configuration management

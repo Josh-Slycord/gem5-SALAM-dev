@@ -3,12 +3,28 @@ Main installer window for gem5-SALAM.
 """
 
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QTextEdit, QProgressBar,
-    QGroupBox, QFormLayout, QComboBox, QLineEdit,
-    QFileDialog, QCheckBox, QTabWidget, QFrame,
-    QMessageBox, QSplitter, QDialog, QTreeWidget,
-    QTreeWidgetItem, QDialogButtonBox
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTextEdit,
+    QProgressBar,
+    QGroupBox,
+    QFormLayout,
+    QComboBox,
+    QLineEdit,
+    QFileDialog,
+    QCheckBox,
+    QTabWidget,
+    QFrame,
+    QMessageBox,
+    QSplitter,
+    QDialog,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QThread, Signal, QProcess
 from PySide6.QtGui import QFont, QTextCursor, QColor
@@ -22,11 +38,12 @@ import json
 # Config file path for saving user preferences
 CONFIG_FILE = Path(__file__).parent.parent.parent / "installer_config.json"
 
+
 def load_config() -> dict:
     """Load user configuration from file."""
     if CONFIG_FILE.exists():
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
         except Exception:
             pass
@@ -35,49 +52,60 @@ def load_config() -> dict:
         "gem5_path": "",
     }
 
+
 def save_config(config: dict):
     """Save user configuration to file."""
     try:
-        with open(CONFIG_FILE, 'w') as f:
+        with open(CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=2)
     except Exception as e:
         print(f"Warning: Could not save config: {e}")
 
+
 # Import config generator dialog (with graceful fallback)
 try:
     from .config_generator import ConfigGeneratorDialog
+
     HAS_CONFIG_GENERATOR = True
 except ImportError:
     HAS_CONFIG_GENERATOR = False
+
+# Import tutorial overlay (with graceful fallback)
+try:
+    from tutorial_overlay import TutorialManager
+
+    HAS_TUTORIAL = True
+except (ImportError, ValueError):
+    HAS_TUTORIAL = False
 
 
 def ansi_to_html(text: str) -> str:
     """Convert ANSI color codes to HTML spans."""
     # ANSI color code mapping to CSS colors
     ansi_colors = {
-        '30': '#000000',  # Black
-        '31': '#cc0000',  # Red
-        '32': '#00cc00',  # Green
-        '33': '#cccc00',  # Yellow
-        '34': '#5555ff',  # Blue
-        '35': '#cc00cc',  # Magenta
-        '36': '#00cccc',  # Cyan
-        '37': '#cccccc',  # White
-        '90': '#666666',  # Bright Black
-        '91': '#ff5555',  # Bright Red
-        '92': '#55ff55',  # Bright Green
-        '93': '#ffff55',  # Bright Yellow
-        '94': '#5555ff',  # Bright Blue
-        '95': '#ff55ff',  # Bright Magenta
-        '96': '#55ffff',  # Bright Cyan
-        '97': '#ffffff',  # Bright White
+        "30": "#000000",  # Black
+        "31": "#cc0000",  # Red
+        "32": "#00cc00",  # Green
+        "33": "#cccc00",  # Yellow
+        "34": "#5555ff",  # Blue
+        "35": "#cc00cc",  # Magenta
+        "36": "#00cccc",  # Cyan
+        "37": "#cccccc",  # White
+        "90": "#666666",  # Bright Black
+        "91": "#ff5555",  # Bright Red
+        "92": "#55ff55",  # Bright Green
+        "93": "#ffff55",  # Bright Yellow
+        "94": "#5555ff",  # Bright Blue
+        "95": "#ff55ff",  # Bright Magenta
+        "96": "#55ffff",  # Bright Cyan
+        "97": "#ffffff",  # Bright White
     }
 
     # Escape HTML special characters first
-    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     # Pattern to match ANSI escape sequences
-    ansi_pattern = re.compile(r'\x1b\[([0-9;]*)m')
+    ansi_pattern = re.compile(r"\x1b\[([0-9;]*)m")
 
     result = []
     last_end = 0
@@ -85,16 +113,16 @@ def ansi_to_html(text: str) -> str:
 
     for match in ansi_pattern.finditer(text):
         # Add text before this match
-        result.append(text[last_end:match.start()])
+        result.append(text[last_end : match.start()])
 
-        codes = match.group(1).split(';')
+        codes = match.group(1).split(";")
 
         for code in codes:
-            if code == '0' or code == '':
+            if code == "0" or code == "":
                 # Reset - close all open spans
-                result.append('</span>' * open_spans)
+                result.append("</span>" * open_spans)
                 open_spans = 0
-            elif code == '1':
+            elif code == "1":
                 # Bold
                 result.append('<span style="font-weight:bold;">')
                 open_spans += 1
@@ -109,16 +137,22 @@ def ansi_to_html(text: str) -> str:
     result.append(text[last_end:])
 
     # Close any remaining open spans
-    result.append('</span>' * open_spans)
+    result.append("</span>" * open_spans)
 
-    return ''.join(result)
+    return "".join(result)
+
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.wsl import (
-    get_wsl_status, run_in_wsl_streaming, windows_to_wsl_path,
-    check_dependencies, WSLStatus, launch_in_terminal,
-    create_install_wrapper_script, is_windows_terminal_available
+    get_wsl_status,
+    run_in_wsl_streaming,
+    windows_to_wsl_path,
+    check_dependencies,
+    WSLStatus,
+    launch_in_terminal,
+    create_install_wrapper_script,
+    is_windows_terminal_available,
 )
 
 
@@ -142,7 +176,9 @@ class InstallWorker(QThread):
     def run(self):
         # Write debug to file for crash analysis
         import datetime
+
         debug_file = Path(__file__).parent.parent.parent / "debug.log"
+
         def log(msg):
             with open(debug_file, "a") as f:
                 f.write(f"{datetime.datetime.now()}: {msg}\n")
@@ -191,12 +227,17 @@ class InstallWorker(QThread):
 
             if exit_code == 0:
                 self.progress.emit(100, "Installation complete!")
-                self.finished.emit(True, "Installation completed successfully!")
+                self.finished.emit(
+                    True, "Installation completed successfully!"
+                )
             else:
-                self.finished.emit(False, f"Installation failed with exit code {exit_code}")
+                self.finished.emit(
+                    False, f"Installation failed with exit code {exit_code}"
+                )
 
         except Exception as e:
             import traceback
+
             log(f"[DEBUG] Exception in worker: {e}")
             log(traceback.format_exc())
             self.finished.emit(False, f"Installation error: {str(e)}")
@@ -209,8 +250,14 @@ class BuildWorker(QThread):
     progress = Signal(int, str)
     finished = Signal(bool, str)
 
-    def __init__(self, script_path: str, distro: str, gem5_path: str,
-                 build_type: str = "opt", num_jobs: int = None):
+    def __init__(
+        self,
+        script_path: str,
+        distro: str,
+        gem5_path: str,
+        build_type: str = "opt",
+        num_jobs: int = None,
+    ):
         super().__init__()
         self.script_path = script_path
         self.distro = distro
@@ -225,7 +272,9 @@ class BuildWorker(QThread):
     def run(self):
         # Write debug to file for crash analysis
         import datetime
+
         debug_file = Path(__file__).parent.parent.parent / "debug.log"
+
         def log(msg):
             with open(debug_file, "a") as f:
                 f.write(f"{datetime.datetime.now()}: {msg}\n")
@@ -274,10 +323,13 @@ class BuildWorker(QThread):
                 self.progress.emit(100, "Build complete!")
                 self.finished.emit(True, "Build completed successfully!")
             else:
-                self.finished.emit(False, f"Build failed with exit code {exit_code}")
+                self.finished.emit(
+                    False, f"Build failed with exit code {exit_code}"
+                )
 
         except Exception as e:
             import traceback
+
             log(f"[DEBUG] Exception in BuildWorker: {e}")
             log(traceback.format_exc())
             self.finished.emit(False, f"Build error: {str(e)}")
@@ -290,8 +342,14 @@ class BenchmarkBuildWorker(QThread):
     progress = Signal(int, str)
     finished = Signal(bool, str)
 
-    def __init__(self, script_path: str, distro: str, gem5_path: str,
-                 benchmark: str, num_jobs: int = None):
+    def __init__(
+        self,
+        script_path: str,
+        distro: str,
+        gem5_path: str,
+        benchmark: str,
+        num_jobs: int = None,
+    ):
         super().__init__()
         self.script_path = script_path
         self.distro = distro
@@ -322,7 +380,9 @@ class BenchmarkBuildWorker(QThread):
             while True:
                 if self._cancelled:
                     process.terminate()
-                    self.finished.emit(False, f"{self.benchmark}: Build cancelled")
+                    self.finished.emit(
+                        False, f"{self.benchmark}: Build cancelled"
+                    )
                     return
 
                 line = process.stdout.readline()
@@ -337,10 +397,15 @@ class BenchmarkBuildWorker(QThread):
             if exit_code == 0:
                 self.finished.emit(True, f"{self.benchmark}: Build successful")
             else:
-                self.finished.emit(False, f"{self.benchmark}: Build failed (exit code {exit_code})")
+                self.finished.emit(
+                    False,
+                    f"{self.benchmark}: Build failed (exit code {exit_code})",
+                )
 
         except Exception as e:
-            self.finished.emit(False, f"{self.benchmark}: Build error - {str(e)}")
+            self.finished.emit(
+                False, f"{self.benchmark}: Build error - {str(e)}"
+            )
 
 
 class WSLStatusWidget(QGroupBox):
@@ -389,7 +454,7 @@ class WSLStatusWidget(QGroupBox):
 
         if status.version:
             # Extract just the first line of version info
-            version_line = status.version.split('\n')[0]
+            version_line = status.version.split("\n")[0]
             self.version_label.setText(version_line)
         else:
             self.version_label.setText("-")
@@ -447,12 +512,12 @@ class DependencyStatusWidget(QGroupBox):
         deps_layout = QFormLayout()
 
         dependencies = [
-            ('build-essential', 'Build Tools (gcc/g++)'),
-            ('python3', 'Python 3'),
-            ('scons', 'SCons'),
-            ('llvm', 'LLVM'),
-            ('clang', 'Clang'),
-            ('arm-none-eabi-gcc', 'ARM Toolchain'),
+            ("build-essential", "Build Tools (gcc/g++)"),
+            ("python3", "Python 3"),
+            ("scons", "SCons"),
+            ("llvm", "LLVM"),
+            ("clang", "Clang"),
+            ("arm-none-eabi-gcc", "ARM Toolchain"),
         ]
 
         for key, name in dependencies:
@@ -482,6 +547,7 @@ class DependencyStatusWidget(QGroupBox):
 
         # Process events to update UI
         from PySide6.QtWidgets import QApplication
+
         QApplication.processEvents()
 
         try:
@@ -498,6 +564,7 @@ class DependencyStatusWidget(QGroupBox):
                         label.setStyleSheet("color: red;")
         except Exception as e:
             import traceback
+
             print(f"Error checking dependencies: {e}")
             traceback.print_exc()
             for label in self.deps_labels.values():
@@ -561,12 +628,12 @@ class BenchmarkSelectionDialog(QDialog):
         self.tree.clear()
 
         categories = {
-            'legacy': 'Legacy Benchmarks',
-            'sys_validation': 'System Validation',
-            'lenet5-nounroll': 'LeNet5 (No Unroll)',
-            'lenet5-kernelunroll': 'LeNet5 (Kernel Unroll)',
-            'lenet5-channelunroll': 'LeNet5 (Channel Unroll)',
-            'mobilenetv2': 'MobileNetV2',
+            "legacy": "Legacy Benchmarks",
+            "sys_validation": "System Validation",
+            "lenet5-nounroll": "LeNet5 (No Unroll)",
+            "lenet5-kernelunroll": "LeNet5 (Kernel Unroll)",
+            "lenet5-channelunroll": "LeNet5 (Channel Unroll)",
+            "mobilenetv2": "MobileNetV2",
         }
 
         for category_dir, category_name in categories.items():
@@ -578,7 +645,9 @@ class BenchmarkSelectionDialog(QDialog):
             # Create category item
             category_item = QTreeWidgetItem([category_name, category_dir])
             category_item.setFlags(
-                category_item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate
+                category_item.flags()
+                | Qt.ItemIsUserCheckable
+                | Qt.ItemIsAutoTristate
             )
             category_item.setCheckState(0, Qt.Unchecked)
 
@@ -596,7 +665,7 @@ class BenchmarkSelectionDialog(QDialog):
                     continue
 
                 # Skip common directories (they're shared code, not benchmarks)
-                if bench_path.name == 'common':
+                if bench_path.name == "common":
                     continue
 
                 # Check if it's a valid benchmark (has Makefile or hw/ directory)
@@ -720,11 +789,13 @@ class SimulationDialog(QDialog):
         config_layout = QFormLayout(config_group)
 
         self.config_combo = QComboBox()
-        self.config_combo.addItems([
-            "configs/SALAM/sys_validation.py",
-            "configs/SALAM/fs_hwacc.py",
-            "configs/SALAM/validate_acc.py",
-        ])
+        self.config_combo.addItems(
+            [
+                "configs/SALAM/sys_validation.py",
+                "configs/SALAM/fs_hwacc.py",
+                "configs/SALAM/validate_acc.py",
+            ]
+        )
         config_layout.addRow("Config Script:", self.config_combo)
 
         self.build_combo = QComboBox()
@@ -777,8 +848,14 @@ class SimulationDialog(QDialog):
         """Discover available benchmarks."""
         self.benchmark_combo.clear()
 
-        categories = ['sys_validation', 'legacy', 'lenet5-nounroll',
-                      'lenet5-kernelunroll', 'lenet5-channelunroll', 'mobilenetv2']
+        categories = [
+            "sys_validation",
+            "legacy",
+            "lenet5-nounroll",
+            "lenet5-kernelunroll",
+            "lenet5-channelunroll",
+            "mobilenetv2",
+        ]
 
         for category in categories:
             category_path = self.benchmarks_dir / category
@@ -816,7 +893,10 @@ class SimulationDialog(QDialog):
 
     def _browse_disk(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Disk Image", "", "Disk Images (*.img *.qcow2);;All Files (*)"
+            self,
+            "Select Disk Image",
+            "",
+            "Disk Images (*.img *.qcow2);;All Files (*)",
         )
         if path:
             self.disk_edit.setText(path)
@@ -824,13 +904,13 @@ class SimulationDialog(QDialog):
     def get_config(self) -> dict:
         """Get simulation configuration."""
         return {
-            'benchmark': self.benchmark_combo.currentData(),
-            'config_script': self.config_combo.currentText(),
-            'build_type': self.build_combo.currentText(),
-            'cpus': self.cpus_spin.text(),
-            'kernel': self.kernel_edit.text(),
-            'disk': self.disk_edit.text(),
-            'extra_args': self.extra_args_edit.text(),
+            "benchmark": self.benchmark_combo.currentData(),
+            "config_script": self.config_combo.currentText(),
+            "build_type": self.build_combo.currentText(),
+            "cpus": self.cpus_spin.text(),
+            "kernel": self.kernel_edit.text(),
+            "disk": self.disk_edit.text(),
+            "extra_args": self.extra_args_edit.text(),
         }
 
 
@@ -841,7 +921,9 @@ class SimulationWorker(QThread):
     progress = Signal(int, str)
     finished = Signal(bool, str)
 
-    def __init__(self, script_path: str, distro: str, gem5_path: str, config: dict):
+    def __init__(
+        self, script_path: str, distro: str, gem5_path: str, config: dict
+    ):
         super().__init__()
         self.script_path = script_path
         self.distro = distro
@@ -866,20 +948,22 @@ class SimulationWorker(QThread):
                 f"--cpus {self.config['cpus']}",
             ]
 
-            if self.config.get('kernel'):
-                kernel_path = windows_to_wsl_path(self.config['kernel'])
+            if self.config.get("kernel"):
+                kernel_path = windows_to_wsl_path(self.config["kernel"])
                 args.append(f"--kernel '{kernel_path}'")
 
-            if self.config.get('disk'):
-                disk_path = windows_to_wsl_path(self.config['disk'])
+            if self.config.get("disk"):
+                disk_path = windows_to_wsl_path(self.config["disk"])
                 args.append(f"--disk '{disk_path}'")
 
-            if self.config.get('extra_args'):
+            if self.config.get("extra_args"):
                 args.append(f"--extra '{self.config['extra_args']}'")
 
             command = f"tr -d '\\r' < '{wsl_script_path}' | bash -s -- {' '.join(args)}"
 
-            self.output.emit(f"Starting simulation: {self.config['benchmark']}")
+            self.output.emit(
+                f"Starting simulation: {self.config['benchmark']}"
+            )
             self.progress.emit(5, "Starting simulation...")
 
             process = run_in_wsl_streaming(command, distro=self.distro)
@@ -903,7 +987,9 @@ class SimulationWorker(QThread):
                 self.progress.emit(100, "Simulation complete!")
                 self.finished.emit(True, "Simulation completed successfully!")
             else:
-                self.finished.emit(False, f"Simulation failed with exit code {exit_code}")
+                self.finished.emit(
+                    False, f"Simulation failed with exit code {exit_code}"
+                )
 
         except Exception as e:
             self.finished.emit(False, f"Simulation error: {str(e)}")
@@ -926,6 +1012,11 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         print("[DEBUG] setup_ui complete, calling refresh_wsl_status")
         self.refresh_wsl_status()
+
+        # Initialize tutorial manager
+        if HAS_TUTORIAL:
+            self.tutorial_manager = TutorialManager(self)
+
         print("[DEBUG] MainWindow.__init__ complete")
 
     def setup_ui(self):
@@ -968,7 +1059,9 @@ class MainWindow(QMainWindow):
         if saved_path and Path(saved_path).exists():
             self.gem5_path_edit.setText(saved_path)
         else:
-            default_path = Path(__file__).parent.parent.parent.parent / "gem5-SALAM-dev"
+            default_path = (
+                Path(__file__).parent.parent.parent.parent / "gem5-SALAM-dev"
+            )
             if default_path.exists():
                 self.gem5_path_edit.setText(str(default_path))
 
@@ -1097,7 +1190,9 @@ class MainWindow(QMainWindow):
         # Configuration generator button
         self.config_gen_btn = QPushButton("Configuration")
         self.config_gen_btn.clicked.connect(self.open_config_generator)
-        self.config_gen_btn.setToolTip("Create or edit accelerator configurations")
+        self.config_gen_btn.setToolTip(
+            "Create or edit accelerator configurations"
+        )
         if not HAS_CONFIG_GENERATOR:
             self.config_gen_btn.setEnabled(False)
             self.config_gen_btn.setToolTip("Config generator not available")
@@ -1112,18 +1207,43 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(button_layout)
 
+        # Set objectNames for tutorial targeting
+        self.wsl_status.setObjectName("wsl_status")
+        self.gem5_path_edit.setObjectName("gem5_path_input")
+        self.m5_path_label.setObjectName("m5_path_display")
+        self.deps_status.setObjectName("dependency_status")
+        self.build_type_combo.setObjectName("build_type_selector")
+        self.output_text.setObjectName("console_output")
+        self.install_deps_btn.setObjectName("install_deps_btn")
+        self.build_gem5_btn.setObjectName("build_gem5_btn")
+        self.build_benchmarks_btn.setObjectName("build_benchmarks_btn")
+        self.run_sim_btn.setObjectName("run_simulation_btn")
+
+        # Create menu bar with Help menu
+        menubar = self.menuBar()
+        help_menu = menubar.addMenu("Help")
+
+        if HAS_TUTORIAL:
+            tutorial_action = help_menu.addAction("Getting Started Tutorial")
+            tutorial_action.triggered.connect(self._show_tutorial)
+
+        about_action = help_menu.addAction("About")
+        about_action.triggered.connect(self._show_about)
+
     def refresh_wsl_status(self):
         """Refresh WSL status display."""
         self.wsl_status.refresh_status()
         # Also check M5_PATH after a short delay to ensure distro is selected
         from PySide6.QtCore import QTimer
+
         QTimer.singleShot(500, self._check_m5_path)
 
     def browse_gem5_path(self):
         """Open file dialog to select gem5-SALAM directory."""
         path = QFileDialog.getExistingDirectory(
-            self, "Select gem5-SALAM Directory",
-            self.gem5_path_edit.text() or str(Path.home())
+            self,
+            "Select gem5-SALAM Directory",
+            self.gem5_path_edit.text() or str(Path.home()),
         )
         if path:
             self.gem5_path_edit.setText(path)
@@ -1146,27 +1266,34 @@ class MainWindow(QMainWindow):
             # Extract M5_PATH directly from shell config files
             # This is more reliable than sourcing because pyenv/other init scripts may fail
             import subprocess
+
             # Search for export M5_PATH= in both .bashrc and .profile
             cmd = (
                 "grep -h 'export M5_PATH=' ~/.bashrc ~/.profile 2>/dev/null | "
-                "tail -1 | sed 's/.*M5_PATH=[\"]*\\([^\"]*\\)[\"]*$/\\1/'"
+                'tail -1 | sed \'s/.*M5_PATH=["]*\\([^"]*\\)["]*$/\\1/\''
             )
             result = subprocess.run(
-                ['wsl', '-d', distro, 'bash', '-c', cmd],
-                capture_output=True, text=True, timeout=5
+                ["wsl", "-d", distro, "bash", "-c", cmd],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
 
             m5_path = result.stdout.strip()
             if m5_path:
                 # Truncate if too long
-                display = m5_path if len(m5_path) < 40 else f"...{m5_path[-37:]}"
+                display = (
+                    m5_path if len(m5_path) < 40 else f"...{m5_path[-37:]}"
+                )
                 self.m5_path_label.setText(display)
                 self.m5_path_label.setStyleSheet("color: green;")
                 self.m5_path_label.setToolTip(m5_path)
             else:
                 self.m5_path_label.setText("Not set")
                 self.m5_path_label.setStyleSheet("color: orange;")
-                self.m5_path_label.setToolTip("M5_PATH environment variable is not set")
+                self.m5_path_label.setToolTip(
+                    "M5_PATH environment variable is not set"
+                )
 
         except Exception as e:
             self.m5_path_label.setText("Error checking")
@@ -1178,23 +1305,26 @@ class MainWindow(QMainWindow):
         gem5_path = self.gem5_path_edit.text().strip()
         if not gem5_path:
             QMessageBox.warning(
-                self, "No Path",
-                "Please specify the gem5-SALAM directory path first."
+                self,
+                "No Path",
+                "Please specify the gem5-SALAM directory path first.",
             )
             return
 
         if not Path(gem5_path).exists():
             QMessageBox.warning(
-                self, "Invalid Path",
-                f"The specified path does not exist:\n{gem5_path}"
+                self,
+                "Invalid Path",
+                f"The specified path does not exist:\n{gem5_path}",
             )
             return
 
         distro = self.wsl_status.get_selected_distro()
         if not distro:
             QMessageBox.warning(
-                self, "No WSL Distribution",
-                "Please select a WSL distribution first."
+                self,
+                "No WSL Distribution",
+                "Please select a WSL distribution first.",
             )
             return
 
@@ -1224,65 +1354,74 @@ class MainWindow(QMainWindow):
 
         files_to_modify = []
         if clicked == bashrc_btn:
-            files_to_modify = ['~/.bashrc']
+            files_to_modify = ["~/.bashrc"]
         elif clicked == profile_btn:
-            files_to_modify = ['~/.profile']
+            files_to_modify = ["~/.profile"]
         elif clicked == both_btn:
-            files_to_modify = ['~/.bashrc', '~/.profile']
+            files_to_modify = ["~/.bashrc", "~/.profile"]
 
         try:
             import subprocess
+
             export_line = f'export M5_PATH="{wsl_path}"'
 
             for config_file in files_to_modify:
                 # Check if line already exists
                 check_cmd = f'grep -q "export M5_PATH=" {config_file} 2>/dev/null && echo "exists" || echo "missing"'
                 result = subprocess.run(
-                    ['wsl', '-d', distro, 'bash', '-c', check_cmd],
-                    capture_output=True, text=True, timeout=10
+                    ["wsl", "-d", distro, "bash", "-c", check_cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
 
                 if result.stdout.strip() == "exists":
                     # Replace existing M5_PATH line
                     sed_cmd = f'sed -i "s|^export M5_PATH=.*|{export_line}|" {config_file}'
                     subprocess.run(
-                        ['wsl', '-d', distro, 'bash', '-c', sed_cmd],
-                        capture_output=True, text=True, timeout=10
+                        ["wsl", "-d", distro, "bash", "-c", sed_cmd],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                     )
                     self.append_output(f"Updated M5_PATH in {config_file}\n")
                 else:
                     # Append new line
-                    append_cmd = f'echo \'{export_line}\' >> {config_file}'
+                    append_cmd = f"echo '{export_line}' >> {config_file}"
                     subprocess.run(
-                        ['wsl', '-d', distro, 'bash', '-c', append_cmd],
-                        capture_output=True, text=True, timeout=10
+                        ["wsl", "-d", distro, "bash", "-c", append_cmd],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                     )
                     self.append_output(f"Added M5_PATH to {config_file}\n")
 
             # Also set it for the current session by sourcing
             source_cmd = f'export M5_PATH="{wsl_path}"'
             subprocess.run(
-                ['wsl', '-d', distro, 'bash', '-c', source_cmd],
-                capture_output=True, text=True, timeout=10
+                ["wsl", "-d", distro, "bash", "-c", source_cmd],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
 
             self.append_output(f"\nM5_PATH set to: {wsl_path}\n")
-            self.append_output("Note: Open a new terminal or run 'source ~/.bashrc' for changes to take effect.\n")
+            self.append_output(
+                "Note: Open a new terminal or run 'source ~/.bashrc' for changes to take effect.\n"
+            )
 
             # Update the label
             self._check_m5_path()
 
             QMessageBox.information(
-                self, "M5_PATH Set",
+                self,
+                "M5_PATH Set",
                 f"M5_PATH has been set to:\n{wsl_path}\n\n"
-                "Open a new WSL terminal or run 'source ~/.bashrc' for changes to take effect."
+                "Open a new WSL terminal or run 'source ~/.bashrc' for changes to take effect.",
             )
 
         except Exception as e:
-            QMessageBox.critical(
-                self, "Error",
-                f"Failed to set M5_PATH:\n{e}"
-            )
+            QMessageBox.critical(self, "Error", f"Failed to set M5_PATH:\n{e}")
 
     def append_output(self, text: str):
         """Append text to the output console with ANSI color support."""
@@ -1290,13 +1429,13 @@ class MainWindow(QMainWindow):
             # Convert ANSI codes to HTML
             html_text = ansi_to_html(text)
             # Replace newlines with <br> for HTML
-            html_text = html_text.replace('\n', '<br>')
+            html_text = html_text.replace("\n", "<br>")
 
             # Append as HTML
             cursor = self.output_text.textCursor()
             cursor.movePosition(QTextCursor.End)
             self.output_text.setTextCursor(cursor)
-            self.output_text.insertHtml(html_text + '<br>')
+            self.output_text.insertHtml(html_text + "<br>")
 
             # Auto-scroll to bottom
             cursor.movePosition(QTextCursor.End)
@@ -1317,6 +1456,7 @@ class MainWindow(QMainWindow):
     def copy_output_to_clipboard(self):
         """Copy the output text to clipboard."""
         from PySide6.QtWidgets import QApplication
+
         clipboard = QApplication.clipboard()
         # Get plain text (without HTML formatting)
         plain_text = self.output_text.toPlainText()
@@ -1338,23 +1478,26 @@ class MainWindow(QMainWindow):
         distro = self.wsl_status.get_selected_distro()
         if not distro:
             QMessageBox.warning(
-                self, "No WSL Distribution",
-                "Please select a WSL distribution to use."
+                self,
+                "No WSL Distribution",
+                "Please select a WSL distribution to use.",
             )
             return False
 
         gem5_path = self.gem5_path_edit.text().strip()
         if not gem5_path:
             QMessageBox.warning(
-                self, "No Path",
-                "Please specify the gem5-SALAM directory path."
+                self,
+                "No Path",
+                "Please specify the gem5-SALAM directory path.",
             )
             return False
 
         if not Path(gem5_path).exists():
             QMessageBox.warning(
-                self, "Invalid Path",
-                f"The specified path does not exist:\n{gem5_path}"
+                self,
+                "Invalid Path",
+                f"The specified path does not exist:\n{gem5_path}",
             )
             return False
 
@@ -1379,7 +1522,9 @@ class MainWindow(QMainWindow):
             "for a password. Only works if you have passwordless sudo."
         )
 
-        terminal_btn = msg.addButton("Open in Terminal", QMessageBox.AcceptRole)
+        terminal_btn = msg.addButton(
+            "Open in Terminal", QMessageBox.AcceptRole
+        )
         embedded_btn = msg.addButton("Run Embedded", QMessageBox.ActionRole)
         cancel_btn = msg.addButton(QMessageBox.Cancel)
 
@@ -1408,17 +1553,25 @@ class MainWindow(QMainWindow):
         self.append_output(f"Distribution: {distro}\n")
         self.append_output(f"Script: {script_path}\n\n")
 
-        terminal_name = "Windows Terminal" if is_windows_terminal_available() else "Command Prompt"
+        terminal_name = (
+            "Windows Terminal"
+            if is_windows_terminal_available()
+            else "Command Prompt"
+        )
         self.append_output(f"Opening {terminal_name}...\n")
-        self.append_output("Please complete the installation in the terminal window.\n")
+        self.append_output(
+            "Please complete the installation in the terminal window.\n"
+        )
         self.append_output("Enter your sudo password when prompted.\n\n")
-        self.append_output("Click 'Check Dependencies' after installation completes.\n")
+        self.append_output(
+            "Click 'Check Dependencies' after installation completes.\n"
+        )
 
         try:
             launch_in_terminal(
                 command,
                 distro=distro,
-                title="gem5-SALAM Dependency Installation"
+                title="gem5-SALAM Dependency Installation",
             )
             self.progress_label.setText("Installation running in terminal...")
             self.progress_bar.setValue(50)
@@ -1433,7 +1586,7 @@ class MainWindow(QMainWindow):
                 "1. Enter your sudo password when prompted\n"
                 "2. Wait for the installation to complete\n"
                 "3. Press Enter to close the terminal\n"
-                "4. Click 'Check Dependencies' to verify installation"
+                "4. Click 'Check Dependencies' to verify installation",
             )
 
         except Exception as e:
@@ -1442,14 +1595,18 @@ class MainWindow(QMainWindow):
                 self,
                 "Launch Failed",
                 f"Failed to launch terminal:\n{e}\n\n"
-                "Try using 'Run Embedded' option instead."
+                "Try using 'Run Embedded' option instead.",
             )
 
     def _install_embedded(self, distro: str):
         """Run dependency installation embedded in the GUI (original method)."""
         self.output_text.clear()
-        self.append_output("Starting dependency installation (embedded mode)...\n")
-        self.append_output("Note: This will fail if sudo prompts for a password.\n\n")
+        self.append_output(
+            "Starting dependency installation (embedded mode)...\n"
+        )
+        self.append_output(
+            "Note: This will fail if sudo prompts for a password.\n\n"
+        )
         self.set_buttons_enabled(False)
         self.progress_bar.setValue(0)
 
@@ -1471,9 +1628,10 @@ class MainWindow(QMainWindow):
         scons_file = Path(gem5_path) / "SConstruct"
         if not scons_file.exists():
             QMessageBox.warning(
-                self, "Invalid gem5 Directory",
+                self,
+                "Invalid gem5 Directory",
                 "The specified directory does not appear to be a gem5 directory.\n"
-                "SConstruct file not found."
+                "SConstruct file not found.",
             )
             return
 
@@ -1511,8 +1669,9 @@ class MainWindow(QMainWindow):
         cacti_dir = Path(gem5_path) / "ext" / "mcpat" / "cacti"
         if not cacti_dir.exists():
             QMessageBox.warning(
-                self, "CACTI Not Found",
-                f"CACTI directory not found at:\n{cacti_dir}"
+                self,
+                "CACTI Not Found",
+                f"CACTI directory not found at:\n{cacti_dir}",
             )
             return
 
@@ -1524,9 +1683,7 @@ class MainWindow(QMainWindow):
         script_path = str(self.scripts_dir / "build_cacti.sh")
         distro = self.wsl_status.get_selected_distro()
 
-        self.worker = BuildWorker(
-            script_path, distro, gem5_path, "opt", None
-        )
+        self.worker = BuildWorker(script_path, distro, gem5_path, "opt", None)
         self.worker.output.connect(self.append_output)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_operation_finished)
@@ -1541,8 +1698,9 @@ class MainWindow(QMainWindow):
         benchmarks_dir = Path(gem5_path) / "benchmarks"
         if not benchmarks_dir.exists():
             QMessageBox.warning(
-                self, "Benchmarks Not Found",
-                f"Benchmarks directory not found at:\n{benchmarks_dir}"
+                self,
+                "Benchmarks Not Found",
+                f"Benchmarks directory not found at:\n{benchmarks_dir}",
             )
             return
 
@@ -1554,8 +1712,9 @@ class MainWindow(QMainWindow):
         selected = dialog.get_selected_benchmarks()
         if not selected:
             QMessageBox.warning(
-                self, "No Selection",
-                "Please select at least one benchmark to build."
+                self,
+                "No Selection",
+                "Please select at least one benchmark to build.",
             )
             return
 
@@ -1596,16 +1755,27 @@ class MainWindow(QMainWindow):
             total = self._benchmark_success_count + self._benchmark_fail_count
             self.append_output(f"\n{'='*50}\n")
             self.append_output(f"Benchmark build complete!\n")
-            self.append_output(f"  Success: {self._benchmark_success_count}/{total}\n")
+            self.append_output(
+                f"  Success: {self._benchmark_success_count}/{total}\n"
+            )
             if self._benchmark_fail_count > 0:
-                self.append_output(f"  Failed: {self._benchmark_fail_count}/{total}\n")
+                self.append_output(
+                    f"  Failed: {self._benchmark_fail_count}/{total}\n"
+                )
             self.progress_bar.setValue(100)
             self.progress_label.setText("Benchmark build complete!")
             return
 
         benchmark = self._benchmark_queue.pop(0)
-        total = self._benchmark_success_count + self._benchmark_fail_count + len(self._benchmark_queue) + 1
-        current = self._benchmark_success_count + self._benchmark_fail_count + 1
+        total = (
+            self._benchmark_success_count
+            + self._benchmark_fail_count
+            + len(self._benchmark_queue)
+            + 1
+        )
+        current = (
+            self._benchmark_success_count + self._benchmark_fail_count + 1
+        )
 
         self.append_output(f"\n[{current}/{total}] Building: {benchmark}\n")
         progress = int((current - 1) / total * 100)
@@ -1618,7 +1788,7 @@ class MainWindow(QMainWindow):
             self._benchmark_distro,
             self._benchmark_gem5_path,
             benchmark,
-            self._benchmark_jobs
+            self._benchmark_jobs,
         )
         self.worker.output.connect(self.append_output)
         self.worker.progress.connect(self.update_progress)
@@ -1642,6 +1812,7 @@ class MainWindow(QMainWindow):
 
         # Use a timer to start next benchmark to ensure thread cleanup
         from PySide6.QtCore import QTimer
+
         QTimer.singleShot(100, self._build_next_benchmark)
 
     def open_config_generator(self):
@@ -1650,16 +1821,18 @@ class MainWindow(QMainWindow):
 
         if not gem5_path:
             QMessageBox.warning(
-                self, "No Path",
-                "Please specify the gem5-SALAM directory path first."
+                self,
+                "No Path",
+                "Please specify the gem5-SALAM directory path first.",
             )
             return
 
         gem5_path = Path(gem5_path)
         if not gem5_path.exists():
             QMessageBox.warning(
-                self, "Invalid Path",
-                f"The specified path does not exist:\n{gem5_path}"
+                self,
+                "Invalid Path",
+                f"The specified path does not exist:\n{gem5_path}",
             )
             return
 
@@ -1668,8 +1841,7 @@ class MainWindow(QMainWindow):
             dialog.exec()
         except Exception as e:
             QMessageBox.critical(
-                self, "Error",
-                f"Failed to open configuration generator:\n{e}"
+                self, "Error", f"Failed to open configuration generator:\n{e}"
             )
 
     def run_simulation(self):
@@ -1684,17 +1856,19 @@ class MainWindow(QMainWindow):
         gem5_bin = Path(gem5_path) / "build" / "ARM" / f"gem5.{build_type}"
         if not gem5_bin.exists():
             QMessageBox.warning(
-                self, "gem5 Not Built",
+                self,
+                "gem5 Not Built",
                 f"gem5 binary not found:\n{gem5_bin}\n\n"
-                "Please build gem5-SALAM first."
+                "Please build gem5-SALAM first.",
             )
             return
 
         benchmarks_dir = Path(gem5_path) / "benchmarks"
         if not benchmarks_dir.exists():
             QMessageBox.warning(
-                self, "Benchmarks Not Found",
-                f"Benchmarks directory not found at:\n{benchmarks_dir}"
+                self,
+                "Benchmarks Not Found",
+                f"Benchmarks directory not found at:\n{benchmarks_dir}",
             )
             return
 
@@ -1704,10 +1878,9 @@ class MainWindow(QMainWindow):
             return
 
         config = dialog.get_config()
-        if not config.get('benchmark'):
+        if not config.get("benchmark"):
             QMessageBox.warning(
-                self, "No Benchmark",
-                "Please select a benchmark to run."
+                self, "No Benchmark", "Please select a benchmark to run."
             )
             return
 
@@ -1722,9 +1895,7 @@ class MainWindow(QMainWindow):
         script_path = str(self.scripts_dir / "run_simulation.sh")
         distro = self.wsl_status.get_selected_distro()
 
-        self.worker = SimulationWorker(
-            script_path, distro, gem5_path, config
-        )
+        self.worker = SimulationWorker(script_path, distro, gem5_path, config)
         self.worker.output.connect(self.append_output)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.on_operation_finished)
@@ -1733,7 +1904,7 @@ class MainWindow(QMainWindow):
     def cancel_operation(self):
         """Cancel the current operation."""
         # Clear benchmark queue if any
-        if hasattr(self, '_benchmark_queue'):
+        if hasattr(self, "_benchmark_queue"):
             self._benchmark_queue = []
 
         if self.worker and self.worker.isRunning():
@@ -1765,10 +1936,11 @@ class MainWindow(QMainWindow):
         """Handle window close."""
         if self.worker and self.worker.isRunning():
             reply = QMessageBox.question(
-                self, "Operation in Progress",
+                self,
+                "Operation in Progress",
                 "An operation is still running. Are you sure you want to exit?",
                 QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
                 self.worker.cancel()
@@ -1778,3 +1950,49 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+    def _show_tutorial(self):
+        """Show the Getting Started tutorial."""
+        if not HAS_TUTORIAL:
+            return
+
+        tutorial_path = (
+            Path(__file__).parent.parent.parent
+            / "tutorials"
+            / "getting_started.yaml"
+        )
+        if not tutorial_path.exists():
+            QMessageBox.warning(
+                self,
+                "Tutorial Not Found",
+                f"Tutorial file not found at:\n{tutorial_path}",
+            )
+            return
+
+        try:
+            self.tutorial_manager.load_tutorial(str(tutorial_path))
+            self.tutorial_manager.start()
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Tutorial Error", f"Failed to start tutorial:\n{e}"
+            )
+
+    def _show_about(self):
+        """Show the About dialog."""
+        QMessageBox.about(
+            self,
+            "About gem5-SALAM Installer",
+            "<h2>gem5-SALAM Installer</h2>"
+            "<p>Version 1.0.0</p>"
+            "<p>A graphical installer and build tool for gem5-SALAM, "
+            "the System Architecture for Low-power Accelerator Modeling "
+            "framework.</p>"
+            "<p><b>Features:</b></p>"
+            "<ul>"
+            "<li>WSL environment detection</li>"
+            "<li>Dependency management</li>"
+            "<li>gem5-SALAM and CACTI building</li>"
+            "<li>Benchmark compilation</li>"
+            "<li>Simulation execution</li>"
+            "</ul>",
+        )

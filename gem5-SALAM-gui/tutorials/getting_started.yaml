@@ -1,0 +1,130 @@
+# gem5-SALAM Installer Getting Started Tutorial
+# ==============================================
+#
+# This tutorial guides new users through the gem5-SALAM installation process.
+# Uses spotlight highlighting and progressive disclosure for optimal UX.
+
+id: installer_getting_started
+name: Getting Started with gem5-SALAM Installer
+description: Learn how to set up and use the gem5-SALAM installer
+version: "1.0.0"
+can_skip: true
+show_progress: true
+
+metadata:
+  author: Agent 2
+  category: onboarding
+  estimated_time: "5 minutes"
+
+steps:
+  # Step 1: WSL Status
+  - target: wsl_status
+    title: WSL Status
+    content: >
+      This panel shows your Windows Subsystem for Linux status.
+      Make sure WSL is installed and a distribution is selected.
+      Ubuntu-20.04 is recommended for gem5-SALAM.
+    arrow_position: right
+    highlight_style: spotlight
+    padding: 10
+
+  # Step 2: gem5-SALAM Directory
+  - target: gem5_path_input
+    title: gem5-SALAM Directory
+    content: >
+      Enter the path to your gem5-SALAM directory, or click Browse
+      to select it. This should be the root folder containing
+      SConstruct and the benchmarks directory.
+    arrow_position: bottom
+    highlight_style: spotlight
+    padding: 8
+
+  # Step 3: M5_PATH Environment Variable
+  - target: m5_path_display
+    title: M5_PATH Environment Variable
+    content: >
+      M5_PATH tells gem5 where to find resources. Click "Set M5_PATH"
+      to configure this in your WSL environment. A green checkmark
+      means it's already set correctly.
+    arrow_position: bottom
+    highlight_style: border
+    padding: 8
+
+  # Step 4: Check Dependencies
+  - target: dependency_status
+    title: Check Dependencies
+    content: >
+      Click "Check Dependencies" to verify all required packages
+      are installed in WSL. Green checkmarks indicate installed
+      packages, red X marks show what's missing.
+    arrow_position: left
+    highlight_style: spotlight
+    padding: 10
+
+  # Step 5: Install Dependencies
+  - target: install_deps_btn
+    title: Install Dependencies
+    content: >
+      If any dependencies are missing, click this button to install
+      them. This opens a terminal window where you'll enter your
+      sudo password to authorize the installation.
+    arrow_position: top
+    highlight_style: pulse
+    padding: 4
+
+  # Step 6: Build Type Selection
+  - target: build_type_selector
+    title: Build Type
+    content: >
+      Select your build type:
+      • opt: Optimized build (recommended for normal use)
+      • debug: Includes debug symbols (for troubleshooting)
+      • fast: Fastest compilation (less optimization)
+    arrow_position: left
+    highlight_style: border
+    padding: 8
+
+  # Step 7: Build gem5-SALAM
+  - target: build_gem5_btn
+    title: Build gem5-SALAM
+    content: >
+      Click here to compile gem5-SALAM. This process takes
+      15-45 minutes depending on your system. Progress is
+      shown in the console output below.
+    arrow_position: top
+    highlight_style: pulse
+    padding: 4
+
+  # Step 8: Console Output
+  - target: console_output
+    title: Console Output
+    content: >
+      Build progress and output appears here. You can copy
+      the output to clipboard if you need to share error
+      messages for troubleshooting. Scroll to see full history.
+    arrow_position: top
+    highlight_style: spotlight
+    padding: 8
+
+  # Step 9: Build Benchmarks
+  - target: build_benchmarks_btn
+    title: Build Benchmarks
+    content: >
+      After gem5 is built, use this to compile benchmarks.
+      A dialog lets you select which benchmarks to build.
+      Start with sys_validation/gemm for a quick test.
+    arrow_position: top
+    highlight_style: border
+    padding: 4
+
+  # Step 10: Run Simulation
+  - target: run_simulation_btn
+    title: Run Simulation
+    content: >
+      Once everything is built, click here to run a simulation.
+      You'll select a benchmark and configuration options.
+
+      Congratulations! You're ready to use gem5-SALAM.
+    arrow_position: top
+    highlight_style: pulse
+    padding: 4
