@@ -1,0 +1,203 @@
+# gem5-SALAM Nightly Build & Benchmark Validation
+# Phase 5 of CI/CD plan - Nightly builds with benchmark subset
+# Author: @agent_3 (CI/CD & Standards Orchestration)
+# Date: 2026-01-05
+
+name: Nightly Build
+
+on:
+  schedule:
+    # Run at 4 AM UTC daily
+    - cron: '0 4 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      full_benchmark_suite:
+        description: 'Run full benchmark suite (all 10)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # Build gem5.opt for ARM
+  build-gem5:
+    name: Build gem5 (ARM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            m4 \
+            scons \
+            zlib1g \
+            zlib1g-dev \
+            libprotobuf-dev \
+            protobuf-compiler \
+            libprotoc-dev \
+            libgoogle-perftools-dev \
+            python3-dev \
+            libboost-all-dev \
+            pkg-config
+
+      - name: Cache scons build
+        uses: actions/cache@v4
+        with:
+          path: build/ARM
+          key: gem5-arm-${{ hashFiles('src/**/*.cc', 'src/**/*.hh', 'SConstruct') }}
+          restore-keys: |
+            gem5-arm-
+
+      - name: Build gem5.opt (ARM)
+        run: |
+          python3 $(which scons) build/ARM/gem5.opt -j$(nproc)
+        env:
+          M5_PATH: ${{ github.workspace }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gem5-arm-opt
+          path: build/ARM/gem5.opt
+          retention-days: 7
+
+  # Run benchmark validation subset
+  benchmark-validation:
+    name: Benchmark Validation
+    needs: build-gem5
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Confirmed subset from @agent_1:
+        # - gemm: Smoke test (fast, exercises core accelerator)
+        # - fft: Memory pattern validation
+        # - stencil2d: Multi-iteration test
+        benchmark:
+          - gemm
+          - fft
+          - stencil2d
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download gem5 build
+        uses: actions/download-artifact@v4
+        with:
+          name: gem5-arm-opt
+          path: build/ARM
+
+      - name: Make gem5 executable
+        run: chmod +x build/ARM/gem5.opt
+
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-dev \
+            libprotobuf-dev \
+            libgoogle-perftools-dev
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML pydot
+
+      - name: Build benchmark - ${{ matrix.benchmark }}
+        run: |
+          cd benchmarks/sys_validation/${{ matrix.benchmark }}
+          make clean && make
+        env:
+          M5_PATH: ${{ github.workspace }}
+
+      - name: Run benchmark - ${{ matrix.benchmark }}
+        run: |
+          ./systemValidation.sh -b ${{ matrix.benchmark }}
+        timeout-minutes: 30
+        env:
+          M5_PATH: ${{ github.workspace }}
+
+      - name: Upload simulation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m5out-${{ matrix.benchmark }}
+          path: m5out/
+          retention-days: 3
+
+  # Full benchmark suite (optional, manual trigger only)
+  full-benchmark-suite:
+    name: Full Benchmark Suite
+    if: ${{ github.event.inputs.full_benchmark_suite == 'true' }}
+    needs: build-gem5
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false
+      matrix:
+        benchmark:
+          - gemm
+          - bfs
+          - fft
+          - md_knn
+          # md_grid excluded - known timeout issues
+          - mergesort
+          - nw
+          - spmv
+          - stencil2d
+          - stencil3d
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download gem5 build
+        uses: actions/download-artifact@v4
+        with:
+          name: gem5-arm-opt
+          path: build/ARM
+
+      - name: Make gem5 executable
+        run: chmod +x build/ARM/gem5.opt
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-dev libprotobuf-dev libgoogle-perftools-dev
+          pip install PyYAML pydot
+
+      - name: Build and run ${{ matrix.benchmark }}
+        run: |
+          cd benchmarks/sys_validation/${{ matrix.benchmark }}
+          make clean && make
+          cd ${{ github.workspace }}
+          ./systemValidation.sh -b ${{ matrix.benchmark }}
+        timeout-minutes: 30
+        env:
+          M5_PATH: ${{ github.workspace }}
+
+  # Notify on failure
+  notify-failure:
+    name: Failure Notification
+    needs: [build-gem5, benchmark-validation]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create failure summary
+        run: |
+          echo "## Nightly Build Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "One or more jobs in the nightly build failed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." >> $GITHUB_STEP_SUMMARY

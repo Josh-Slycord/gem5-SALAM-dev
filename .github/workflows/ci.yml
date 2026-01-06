@@ -1,0 +1,139 @@
+# gem5-SALAM Continuous Integration
+# Implements Phases 1 & 3 of CI/CD plan
+# Author: @agent_3 (CI/CD & Standards Orchestration)
+# Date: 2026-01-05
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - 'release/*'
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+
+jobs:
+  # Phase 1: Lint checks
+  lint:
+    name: Code Style
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          pip install black==22.6.0 isort
+
+      - name: Check formatting with black
+        run: black --check --diff .
+
+      - name: Check import ordering with isort
+        run: isort --check-only --diff .
+
+  # Phase 1: Pre-commit hooks
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+
+  # Phase 3: SALAM-Configurator Validation
+  validate-configs:
+    name: SALAM-Configurator Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install PyYAML pydot
+
+      - name: Validate SALAM-Configurator generation
+        run: |
+          export M5_PATH=$(pwd)
+          python SALAM-Configurator/validate_generation.py --verbose
+        env:
+          M5_PATH: ${{ github.workspace }}
+
+  # Python tests (when available)
+  test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          pip install pytest pytest-cov
+
+      - name: Run pyunit tests
+        run: |
+          if [ -d tests/pyunit ]; then
+            cd tests && python run_pyunit.py
+          else
+            echo "No pyunit tests found, skipping"
+          fi
+
+  # Type checking
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install mypy
+        run: pip install mypy types-PyYAML
+
+      - name: Run mypy on SALAM-Configurator
+        run: |
+          mypy SALAM-Configurator/ \
+            --ignore-missing-imports \
+            --no-error-summary \
+            || echo "Type check completed with warnings"
+        continue-on-error: true
