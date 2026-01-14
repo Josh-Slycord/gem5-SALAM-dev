@@ -76,7 +76,7 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 from .widgets.cdfg_viewer import CDFGViewer
 from .widgets.stats_dashboard import StatsDashboard
@@ -127,6 +127,14 @@ class MainWindow(QMainWindow):
         # Real-time connection
         self.connection: Optional[SimulationConnection] = None
         self.live_data_buffer = LiveDataBuffer()
+
+        # Rate limiting for live widget updates (prevents UI freeze)
+        self._update_rate_ms = 100  # Minimum ms between widget updates
+        self._pending_queue_update = False
+        self._pending_fu_update = False
+        self._pending_stats_update = False
+        self._pending_timeline_update = False
+        self._stats_update_data = None
 
         self._setup_ui()
         self._create_actions()
@@ -290,7 +298,9 @@ class MainWindow(QMainWindow):
             Qt.DockWidgetArea.RightDockWidgetArea
             | Qt.DockWidgetArea.LeftDockWidgetArea
         )
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, live_stats_dock)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea, live_stats_dock
+        )
         # Tab the live stats with the performance summary
         self.tabifyDockWidget(stats_dock, live_stats_dock)
 
@@ -502,7 +512,14 @@ class MainWindow(QMainWindow):
             self.live_data_buffer.add_queue_state(
                 self.connection.current_cycle, state
             )
-        # Update queue monitor widget with live data
+        # Rate-limited update - schedule if not already pending
+        if not self._pending_queue_update:
+            self._pending_queue_update = True
+            QTimer.singleShot(self._update_rate_ms, self._do_queue_update)
+
+    def _do_queue_update(self):
+        """Execute rate-limited queue monitor update."""
+        self._pending_queue_update = False
         self._update_queue_monitor_live()
 
     def _update_queue_monitor_live(self):
@@ -532,7 +549,14 @@ class MainWindow(QMainWindow):
             self.live_data_buffer.add_fu_state(
                 self.connection.current_cycle, state
             )
-        # Update FU utilization widget with live data
+        # Rate-limited update - schedule if not already pending
+        if not self._pending_fu_update:
+            self._pending_fu_update = True
+            QTimer.singleShot(self._update_rate_ms, self._do_fu_update)
+
+    def _do_fu_update(self):
+        """Execute rate-limited FU utilization update."""
+        self._pending_fu_update = False
         self._update_fu_utilization_live()
 
     def _update_fu_utilization_live(self):
