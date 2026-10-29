@@ -62,10 +62,14 @@ int __attribute__ ((optimize("0"))) main(void) {
             check[i_col + j] = sum;
         }
     }
+#ifdef WORKBENCH_INJECT_MISMATCH
+    // Integration witness: deliberately corrupt one accelerator result.
+    m3[0] ^= 1;
+#endif
     printf("Comparing CPU run to accelerated run\n");
     for(i=0; i<ROW*COL; i++) {
         if(m3[i] != check[i]) {
-            printf("Expected:%f Actual:%f\n", check[i], m3[i]);
+            printf("Expected:%d Actual:%d\n", check[i], m3[i]);
             fail = true;
             break;
         }
