@@ -156,6 +156,9 @@ CommInterface::recvPacket(PacketPtr pkt) {
         if (!readReq->needToRead)
         {
             if (debug()) DPRINTF(CommInterface, "Done reading \n");
+            // Final logical completion, not an individual packet response.
+            cu->getWorkbenchStatistics().memoryCompleted(
+                reinterpret_cast<uintptr_t>(readReq), curTick());
             cu->readCommit(readReq);
             if (debug()) DPRINTF(CommInterface, "Clearing Request \n");
             clearMemRequest(readReq, true);
@@ -173,6 +176,9 @@ CommInterface::recvPacket(PacketPtr pkt) {
         writeReq->writeDone += pkt->getSize();
         if (!(writeReq->needToWrite)) {
             if (debug()) DPRINTF(CommInterface, "Done writing\n");
+            // Final logical completion, not an individual packet response.
+            cu->getWorkbenchStatistics().memoryCompleted(
+                reinterpret_cast<uintptr_t>(writeReq), curTick());
             cu->writeCommit(writeReq);
             // delete[] writeReq->buffer;
             // delete[] writeReq->readsDone;
@@ -723,6 +729,9 @@ CommInterface::tryWrite(RegPort * port) {
 
 void
 CommInterface::enqueueRead(MemoryRequest * req) {
+    // One logical request, including the register-bypass route.
+    cu->getWorkbenchStatistics().memoryStarted(
+        reinterpret_cast<uintptr_t>(req), false, req->length, curTick());
     if (inRegRange(req->getAddress())) {
         // We want to immediately handle register requests
         // and bypass memory queues
@@ -748,6 +757,9 @@ CommInterface::enqueueRead(MemoryRequest * req) {
 
 void
 CommInterface::enqueueWrite(MemoryRequest * req) {
+    // One logical request, including the register-bypass route.
+    cu->getWorkbenchStatistics().memoryStarted(
+        reinterpret_cast<uintptr_t>(req), true, req->length, curTick());
     if (inRegRange(req->getAddress())) {
         // We want to immediately handle register requests
         // and bypass memory queues

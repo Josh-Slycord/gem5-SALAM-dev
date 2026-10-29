@@ -3,6 +3,7 @@
 //------------------------------------------//
 #include "params/ComputeUnit.hh"
 #include "sim/sim_object.hh"
+#include "hwacc/workbench_statistics.hh"
 #include "hwacc/comm_interface.hh"
 #include "hwacc/LLVMRead/src/mem_request.hh"
 #include "hwacc/LLVMRead/src/debug_flags.hh"
@@ -15,6 +16,7 @@ class ComputeUnit : public SimObject {
   protected:
     CommInterface *comm;
     HWInterface* hw;
+    gem5::salam::WorkbenchStatistics workbenchStats;
 
     class TickEvent : public Event
     {
@@ -39,6 +41,9 @@ class ComputeUnit : public SimObject {
     virtual void writeCommit(MemoryRequest * req) {}
     CommInterface * getCommInterface() { return comm; }
     HWInterface * getHWInterface() { return hw; }
+    gem5::salam::WorkbenchStatistics &getWorkbenchStatistics() {
+        return workbenchStats;
+    }
 };
 
 #endif //__HWACC_COMPUTE_UNIT_HH__

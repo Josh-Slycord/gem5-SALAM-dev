@@ -1,6 +1,8 @@
 // LLVMInterface Includes
 #include "hwacc/llvm_interface.hh"
 #include "debug/SALAMResults.hh"
+#include "base/output.hh"
+#include "sim/core.hh"
 
 LLVMInterface::LLVMInterface(const LLVMInterfaceParams &p):
     ComputeUnit(p),
@@ -99,6 +101,8 @@ LLVMInterface::ActiveFunction::processQueues()
         );
 
         if((queue_iter->second)->commit()) {
+            owner->getWorkbenchStatistics().recordCommit(
+                gem5::salam::WorkbenchStatistics::Commit::QueuedCompute);
             (queue_iter->second)->reset();
             queue_iter = computeQueue.erase(queue_iter);
             hw_cycle_stats.compCommited++;
@@ -256,6 +260,17 @@ void
 LLVMInterface::tick()
 {
     auto tickStart = std::chrono::high_resolution_clock::now();
+    // One sample per interface tick, before processing any active function.
+    // Reading sizes does not call readiness checks or modify scheduling.
+    uint64_t resDepth = 0, rdDepth = 0, wrDepth = 0, compDepth = 0;
+    for (const auto &function : activeFunctions) {
+        resDepth += function.reservation.size();
+        rdDepth += function.readQueue.size();
+        wrDepth += function.writeQueue.size();
+        compDepth += function.computeQueue.size();
+    }
+    workbenchStats.sampleQueues(resDepth, rdDepth, wrDepth, compDepth,
+                               activeFunctions.size());
 
     if (dbg) DPRINTF(LLVMInterface, "\n%s\n%s %d\n%s\n",
         "********************************************************************************",
@@ -621,7 +636,10 @@ LLVMInterface::ActiveFunction::readCommit(MemoryRequest * req) {
             load_inst->setRegisterValue(readBuff);
             load_inst->compute();
             if (dbg) DPRINTFS(Runtime, owner,  "Local Read Commit\n");
-            load_inst->commit();
+            if (load_inst->commit()) {
+                owner->getWorkbenchStatistics().recordCommit(
+                    gem5::salam::WorkbenchStatistics::Commit::MemoryRead);
+            }
             readQueue.erase(queue_iter);
             readQueueMap.erase(map_iter);
         } else {
@@ -658,7 +676,10 @@ LLVMInterface::ActiveFunction::writeCommit(MemoryRequest * req) {
     if (map_iter != writeQueueMap.end()) {
         auto queue_iter = writeQueue.find(map_iter->second);
         if (queue_iter != writeQueue.end()) {
-            queue_iter->second->commit();
+            if (queue_iter->second->commit()) {
+                owner->getWorkbenchStatistics().recordCommit(
+                    gem5::salam::WorkbenchStatistics::Commit::MemoryWrite);
+            }
             Addr addressWritten = map_iter->first->getAddress();
             untrackWrite(addressWritten);
             writeQueue.erase(queue_iter);
@@ -681,6 +702,9 @@ LLVMInterface::initialize() {
 *********************************************************************************************/
     // if (DTRACE(Trace)) DPRINTF(Runtime, "Trace: %s \n", __PRETTY_FUNCTION__);
     if (dbg) DPRINTF(LLVMInterface, "Initializing LLVM Runtime Engine!\n");
+    workbenchStats.begin(comm->getName(), curTick(),
+        clock_period > 0 ? static_cast<uint64_t>(clock_period) : 0,
+        gem5::sim_clock::Frequency);
     setupTime = std::chrono::seconds(0);
     simTime = std::chrono::seconds(0);
     schedulingTime = std::chrono::seconds(0);
@@ -752,6 +776,20 @@ LLVMInterface::finalize() {
     // Simulation Times
     simStop = std::chrono::high_resolution_clock::now();
     simTotal = simStop - timeStart;
+    workbenchStats.end(curTick());
+    // One shared output directory for this simulator process.
+    static auto *directory = gem5::simout.createSubdirectory("observability");
+    const auto statsFilename = workbenchStats.outputFilename();
+    if (directory->isFile(statsFilename)) {
+        warn("Refusing to overwrite workbench observation %s", statsFilename);
+    } else {
+        auto *output = directory->create(statsFilename, false, true);
+        *output->stream() << workbenchStats.toJSON();
+        output->stream()->flush();
+        if (!*output->stream())
+            warn("Failed writing workbench observation %s", statsFilename);
+        directory->close(output);
+    }
     printResults();
     functions.clear();
     values.clear();
