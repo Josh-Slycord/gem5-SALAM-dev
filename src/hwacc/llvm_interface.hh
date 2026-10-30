@@ -32,6 +32,7 @@
 
 // SALAM Includes
 #include "hwacc/HWModeling/src/hw_interface.hh"
+#include "hwacc/fu_scheduling_pool.hh"
 #include "hwacc/LLVMRead/src/basic_block.hh"
 #include "hwacc/LLVMRead/src/debug_flags.hh"
 #include "hwacc/LLVMRead/src/function.hh"
@@ -131,8 +132,8 @@ class LLVMInterface : public ComputeUnit {
     public:
         ActiveFunction(LLVMInterface * _owner, std::shared_ptr<SALAM::Function> _func,
                        std::shared_ptr<SALAM::Instruction> _caller):
-                       owner(_owner), func(_func), caller(_caller),
-                       previousBB(nullptr) {
+                       owner(_owner), hw(_owner->getHWInterface()), func(_func),
+                       caller(_caller), previousBB(nullptr) {
                           scheduling_threshold = owner->getSchedulingThreshold();
                           lockstep = (owner->getLockstepStatus());
                           dbg = owner->debug();
@@ -157,6 +158,9 @@ class LLVMInterface : public ComputeUnit {
         bool hasReturned() { return returned; }
     };
 
+    FUSchedulingPool fuSchedulingPool;
+    std::map<uint32_t, FunctionalUnitBase *> fuModelById;
+    uint64_t fuStartTick = 0;
     std::list<ActiveFunction> activeFunctions;
     std::map<MemoryRequest *, ActiveFunction *> globalReadQueue;
     std::map<MemoryRequest *, ActiveFunction *> globalWriteQueue;
@@ -184,6 +188,8 @@ class LLVMInterface : public ComputeUnit {
     void launchFunction(std::shared_ptr<SALAM::Function> callee,
                         std::shared_ptr<SALAM::Instruction> caller);
     void launchTopFunction();
+    bool tryAcquireFU(SALAM::Instruction *inst);
+    void releaseFU(SALAM::Instruction *inst);
     void endFunction(ActiveFunction * afunc);
     void launchRead(MemoryRequest * memReq, ActiveFunction * func);
     void launchWrite(MemoryRequest * memReq, ActiveFunction * func);

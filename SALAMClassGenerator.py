@@ -177,7 +177,7 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("#ifndef __HWMODEL_FUNCTIONAL_UNIT_BASE_HH__\n")
             self.base_header_file.write("#define __HWMODEL_FUNCTIONAL_UNIT_BASE_HH__\n\n")
             self.base_header_file.write("#include \"../../src/salam_power_model.hh\"\n\n")
-            self.base_header_file.write("#include <map>\n")
+            self.base_header_file.write("#include <map>\n#include <stdexcept>\n")
             self.base_header_file.write("#include <iostream>\n")
             self.base_header_file.write("#include <cstdlib>\n")
             self.base_header_file.write("#include <vector>\n\n")
@@ -208,7 +208,7 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tstd::string _ptr_size;\n")
             self.base_header_file.write("\t\tstd::string _ptr_sign;\n")
             self.base_header_file.write("\t\tbool _ptr_apmode;\n")
-            self.base_header_file.write("\t\tuint32_t _limit;\n")
+            self.base_header_file.write("\t\tuint32_t _limit = 0;\n")
             self.base_header_file.write("\t\tstd::string _power_units;\n")
             self.base_header_file.write("\t\tstd::string _energy_units;\n")
             self.base_header_file.write("\t\tstd::string _time_units;\n")
@@ -221,8 +221,8 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tdouble _leakage_power;\n")
             self.base_header_file.write("\t\tdouble _area;\n")
             self.base_header_file.write("\t\tdouble _path_delay;\n\n")
-            self.base_header_file.write("\t\tuint64_t _available;\n\n")
-            self.base_header_file.write("\t\tuint64_t _in_use;\n\n")
+            self.base_header_file.write("\t\tuint64_t _available = 0;\n\n")
+            self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")
             # methods
 
             # define public members and methods
@@ -231,7 +231,7 @@ class FunctionalUnitGenerator():
 
             # methods
             # default constructor
-            self.base_header_file.write("\t\tFunctionalUnitBase();\n")
+            self.base_header_file.write("\t\tFunctionalUnitBase() = default;\n")
             # SimObject Constructor
             self.base_header_file.write("\t\tFunctionalUnitBase( std::string alias,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t stages,\n")
@@ -284,7 +284,7 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\t\t\t\t\t\t_dynamic_energy(dynamic_energy),\n")
             self.base_header_file.write("\t\t\t\t\t\t\t_leakage_power(leakage_power),\n")
             self.base_header_file.write("\t\t\t\t\t\t\t_area(area),\n")
-            self.base_header_file.write("\t\t\t\t\t\t\t_path_delay(path_delay) { }\n")
+            self.base_header_file.write("\t\t\t\t\t\t\t_path_delay(path_delay), _available(limit) { }\n")
 
             # Getters / Setters
             self.base_header_file.write("\t\tstd::string get_alias() { return _alias; }\n")
@@ -313,9 +313,10 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tdouble get_leakage_power() { return _leakage_power; }\n")
             self.base_header_file.write("\t\tdouble get_area() { return _area; }\n")
             self.base_header_file.write("\t\tdouble get_path_delay() { return _path_delay; }\n")
-            self.base_header_file.write("\t\tbool is_available() { return (_in_use >= _available); }\n")
+            self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")
+            self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")
             self.base_header_file.write("\t\tvoid use_functional_unit() { _in_use++; }\n")
-            self.base_header_file.write("\t\tvoid clear_functional_unit() { _in_use--; }\n")
+            self.base_header_file.write("\t\tvoid clear_functional_unit() { if (!_in_use) throw std::logic_error(\"FU occupancy underflow\"); --_in_use; }\n")
             self.base_header_file.write("\t\tvoid set_functional_unit_limit(uint64_t available) { _available = available; }\n")
             self.base_header_file.write("\t\tvoid inc_functional_unit_limit() { _available++; }\n")
             self.base_header_file.write("\t\tuint64_t get_functional_unit_limit() { return _available; }\n\n")
@@ -568,10 +569,10 @@ class FunctionalUnitGenerator():
             # define protected members and methods
             self.base_header_file.write("\tprotected:\n")
             # members
-            self.base_header_file.write("\t\tuint32_t _functional_unit;\n")
-            self.base_header_file.write("\t\tuint32_t _functional_unit_limit;\n")
-            self.base_header_file.write("\t\tuint32_t _opcode_num;\n")
-            self.base_header_file.write("\t\tuint32_t _runtime_cycles;\n")
+            self.base_header_file.write("\t\tuint32_t _functional_unit = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _functional_unit_limit = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _opcode_num = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _runtime_cycles = 0;\n")
 
             # methods
 
@@ -581,12 +582,12 @@ class FunctionalUnitGenerator():
 
             # methods
             # default constructor
-            self.base_header_file.write("\t\tInstConfigBase();\n")
+            self.base_header_file.write("\t\tInstConfigBase() = default;\n")
             # SimObject Constructor
             self.base_header_file.write("\t\tInstConfigBase( uint32_t functional_unit,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t functional_unit_limit,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t opcode_num,\n")
-            self.base_header_file.write("\t\t\t\t\t\t\tuint32_t runtime_cycles) { }\n")
+            self.base_header_file.write("\t\t\t\t\t\t\tuint32_t runtime_cycles) : _functional_unit(functional_unit), _functional_unit_limit(functional_unit_limit), _opcode_num(opcode_num), _runtime_cycles(runtime_cycles) { }\n")
 
             # Getters / Setters
             self.base_header_file.write("\t\tuint32_t get_functional_unit() { return _functional_unit; }\n")

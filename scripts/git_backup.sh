@@ -33,7 +33,6 @@ if [ "$RUN_TESTS" = true ]; then
         TEST_STATUS="FAIL"
         echo "Some tests failed - see TEST_RESULTS.md"
     fi
-    git add TEST_RESULTS.md test_results.json 2>/dev/null || true
 fi
 
 DATE=$(date +%Y-%m-%d)

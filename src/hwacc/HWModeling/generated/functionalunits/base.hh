@@ -4,6 +4,7 @@
 #include "../../src/salam_power_model.hh"
 
 #include <map>
+#include <stdexcept>
 #include <iostream>
 #include <cstdlib>
 #include <vector>
@@ -25,7 +26,7 @@ class FunctionalUnitBase
 		std::string _ptr_size;
 		std::string _ptr_sign;
 		bool _ptr_apmode;
-		uint32_t _limit;
+		uint32_t _limit = 0;
 		std::string _power_units;
 		std::string _energy_units;
 		std::string _time_units;
@@ -39,12 +40,12 @@ class FunctionalUnitBase
 		double _area;
 		double _path_delay;
 
-		uint64_t _available;
+		uint64_t _available = 0;
 
 		uint64_t _in_use = 0;
 
 	public:
-		FunctionalUnitBase();
+		FunctionalUnitBase() = default;
 		FunctionalUnitBase( std::string alias,
 							uint32_t stages,
 							uint32_t cycles,
@@ -96,11 +97,10 @@ class FunctionalUnitBase
 							_dynamic_energy(dynamic_energy),
 							_leakage_power(leakage_power),
 							_area(area),
-							_path_delay(path_delay) { }
+							_path_delay(path_delay), _available(limit) { }
 		std::string get_alias() { return _alias; }
 		uint32_t get_stages() { return _stages; }
 		uint32_t get_cycles() { return _cycles; }
-		uint64_t get_in_use() { return _in_use; }
 		uint32_t get_enum_value() { return _enum_value; }
 		std::string get_int_size() { return _int_size; }
 		std::string get_int_sign() { return _int_sign; }
@@ -124,9 +124,10 @@ class FunctionalUnitBase
 		double get_leakage_power() { return _leakage_power; }
 		double get_area() { return _area; }
 		double get_path_delay() { return _path_delay; }
-		bool is_available() { return (_in_use >= _available); }
+		uint64_t get_in_use() { return _in_use; }
+		bool is_available() { return (_available == 0 || _in_use < _available); }
 		void use_functional_unit() { _in_use++; }
-		void clear_functional_unit() { _in_use--; }
+		void clear_functional_unit() { if (!_in_use) throw std::logic_error("FU occupancy underflow"); --_in_use; }
 		void set_functional_unit_limit(uint64_t available) { _available = available; }
 		void inc_functional_unit_limit() { _available++; }
 		uint64_t get_functional_unit_limit() { return _available; }

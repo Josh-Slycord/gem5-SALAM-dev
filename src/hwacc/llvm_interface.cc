@@ -4,6 +4,8 @@
 #include "base/output.hh"
 #include "sim/core.hh"
 
+// SALAM_FU_SCHEDULER_V1: pool admission is the only FU capacity check.
+
 LLVMInterface::LLVMInterface(const LLVMInterfaceParams &p):
     ComputeUnit(p),
     filename(p.in_file),
@@ -101,6 +103,9 @@ LLVMInterface::ActiveFunction::processQueues()
         );
 
         if((queue_iter->second)->commit()) {
+            // Call completions did not acquire a scalar FU lease.
+            if (!queue_iter->second->isCall())
+                owner->releaseFU(queue_iter->second.get());
             owner->getWorkbenchStatistics().recordCommit(
                 gem5::salam::WorkbenchStatistics::Commit::QueuedCompute);
             (queue_iter->second)->reset();
@@ -200,11 +205,22 @@ LLVMInterface::ActiveFunction::processQueues()
                             ++queue_iter;
                         }
                     } else {
+                        // A denied issue remains in reservation. launch()'s false
+                        // return also means "launched but still computing", so it
+                        // cannot be used for resource admission.
+                        if (!owner->tryAcquireFU(inst.get())) {
+                            ++queue_iter;
+                            hw_cycle_stats.compFUStall++;
+                            continue;
+                        }
                         auto computeStart = std::chrono::high_resolution_clock::now();
                         if (!(inst)->launch()) {
                             if (dbg) DPRINTFS(Runtime, owner,  "\t\t  | Added to Compute Queue: %s - UID[%i]\n", llvm::Instruction::getOpcodeName((inst)->getOpode()), (inst)->getUID());
                             computeQueue.insert({(inst)->getUID(), inst});
                             hw_cycle_stats.compLaunched++;
+                        } else {
+                            // Zero-cycle operations commit inside launch().
+                            owner->releaseFU(inst.get());
                         }
                         auto computeStop = std::chrono::high_resolution_clock::now();
                         owner->addComputeTime(computeStop-computeStart);
@@ -692,6 +708,27 @@ LLVMInterface::ActiveFunction::writeCommit(MemoryRequest * req) {
     }
 }
 
+bool
+LLVMInterface::tryAcquireFU(SALAM::Instruction *inst)
+{
+    const uint32_t id = inst->getFunctionalUnit();
+    if (!id) return true;
+    const bool granted = fuSchedulingPool.acquire(inst, inst->getUID(),
+        inst->getOpode(), id, cycle, curTick());
+    if (granted) fuModelById.at(id)->use_functional_unit();
+    return granted;
+}
+
+void
+LLVMInterface::releaseFU(SALAM::Instruction *inst)
+{
+    const uint32_t id = inst->getFunctionalUnit();
+    if (!id) return;
+    const uint32_t released = fuSchedulingPool.release(inst, cycle, curTick());
+    if (released != id) panic("FU lease id mismatch for instruction %u", inst->getUID());
+    fuModelById.at(id)->clear_functional_unit();
+}
+
 void
 LLVMInterface::initialize() {
 /*********************************************************************************************
@@ -705,6 +742,23 @@ LLVMInterface::initialize() {
     workbenchStats.begin(comm->getName(), curTick(),
         clock_period > 0 ? static_cast<uint64_t>(clock_period) : 0,
         gem5::sim_clock::Frequency);
+    fuStartTick = curTick();
+    fuSchedulingPool = FUSchedulingPool();
+    fuModelById.clear();
+    for (auto *fu : hw->functional_units->functional_unit_list) {
+        if (!fu || !fu->get_enum_value()) panic("Invalid FU model in functional_unit_list");
+        const uint32_t id = fu->get_enum_value();
+        if (!fuModelById.emplace(id, fu).second)
+            panic("Duplicate FU model id %u", id);
+        if (fu->get_in_use() != 0)
+            panic("FU model id %u still has live occupancy at invocation start", id);
+        fuSchedulingPool.configure(id, fu->get_alias(), fu->get_limit());
+    }
+    for (auto *config : hw->inst_config->inst_list) {
+        if (config->get_functional_unit_limit() != 0)
+            panic("Per-instruction functional_unit_limit is unsupported for opcode %u",
+                  config->get_opcode_num());
+    }
     setupTime = std::chrono::seconds(0);
     simTime = std::chrono::seconds(0);
     schedulingTime = std::chrono::seconds(0);
@@ -777,6 +831,15 @@ LLVMInterface::finalize() {
     simStop = std::chrono::high_resolution_clock::now();
     simTotal = simStop - timeStart;
     workbenchStats.end(curTick());
+    if (fuSchedulingPool.outstanding() != 0)
+        panic("FU scheduling invocation ended with %u outstanding leases",
+              fuSchedulingPool.outstanding());
+    for (const auto &entry : fuModelById) {
+        if (entry.second->get_in_use() !=
+                fuSchedulingPool.unit(entry.first).outstanding)
+            panic("FU model and scheduling pool occupancy disagree for id %u",
+                  entry.first);
+    }
     // One shared output directory for this simulator process.
     static auto *directory = gem5::simout.createSubdirectory("observability");
     const auto statsFilename = workbenchStats.outputFilename();
@@ -788,6 +851,18 @@ LLVMInterface::finalize() {
         output->stream()->flush();
         if (!*output->stream())
             warn("Failed writing workbench observation %s", statsFilename);
+        directory->close(output);
+    }
+    const auto fuFilename = "fu-scheduling-" + statsFilename;
+    if (directory->isFile(fuFilename)) {
+        warn("Refusing to overwrite FU scheduling observation %s", fuFilename);
+    } else {
+        auto *output = directory->create(fuFilename, false, true);
+        *output->stream() << fuSchedulingPool.toJSON(comm->getName(), cycle,
+                                                     curTick() - fuStartTick);
+        output->stream()->flush();
+        if (!*output->stream())
+            warn("Failed writing FU scheduling observation %s", fuFilename);
         directory->close(output);
     }
     printResults();
@@ -1055,18 +1130,21 @@ LLVMInterface::createInstruction(llvm::Instruction * inst, uint64_t id) {
         if(OpCode == hw_inst->get_opcode_num()) {
             //std::cout << "\n\n\nTest 4\n\n\n";
             functional_unit = hw_inst->get_functional_unit();
-            for (auto hw_fu : hw->functional_units->functional_unit_list) {
-                //std::cout << "\n\n\nTest 5\n\n\n";
-                if(hw_fu->get_enum_value() == functional_unit) {
-                    //std::cout << "\n\n\nTest 6\n\n\n";
-                    hw_fu->inc_functional_unit_limit();
-                    break;
-                }
-            }
             break;
         }
     }
 
+    if (functional_unit) {
+        if (!fuSchedulingPool.hasUnit(functional_unit))
+            panic("Opcode %u maps to unknown FU id %u", OpCode, functional_unit);
+        if (fuSchedulingPool.unit(functional_unit).limit > 0 &&
+            (inst->isTerminator() || llvm::isa<llvm::PHINode>(inst) ||
+             OpCode == llvm::Instruction::Load ||
+             OpCode == llvm::Instruction::Store ||
+             OpCode == llvm::Instruction::Call))
+            panic("Constrained FU id %u maps special-path opcode %u; unsupported",
+                  functional_unit, OpCode);
+    }
     switch(OpCode) {
         case llvm::Instruction::Ret : return SALAM::createRetInst(id, this, debug(), OpCode, hw->cycle_counts->ret_inst, functional_unit); break;
         case llvm::Instruction::Br: return SALAM::createBrInst(id, this, debug(), OpCode, hw->cycle_counts->br_inst, functional_unit); break;
@@ -1109,6 +1187,10 @@ LLVMInterface::createInstruction(llvm::Instruction * inst, uint64_t id) {
         case llvm::Instruction::Call: return SALAM::createCallInst(id, this, debug(), OpCode, hw->cycle_counts->call_inst, functional_unit); break;
         case llvm::Instruction::Select: return SALAM::createSelectInst(id, this, debug(), OpCode, hw->cycle_counts->select_inst, functional_unit); break;
         default: {
+            if (functional_unit &&
+                fuSchedulingPool.unit(functional_unit).limit > 0)
+                panic("Unsupported opcode %u maps to constrained FU id %u",
+                      OpCode, functional_unit);
             warn("Tried to create instance of undefined instruction type!");
             return SALAM::createBadInst(id, this, dbg, OpCode, 0, 0); break;
         }

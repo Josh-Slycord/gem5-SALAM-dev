@@ -1,0 +1,16 @@
+{
+  "capability": "salam_fu_scheduler_v1",
+  "schema_version": 1,
+  "scope": "scalar_compute",
+  "semantics": "nonpipelined_issue_to_completion",
+  "source_files": {
+    "SALAMClassGenerator.py": "663de09487c4f99c587b6ee304b66900f16fe1ce0d8ab6ad5481b4f33b773dea",
+    "src/hwacc/HWModeling/generated/functionalunits/base.hh": "535656061ce9b6e94439ddedcd6c327a2b30d94d6bca35f082c765d172dbc9a2",
+    "src/hwacc/HWModeling/generated/instructions/base.hh": "8a778370da711cc57de70f1cb7dff3e47135a9651363f48b93007d3c4100b230",
+    "src/hwacc/HWModeling/src/functional_units.cc": "0820157a5c9ea379b7e2cc6a8234eeb645e7df990a6ed5f1d80b29ef3ed63cfe",
+    "src/hwacc/fu_scheduling_pool.hh": "ca8d6440b605f1de02df7ac0883250e7f85fbe3a26381a2fc6896e8847e3490b",
+    "src/hwacc/llvm_interface.cc": "baa48ea60531332de20605964c3527f909923b872711606177c2fad76e514336",
+    "src/hwacc/llvm_interface.hh": "3931064f419cb2ef20867497fec1080c7da1a7e58145a1534b972ed4229cad74"
+  },
+  "zero_limit": "unlimited"
+}

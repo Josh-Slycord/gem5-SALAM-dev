@@ -1,8 +1,0 @@
-Error: attempted relative import beyond top-level package
-
-Traceback (most recent call last):
-  File "installer.py", line 20, in main
-    from gui.main_window import MainWindow
-  File "/home/jslycord/gem5-SALAM-dev/gem5-SALAM-gui/src/gui/main_window.py", line 55, in <module>
-    from ..tutorial_overlay import TutorialManager
-ValueError: attempted relative import beyond top-level package

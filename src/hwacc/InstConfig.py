@@ -69,7 +69,7 @@ class Add(SimObject):
 	functional_unit = Param.UInt32(1, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(13, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Addrspacecast(SimObject):
 	# SimObject type
@@ -119,7 +119,7 @@ class Bitcast(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(49, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Br(SimObject):
 	# SimObject type
@@ -166,7 +166,7 @@ class Fdiv(SimObject):
 	type = 'Fdiv'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fdiv.hh"
 	# Instruction params
-	functional_unit = Param.UInt32(10, "Default functional unit assignment.")
+	functional_unit = Param.UInt32(8, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(21, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(16, "Default instruction runtime cycles.")
@@ -179,7 +179,7 @@ class Fence(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(35, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Fmul(SimObject):
 	# SimObject type
@@ -199,7 +199,7 @@ class Fpext(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(46, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Fptosi(SimObject):
 	# SimObject type
@@ -209,7 +209,7 @@ class Fptosi(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(42, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Fptoui(SimObject):
 	# SimObject type
@@ -219,7 +219,7 @@ class Fptoui(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(41, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Fptrunc(SimObject):
 	# SimObject type
@@ -229,7 +229,7 @@ class Fptrunc(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(45, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Frem(SimObject):
 	# SimObject type
@@ -259,7 +259,7 @@ class Gep(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(34, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Icmp(SimObject):
 	# SimObject type
@@ -269,7 +269,7 @@ class Icmp(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(53, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Indirectbr(SimObject):
 	# SimObject type
@@ -289,7 +289,7 @@ class Inttoptr(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(48, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Invoke(SimObject):
 	# SimObject type
@@ -369,7 +369,7 @@ class Ptrtoint(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(47, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Resume(SimObject):
 	# SimObject type
@@ -419,7 +419,7 @@ class Sext(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(40, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Shl(SimObject):
 	# SimObject type
@@ -479,7 +479,7 @@ class Trunc(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(38, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Udiv(SimObject):
 	# SimObject type
@@ -499,7 +499,7 @@ class Uitofp(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(43, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
 class Unreachable(SimObject):
 	# SimObject type
@@ -549,5 +549,5 @@ class Zext(SimObject):
 	functional_unit = Param.UInt32(0, "Default functional unit assignment.")
 	functional_unit_limit = Param.UInt32(0, "Default functional unit limit.")
 	opcode_num = Param.UInt32(39, "Default instruction llvm enum opcode value.")
-	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
+	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 

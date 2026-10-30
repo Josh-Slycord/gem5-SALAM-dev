@@ -17,7 +17,7 @@ FunctionalUnits::FunctionalUnits(const FunctionalUnitsParams &params) :
     _float_multiplier(params.float_multiplier) { 
         functional_unit_list.push_back(_double_multiplier);
         functional_unit_list.push_back(_bitwise_operations);
-        functional_unit_list.push_back(_bit_shifter);
+        functional_unit_list.push_back(_bit_register);
         functional_unit_list.push_back(_double_adder);
         functional_unit_list.push_back(_float_divider);
         functional_unit_list.push_back(_bit_shifter);

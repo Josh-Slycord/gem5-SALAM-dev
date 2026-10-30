@@ -103,3 +103,24 @@ md_grid*/
 *.o
 *.elf
 *.bc
+
+# Workbench-local simulation output, generated evidence and developer state.
+/workbench/evidence/
+/workbench/runs/
+/workbench/results/
+/workbench/releases/
+/workbench/build/
+/workbench/dist/
+/workbench/.venv/
+/workbench/.pytest_cache/
+/workbench/__pycache__/
+/workbench/*.egg-info/
+/workbench/workspace.json
+/workbench/gui-variants/
+
+# Runtime reports from the legacy test runner and GUI.
+/TEST_RESULTS.md
+/test_results.json
+/tests/test_results.json
+/gem5-SALAM-gui/crash.log
+/gem5-SALAM-gui/debug.log

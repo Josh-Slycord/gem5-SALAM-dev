@@ -32,7 +32,7 @@ instructions:
     opcode_num: 56
     runtime_cycles: 0
   fadd:
-    functional_unit: 6
+    functional_unit: 5
     opcode_num: 14
     runtime_cycles: 5
   fcmp:
@@ -40,7 +40,7 @@ instructions:
     opcode_num: 54
     runtime_cycles: 1
   fdiv:
-    functional_unit: 10
+    functional_unit: 8
     opcode_num: 21
     runtime_cycles: 16
   fence:
@@ -48,7 +48,7 @@ instructions:
     opcode_num: 35
     runtime_cycles: 1
   fmul:
-    functional_unit: 9
+    functional_unit: 7
     opcode_num: 18
     runtime_cycles: 4
   fpext:
