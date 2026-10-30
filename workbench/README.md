@@ -37,6 +37,11 @@ filters and side-by-side comparisons preserve units and measurement scope.
 Missing power, energy or area data remains unavailable; model parameters do not
 become measurements of physical hardware.
 
+**SALAM process** is an interactive conceptual diagram of the configured
+workflow, with selectable stages and related hash-verified evidence from
+the selected run. It identifies fixed reference and historical workflows
+as separate paths; related filenames alone do not prove a stage passed.
+
 **System topology** displays each run's original `config.dot.svg` with pan,
 zoom and fit controls. The graph describes instantiated gem5 SimObjects and port
 connections, not runtime activity. Original DOT/PDF files remain available, and

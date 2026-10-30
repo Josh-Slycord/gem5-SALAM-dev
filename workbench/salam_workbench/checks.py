@@ -67,6 +67,7 @@ GUI_MODULES = (
     "test_gui_editor_qt",
     "test_workbench_window",
     "test_workbench_topology",
+    "test_process_view",
 )
 GRAPH_TESTS = frozenset(
     (
@@ -516,7 +517,7 @@ def _gui_test(test):
     method = test.id().rsplit(".", 1)[-1]
     return (
         test.__class__.__module__
-        in ("test_workbench_window", "test_workbench_topology")
+        in ("test_workbench_window", "test_workbench_topology", "test_process_view")
         or method.startswith("test_offscreen_")
         or method in GRAPH_TESTS
     )

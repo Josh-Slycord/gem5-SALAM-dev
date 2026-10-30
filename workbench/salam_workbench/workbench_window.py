@@ -46,6 +46,7 @@ from PySide6.QtWidgets import (
 
 from .gui_editor_qt import MODEL_FIELDS, _fill_rows
 from .gui_execution import read_request, validate_request
+from .process_view import ProcessPanel
 from .runner import file_hash
 from .workbench_catalog import discover_benchmarks
 from .workbench_completion import verify_completion
@@ -456,6 +457,8 @@ class WorkbenchWindow(QMainWindow):
         environment_tools.addStretch()
         environment_layout.addLayout(environment_tools)
         self.pages.addTab(environment, "Environment")
+        self.process_view = ProcessPanel(self.project)
+        self.pages.addTab(self.process_view, "SALAM process")
         main.addWidget(workspace)
         main.setSizes([250, 1270])
         main.setStretchFactor(0, 0)
@@ -985,6 +988,7 @@ class WorkbenchWindow(QMainWindow):
             self._inspect_run(item.data(0, Qt.UserRole))
 
     def _inspect_run(self, path):
+        self.process_view.show_run(None)
         self._load_generation += 1
         self.result_heading.setText("Reading run evidence…")
         self.result_scope.setText("")
@@ -1001,6 +1005,7 @@ class WorkbenchWindow(QMainWindow):
 
     def _show_run(self, result):
         self.selected_run = result
+        self.process_view.show_run(result)
         self.topology.show_run(result)
         self.result_heading.setText(
             _value(result.get("benchmark"))
