@@ -91,6 +91,15 @@ def _sample():
 
 
 class FuTraceTest(unittest.TestCase):
+    def test_explicit_trace_budget_cannot_be_invalid_or_exceeded(self):
+        data = _sample()
+        data["trace_event_limit"] = len(data["trace"])
+        self.assertEqual(validate_fu_trace(data)["state"], "passed")
+        for limit in (0, True, 6, 4194305, "1048576"):
+            data["trace_event_limit"] = limit
+            with self.subTest(limit=limit):
+                self.assertIn("trace_event_limit", [i["code"] for i in validate_fu_trace(data)["issues"]])
+
     def test_complete_replay_with_simultaneous_distinct_units(self):
         replay = validate_fu_trace(_sample())
         self.assertEqual(replay["state"], "passed", replay["issues"])

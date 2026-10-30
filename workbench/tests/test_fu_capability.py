@@ -72,6 +72,37 @@ class FuCapabilityTests(unittest.TestCase):
         )
         return receipt
 
+    def _trace_capable(self):
+        marker = self._capable()
+        data = json.loads(marker.read_text())
+        interface = self.engine / "src/hwacc/LLVMInterface.py"
+        interface.write_text("class LLVMInterface:\n    fu_trace_event_limit = Param.UInt32(262144, 'trace')\n")
+        header = self.engine / "src/hwacc/fu_scheduling_pool.hh"
+        header.write_text(header.read_text() + "// SALAM_FU_TRACE_BUDGET_V1\n")
+        data["source_files"]["src/hwacc/LLVMInterface.py"] = _sha(interface)
+        data["source_files"]["src/hwacc/fu_scheduling_pool.hh"] = _sha(header)
+        data["trace_budget"] = {"parameter": "LLVMInterface.fu_trace_event_limit", "default": 262144, "minimum": 1, "maximum": 4194304}
+        marker.write_text(json.dumps(data))
+        return marker
+
+    def test_known_trace_budget_extension_remains_bound_to_sources_and_build(self):
+        self._trace_capable()
+        result = inspect_fu_capability(self.engine, self._build_receipt())
+        self.assertTrue(result["supported"], result["reason"])
+        self.assertTrue(result["build_verified"])
+        self.assertEqual(result["trace_budget"]["maximum"], 4194304)
+
+    def test_unknown_trace_budget_metadata_and_missing_consumer_reject(self):
+        marker = self._trace_capable()
+        data = json.loads(marker.read_text())
+        data["trace_budget"]["minimum"] = True
+        marker.write_text(json.dumps(data))
+        self.assertFalse(inspect_fu_capability(self.engine)["supported"])
+        data["trace_budget"]["minimum"] = 1
+        data["source_files"].pop("src/hwacc/LLVMInterface.py")
+        marker.write_text(json.dumps(data))
+        self.assertFalse(inspect_fu_capability(self.engine)["supported"])
+
     def test_legacy_engine_rejects_nonzero_fu_limits(self):
         self.assertFalse(inspect_fu_capability(self.engine)["supported"])
         self.assertEqual(capability_source_paths(self.engine), [])

@@ -20,6 +20,9 @@ from .runner import ENV_ALLOWLIST, _terminate_owned_process, _write_json, file_h
 PROJECT = Path(__file__).resolve().parents[1]
 TIERS = ("fast", "config", "gui", "collector", "gemm")
 FAST_MODULES = (
+    "test_benchmark_oracles",
+    "test_benchmark_inputs",
+    "test_configurable_breadth",
     "test_benchmark_overlays",
     "test_builds",
     "test_checks",
@@ -38,6 +41,8 @@ FAST_MODULES = (
     "test_workbench_tier_coverage",
 )
 CONFIG_MODULES = (
+    "test_benchmark_validation",
+    "test_registerbank_adapter",
     "test_config",
     "test_facade",
     "test_model_data",
@@ -96,6 +101,8 @@ def source_identity(project, engine=None, tier="fast"):
             if "__pycache__" not in path.parts
         )
     sources.extend(project.glob("requirements*.txt"))
+    sources.extend(path for path in (project / "experiments/breadth/overlays").rglob("*")
+                   if path.is_file() and path.suffix in (".cpp", ".h"))
     sources.extend((project / ".github" / "workflows").glob("*.yml"))
     files = {}
     for path in sorted(set(sources)):

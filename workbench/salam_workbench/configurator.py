@@ -73,6 +73,7 @@ def validate_spec(data):
         "timeout_seconds",
         "import_format",
         "configuration_documents",
+        "benchmark_input",
     }
     if (
         not isinstance(data, dict)
@@ -83,6 +84,10 @@ def validate_spec(data):
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", data.get("name", "")):
         raise ValueError("name must be a Python identifier")
     benchmark = _relative(data.get("benchmark"))
+    if "benchmark_input" in data:
+        from .benchmark_validation import validate_input_case
+
+        validate_input_case(data["benchmark"], data["benchmark_input"])
     if data.get("import_format") not in (None, "legacy_gui"):
         raise ValueError("Unsupported configuration import format")
     if "configuration_documents" in data:
@@ -196,7 +201,10 @@ def _record(path):
 def snapshot_pipeline_tooling(directory):
     directory.mkdir(exist_ok=False)
     hashes = {}
-    for source in sorted((PROJECT / "salam_workbench").rglob("*.py")):
+    sources = list((PROJECT / "salam_workbench").rglob("*.py"))
+    sources.extend(path for path in (PROJECT / "experiments/breadth/overlays").rglob("*")
+                   if path.is_file() and path.suffix in (".cpp", ".h"))
+    for source in sorted(sources):
         if "__pycache__" in source.parts:
             continue
         relative = source.relative_to(PROJECT)
@@ -604,6 +612,7 @@ def wire_runtime(workspace, spec, evidence):
             "witness_path": str(evidence / "runtime-applied.json"),
             "system_witness_path": str(evidence / "system-live.json"),
             "system_options": system_options,
+            "result_file_transport": "gem5_semihosting_writefile_text_v1" if "benchmark_input" in spec else None,
         },
     )
     fs = generated / ("fs_" + spec["name"] + ".py")
@@ -785,6 +794,12 @@ def run_configuration(
         result["staging"]["inputs"].extend(
             result["configpath_adapter"]["referenced_inputs"]
         )
+        from .registerbank_adapter import adapt_configured_registerbanks
+
+        result["registerbank_adapter"] = adapt_configured_registerbanks(
+            workspace, spec["benchmark"], source_engine=engine,
+            receipt_path=directory / "registerbank-adapter.json",
+        )
         config = workspace / spec["benchmark"] / "config.yml"
         contract = analyze_configuration(
             config,
@@ -841,6 +856,20 @@ def run_configuration(
         result["cluster_header_adapter"] = rebind_cluster_header(
             engine, workspace, spec, contract, directory
         )
+        if "benchmark_input" in spec:
+            from .benchmark_inputs import stage_benchmark_inputs
+            from .benchmark_validation import fixture_for_spec
+
+            fixture = fixture_for_spec(spec)
+            fixture_path = directory / "benchmark-fixture.json"
+            _save(fixture_path, fixture)
+            result["benchmark_fixture"] = _record(fixture_path)
+            result["benchmark_inputs"] = stage_benchmark_inputs(
+                workspace, spec["benchmark"], fixture,
+                inject_mismatch=spec["benchmark_input"].get("inject_mismatch", False),
+                force_guest_pass=spec["benchmark_input"].get("force_guest_pass", False),
+            )
+            _save(directory / "benchmark-inputs.json", result["benchmark_inputs"])
         wire_runtime(workspace, spec, directory)
         result["stage"] = "workload_build"
         for label, relative, target in (
@@ -891,6 +920,8 @@ def run_configuration(
                 "simulator/config.json",
                 "simulator/stats.txt",
             ]
+            if "benchmark_input" in spec:
+                required.append("simulator/salam-results.txt")
             fu_artifacts = []
             if capability.get("supported"):
                 for cluster in contract["components"]["clusters"]:
@@ -914,6 +945,8 @@ def run_configuration(
                 directory / "runtime-request.json",
                 engine / "baremetal/common/fake.iso",
             ]
+            if "benchmark_fixture" in result:
+                inputs.append(directory / "benchmark-fixture.json")
             _save(
                 directory / "prepared-inputs.json",
                 [_record(p) for p in inputs],
@@ -954,6 +987,20 @@ def run_configuration(
             ):
                 raise ValueError("Guest success-marker count differs from contract")
             result["numerical_correctness"] = "guest_checker_passed"
+            if "benchmark_input" in spec:
+                from .benchmark_validation import assess_configured_output
+
+                result["stage"] = "independent_numerical_validation"
+                result["independent_oracle"] = assess_configured_output(
+                    spec,
+                    Path(run["run_directory"]) / "simulator/salam-results.txt",
+                    directory / "benchmark-fixture.json",
+                )
+                _save(directory / "independent-oracle.json", result["independent_oracle"])
+                if result["independent_oracle"].get("state") != "passed":
+                    result["numerical_correctness"] = "independent_full_output_failed"
+                    raise ValueError("Independent full-output numerical oracle rejected the simulation")
+                result["numerical_correctness"] = "independent_full_output_passed"
             result["stage"] = "effective_configuration"
             ini = Path(run["run_directory"]) / "simulator/config.ini"
             if fu_artifacts:
@@ -979,6 +1026,13 @@ def run_configuration(
                     )
             applied = json.loads((directory / "runtime-applied.json").read_text())
             result["parameter_witness"] = witness_parameters(ini, applied)
+            if "benchmark_input" in spec:
+                result["output_transport_witness"] = witness_parameters(ini, {"parameters": [
+                    {"section": "system", "parameter": "semihosting", "normalized": "system.semihosting"},
+                    {"section": "system.semihosting", "parameter": "type", "normalized": "ArmSemihosting"},
+                ]})
+                if result["output_transport_witness"]["state"] != "passed":
+                    raise ValueError("Guest result file transport is not instantiated as requested")
             effective = analyze_configuration(
                 config,
                 workspace,
@@ -1029,7 +1083,6 @@ def run_configuration(
                 raise ValueError(
                     "Required whole-guest measurement fields missing or invalid"
                 )
-            result["numerical_correctness"] = "guest_checker_passed"
             result["state"], result["stage"] = "passed", "complete"
         for item in result["staging"]["inputs"]:
             if file_hash(item["path"]) != item["sha256"]:

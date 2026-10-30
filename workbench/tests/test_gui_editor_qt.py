@@ -89,6 +89,54 @@ class GuiEditorQtTests(unittest.TestCase):
         )
         self.assertEqual(self.dialog.inst_tree.itemWidget(row, 2).currentData(), 0)
 
+    def test_generated_input_controls_reach_source_bound_request(self):
+        self.dialog.input_case_combo.setCurrentIndex(1)
+        self.dialog.input_seed_spin.setValue(29)
+        request = self.dialog._make_request()
+        self.assertEqual(request["benchmark_input"], {"dataset": "seeded", "seed": 29})
+        self.assertEqual(request["provenance"]["editor_snapshot"]["benchmark_input"], request["benchmark_input"])
+        self.dialog.input_case_combo.setCurrentIndex(0)
+        self.assertNotIn("benchmark_input", self.dialog._make_request())
+
+    def test_supported_trace_budget_control_reaches_every_accelerator(self):
+        from salam_workbench.benchmark_validation import trace_budget_source_supported
+
+        supported = trace_budget_source_supported(ENGINE)
+        self.assertEqual(self.dialog.trace_budget_check.isEnabled(), supported)
+        self.assertFalse(self.dialog.trace_budget_check.isChecked())
+        if supported:
+            self.dialog.trace_budget_check.setChecked(True)
+            self.dialog.trace_budget_spin.setValue(1048576)
+            request = self.dialog._make_request()
+            self.assertEqual(request["provenance"]["editor_snapshot"]["trace_event_limit"], 1048576)
+            for accelerator in ("top", "gemm"):
+                self.assertEqual(request["parameters"]["system.gemm_clstr." + accelerator + ".llvm_interface"], {"fu_trace_event_limit": 1048576})
+
+    def test_generated_input_receipt_flags_cannot_override_failed_shared_replay(self):
+        from unittest.mock import patch
+
+        self.dialog.input_case_combo.setCurrentIndex(1)
+        request = self.dialog._make_request()
+        self.dialog._gui_request = request
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp).resolve()
+            directory = project / "evidence/nominal-generated-pass"
+            directory.mkdir(parents=True)
+            (directory / "request.json").write_text(json.dumps(request))
+            (directory / "gui-execution.json").write_text(json.dumps({
+                "state": "passed", "editor_form_applied": True,
+                "simulation_requested": True, "pipeline_state": "passed",
+                "effective_witness": {"state": "passed"},
+                "evidence_directory": str(directory),
+            }))
+            with patch("salam_workbench.gui_editor_qt.WORKBENCH_HOST", project), patch(
+                "salam_workbench.workbench_completion.verify_completion",
+                return_value={"state": "failed", "errors": ["Changed numerical artifact"]},
+            ) as replay:
+                with self.assertRaisesRegex(ValueError, "Changed numerical artifact"):
+                    self.dialog._verify_passing_receipt({"evidence_directory": str(directory)})
+                self.assertEqual(replay.call_args.kwargs["expected_request"], request)
+
     def test_offscreen_unknown_source_id_remains_raw_until_contract_check(
         self,
     ):

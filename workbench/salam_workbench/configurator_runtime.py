@@ -11,6 +11,17 @@ from pathlib import Path
 def configure_system(system, request_path):
     request = json.loads(Path(request_path).read_text())
     records = []
+    if request.get("result_file_transport") is not None:
+        if request["result_file_transport"] != "gem5_semihosting_writefile_text_v1":
+            raise ValueError("Unknown benchmark output transport")
+        from m5.objects import ArmSemihosting
+
+        system.semihosting = ArmSemihosting()
+        records.append({
+            "section": "system", "parameter": "semihosting",
+            "requested": "ArmSemihosting", "normalized": "system.semihosting",
+            "compiled_type": "ArmSemihosting",
+        })
     for section, parameters in request["parameters"].items():
         parts = section.split(".")
         if parts[0] != "system" or any(

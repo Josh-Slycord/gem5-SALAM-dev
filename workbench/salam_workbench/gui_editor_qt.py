@@ -204,7 +204,7 @@ def _editor_snapshot(dialog):
         for i in range(dialog.component_tree.topLevelItemCount())
     ]
     current = dialog._hardware_tables.get(dialog._active_hardware_target, {})
-    return {
+    snapshot = {
         "cluster_name": dialog.cluster_name_edit.text().strip(),
         "components": components,
         "hardware_target": dialog._active_hardware_target,
@@ -227,6 +227,14 @@ def _editor_snapshot(dialog):
         },
         "source_legacy_cycle_time": deepcopy(dialog._legacy_cycle_times),
     }
+    if dialog.input_case_combo.currentData() is not None:
+        snapshot["benchmark_input"] = {
+            "dataset": dialog.input_case_combo.currentData(),
+            "seed": dialog.input_seed_spin.value(),
+        }
+    if dialog.trace_budget_check.isChecked():
+        snapshot["trace_event_limit"] = dialog.trace_budget_spin.value()
+    return snapshot
 
 
 def _populate_model_tree(dialog):
@@ -343,6 +351,35 @@ def install_editor(dialog_class):
         profile_form.addRow("Model:", self.model_edit)
         profile_form.addRow("Profile:", self.profile_edit)
         layout.insertWidget(layout.count() - 1, profile_group)
+        input_group = QGroupBox("Benchmark input and independent output check")
+        input_form = QFormLayout(input_group)
+        self.input_case_combo = QComboBox()
+        self.input_case_combo.addItem("Original source input / guest checker", None)
+        self.input_case_combo.addItem("Generated input / independent full-output check", "seeded")
+        self.input_case_combo.addItem("Zero input / independent full-output check", "zeros")
+        self.input_case_combo.addItem("Boundary input / independent full-output check", "boundary")
+        self.input_seed_spin = QSpinBox()
+        self.input_seed_spin.setRange(0, 2147483647)
+        self.input_seed_spin.setValue(1)
+        self.trace_budget_spin = QSpinBox()
+        self.trace_budget_spin.setRange(1, 4194304)
+        self.trace_budget_spin.setValue(262144)
+        from .benchmark_validation import trace_budget_source_supported
+
+        self.trace_budget_check = QCheckBox("Override scheduling trace event budget:")
+        self.trace_budget_check.setEnabled(trace_budget_source_supported(self.gem5_path))
+        self.trace_budget_spin.setEnabled(False)
+        self.trace_budget_check.toggled.connect(self.trace_budget_spin.setEnabled)
+        self.trace_budget_check.toggled.connect(self.update_preview)
+        self.trace_budget_spin.setToolTip("Maximum recorded functional-unit events per accelerator invocation. Truncated traces fail validation. Requires the updated simulator; full-size stencil studies use 1048576.")
+        self.input_seed_spin.setToolTip("Deterministic input seed; supported for sys_validation GEMM, FFT and stencil3d at their current fixed dimensions")
+        self.input_case_combo.currentIndexChanged.connect(self.update_preview)
+        self.input_seed_spin.valueChanged.connect(self.update_preview)
+        self.trace_budget_spin.valueChanged.connect(self.update_preview)
+        input_form.addRow("Input:", self.input_case_combo)
+        input_form.addRow("Seed:", self.input_seed_spin)
+        input_form.addRow(self.trace_budget_check, self.trace_budget_spin)
+        layout.insertWidget(0, input_group)
         self._refresh_periods(preferred="5ns")
 
     def _refresh_periods(self, *_args, preferred=None):
@@ -972,6 +1009,17 @@ def install_editor(dialog_class):
             )
         if receipt.get("evidence_directory") != path_text:
             raise ValueError("Receipt evidence directory differs from process summary")
+        # The desktop shell runs the same completion gate in its existing
+        # background worker; avoid replaying a large trace on its UI thread.
+        if "benchmark_input" in self._gui_request and not getattr(self, "_workbench_embedded", False):
+            from .workbench_completion import verify_completion
+
+            assessment = verify_completion(
+                directory, WORKBENCH_HOST, self._gui_request["benchmark"], "configured",
+                expected_request=self._gui_request,
+            )
+            if assessment["state"] != "passed":
+                raise ValueError("Current generated-input completion replay failed: " + str(assessment["errors"]))
         return receipt
 
     def _gui_finished(self, exit_code, exit_status):

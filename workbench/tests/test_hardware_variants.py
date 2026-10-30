@@ -81,6 +81,21 @@ class HardwareVariantsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "leaves base"):
             _link_plan(base)
 
+    def test_preserved_link_history_stays_in_base_and_is_not_a_live_build_input(self):
+        base = self.root / "base"
+        history = base / ".workbench-link-history/build"
+        history.mkdir(parents=True)
+        archived = history / "old-source"
+        archived.symlink_to(self.root / "previous-engine/source")
+        (base / "SConstruct").write_text("# current source\n")
+        links = _link_plan(base)
+        self.assertEqual(links, {})
+        variant = self.root / "variant"
+        _copy_engine(base, variant, links)
+        self.assertTrue(archived.is_symlink())
+        self.assertFalse((variant / ".workbench-link-history").exists())
+        self.assertEqual((variant / "SConstruct").read_text(), "# current source\n")
+
     def test_profile_hashes_pin_selected_files(self):
         base = self.root / "base"
         profile = (

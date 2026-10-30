@@ -556,7 +556,7 @@ def build_gui_request(
     profile["fu_overrides"] = _normalize_profile_overrides(
         profile["fu_overrides"], allow_fu_limit=allow_fu_capacity
     )
-    return {
+    request = {
         "schema_version": 2,
         "action": "apply_and_run",
         "benchmark": benchmark,
@@ -576,3 +576,20 @@ def build_gui_request(
             "editor_conversion": "live_widgets_plus_preserved_loaded_fields",
         },
     }
+    if snapshot.get("trace_event_limit") is not None:
+        from .benchmark_validation import trace_budget_source_supported
+
+        limit = snapshot["trace_event_limit"]
+        if type(limit) is not int or not 1 <= limit <= 4194304 or not trace_budget_source_supported(local_source):
+            raise ValueError("Trace event budget requires the updated simulator and a value from 1 to 4194304")
+        cluster = snapshot["cluster_name"].lower()
+        for component in snapshot["components"]:
+            if component["type"] == "accelerator":
+                request["parameters"]["system.{}.{}.llvm_interface".format(cluster, component["name"].lower())] = {"fu_trace_event_limit": limit}
+    if snapshot.get("benchmark_input") is not None:
+        from .benchmark_validation import validate_input_case
+
+        request["benchmark_input"] = validate_input_case(
+            benchmark, snapshot["benchmark_input"], allow_controls=False
+        )
+    return request

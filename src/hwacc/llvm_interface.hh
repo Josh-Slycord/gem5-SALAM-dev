@@ -45,6 +45,7 @@ class LLVMInterface : public ComputeUnit {
     std::string filename;
     std::string topName;
     uint32_t scheduling_threshold;
+    const uint32_t fuTraceEventLimit;
     int32_t clock_period;
     int cycle;
     int stalls;

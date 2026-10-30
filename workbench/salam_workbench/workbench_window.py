@@ -1276,6 +1276,13 @@ class WorkbenchWindow(QMainWindow):
                 item.setData(0, Qt.UserRole, deepcopy(component))
             editor.base_addr_edit.setText(snapshot["base_address"])
             editor.alignment_spin.setValue(snapshot["alignment"])
+            input_case = snapshot.get("benchmark_input")
+            editor.input_case_combo.setCurrentIndex(
+                editor.input_case_combo.findData(input_case["dataset"]) if input_case else 0
+            )
+            editor.input_seed_spin.setValue(input_case["seed"] if input_case else 1)
+            editor.trace_budget_spin.setValue(snapshot.get("trace_event_limit", 262144))
+            editor.trace_budget_check.setChecked("trace_event_limit" in snapshot)
             for field, key in (
                 ("mem_size_edit", "mem-size"),
                 ("mem_type_edit", "mem-type"),
@@ -1316,6 +1323,7 @@ class WorkbenchWindow(QMainWindow):
             "parameters",
             "hardware_profile",
             "base_address",
+            "benchmark_input",
         ):
             if restored.get(key) != request.get(key):
                 raise ValueError("Preset could not be restored exactly: " + key)

@@ -285,6 +285,8 @@ def _verify_configured(record, directory, project, benchmark, expected_request):
             "description": "Real benchmark guest checker; numerical acceptance and configuration transport are assessed separately",
         },
     }
+    if "benchmark_input" in request:
+        expected_spec["benchmark_input"] = request["benchmark_input"]
     if not _equal(spec, expected_spec):
         raise ValueError("Saved normalized specification differs from the live request")
     pipeline_dir = _safe(directory / "pipeline", [directory], directory=True)
@@ -369,6 +371,8 @@ def verify_completion(
             raise ValueError("Current raw evidence does not establish a passing run")
         if mode == "configured":
             _verify_configured(record, directory, project, benchmark, expected_request)
+            if "benchmark_input" in expected_request and result.get("independent_oracle", {}).get("state") != "passed":
+                raise ValueError("Configured generated inputs require a current independent full-output pass")
         else:
             _verify_reference(record, directory, project, benchmark, evidence_root)
         if file_hash(path) != original_hash:

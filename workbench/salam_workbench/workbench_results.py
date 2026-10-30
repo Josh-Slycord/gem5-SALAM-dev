@@ -126,6 +126,7 @@ def _benchmark(record, path, roots):
         "experiment.json",
         "request.json",
         "normalized-specification.json",
+        "specification.json",
     ):
         try:
             value = _json(_under(path.parent, relative, roots))
@@ -317,8 +318,8 @@ def _direct_salam(result, path, artifact, roots, config_path):
         )
         return
     try:
-        if path.stat().st_size > 32 * 1024 * 1024:
-            raise ValueError("Direct SALAM JSON exceeds 32 MiB validation limit")
+        if path.stat().st_size > 64 * 1024 * 1024:
+            raise ValueError("Direct SALAM JSON exceeds 64 MiB validation limit")
         if path.name.startswith("fu-scheduling-"):
             from .fu_experiments import inspect_fu_invocation
 
@@ -520,6 +521,7 @@ def load_run(path, project):
             ("parameter_witness", "Runtime parameters"),
             ("system_witness", "System settings"),
             ("profile_witness", "Compiled model profile"),
+            ("output_transport_witness", "Guest result file transport"),
         ):
             witness = pipeline.get(field)
             if isinstance(witness, dict):
@@ -650,13 +652,44 @@ def load_run(path, project):
         )
     except (OSError, ValueError) as error:
         _check(result, "Simulator exit", "unavailable", str(error), run_path)
-    _check(
-        result,
-        "Independent numerical validation",
-        "not_established",
-        "A guest Check Passed marker alone does not independently prove every output value. See workload-specific oracle and negative-control evidence.",
-        run_path,
-    )
+    if pipeline.get("benchmark_fixture"):
+        try:
+            from .benchmark_validation import assess_configured_output, numerical_output_relative
+
+            spec_path, spec = _linked_receipt(
+                result, pipeline.get("specification"), roots,
+                "Independent numerical specification", budget,
+            )
+            fixture_path, fixture = _linked_receipt(
+                result, pipeline.get("benchmark_fixture"), roots,
+                "Generated input fixture", budget,
+            )
+            if spec is None or fixture is None or "benchmark_input" not in spec:
+                raise ValueError("Independent numerical evidence is incomplete")
+            numerical_relative = numerical_output_relative(pipeline)
+            numerical_path = _under(run_dir, numerical_relative, roots)
+            if artifacts.get(numerical_relative, {}).get("status") != "hash_verified":
+                raise ValueError("Independent numerical output is not hash verified")
+            assessment = assess_configured_output(spec, numerical_path, fixture_path)
+            result["independent_oracle"] = assessment
+            result["provenance"]["independent_numerical_validation"] = assessment["state"]
+            _check(
+                result, "Independent numerical validation", assessment["state"],
+                "Compared {}/{} complete accelerator outputs; {} mismatches; {}".format(
+                    assessment.get("compared_count", 0), assessment.get("expected_count", 0),
+                    assessment.get("mismatch_count", 0), assessment.get("issues", []),
+                ), numerical_path,
+            )
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            _check(result, "Independent numerical validation", "failed", str(error), run_path)
+    else:
+        _check(
+            result,
+            "Independent numerical validation",
+            "not_established",
+            "A guest Check Passed marker alone does not independently prove every output value. See workload-specific oracle and negative-control evidence.",
+            run_path,
+        )
     system_metrics = []
     try:
         from .report import parse_stats

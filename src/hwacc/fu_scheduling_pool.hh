@@ -5,6 +5,7 @@
 // scalar instructions. This header has no gem5 dependencies so the same
 // admission logic can be tested without a simulator build.
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <sstream>
@@ -15,6 +16,9 @@
 class FUSchedulingPool
 {
   public:
+    // SALAM_FU_TRACE_BUDGET_V1: the bounded trace budget affects logging only.
+    static constexpr uint32_t DefaultTraceEventLimit = 262144;
+    static constexpr uint32_t MaxTraceEventLimit = 4194304;
     struct Unit {
         uint32_t id;
         std::string name;
@@ -52,13 +56,13 @@ class FUSchedulingPool
     uint64_t denials_ = 0;
     uint64_t releases_ = 0;
     uint64_t peak_ = 0;
-    static constexpr size_t TraceLimit = 262144;
+    uint32_t trace_event_limit_;
 
     void record(const char *event, uint64_t cycle, uint64_t tick,
                 uint64_t uid, uint64_t opcode, uint32_t fu_id,
                 uint64_t lease_id)
     {
-        if (trace_.size() < TraceLimit)
+        if (trace_.size() < trace_event_limit_)
             trace_.push_back({event, cycle, tick, uid, opcode, fu_id, lease_id});
         else
             trace_truncated_ = true;
@@ -89,6 +93,13 @@ class FUSchedulingPool
     }
 
   public:
+    explicit FUSchedulingPool(uint32_t trace_event_limit = DefaultTraceEventLimit)
+        : trace_event_limit_(trace_event_limit)
+    {
+        if (!trace_event_limit || trace_event_limit > MaxTraceEventLimit)
+            throw std::invalid_argument("FU trace event limit must be from 1 to 4194304");
+    }
+
     void configure(uint32_t id, const std::string &name, uint64_t limit)
     {
         if (!id || !units_.emplace(id, Unit{id, name, limit}).second)
@@ -101,6 +112,7 @@ class FUSchedulingPool
     const std::map<uint32_t, Unit> &units() const { return units_; }
     uint64_t outstanding() const { return leases_.size(); }
     bool traceTruncated() const { return trace_truncated_; }
+    uint32_t traceEventLimit() const { return trace_event_limit_; }
     const std::vector<Event> &trace() const { return trace_; }
 
     bool acquire(const void *instruction, uint64_t uid, uint64_t opcode,
@@ -180,7 +192,8 @@ class FUSchedulingPool
                 << ",\"fu_id\":" << e.fu_id
                 << ",\"lease_id\":" << e.lease_id << '}';
         }
-        out << "],\"trace_truncated\":"
+        out << "],\"trace_event_limit\":" << trace_event_limit_
+            << ",\"trace_truncated\":"
             << (trace_truncated_ ? "true" : "false") << '}';
         return out.str();
     }

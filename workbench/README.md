@@ -30,6 +30,12 @@ retain system settings, accelerator connections, functional-unit limits,
 instruction timing and hardware-profile edits. A changed source configuration
 is rejected rather than silently accepting a stale preset.
 
+GEMM, FFT and stencil3d also offer generated inputs with a saved deterministic
+seed and an independent check of every accelerator output. Select the input in
+the configuration editor; results are captured through gem5's guest file-output
+interface and replayed by the host checker. See [configurable benchmarks](docs/CONFIGURABLE_BENCHMARKS.md)
+for fixed shape limits, staged guest repairs and the explicit simulation study.
+
 The results view keeps recorded status separate from the current evidence
 assessment. It exposes direct SALAM accelerator metrics, gem5 system statistics,
 validation checks, bounded text/log previews and source provenance. Metric

@@ -592,6 +592,11 @@ class WorkbenchWindowRealEditorTests(unittest.TestCase):
 
     def test_preset_roundtrip_restores_live_system_and_fu_controls(self):
         editor = self.window.editor
+        editor.input_case_combo.setCurrentIndex(1)
+        editor.input_seed_spin.setValue(37)
+        if editor.trace_budget_check.isEnabled():
+            editor.trace_budget_check.setChecked(True)
+            editor.trace_budget_spin.setValue(1048576)
         editor.mem_size_edit.setText("2GB")
         editor.cpu_clock_edit.setText("1GHz")
         row = self._fu_row("integer_multiplier")
@@ -600,11 +605,15 @@ class WorkbenchWindowRealEditorTests(unittest.TestCase):
         request = editor._make_request()
         editor.mem_size_edit.setText("4GB")
         editor.cpu_clock_edit.clear()
+        editor.input_case_combo.setCurrentIndex(0)
+        editor.input_seed_spin.setValue(1)
+        editor.trace_budget_check.setChecked(False)
         row.setText(1, "1")
         self.window.restore_preset(deepcopy(request))
         restored = editor._make_request()
         self.assertEqual(restored["system"]["mem-size"], "2GB")
         self.assertEqual(restored["system"]["cpu-clock"], "1GHz")
+        self.assertEqual(restored["benchmark_input"], {"dataset": "seeded", "seed": 37})
         self.assertEqual(self._fu_row("integer_multiplier").text(1), "3")
         for key in (
             "configuration_documents",

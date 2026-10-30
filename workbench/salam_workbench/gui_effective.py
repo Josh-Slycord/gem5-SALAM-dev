@@ -883,14 +883,17 @@ def _receipts(
                 str(pipeline),
                 record.get("run_state") == "passed",
             )
+            numerical_state = "independent_full_output_passed" if "benchmark_input" in request else "guest_checker_passed"
             _check(
                 result,
                 "pipeline.numerical_correctness",
-                "guest_checker_passed",
+                numerical_state,
                 record.get("numerical_correctness"),
                 str(pipeline),
-                record.get("numerical_correctness") == "guest_checker_passed",
+                record.get("numerical_correctness") == numerical_state,
             )
+            if "benchmark_input" in request:
+                _check(result, "pipeline.independent_oracle", "passed", record.get("independent_oracle", {}).get("state"), str(pipeline), record.get("independent_oracle", {}).get("state") == "passed")
             completed = {
                 Path(command.get("stdout", "")).name: command.get("state")
                 == "completed"
@@ -1000,7 +1003,7 @@ def witness_gui_effective(
             "GUI request",
             request.get("action") == "apply_and_run",
         )
-        for key in ("benchmark", "system", "parameters", "base_address"):
+        for key in ("benchmark", "system", "parameters", "base_address", "benchmark_input"):
             _check(
                 result,
                 "request_to_spec." + key,
@@ -1093,7 +1096,7 @@ def witness_gui_effective(
                         "source YAML + live widget snapshot",
                         _equal(request.get("configuration_documents"), rerendered),
                     )
-                    for key in ("base_address", "system"):
+                    for key in ("base_address", "system", "parameters", "benchmark_input"):
                         _check(
                             result,
                             "editor_snapshot." + key,

@@ -105,6 +105,16 @@ def _observation():
 
 
 class WorkbenchResultsTests(unittest.TestCase):
+    def test_configured_study_history_uses_adjacent_saved_specification(self):
+        directory = self.project / "evidence/breadth-stencil"
+        directory.mkdir(parents=True)
+        _write(directory / "configuration.json", {"state": "prepared"})
+        _write(directory / "specification.json", {"benchmark": "benchmarks/sys_validation/stencil3d"})
+        rows = discover_runs(self.project)
+        selected = next(row for row in rows if row["run_id"] == "breadth-stencil")
+        self.assertEqual(selected["benchmark"], "benchmarks/sys_validation/stencil3d")
+        self.assertEqual(selected["state"], "prepared")
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="salam-results-fixture-")
         self.addCleanup(temporary.cleanup)

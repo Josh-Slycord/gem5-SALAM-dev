@@ -127,6 +127,7 @@ def validate_request(request, project=PROJECT):
         "base_address",
         "hardware_profile",
         "provenance",
+        "benchmark_input",
     }
     if not isinstance(request, dict) or set(request) - allowed:
         raise ValueError("Unknown GUI request fields")
@@ -233,6 +234,8 @@ def normalize_request(request, engine, directory):
             "description": "Real benchmark guest checker; numerical acceptance and configuration transport are assessed separately",
         },
     }
+    if "benchmark_input" in request:
+        spec["benchmark_input"] = request["benchmark_input"]
     validate_spec(spec)
     _save(directory / "normalized-specification.json", spec)
     return spec, normalization
@@ -316,6 +319,12 @@ def apply_request(
             spec["benchmark"],
             receipt_path=directory / "preflight-configpaths.json",
             source_config_relative=spec["config"],
+        )
+        from .registerbank_adapter import adapt_configured_registerbanks
+
+        receipt["registerbank_adapter"] = adapt_configured_registerbanks(
+            preflight, spec["benchmark"], source_engine=base,
+            receipt_path=directory / "preflight-registerbank-adapter.json",
         )
         contract = analyze_configuration(
             preflight / spec["benchmark"] / "config.yml",
@@ -410,6 +419,9 @@ def apply_request(
         )
         receipt["pipeline_receipt"] = _record(directory / "pipeline/configuration.json")
         receipt["pipeline_state"] = pipeline["state"]
+        receipt["numerical_correctness"] = pipeline.get("numerical_correctness")
+        if "independent_oracle" in pipeline:
+            receipt["independent_oracle"] = pipeline["independent_oracle"]
         if pipeline["state"] != "passed":
             raise ValueError(
                 "Edited GUI simulation did not pass: " + repr(pipeline["errors"])

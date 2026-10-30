@@ -28,7 +28,7 @@ _TOOLCHAIN = (
     "/usr/bin/python3.8-config",
     "/usr/bin/ld",
 )
-_SKIP_COPY = {".git", "__pycache__", "m5out", "outputs", "workbench"}
+_SKIP_COPY = {".git", "__pycache__", "m5out", "outputs", "workbench", ".workbench-link-history"}
 
 
 def _sha(path):

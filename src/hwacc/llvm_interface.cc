@@ -11,8 +11,10 @@ LLVMInterface::LLVMInterface(const LLVMInterfaceParams &p):
     filename(p.in_file),
     topName(p.top_name),
     scheduling_threshold(p.sched_threshold),
+    fuTraceEventLimit(p.fu_trace_event_limit),
     clock_period(p.clock_period),
-    lockstep(p.lockstep_mode) {
+    lockstep(p.lockstep_mode),
+    fuSchedulingPool(p.fu_trace_event_limit) {
     // if (DTRACE(Trace)) DPRINTF(Runtime, "Trace: %s \n", __PRETTY_FUNCTION__);
     clock_period = clock_period * 1000;
     dbg = comm->debug();
@@ -743,7 +745,8 @@ LLVMInterface::initialize() {
         clock_period > 0 ? static_cast<uint64_t>(clock_period) : 0,
         gem5::sim_clock::Frequency);
     fuStartTick = curTick();
-    fuSchedulingPool = FUSchedulingPool();
+    // SALAM_FU_TRACE_BUDGET_V1: reset invocation state without resetting its budget.
+    fuSchedulingPool = FUSchedulingPool(fuTraceEventLimit);
     fuModelById.clear();
     for (auto *fu : hw->functional_units->functional_unit_list) {
         if (!fu || !fu->get_enum_value()) panic("Invalid FU model in functional_unit_list");

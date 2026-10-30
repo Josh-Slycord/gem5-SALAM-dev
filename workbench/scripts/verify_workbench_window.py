@@ -106,6 +106,9 @@ def _find_benchmark(window, benchmark):
 def _configure_gemm(editor):
     """Change live controls whose transport and scheduling must be witnessed."""
     editor.mem_size_edit.setText("2GB")
+    if editor.trace_budget_check.isEnabled():
+        editor.trace_budget_check.setChecked(True)
+        editor.trace_budget_spin.setValue(1048576)
     if editor.hardware_target_combo.findText("gemm") >= 0:
         editor.hardware_target_combo.setCurrentText("gemm")
     units = [
@@ -130,6 +133,7 @@ def _configure_gemm(editor):
         "integer_multiplier.cycles": 1,
         "integer_multiplier.limit": 2,
         "mul.runtime_cycles": 16,
+        "fu_trace_event_limit": 1048576 if editor.trace_budget_check.isChecked() else None,
     }
 
 
@@ -164,7 +168,7 @@ def _assert_gemm_scheduling(result):
     )
 
 
-def _run_case(app, window, mode, benchmark, directory, timeout):
+def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None):
     started = time.monotonic()
     deadline = started + timeout
     directory.mkdir()
@@ -199,6 +203,9 @@ def _run_case(app, window, mode, benchmark, directory, timeout):
                 "Actual Run button is disabled: " + window.mode_note.text()
             )
         if mode == "configured":
+            if input_seed is not None:
+                window.editor.input_case_combo.setCurrentIndex(1)
+                window.editor.input_seed_spin.setValue(input_seed)
             if benchmark == "benchmarks/sys_validation/gemm":
                 case["configuration_changes"] = _configure_gemm(window.editor)
             request = window.editor._make_request()
@@ -327,6 +334,17 @@ def _run_case(app, window, mode, benchmark, directory, timeout):
             if transported.get("system", {}).get("mem-size") != "2GB":
                 raise ValueError("Edited memory size was not transported")
             case["multiplier_scheduling"] = _assert_gemm_scheduling(result)
+        if mode == "configured" and input_seed is not None:
+            if transported.get("benchmark_input") != {"dataset": "seeded", "seed": input_seed}:
+                raise ValueError("Selected generated inputs did not reach the backend")
+            oracle = result.get("independent_oracle", {})
+            if oracle.get("state") != "passed":
+                raise ValueError("Results reader did not independently validate every accelerator output")
+            case["independent_oracle"] = oracle
+            if benchmark.endswith("/gemm") and window.editor.trace_budget_check.isChecked():
+                for name in ("top", "gemm"):
+                    if transported.get("parameters", {}).get("system.gemm_clstr." + name + ".llvm_interface") != {"fu_trace_event_limit": 1048576}:
+                        raise ValueError("GUI trace-budget override did not reach the checked backend")
         case["rendered_metrics"] = _tree_rows(window.metrics)
         case["rendered_checks"] = _tree_rows(window.checks)
         window.pages.setCurrentIndex(2)
@@ -380,9 +398,12 @@ def main(argv=None):
     )
     parser.add_argument("--evidence-dir", type=Path)
     parser.add_argument("--timeout", type=float, default=7200)
+    parser.add_argument("--input-seed", type=int)
     args = parser.parse_args(argv)
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
+    if args.input_seed is not None and not 0 <= args.input_seed <= 2147483647:
+        parser.error("--input-seed requires a nonnegative signed 32-bit integer")
     evidence = args.evidence_dir or PROJECT / "evidence" / (
         "desktop-workbench-acceptance-"
         + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -451,7 +472,7 @@ def main(argv=None):
             flush=True,
         )
         ticks_before = ticks[0]
-        case = _run_case(app, window, mode, benchmark, evidence / name, args.timeout)
+        case = _run_case(app, window, mode, benchmark, evidence / name, args.timeout, args.input_seed)
         case["event_loop_ticks"] = ticks[0] - ticks_before
         if case["event_loop_ticks"] < 1:
             case["state"] = "failed"
