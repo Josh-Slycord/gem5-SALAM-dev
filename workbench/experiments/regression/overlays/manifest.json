@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "kind": "staged_benchmark_overlays",
+  "engine_commit": "62578890cdb0e867f770ca114f026365c2d8d8d3",
+  "scope": "Only copied staging workspaces; never edit the independent engine checkout or preservation archive.",
+  "entries": [
+    {
+      "benchmark": "fft",
+      "base": "benchmarks/sys_validation/fft/sw/main.cpp",
+      "base_sha256": "7632cfa72ae889be641848b002a7300423a3ac71651ebb7f34c6b1d9f84c8842",
+      "overlay": "experiments/regression/overlays/fft/sw/main.cpp",
+      "overlay_sha256": "3c92860fda96dc05203c7d2ec4218420ea8ab61d189f0d565410b123de4dc110",
+      "kind": "replace",
+      "diff_summary": "Add finite-aware 1e-6 full-output checker and reset statistics before data generation; on mismatch print only index and real/imaginary component so bare-metal failure reaches the sole Check Failed marker.",
+      "unified_diff": "--- benchmarks/sys_validation/fft/sw/main.cpp\n+++ experiments/regression/overlays/fft/sw/main.cpp\n@@ -2,6 +2,7 @@\n #include <cstdint>\n #include <cstdlib>\n #include <cstring>\n+#include <cmath>\n #include \"bench.h\"\n #include \"../../../common/m5ops.h\"\n #include \"../fft_clstr_hw_defines.h\"\n@@ -23,7 +24,15 @@\n volatile uint32_t * loc_real_twid = (uint32_t *)(TOP+17);\n volatile uint32_t * loc_img_twid  = (uint32_t *)(TOP+25);\n \n+static bool workbench_fft_sample_matches(double observed, double expected) {\n+    if (!std::isfinite(observed) || !std::isfinite(expected))\n+        return false;\n+    const double difference = observed - expected;\n+    return std::isfinite(difference) && std::fabs(difference) <= EPSILON;\n+}\n+\n int __attribute__ ((optimize(\"0\"))) main(void) {\n+    m5_reset_stats();\n \tdouble *real       \t= (double *)(BASE+REAL_OFFSET);\n \tdouble *img        \t= (double *)(BASE+IMG_OFFSET);\n \tdouble *real_twid  \t= (double *)(BASE+RTWID_OFFSET);\n@@ -57,20 +66,15 @@\n \n #ifdef CHECK\n     bool fail = false;\n-\tdouble creal, cimg;\n     for (int i = 0; i < FFT_SIZE; i++) {\n-        creal = real[i] - real_check[i];\n-        cimg = img[i] - img_check[i];\n-\t\t// printf(\"[%i] = Real: %.12f, Img: %.12f \\n\", i, creal, cimg);\n-\t\t\n-        if((creal > EPSILON) || (creal < -EPSILON)) {\n+        if (!workbench_fft_sample_matches(real[i], real_check[i])) {\n+            printf(\"FFT mismatch index %d component real\\n\", i);\n             fail = true;\n+            break;\n         }\n-        if((cimg > EPSILON) || (cimg < -EPSILON)) {\n+        if (!workbench_fft_sample_matches(img[i], img_check[i])) {\n+            printf(\"FFT mismatch index %d component imaginary\\n\", i);\n             fail = true;\n-        }\n-        if (fail) {\n-            printf(\"Diff[%i] = Real: %f, Img: %f \\n\", i, real[i], img[i]);\n             break;\n         }\n     }\n"
+    },
+    {
+      "benchmark": "stencil3d",
+      "base": "benchmarks/sys_validation/stencil3d/sw/bench.h",
+      "base_sha256": "8f269b0324452e05c88ba98f826249d69723ad5b4e4fed1f94c4b5eebd682538",
+      "overlay": "experiments/regression/overlays/stencil3d/sw/bench.h",
+      "overlay_sha256": "5e7ca959e08e00d2f7e97d2f5a40bb57537b5a841a0357df6dfdec35ed582553",
+      "kind": "replace",
+      "diff_summary": "Keep the exact 16384-element comparison but let main.cpp emit the sole guest outcome marker.",
+      "unified_diff": "--- benchmarks/sys_validation/stencil3d/sw/bench.h\n+++ experiments/regression/overlays/stencil3d/sw/bench.h\n@@ -15,11 +15,9 @@\n \n     for( i=0; i < SIZE; i++ ) {\n         if (sts->sol[i]!= sts->check[i]) {\n-            printf(\"Check Failed\\n\");\n             return 0;\n         }\n     }\n-    printf(\"Check Passed\\n\");\n \n     return 1;\n }\n"
+    },
+    {
+      "benchmark": "stencil3d",
+      "base": "benchmarks/sys_validation/stencil3d/hw/Makefile",
+      "base_sha256": "1fcae9e4eebeac8fd0bb69189aae72450da48159110920984fd570ced467e555",
+      "overlay": "experiments/regression/overlays/stencil3d/hw/Makefile",
+      "overlay_sha256": "ef0f6d86e721faee12dcd39088ee8cfc21a1c187b790863c64db607c32564d39",
+      "kind": "replace",
+      "diff_summary": "Cross-compile LLVM IR explicitly for armv7-pc-none-eabi like other staged workloads.",
+      "unified_diff": "--- benchmarks/sys_validation/stencil3d/hw/Makefile\n+++ experiments/regression/overlays/stencil3d/hw/Makefile\n@@ -1,6 +1,6 @@\n KERN=stencil3d.c top.c\n build: $(FILES)\n-\tclang -O1 -S -fno-slp-vectorize -fno-vectorize -fno-unroll-loops -fno-inline -fno-builtin -emit-llvm $(KERN)\n+\tclang -O1 -S -target armv7-pc-none-eabi -fno-slp-vectorize -fno-vectorize -fno-unroll-loops -fno-inline -fno-builtin -emit-llvm $(KERN)\n \n clean:\n \trm -f *.ll\n"
+    }
+  ]
+}

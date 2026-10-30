@@ -1,0 +1,43 @@
+acc_cluster:
+- Name: gemm_clstr
+- DMA:
+  - Name: dma
+    MaxReqSize: 64
+    BufferSize: 128
+    PIOMaster: LocalBus
+    Type: NonCoherent
+    InterruptNum: 95
+- Accelerator:
+  - Name: Top
+    IrPath: benchmarks/sys_validation/gemm/hw/top.ll
+    PIOSize: 25
+    InterruptNum: 68
+    PIOMaster: LocalBus
+    LocalSlaves: LocalBus
+    Debug: false
+- Accelerator:
+  - Name: gemm
+    IrPath: benchmarks/sys_validation/gemm/hw/gemm.ll
+    Debug: false
+    PIOSize: 1
+    PIOMaster: LocalBus
+    ConfigPath: benchmarks/sys_validation/gemm/configs/workbench_profile.yml
+  - Var:
+    - Name: MATRIX1
+      Type: SPM
+      Size: 32768
+      Ports: 2
+  - Var:
+    - Name: MATRIX2
+      Type: SPM
+      Size: 32768
+      Ports: 2
+  - Var:
+    - Name: MATRIX3
+      Type: SPM
+      Size: 32768
+      Ports: 2
+hw_config:
+  name: gemm_clstr
+  top: null
+  gemm: null

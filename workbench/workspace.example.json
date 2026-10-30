@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "project": "SALAM Research Workbench",
+  "status": "Illustrative keys only. Use bootstrap_existing with verified receipts.",
+  "engine": {
+    "distribution": "YOUR-WSL-DISTRO",
+    "path": "/absolute/path/to/external-fixed-engine"
+  },
+  "configuration_engine": {
+    "distribution": "YOUR-WSL-DISTRO",
+    "path": "/absolute/path/to/external-configured-engine",
+    "build_receipt": "evidence/existing-build/build.json",
+    "generation_receipt": "evidence/existing-generation/hardware-codegen.json"
+  }
+}

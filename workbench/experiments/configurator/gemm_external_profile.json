@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "gemm_external_profile",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "config": "benchmarks/sys_validation/gemm/configpath_workbench.yml",
+  "base_address": "0x10220000",
+  "system": {
+    "cpu-clock": "1GHz"
+  },
+  "correctness": {
+    "expected_passed_markers": 1,
+    "description": "Existing 8x8 GEMM checker; external YAML supplies multiply latency 3."
+  }
+}

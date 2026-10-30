@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "kind": "salam_regression_catalog",
+  "contract": "selected-reviewed-fixed-regressions-v2",
+  "scope": "BFS, NW, FFT, and stencil3d are supported for their selected fixed datasets after two guest simulator executions each; this is bounded W17 coverage, not full M4 completion",
+  "workloads": {
+    "bfs": {
+      "name": "bfs",
+      "relative_path": "benchmarks/sys_validation/bfs",
+      "cluster": "bfs_clstr",
+      "header": "bfs_clstr_hw_defines.h",
+      "timeout_seconds": 600,
+      "generation_timeout_seconds": 120,
+      "build_timeout_seconds": 180,
+      "source_sha256": {
+        "Makefile": "b68cd76d3cde7aa9abd8f8488eef2860a5aad8742324939aaafa035905ebea48",
+        "bfs_clstr_hw_defines.h": "cfd728384dd137907374391c2e390eda971dc4abcf51d716cda90bbab206e351",
+        "config.yml": "1c3ea2b08aee1d34a9a66b6965cd4e824307941e454e6447ae7f63e40d3ebb64",
+        "defines.h": "dbf708e933c5b5c647a4d5c59a12ee5a5121f23ff49838c135b02577881638c4",
+        "hw/Makefile": "6e363c151586c323c28f89717589e6e956f98ebfd5c9e4f0f6666a1a9c4a35bd",
+        "hw/bfs.c": "a001af593bcdf096224ea2dc33d5fcb4eab2230866718cae3cf35935a22c917e",
+        "hw/bfs.h": "d28d4b2e71231ecf4ba0afa1f35bfd0b845617541893268ea84bc2ce3656926b",
+        "hw/bfs_hw_defines.h": "f28a4ccc2df221c0f0e5c0b6321ca5063ddbce71c7247f7633b6091b25bd1970",
+        "hw/hw_defines.h": "d65e34659895ac0e069b4a68199c08f016f628dbe3280ca7207ab5de6daaef2c",
+        "hw/support.h": "18780dfeef20f45d4aa1ed23e7d24cc83685463ca31305aa95b22bb1ab7d8038",
+        "hw/top.c": "bd57446c374b549934a7d7f65ff45e5019fa8e3b415c762ebb89012f20105741",
+        "sw/Makefile": "4cdd6af95a5df6b58fb0e75fa512302f72ef27956c68037fb41c553b37110bff",
+        "sw/bench.h": "b42d6c657ee49c1ed05127fbace809a0143024c85bfefb50eae70a478b5290ff",
+        "sw/boot.ld": "5af97a49d977937cde49c182686a64c1c807931e776c5c5af46b83befedded55",
+        "sw/boot.s": "aaab1f5a0d2afed20d30f85d9a455b01cd738fb55a3005336bfd98164a3c98d9",
+        "sw/data.c": "2dfa536a068a3b5af0637ee8b4dbd6861d716be461e6f98540902eb0a582686e",
+        "sw/data.h": "75d4acb7ceec74a00fdaad2ddee37baf4628b6326136caea27cffb9d0e15def1",
+        "sw/isr.c": "a07735bf9f797e4f7e144c7df37aff81c38a97e7e4eb41216885d22ba587632b",
+        "sw/main.cpp": "8b1689efec19df561ef7e86f68fd4e9ea47067fde2138fca77375b260f61300e"
+      },
+      "expected_macros": {
+        "CHECK": "",
+        "SCALE": "8",
+        "EDGE_FACTOR": "16",
+        "N_LEVELS": "10"
+      },
+      "workload": {
+        "nodes": 256,
+        "edges": 4096,
+        "starting_node": 38,
+        "levels": 10,
+        "expected_level_counts": [
+          1,
+          26,
+          184,
+          22,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "reference": "Ten exact fixed graph level counts in sw/data.c; every node level is not checked"
+      },
+      "limitations": [
+        "Fixed graph only; guest compares level counts, not every node level",
+        "General N_LEVELS horizon+1 boundary risk is not exercised by this dataset"
+      ],
+      "oracle_kind": "fixed_csr_levels_v1"
+    },
+    "nw": {
+      "name": "nw",
+      "relative_path": "benchmarks/sys_validation/nw",
+      "cluster": "nw_clstr",
+      "header": "nw_clstr_hw_defines.h",
+      "timeout_seconds": 600,
+      "generation_timeout_seconds": 120,
+      "build_timeout_seconds": 180,
+      "source_sha256": {
+        "Makefile": "b68cd76d3cde7aa9abd8f8488eef2860a5aad8742324939aaafa035905ebea48",
+        "config.yml": "5a267c298ea1aefa7b056dcf386f52caf1281ed857f2f1bfc4d18aa3e36da072",
+        "defines.h": "e39e1e377bb4d102f8604c6dd68e9fa9fececc0baa6b2719c186581c2518b579",
+        "hw/Makefile": "c881f45fd30757fc2bb3d85d7991a4152e0e16a573f397dfbeb6db0453f56371",
+        "hw/hw_defines.h": "29e9e4ce5e949db1a4bdf9d935c6840ccafc13e3f60215a1a84d136617950fca",
+        "hw/nw.c": "b0b6f9ea0deeb2ca64d4ff9e81a27ec9b2f530c29f92f421167a81b2f96b8b52",
+        "hw/support.h": "18780dfeef20f45d4aa1ed23e7d24cc83685463ca31305aa95b22bb1ab7d8038",
+        "hw/top.c": "094f6115666d166afb28ee7ad405057ae59d4f2f49cecae1fb083dac370acc80",
+        "nw_clstr_hw_defines.h": "2740feb54559a3870e271c69df6ffc97f9f71a42a21359060ae3dd0af0318afd",
+        "sw/Makefile": "4cdd6af95a5df6b58fb0e75fa512302f72ef27956c68037fb41c553b37110bff",
+        "sw/bench.h": "da3bbde208868087b9624466ec967ff7ed5f9947f9b9756013a2f2715cbd52ed",
+        "sw/boot.ld": "5af97a49d977937cde49c182686a64c1c807931e776c5c5af46b83befedded55",
+        "sw/boot.s": "aaab1f5a0d2afed20d30f85d9a455b01cd738fb55a3005336bfd98164a3c98d9",
+        "sw/data.c": "7fddbe9938ab7c930133c90c714ef5608e70a57d71d5bd4093155eeb7dbb0696",
+        "sw/data.h": "2a08baaf28f9906be9fb4bd9a2a700b32b66fc5e1f3a729850f8aedf21503aae",
+        "sw/isr.c": "a07735bf9f797e4f7e144c7df37aff81c38a97e7e4eb41216885d22ba587632b",
+        "sw/main.cpp": "042fbc8faba1e3e258f8da82c9510e0e2913f88e948b9977dcb0d2d623ba9e75"
+      },
+      "expected_macros": {
+        "CHECK": "",
+        "ALEN": "128",
+        "BLEN": "128"
+      },
+      "workload": {
+        "sequence_a_bytes": 128,
+        "sequence_b_bytes": 128,
+        "alignment_bytes_each": 256,
+        "reference": "Both complete byte alignments against alia/alib in sw/data.c, including underscore padding"
+      },
+      "limitations": [
+        "Fixed sequences and recovered alignment tie-breaking only; no arbitrary-sequence claim"
+      ],
+      "oracle_kind": "fixed_alignments_v1"
+    },
+    "fft": {
+      "name": "fft",
+      "support_status": "supported_fixed_dataset",
+      "evidence_session": "evidence/regression-20261029T200924-43006ae0",
+      "oracle_kind": "fixed_complex_dft_v1",
+      "relative_path": "benchmarks/sys_validation/fft",
+      "cluster": "fft_clstr",
+      "header": "fft_clstr_hw_defines.h",
+      "timeout_seconds": 900,
+      "generation_timeout_seconds": 120,
+      "build_timeout_seconds": 180,
+      "source_sha256": {
+        "Makefile": "b68cd76d3cde7aa9abd8f8488eef2860a5aad8742324939aaafa035905ebea48",
+        "config.yml": "34e3941ea5964578c14c8c98bdbc4752a516b4a60463a1de70e2657f30df9314",
+        "defines.h": "218b2156f0c53c4c9169ad5d605cdb6f610315543a08b616b259d497d28ef1df",
+        "fft_clstr_hw_defines.h": "45ed8d780ed63f5e4bb52533bd7caa5449106d19cbcb20724f0abd1fdcf691ea",
+        "hw/Makefile": "13e06e0898c3eccd58a86b1b61b473774b59508aa9c39525057f8c3abf3d585c",
+        "hw/fft.c": "66b452b6b9d028b6afbfd1e0bd36c6a6fd63f2d465cf4286a227a30af8f44229",
+        "hw/hw_defines.h": "011d0617cd046ddf2be3c8de24314c28fe0c8a6917ebe43b1a977183b35fcd8e",
+        "hw/support.h": "18780dfeef20f45d4aa1ed23e7d24cc83685463ca31305aa95b22bb1ab7d8038",
+        "hw/top.c": "8428e4ace6baea07d51ef98a8ea2f189598b89f8123a8c05d51d70d532c7bfe2",
+        "sw/Makefile": "6f2557794f711cdba518a4efc9921801b6d0f832f56d1019b21bcfbd1f69a81e",
+        "sw/bench.h": "e97b393d6cf0c54733f41561de2d75ffffe38459cc8b69beb44bb7a98e161d4e",
+        "sw/boot.ld": "5af97a49d977937cde49c182686a64c1c807931e776c5c5af46b83befedded55",
+        "sw/boot.s": "aaab1f5a0d2afed20d30f85d9a455b01cd738fb55a3005336bfd98164a3c98d9",
+        "sw/data.c": "60c18d2538999bc480e745e2ad76c35c603f7cc70a5eb23b35a653fdf9ec8951",
+        "sw/data.h": "042222fc85f886a813b8cbb4f69ccfa868d9c8cf5d3c4a16c1eb5e3113eed917",
+        "sw/isr.c": "a07735bf9f797e4f7e144c7df37aff81c38a97e7e4eb41216885d22ba587632b",
+        "sw/main.cpp": "7632cfa72ae889be641848b002a7300423a3ac71651ebb7f34c6b1d9f84c8842"
+      },
+      "overlays": [
+        {
+          "path": "sw/main.cpp",
+          "source": "experiments/regression/overlays/fft/sw/main.cpp",
+          "sha256": "3c92860fda96dc05203c7d2ec4218420ea8ab61d189f0d565410b123de4dc110"
+        }
+      ],
+      "expected_macros": {
+        "CHECK": "",
+        "FFT_SIZE": "1024",
+        "FFT_HALF": "FFT_SIZE/2",
+        "EPSILON": "((double)1.0e-6)"
+      },
+      "workload": {
+        "samples": 1024,
+        "twiddles": 512,
+        "reference_outputs": 1024,
+        "reference": "All 1024 complex outputs and 512 twiddle factors independently checked from fixed sw/data.c; guest uses finite-aware full-output comparison"
+      },
+      "limitations": [
+        "Accepted for the fixed 1024-sample dataset only: two passed guest simulations shared one fresh staged build and matched the declared deterministic whole-guest metrics at zero tolerance",
+        "No arbitrary FFT-size or input claim; whole-guest metrics include data preparation, accelerator wait, and oracle, and are not accelerator-only or physical-hardware measurements",
+        "Finite-aware guest checker is a pinned staging overlay; the recovered engine checkout remains unmodified"
+      ]
+    },
+    "stencil3d": {
+      "name": "stencil3d",
+      "support_status": "supported_fixed_dataset",
+      "evidence_session": "evidence/regression-20261029T200924-43006ae0",
+      "oracle_kind": "fixed_integer_stencil_v1",
+      "relative_path": "benchmarks/sys_validation/stencil3d",
+      "cluster": "stencil3d_clstr",
+      "header": "stencil3d_clstr_hw_defines.h",
+      "timeout_seconds": 900,
+      "generation_timeout_seconds": 120,
+      "build_timeout_seconds": 180,
+      "source_sha256": {
+        "Makefile": "db28a2b2a1ca469df7c84944334cdf58b901044687b610b04189869efcc33d60",
+        "config.yml": "307ba46b657802910e3e3242879314c0b869207990dd0dd93baa3d114ab8d7df",
+        "defines.h": "ef4900e12e1a52e69f53cf2b0a54958b49d088b070edeab225f9170fa07bc0cf",
+        "hw/Makefile": "1fcae9e4eebeac8fd0bb69189aae72450da48159110920984fd570ced467e555",
+        "hw/hw_defines.h": "af66a0b78dba0bac905c2b414e934da39e53a7e34d2d2cce8f44305a666c20f9",
+        "hw/stencil3d.c": "0374ab0469b06cb1f903dedb4fc3e6c292bb584400de2791b26c6f43edc06b46",
+        "hw/top.c": "327dff7318464c1419ca5c0f798c8fc6655566c4217fdbc6c02e78079d8b8c76",
+        "stencil3d_clstr_hw_defines.h": "fba3f7d03b214dd346ebd56945d70231361f5e8ae58919ef40f3e6b6d4e79f2d",
+        "sw/Makefile": "fe5fd5c35a7bec4a46257bac080647e1918a04bd309a6c1e466cb8321359de7a",
+        "sw/bench.h": "8f269b0324452e05c88ba98f826249d69723ad5b4e4fed1f94c4b5eebd682538",
+        "sw/boot.ld": "5af97a49d977937cde49c182686a64c1c807931e776c5c5af46b83befedded55",
+        "sw/boot.s": "aaab1f5a0d2afed20d30f85d9a455b01cd738fb55a3005336bfd98164a3c98d9",
+        "sw/isr.c": "056ca6d56768f6a6a0d12c738587b9f573dd0d78dbcc5616bd040f6995776965",
+        "sw/main.cpp": "8e029bb8bdcffab758689020b46fb24a4aebb6028741f44222416b32c056246f"
+      },
+      "overlays": [
+        {
+          "path": "sw/bench.h",
+          "source": "experiments/regression/overlays/stencil3d/sw/bench.h",
+          "sha256": "5e7ca959e08e00d2f7e97d2f5a40bb57537b5a841a0357df6dfdec35ed582553"
+        },
+        {
+          "path": "hw/Makefile",
+          "source": "experiments/regression/overlays/stencil3d/hw/Makefile",
+          "sha256": "ef0f6d86e721faee12dcd39088ee8cfc21a1c187b790863c64db607c32564d39"
+        }
+      ],
+      "expected_macros": {
+        "CHECK": "",
+        "C_SIZE": "2",
+        "HYT": "32",
+        "COL": "32",
+        "ROW": "16",
+        "TYPE": "int32_t"
+      },
+      "workload": {
+        "dimensions": {
+          "row": 16,
+          "col": 32,
+          "hyt": 32
+        },
+        "outputs": 16384,
+        "coefficients": [
+          2,
+          3
+        ],
+        "reference": "All 16384 fixed integer outputs checked; boundary=p, interior=20p, bound to pinned guest generator and seven-point stencil"
+      },
+      "limitations": [
+        "Accepted for the fixed 16x32x32 linear-input stencil only: two passed guest simulations shared one fresh staged build and matched the declared deterministic whole-guest metrics at zero tolerance",
+        "No arbitrary input or dimension claim; whole-guest metrics include data preparation, accelerator wait, and oracle, and are not accelerator-only or physical-hardware measurements",
+        "Checker and ARM IR Makefile repairs are pinned staging overlays; the recovered engine checkout remains unmodified"
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "name": "gemm_reject_bad_system",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "system": {"workbench-nonexistent-option": 42},
+  "correctness": {"expected_passed_markers": 1, "description": "Intentional negative control: unknown gem5 system option must fail argparse and must never pass the pipeline."}
+}

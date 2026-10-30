@@ -22,3 +22,6 @@ Makefile text eol=lf
 *.a binary
 *.so binary
 *.ll binary
+
+# Frozen historical reference retains its original Markdown whitespace.
+docs/LEGACY_SIMULATOR_SETUP.md -text -whitespace

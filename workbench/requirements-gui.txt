@@ -1,0 +1,7 @@
+# One Qt binding only. Tested in Ubuntu-20.04/Python 3.8 with PySide6 6.2.4.
+PySide6>=6.2.4,<7
+# Recovered CDFG layout uses NetworkX and NumPy; no live GUI dependencies.
+networkx>=2.8,<4
+numpy>=1.21,<3
+# Parameter-comparison YAML verification; not needed for a baseline-only model.
+PyYAML>=6,<7

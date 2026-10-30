@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "gemm",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "base_address": "0x10020000",
+  "edits": [{"path": [0, "hw_config", "gemm", "instructions", "mul", "runtime_cycles"], "value": 16}],
+  "parameters": {
+    "system.gemm_clstr.gemm.hw_interface.functional_units.integer_multiplier": {"limit": 1}
+  },
+  "correctness": {
+    "expected_passed_markers": 1,
+    "description": "Integer GEMM against the independent CPU reference; one concurrent multiplier."
+  }
+}

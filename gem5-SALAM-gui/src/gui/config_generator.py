@@ -135,7 +135,8 @@ class ConfigGeneratorDialog(QDialog):
         self.validate_btn.clicked.connect(self.validate_config)
         button_layout.addWidget(self.validate_btn)
 
-        self.generate_btn = QPushButton("Generate Files")
+        self.generate_btn = QPushButton("Prepare Selected YAML (checked)")
+        self.generate_btn.setToolTip("Uses existing on-disk YAML; unsaved form fields are not applied")
         self.generate_btn.clicked.connect(self.generate_files)
         button_layout.addWidget(self.generate_btn)
 
@@ -749,150 +750,94 @@ class ConfigGeneratorDialog(QDialog):
             self.validation_output.append(f"Validation error: {e}")
 
     def generate_files(self):
-        """Generate configuration files."""
-        bench_name = self.benchmark_combo.currentData()
-        if not bench_name:
-            QMessageBox.warning(self, "No Benchmark", "Please select a benchmark first.")
-            return
-
-        try:
-            config = self.build_config()
-            bench_dir = self.bench_dir_combo.currentText()
-
-            # Save the YAML config file
-            output_path = self.gem5_path / bench_dir / bench_name / "config.yml"
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(output_path, 'w') as f:
-                yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-            generated_files = [str(output_path)]
-
-            # Ask if user wants to run full generation via WSL
-            reply = QMessageBox.question(
-                self, "Run Full Generation?",
-                f"Configuration saved to:\n{output_path}\n\n"
-                "Do you want to run the full generation process?\n"
-                "This will generate Python configs, C headers, and HW profile files.\n\n"
-                "(Requires M5_PATH to be set in WSL)",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-
-            if reply == QMessageBox.Yes:
-                # Run generation through WSL using the CLI
-                self._run_generation_in_wsl(bench_name, bench_dir, generated_files)
-            else:
-                self.validation_output.clear()
-                self.validation_output.append("Generated files:")
-                for f in generated_files:
-                    self.validation_output.append(f"  - {f}")
-
-                QMessageBox.information(
-                    self, "Configuration Saved",
-                    f"Configuration saved to:\n{output_path}"
-                )
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Generation failed: {e}")
-
-    def _run_generation_in_wsl(self, bench_name: str, bench_dir: str, generated_files: list):
-        """Run the full generation process through WSL."""
+        """Prepare the selected on-disk YAML through the checked workbench."""
+        import json
+        import re
         import subprocess
 
-        # Get parent window's WSL distro selection
-        parent = self.parent()
-        distro = None
-        if parent and hasattr(parent, 'wsl_status'):
-            distro = parent.wsl_status.get_selected_distro()
-
-        if not distro:
-            QMessageBox.warning(
-                self, "No WSL Distribution",
-                "Please select a WSL distribution in the main window."
-            )
-            return
-
-        # First, get M5_PATH value via grep (same approach as main_window.py)
-        # This works around .bashrc early exit guard for non-interactive shells
-        m5_path_cmd = (
-            "grep -h 'export M5_PATH=' ~/.bashrc ~/.profile 2>/dev/null | "
-            "tail -1 | sed 's/.*M5_PATH=[\"]*\\([^\"]*\\)[\"]*$/\\1/'"
-        )
-        try:
-            m5_result = subprocess.run(
-                ['wsl', '-d', distro, 'bash', '-c', m5_path_cmd],
-                capture_output=True, text=True, timeout=10
-            )
-            m5_path = m5_result.stdout.strip()
-        except Exception:
-            m5_path = ""
-
-        if not m5_path:
-            QMessageBox.warning(
-                self, "M5_PATH Not Set",
-                "Could not determine M5_PATH from WSL environment.\n"
-                "Please ensure M5_PATH is exported in ~/.bashrc or ~/.profile."
-            )
-            return
-
-        cycle_time = self.cycle_time_combo.currentText()
-
-        # Build the CLI command using the actual M5_PATH value (not shell variable)
-        cli_cmd = (
-            f"export M5_PATH='{m5_path}' && "
-            f"export PYTHONPATH='{m5_path}':$PYTHONPATH && "
-            f"cd '{m5_path}' && python3 -m salam_config.cli generate "
-            f"-b '{bench_name}' "
-            f"-d '{bench_dir}' "
-            f"--cycle-time '{cycle_time}' "
-            f"-v"
-        )
-
         self.validation_output.clear()
-        self.validation_output.append(f"Running generation in WSL ({distro})...")
-        self.validation_output.append(f"Command: {cli_cmd}")
-        self.validation_output.append("")
-
         try:
-            # Run the command through WSL (no -l needed since we set env vars explicitly)
-            result = subprocess.run(
-                ['wsl', '-d', distro, 'bash', '-c', cli_cmd],
-                capture_output=True, text=True, timeout=60
-            )
+            independent = Path(__file__).resolve().parents[3]
+            selected_engine = self.gem5_path.resolve(strict=True)
+            if selected_engine != independent:
+                raise ValueError("Select this independent configurator-engine checkout first")
+            bench_name = self.benchmark_combo.currentData()
+            bench_dir = self.bench_dir_combo.currentText()
+            if not isinstance(bench_name, str) or not re.fullmatch(
+                    r"[A-Za-z0-9_-]+", bench_name):
+                raise ValueError("Select a benchmark before preparation")
+            if bench_dir not in (
+                    "benchmarks/sys_validation", "benchmarks/legacy",
+                    "benchmarks/lenet5-nounroll", "benchmarks/mobilenetv2"):
+                raise ValueError("Benchmark directory is not an allowed GUI selection")
+            benchmark = bench_dir + "/" + bench_name
+            choices = [selected_engine / benchmark / "config.yml",
+                       selected_engine / benchmark / "config.yaml"]
+            selected_yaml = next((path for path in choices if path.is_file()), None)
+            if selected_yaml is None:
+                raise ValueError("Selected benchmark has no on-disk config.yml or config.yaml")
+            selected_yaml.resolve(strict=True).relative_to(independent)
+            self.validation_output.append("Preparing selected on-disk YAML: " + str(selected_yaml))
+            self.validation_output.append(
+                "Unsaved form/global fields are not applied by this action. "
+                "The cycle-time choice must match the verified compiled profile.")
+            summary = self._run_checked_prepare(
+                benchmark, benchmark + "/" + selected_yaml.name)
+            self.validation_output.append("Evidence: " + str(summary.get("evidence_directory")))
+            if summary.get("state") != "prepared":
+                raise ValueError("; ".join(summary.get("errors", [])) or
+                                 "Checked preparation did not pass")
+            self.validation_output.append(
+                "Prepared: generated topology and headers, fresh guest ELF and LLVM IR. "
+                "No simulation was run.")
+            QMessageBox.information(self, "Preparation Complete",
+                                    "Checked preparation completed. See the evidence path above.")
+        except Exception as error:
+            self.validation_output.append("Preparation failed: " + str(error))
+            QMessageBox.warning(self, "Preparation Failed", str(error))
 
-            # Show output
-            if result.stdout:
-                self.validation_output.append("Output:")
-                for line in result.stdout.strip().split('\n'):
-                    self.validation_output.append(f"  {line}")
+    @staticmethod
+    def _checked_wsl_path(path, distro):
+        raw = str(path)
+        win = raw.replace("/", "\\")
+        if win.startswith("\\\\wsl$\\") or win.startswith("\\\\wsl.localhost\\"):
+            parts = win.split("\\")
+            if len(parts) < 5 or parts[3].lower() != distro.lower():
+                raise ValueError("WSL share path does not match selected distribution")
+            return "/" + "/".join(parts[4:])
+        from utils.wsl import windows_to_wsl_path
+        return windows_to_wsl_path(raw)
 
-            if result.stderr:
-                self.validation_output.append("\nErrors/Warnings:")
-                for line in result.stderr.strip().split('\n'):
-                    self.validation_output.append(f"  {line}")
+    def _run_checked_prepare(self, benchmark, config):
+        import json
+        import subprocess
 
-            if result.returncode == 0:
-                self.validation_output.append("\nGeneration completed successfully!")
-                QMessageBox.information(
-                    self, "Generation Complete",
-                    "Full generation completed successfully!\n"
-                    "Check the validation output for details."
-                )
-            else:
-                self.validation_output.append(f"\nGeneration failed with exit code {result.returncode}")
-                QMessageBox.warning(
-                    self, "Generation Failed",
-                    f"Generation failed with exit code {result.returncode}\n"
-                    "Check the validation output for details."
-                )
-
-        except subprocess.TimeoutExpired:
-            self.validation_output.append("\nGeneration timed out after 60 seconds")
-            QMessageBox.warning(self, "Timeout", "Generation timed out after 60 seconds.")
-        except Exception as e:
-            self.validation_output.append(f"\nError: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to run generation: {e}")
+        parent = self.parent()
+        distro = parent.wsl_status.get_selected_distro() if (
+            parent and hasattr(parent, "wsl_status")) else None
+        if not distro:
+            raise ValueError("Select a WSL distribution in the main window")
+        engine = self._checked_wsl_path(self.gem5_path, distro)
+        command = [
+            "wsl", "-d", distro, "--cd", "/mnt/d/kb_dev/gem5-salam-workbench",
+            "--exec", "/usr/bin/python3.8", "-B", "-m",
+            "salam_workbench.configurator_gui_bridge", "prepare",
+            "--engine", engine, "--benchmark", benchmark, "--config", config,
+            "--distro", distro,
+            "--requested-period", self.cycle_time_combo.currentText(),
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=900)
+        if result.stderr:
+            self.validation_output.append(result.stderr.strip()[-3000:])
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        if not lines:
+            raise ValueError("Bridge returned no structured receipt summary")
+        summary = json.loads(lines[-1])
+        if result.returncode != 0 or summary.get("state") != "prepared":
+            summary["state"] = "failed"
+            summary.setdefault("errors", []).append(
+                "Bridge process returned " + str(result.returncode))
+        return summary
 
     def save_config(self):
         """Save configuration to a file."""
@@ -972,3 +917,24 @@ class ConfigGeneratorDialog(QDialog):
                     self.alignment_spin.setValue(glob['memory']['alignment'])
 
         self.update_preview()
+
+# SALAM Research Workbench editor adapter (portable).
+def _install_salam_workbench_editor():
+    import os
+    import sys
+    from pathlib import Path
+    _engine = Path(__file__).resolve().parents[3]
+    _explicit = os.environ.get("SALAM_WORKBENCH_ROOT")
+    _workbench = (Path(_explicit).resolve(strict=True) if _explicit
+                  else _engine / "workbench")
+    if not (_workbench / "salam_workbench/gui_editor_qt.py").is_file():
+        if _explicit:
+            raise RuntimeError("SALAM_WORKBENCH_ROOT has no checked editor package")
+        return
+    if str(_workbench) not in sys.path:
+        sys.path.insert(0, str(_workbench))
+    from salam_workbench.gui_editor_qt import install_editor
+    ConfigGeneratorDialog._gui_source_path = __file__
+    install_editor(ConfigGeneratorDialog)
+
+_install_salam_workbench_editor()

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "gemm_configured",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "base_address": "0x10020000",
+  "system": {"cpu-clock": "2GHz", "sys-clock": "1GHz", "cacheline_size": 64},
+  "parameters": {},
+  "correctness": {"expected_passed_markers": 1, "description": "Existing integer 8x8 GEMM guest checker against the CPU reference; independent fault witnesses are retained separately."}
+}

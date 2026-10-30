@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "session_directories": [
+    "evidence/gemm-20261029T071823-2874bd2f",
+    "evidence/m2-20261029T074317-1e2e00bb",
+    "evidence/gemm-20261029T084837-e98aa7b2",
+    "evidence/regression-20261029T085448-d844cc67",
+    "evidence/gemm-20261029T162837-8f15ac0b"
+  ],
+  "run_directories": [
+    "runs/20261029T071826-9a3dd1e7422d",
+    "runs/20261029T071835-eadcc8b83051",
+    "runs/20261029T071843-1c8530a4ecb2",
+    "runs/20261029T074321-65b0b9b68eeb",
+    "runs/20261029T074331-7a92c3447ba8",
+    "runs/20261029T085130-344fd5567cab",
+    "runs/20261029T085139-1542e99a4c43",
+    "runs/20261029T085148-601b3396f05a",
+    "runs/20261029T085501-f49ea4ca0552",
+    "runs/20261029T085520-efb45e627e44",
+    "runs/20261029T085552-add772448b54",
+    "runs/20261029T085613-e8a3a4c8fd44",
+    "runs/20261029T162841-54d8bc20d576",
+    "runs/20261029T162851-83ea040dd9f9",
+    "runs/20261029T162900-b4699d4f892f"
+  ],
+  "run_expectations": {
+    "runs/20261029T071826-9a3dd1e7422d": "passed",
+    "runs/20261029T071835-eadcc8b83051": "passed",
+    "runs/20261029T071843-1c8530a4ecb2": "intentional_failure",
+    "runs/20261029T074321-65b0b9b68eeb": "passed",
+    "runs/20261029T074331-7a92c3447ba8": "passed",
+    "runs/20261029T085130-344fd5567cab": "passed",
+    "runs/20261029T085139-1542e99a4c43": "passed",
+    "runs/20261029T085148-601b3396f05a": "intentional_failure",
+    "runs/20261029T085501-f49ea4ca0552": "passed",
+    "runs/20261029T085520-efb45e627e44": "passed",
+    "runs/20261029T085552-add772448b54": "passed",
+    "runs/20261029T085613-e8a3a4c8fd44": "passed",
+    "runs/20261029T162841-54d8bc20d576": "passed",
+    "runs/20261029T162851-83ea040dd9f9": "passed",
+    "runs/20261029T162900-b4699d4f892f": "intentional_failure"
+  },
+  "evidence_files": [
+    "evidence/checks/20261029T090614-fast-3fe217cc50",
+    "evidence/checks/20261029T090612-config-10b5dc2a67",
+    "evidence/checks/20261029T090612-gui-550e8f4126",
+    "evidence/checks/20261029T085645-collector-e4635cb4cc",
+    "evidence/doctor-20261029T085507Z.json",
+    "evidence/engine-source-bundle-62578890c",
+    "evidence/m3-collector-unit-20261029T082331Z",
+    "evidence/m3-model-catalog-20261029T082959Z",
+    "evidence/m4-md-grid-checker-20261029T085056Z",
+    "evidence/m4-stream-validator-20261029T084550Z",
+    "evidence/w21-onboarding-20261029T1628",
+    "evidence/engine-artifact.json",
+    "evidence/engine-build.json",
+    "evidence/engine-build.log",
+    "evidence/generated-gemm-inputs.json",
+    "evidence/initial-preparation.json",
+    "evidence/prepare-0.log",
+    "evidence/prepare-1.log",
+    "evidence/prepare-2.log",
+    "evidence/workload-build-0.log",
+    "evidence/workload-build-1.log",
+    "evidence/workload-build-2.log",
+    "evidence/workload-build.json",
+    "evidence/offline-viewer-m1.png",
+    "evidence/offline-viewer-m1.render.json",
+    "evidence/offline-viewer-m2.png",
+    "evidence/offline-viewer-m2.render.json",
+    "evidence/tests-20261029T071520.json",
+    "evidence/tests-20261029T071520.log",
+    "evidence/tests-20261029T074303.json",
+    "evidence/tests-20261029T074303.log"
+  ],
+  "comparisons": [
+    {
+      "kind": "gem5_repeat_comparison",
+      "runs": [
+        "runs/20261029T071826-9a3dd1e7422d",
+        "runs/20261029T071835-eadcc8b83051"
+      ],
+      "record": "evidence/gemm-20261029T071823-2874bd2f/report/comparison.json"
+    },
+    {
+      "kind": "gem5_parameter_comparison",
+      "runs": [
+        "runs/20261029T074321-65b0b9b68eeb",
+        "runs/20261029T074331-7a92c3447ba8"
+      ],
+      "record": "evidence/m2-20261029T074317-1e2e00bb/report/comparison.json"
+    },
+    {
+      "kind": "gem5_repeat_comparison",
+      "runs": [
+        "runs/20261029T085130-344fd5567cab",
+        "runs/20261029T085139-1542e99a4c43"
+      ],
+      "record": "evidence/gemm-20261029T084837-e98aa7b2/report/comparison.json"
+    },
+    {
+      "kind": "gem5_repeat_comparison",
+      "runs": [
+        "runs/20261029T085501-f49ea4ca0552",
+        "runs/20261029T085520-efb45e627e44"
+      ],
+      "record": "evidence/regression-20261029T085448-d844cc67/bfs/report/comparison.json"
+    },
+    {
+      "kind": "gem5_repeat_comparison",
+      "runs": [
+        "runs/20261029T085552-add772448b54",
+        "runs/20261029T085613-e8a3a4c8fd44"
+      ],
+      "record": "evidence/regression-20261029T085448-d844cc67/nw/report/comparison.json"
+    },
+    {
+      "kind": "gem5_repeat_comparison",
+      "runs": [
+        "runs/20261029T162841-54d8bc20d576",
+        "runs/20261029T162851-83ea040dd9f9"
+      ],
+      "record": "evidence/gemm-20261029T162837-8f15ac0b/report/comparison.json"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "gemm-int32-8x8-baseline-v1",
+      "status": "supported",
+      "evidence": [
+        "evidence/gemm-20261029T071823-2874bd2f/session.json",
+        "evidence/gemm-20261029T084837-e98aa7b2/session.json",
+        "evidence/gemm-20261029T162837-8f15ac0b/session.json",
+        "evidence/w21-onboarding-20261029T1628/receipt.json"
+      ],
+      "limitations": [
+        "Fixed 8x8 signed-integer inputs and exact guest CPU oracle; other matrix sizes/types unverified.",
+        "Whole-guest metrics include input generation and CPU reference verification; only separately scoped observability counters describe the accelerator."
+      ]
+    },
+    {
+      "id": "gemm-mul-latency-1-to-2",
+      "status": "supported",
+      "evidence": [
+        "evidence/m2-20261029T074317-1e2e00bb/session.json",
+        "evidence/m2-20261029T074317-1e2e00bb/report/comparison.json"
+      ],
+      "limitations": [
+        "Effective multiplier latency changed from 1 to 2, while whole-guest simulated metrics had zero delta; cause remains unresolved.",
+        "Fixed GEMM input and exact guest oracle only."
+      ]
+    },
+    {
+      "id": "bfs-fixed-csr-v1",
+      "status": "supported",
+      "evidence": [
+        "evidence/regression-20261029T085448-d844cc67/session.json",
+        "evidence/regression-20261029T085448-d844cc67/bfs/report/comparison.json"
+      ],
+      "limitations": [
+        "One fixed CSR graph and start node; guest checks per-level counts, not every node's level.",
+        "Both output runs share one fresh staged workload build."
+      ]
+    },
+    {
+      "id": "needleman-wunsch-fixed-strings-v1",
+      "status": "supported",
+      "evidence": [
+        "evidence/regression-20261029T085448-d844cc67/session.json",
+        "evidence/regression-20261029T085448-d844cc67/nw/report/comparison.json"
+      ],
+      "limitations": [
+        "Two fixed 128-byte strings with full 256-byte output check; arbitrary sequences unverified.",
+        "Both output runs share one fresh staged workload build."
+      ]
+    },
+    {
+      "id": "md_grid",
+      "status": "deferred",
+      "evidence": [
+        "evidence/m4-md-grid-checker-20261029T085056Z/result.json",
+        "docs/M4_WORKLOAD_AUDIT.md"
+      ],
+      "limitations": [
+        "Original checker falsely accepts selected bad/nonfinite values in synthetic host tests.",
+        "Historical simulator timeout has not been reproduced and its cause remains unknown; no supported run."
+      ]
+    },
+    {
+      "id": "streaming-config-variants",
+      "status": "deferred",
+      "evidence": [
+        "evidence/m4-stream-validator-20261029T084550Z/result.json",
+        "docs/M4_WORKLOAD_AUDIT.md"
+      ],
+      "limitations": [
+        "Legacy validator rejects both copied variant YAML files for missing Size fields in isolation.",
+        "Recorded variant paths are stale; no repaired end-to-end simulation."
+      ]
+    },
+    {
+      "id": "lenet-or-mobilenet",
+      "status": "deferred",
+      "evidence": [
+        "docs/M4_WORKLOAD_AUDIT.md"
+      ],
+      "limitations": [
+        "Attributable initialized model/input, numerical output oracle, path binding, and stage dataflow remain unresolved."
+      ]
+    }
+  ],
+  "limitations": [
+    "Private local research snapshot; no public redistribution, remote CI, or repository publishing is established.",
+    "Exact supported environment is existing Ubuntu-20.04 WSL2 with recorded LLVM12/Python3.8/ARM GCC9; blank-distro install and second platform remain unverified.",
+    "M1/M2 predate tooling-source snapshot capture; their raw runs and saved comparisons revalidate, but original Python bytes cannot be reconstructed from hashes alone.",
+    "Source bundle was independently object-restored and fsck-checked; a fresh checkout/build/rerun from the packaged bundle has not been performed.",
+    "Model characterization is a repository declaration, not independently verified measured power, energy, or area."
+  ]
+}

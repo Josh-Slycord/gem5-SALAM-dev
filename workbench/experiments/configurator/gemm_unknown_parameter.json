@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "name": "gemm_reject_unknown",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "parameters": {"system.gemm_clstr.gemm.hw_interface.cycle_counts": {"multiply_typo": 2}},
+  "correctness": {"expected_passed_markers": 1, "description": "Intentional negative control: nonexistent compiled hardware parameter must stop initialization."}
+}

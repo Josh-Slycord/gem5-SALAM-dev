@@ -41,11 +41,21 @@ int __attribute__ ((optimize("0"))) main(void) {
     *top = 0x01;
     while (stage < 1) count++;
     #ifdef CHECK
-    for(int i = 0; i < SIZE; i++){
-        printf("Sorted Array: Index: %d Value: %d \n", i, sortedArr[i]);
+    bool fail = false;
+    for (int i = 0; i < SIZE; i++) {
+        if (sortedArr[i] != i) {
+            printf("ERROR: Index: %d Value: %d\n", i, sortedArr[i]);
+            fail = true;
+        }
     }
+    if (fail) {
+        printf("Check Failed\n");
+        m5_dump_stats();
+        m5_fail_1();
+        return 1;
+    }
+    printf("Check Passed\n");
     #endif
-    #
     printf("Job complete\n");
 	m5_dump_stats();
 	m5_exit();

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "experiment_id": "gemm-int32-8x8-baseline-v1",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "workload": {
+    "rows": 8, "columns": 8, "type": "signed 32-bit int",
+    "input_a": "a[i] = i", "input_b": "b[i] = 63 - i",
+    "reference": "guest CPU integer matrix multiply, exact element-wise equality of 64 outputs"
+  },
+  "machine": {
+    "isa": "ARM", "cpu": "DerivO3CPU", "memory": "DDR4_2400_8x8",
+    "memory_size": "4GB", "platform": "VExpress_GEM5_V1",
+    "l1_caches": true, "l2_cache": true, "execution": "bare metal"
+  },
+  "correctness": {
+    "required_guest_marker": "Check Passed",
+    "rejected_guest_marker": "Check Failed",
+    "required_process_exit": 0,
+    "required_simulator_exit": "m5_exit instruction encountered"
+  },
+  "metrics": {
+    "scope": "Whole guest measurement window: input generation, accelerator execution/wait and CPU reference verification; final complete statistics block",
+    "deterministic": {"simTicks": {"unit":"tick","absolute_tolerance":0}, "simSeconds":{"unit":"second","absolute_tolerance":0}, "simInsts":{"unit":"instruction","absolute_tolerance":0}},
+    "hostSeconds": {"unit":"second", "deterministic":false}
+  },
+  "timeout_seconds": 600,
+  "limitations": [
+    "This establishes simulated integer GEMM correctness, not real hardware timing accuracy.",
+    "Full-run statistics are not accelerator-only measurements.",
+    "No CDFG export or power/area validity is required or claimed for M1."
+  ]
+}
