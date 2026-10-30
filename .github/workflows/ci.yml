@@ -43,6 +43,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Trust this checked-out workspace for Git
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Install pinned Python source-validation dependencies
         run: |
           set -euo pipefail
@@ -180,7 +186,20 @@ jobs:
           done
 
       - name: Check scoped source and documentation hygiene
-        run: pre-commit run --all-files --show-diff-on-failure
+        run: |
+          set -euo pipefail
+          checkout_root="$(git --no-optional-locks -c core.fsmonitor=false rev-parse --show-toplevel)"
+          printf 'Git checkout root: %s\n' "$checkout_root"
+          test "$checkout_root" = "$GITHUB_WORKSPACE"
+          pre-commit run --all-files --show-diff-on-failure
+
+      - name: Preserve pre-commit failure log
+        if: failure()
+        run: |
+          mkdir -p workbench/evidence/ci
+          if [ -f "$HOME/.cache/pre-commit/pre-commit.log" ]; then
+            cp "$HOME/.cache/pre-commit/pre-commit.log" workbench/evidence/ci/precommit.log
+          fi
 
       - name: Upload source-only validation evidence
         if: always()
