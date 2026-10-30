@@ -1,4 +1,4 @@
-"""Launch the checked SALAM editor against its independent configured engine."""
+"""Launch the integrated SALAM desktop workbench against its checked engines."""
 import argparse
 import json
 import os
@@ -15,7 +15,7 @@ def launch(argv=None):
         action="store_true",
         help="Build the actual widgets offscreen and report readiness",
     )
-    parser.add_argument("--benchmark", default="gemm")
+    parser.add_argument("--benchmark", default=None)
     args = parser.parse_args(argv)
     if args.inspect:
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -26,7 +26,9 @@ def launch(argv=None):
     os.environ["SALAM_WORKBENCH_ROOT"] = str(PROJECT)
     sys.path.insert(0, str(gui))
     from gui.config_generator import ConfigGeneratorDialog
-    from PySide6.QtWidgets import QApplication, QWidget
+    from PySide6.QtWidgets import QApplication
+
+    from .workbench_window import WorkbenchWindow
 
     if (
         ConfigGeneratorDialog.generate_files.__module__
@@ -36,20 +38,22 @@ def launch(argv=None):
             "The independent GUI does not have the checked editor adapter installed"
         )
     app = QApplication.instance() or QApplication([])
-    parent = QWidget()
-    parent.wsl_status = type(
-        "SelectedDistribution",
-        (),
-        {"get_selected_distro": lambda self: selected["distribution"]},
-    )()
-    dialog = ConfigGeneratorDialog(engine, parent)
-    index = dialog.benchmark_combo.findData(args.benchmark)
-    if index < 0:
-        raise ValueError("Selected benchmark is not present in the GUI catalog")
-    dialog.benchmark_combo.setCurrentIndex(index)
-    if dialog._base_document is None:
-        raise ValueError("Selected configuration could not be loaded into the editor")
+    app.setStyle("Fusion")
+    window = WorkbenchWindow(
+        PROJECT,
+        engine,
+        selected["distribution"],
+        ConfigGeneratorDialog,
+        args.benchmark,
+        auto_discover=not args.inspect,
+    )
     if args.inspect:
+        from .workbench_catalog import discover_benchmarks
+
+        window._preferred_benchmark = args.benchmark or "benchmarks/sys_validation/gemm"
+        window.catalog = discover_benchmarks(engine)
+        window._show_catalog()
+        dialog = window.editor
         request = dialog._make_request()
         result = {
             "state": "ready",
@@ -63,14 +67,26 @@ def launch(argv=None):
             "simulation_started": False,
             "component_count": dialog.component_tree.topLevelItemCount(),
             "instruction_count": dialog.inst_tree.topLevelItemCount(),
+            "workbench_tabs": [
+                window.pages.tabText(i) for i in range(window.pages.count())
+            ],
+            "catalog_count": len(window.catalog),
+            "configurable_benchmarks": sum(
+                bool(item["can_configure"]) for item in window.catalog
+            ),
+            "configured_run_candidates": sum(
+                bool(item["can_run"]) for item in window.catalog
+            ),
+            "reference_workloads": [
+                item["key"]
+                for item in window.catalog
+                if item.get("fixed_dataset_check_available")
+            ],
         }
         print(json.dumps(result))
-        dialog.close()
-        parent.close()
+        window.close()
         return 0
-    dialog.setWindowTitle("SALAM Research Workbench — configuration editor")
-    dialog.resize(1400, 1000)
-    dialog.show()
+    window.show()
     return app.exec()
 
 

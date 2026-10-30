@@ -268,6 +268,13 @@ def _fu_telemetry_lines(receipt):
     return lines
 
 
+def _workbench_event(dialog, name, **payload):
+    """Optional desktop-shell observer; the checked backend remains the authority."""
+    listener = getattr(dialog, "_workbench_listener", None)
+    if listener is not None:
+        listener(name, payload)
+
+
 def install_editor(dialog_class):
     """Upgrade only the independent GUI class after its source has loaded."""
     old_init = dialog_class.__init__
@@ -758,6 +765,8 @@ def install_editor(dialog_class):
                 "Selected YAML changed after loading; reload before applying"
             )
         parent = self.parent()
+        while parent is not None and not hasattr(parent, "wsl_status"):
+            parent = parent.parent()
         distro = (
             parent.wsl_status.get_selected_distro()
             if (parent and hasattr(parent, "wsl_status"))
@@ -855,10 +864,13 @@ def install_editor(dialog_class):
                 "simulator will be checked. The GUI remains responsive."
             )
             process.start()
+            _workbench_event(self, "started", request=deepcopy(request))
         except Exception as error:
             self.generate_btn.setEnabled(True)
             self.validation_output.append("Apply failed before launch: " + str(error))
-            QMessageBox.warning(self, "Apply Failed", str(error))
+            _workbench_event(self, "failed_to_start", error=str(error))
+            if not getattr(self, "_workbench_embedded", False):
+                QMessageBox.warning(self, "Apply Failed", str(error))
 
     def _process_gui_line(self, line):
         line = line.strip()
@@ -871,11 +883,13 @@ def install_editor(dialog_class):
             return
         if message.get("kind") == "gui_progress":
             self.validation_output.append("Stage: " + str(message.get("stage")))
+            _workbench_event(self, "progress", message=message)
         elif message.get("kind") == "gui_execution_result":
             self._gui_summary = message
             self.validation_output.append(
                 "Evidence: " + str(message.get("evidence_directory"))
             )
+            _workbench_event(self, "summary", message=message)
         else:
             self.validation_output.append(line[-1000:])
 
@@ -893,6 +907,7 @@ def install_editor(dialog_class):
         )
         if data.strip():
             self.validation_output.append(data.strip()[-2000:])
+            _workbench_event(self, "log", text=data.strip()[-2000:])
 
     def _gui_process_error(self, error):
         if error == QProcess.FailedToStart:
@@ -900,7 +915,13 @@ def install_editor(dialog_class):
             self.validation_output.append(
                 "Checked backend failed to start: " + self._gui_process.errorString()
             )
-            QMessageBox.warning(self, "Backend Failed", self._gui_process.errorString())
+            _workbench_event(
+                self, "failed_to_start", error=self._gui_process.errorString()
+            )
+            if not getattr(self, "_workbench_embedded", False):
+                QMessageBox.warning(
+                    self, "Backend Failed", self._gui_process.errorString()
+                )
             self._gui_process = None
 
     def _verify_passing_receipt(self, summary):
@@ -978,11 +999,12 @@ def install_editor(dialog_class):
             self.validation_output.append(
                 "Passed: edited settings reached the checked simulation and effective-state witnesses."
             )
-            QMessageBox.information(
-                self,
-                "Checked Run Passed",
-                "The edited configuration passed. See the evidence path.",
-            )
+            if not getattr(self, "_workbench_embedded", False):
+                QMessageBox.information(
+                    self,
+                    "Checked Run Passed",
+                    "The edited configuration passed. See the evidence path.",
+                )
         else:
             errors = summary.get("errors", []) if isinstance(summary, dict) else []
             message = (
@@ -991,7 +1013,16 @@ def install_editor(dialog_class):
                 else "Backend did not return a passing receipt"
             )
             self.validation_output.append("Checked run failed: " + message)
-            QMessageBox.warning(self, "Checked Run Failed", message)
+            if not getattr(self, "_workbench_embedded", False):
+                QMessageBox.warning(self, "Checked Run Failed", message)
+        _workbench_event(
+            self,
+            "finished",
+            state="passed" if verified is not None else "failed",
+            receipt=verified,
+            summary=summary,
+            exit_code=exit_code,
+        )
 
     dialog_class.__init__ = init
     dialog_class.setup_basic_tab = setup_basic_tab

@@ -33,6 +33,9 @@ FAST_MODULES = (
     "test_release",
     "test_report",
     "test_runner",
+    "test_workbench_jobs",
+    "test_workbench_results",
+    "test_workbench_tier_coverage",
 )
 CONFIG_MODULES = (
     "test_config",
@@ -56,8 +59,15 @@ CONFIG_MODULES = (
     "test_fu_capability",
     "test_fu_experiments",
     "test_portability",
+    "test_workbench_catalog",
+    "test_workbench_completion",
 )
-GUI_MODULES = ("test_offline_viewer", "test_gui_editor_qt")
+GUI_MODULES = (
+    "test_offline_viewer",
+    "test_gui_editor_qt",
+    "test_workbench_window",
+    "test_workbench_topology",
+)
 GRAPH_TESTS = frozenset(
     (
         "test_actual_recovered_parser_contract_and_hash_gate",
@@ -504,7 +514,12 @@ def _flatten(suite):
 
 def _gui_test(test):
     method = test.id().rsplit(".", 1)[-1]
-    return method.startswith("test_offscreen_") or method in GRAPH_TESTS
+    return (
+        test.__class__.__module__
+        in ("test_workbench_window", "test_workbench_topology")
+        or method.startswith("test_offscreen_")
+        or method in GRAPH_TESTS
+    )
 
 
 def run_unit_tier(tier, destination):
@@ -543,8 +558,10 @@ def run_unit_tier(tier, destination):
         loader = unittest.TestLoader()
         for module in modules:
             for test in _flatten(loader.loadTestsFromName(module)):
-                if (tier == "gui" and _gui_test(test)) or (
-                    tier != "gui" and not _gui_test(test)
+                if (
+                    isinstance(test, unittest.loader._FailedTest)
+                    or (tier == "gui" and _gui_test(test))
+                    or (tier != "gui" and not _gui_test(test))
                 ):
                     suite.addTest(test)
                     result["selected_tests"].append(test.id())
