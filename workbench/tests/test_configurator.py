@@ -9,6 +9,193 @@ from salam_workbench import configurator as c
 from salam_workbench.configurator_runtime import configure_system
 
 
+class GeneratedDebugObjectRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.engine = self.root / "engine"
+        self.relative = "build/ARM/python/_m5/param_GarnetNetworkInterface.o"
+        self.obj = self.engine / self.relative
+        self.obj.parent.mkdir(parents=True)
+        self.obj.write_bytes(b"original generated object")
+        self.logs = self.root / "build-evidence"
+        self.logs.mkdir()
+
+    def diagnostic(self, *, relative=None, section=".debug_loc", symbol=".LVL2030"):
+        relative = relative or self.relative
+        return (
+            "compiler.cc:1: warning: ordinary warning\n"
+            + "/usr/bin/ld: "
+            + relative
+            + ":("
+            + section
+            + "+0x123): undefined reference to `"
+            + symbol
+            + "'\n"
+            + "/usr/bin/ld: "
+            + relative
+            + ":("
+            + section
+            + "+0x124): more undefined references to `"
+            + symbol
+            + "' follow\n"
+            + "collect2: error: ld returned 1 exit status\n"
+            + "scons: *** [build/ARM/gem5.opt] Error 1\n"
+        )
+
+    def test_only_exclusive_generated_debug_label_errors_are_recognized(self):
+        self.assertEqual(
+            c._debug_label_recovery_objects(self.engine, self.diagnostic()), [self.obj]
+        )
+        for invalid in (
+            self.diagnostic(symbol="real_missing_function"),
+            self.diagnostic(section=".text"),
+            self.diagnostic(section=".data"),
+            self.diagnostic().replace(".LVL2030", ".LVL2030bad"),
+            self.diagnostic() + "another.cc:2: error: compilation failed\n",
+            "another.cc:2: error: compilation failed\n" + self.diagnostic(),
+            "another.cc:2: internal compiler error: failure\n" + self.diagnostic(),
+            self.diagnostic().replace(
+                "collect2: error: ld returned 1 exit status\n", ""
+            ),
+            self.diagnostic().replace(
+                "undefined reference to", "relocation truncated to fit:"
+            ),
+        ):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(
+                    c._debug_label_recovery_objects(self.engine, invalid), []
+                )
+        self.assertEqual(self.obj.read_bytes(), b"original generated object")
+
+    def test_escape_and_non_generated_paths_do_not_authorize_recovery(self):
+        for relative in (
+            "../outside/param_Bad.o",
+            "/tmp/param_Bad.o",
+            "build/ARM/python/_m5/../param_Bad.o",
+            "build/ARM/hwacc/param_Bad.o",
+            "build/ARM/python/_m5/not-a-parameter.o",
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(
+                    c._debug_label_recovery_objects(
+                        self.engine, self.diagnostic(relative=relative)
+                    ),
+                    [],
+                )
+        self.assertTrue(self.obj.is_file())
+
+    def test_generated_object_symlink_is_rejected(self):
+        linked = self.obj.parent / "param_Link.o"
+        linked.symlink_to(self.obj)
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            c._debug_label_recovery_objects(
+                self.engine,
+                self.diagnostic(relative=linked.relative_to(self.engine).as_posix()),
+            )
+        self.assertEqual(self.obj.read_bytes(), b"original generated object")
+
+    def test_symlinked_generated_directory_is_rejected(self):
+        other = self.root / "other-engine"
+        (other / "build/ARM/python").mkdir(parents=True)
+        (other / "build/ARM/python/_m5").symlink_to(
+            self.obj.parent, target_is_directory=True
+        )
+        with self.assertRaisesRegex(ValueError, "symlink"):
+            c._debug_label_recovery_objects(other, self.diagnostic())
+        self.assertTrue(self.obj.is_file())
+
+    def test_archive_preserves_exact_generated_object_bytes_and_hash(self):
+        original = c.file_hash(self.obj)
+        receipt = c._archive_debug_label_objects(self.engine, self.logs, [self.obj])
+        self.assertEqual(receipt["state"], "archived")
+        self.assertFalse(self.obj.exists())
+        archived = receipt["objects"][0]
+        self.assertEqual(archived["sha256"], original)
+        self.assertEqual(archived["relative_path"], self.relative)
+        self.assertEqual(c.file_hash(archived["archive"]["path"]), original)
+        self.assertEqual(
+            Path(archived["archive"]["path"]).read_bytes(), b"original generated object"
+        )
+
+    def failed_attempt(self, label, diagnostic):
+        stderr = self.logs / (label + ".stderr")
+        stderr.write_text(diagnostic)
+        record = {
+            "state": "failed",
+            "return_code": 2,
+            "stderr": stderr.name,
+            "stderr_sha256": c.file_hash(stderr),
+        }
+        c._save(self.logs / (label + ".json"), record)
+        return record
+
+    def test_one_ordinary_retry_keeps_first_command_and_archived_object(self):
+        calls = []
+        argv, environment = ["python", "scons", "build/ARM/gem5.opt"], {
+            "ENV": "unchanged"
+        }
+
+        def command(args, engine, directory, label, env, timeout):
+            calls.append((list(args), engine, directory, label, dict(env), timeout))
+            if label == "scons":
+                self.failed_attempt(label, self.diagnostic())
+                raise RuntimeError("scons failed")
+            self.assertFalse(self.obj.exists())
+            self.obj.write_bytes(b"normally regenerated object")
+            return {"state": "completed", "return_code": 0, "stderr": label + ".stderr"}
+
+        receipt = {"state": "running"}
+        with patch.object(c, "_command", side_effect=command):
+            final = c._run_build_with_debug_recovery(
+                self.engine, self.logs, argv, environment, 60, receipt
+            )
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][:3], calls[1][:3])
+        self.assertEqual(calls[0][4:], calls[1][4:])
+        self.assertEqual([row[3] for row in calls], ["scons", "scons-retry1"])
+        self.assertEqual(len(receipt["attempts"]), 2)
+        self.assertEqual(receipt["attempts"][0]["state"], "failed")
+        self.assertEqual(final, receipt["command"])
+        self.assertEqual(final["return_code"], 0)
+        self.assertEqual(self.obj.read_bytes(), b"normally regenerated object")
+        archive = receipt["debug_label_recovery"]["objects"][0]["archive"]["path"]
+        self.assertEqual(Path(archive).read_bytes(), b"original generated object")
+        self.assertIn(".LVL2030", (self.logs / "scons.stderr").read_text())
+
+    def test_repeated_failure_stops_after_one_retry(self):
+        receipt = {"state": "running"}
+
+        def command(args, engine, directory, label, env, timeout):
+            self.failed_attempt(label, self.diagnostic())
+            raise RuntimeError("link failure")
+
+        with patch.object(c, "_command", side_effect=command) as run:
+            with self.assertRaisesRegex(RuntimeError, "link failure"):
+                c._run_build_with_debug_recovery(
+                    self.engine, self.logs, [], {}, 60, receipt
+                )
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(len(receipt["attempts"]), 2)
+        self.assertEqual(receipt["command"]["state"], "failed")
+        self.assertTrue(
+            (self.logs / "debug-label-recovery/objects" / self.obj.name).exists()
+        )
+
+    def test_unrelated_build_failure_never_moves_an_object_or_retries(self):
+        def command(args, engine, directory, label, env, timeout):
+            self.failed_attempt(label, self.diagnostic(symbol="real_function"))
+            raise RuntimeError("ordinary failure")
+
+        with patch.object(c, "_command", side_effect=command) as run:
+            with self.assertRaisesRegex(RuntimeError, "ordinary failure"):
+                c._run_build_with_debug_recovery(self.engine, self.logs, [], {}, 60, {})
+        self.assertEqual(run.call_count, 1)
+        self.assertTrue(self.obj.exists())
+        self.assertFalse((self.logs / "debug-label-recovery").exists())
+
+
 class ConfigurationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

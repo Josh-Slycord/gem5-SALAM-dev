@@ -4,7 +4,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from salam_workbench import workbench_results as results
 from salam_workbench.workbench_results import (
     discover_runs,
     load_run,
@@ -375,6 +377,185 @@ class WorkbenchResultsTests(unittest.TestCase):
             self.skipTest("Host does not permit creation of a test symlink")
         with self.assertRaises(ValueError):
             read_artifact_text(link / "notes.txt", self.project)
+
+    def test_larger_fu_artifact_quota_is_path_scoped_and_hashing_is_streamed(self):
+        directory = self.project / "evidence/scoped-quota"
+        name = "fu-scheduling-system.test.acc.invocation-1.json"
+        allowed = _write(directory / "simulator/observability" / name, "x" * 80)
+        expected = _sha(allowed)
+        roots = [self.project / "evidence"]
+        result = {"checks": [], "metrics": [], "artifacts": [], "errors": []}
+        budget = [160]
+        with patch.object(results, "MAX_ARTIFACT_BYTES", 32), patch.object(
+            results, "MAX_FU_TRACE_BYTES", 128
+        ), patch.object(
+            Path, "read_bytes", side_effect=AssertionError("Whole-file hash allocation")
+        ):
+            entry = results._artifact(result, allowed, roots, expected, budget=budget)
+        self.assertEqual(entry["status"], "hash_verified")
+        self.assertEqual(entry["sha256"], expected)
+        self.assertEqual(budget, [80])
+        lookalikes = (
+            directory / name,
+            directory / "other/observability" / name,
+            directory / "simulator/observability/not-an-invocation.json",
+            directory
+            / "simulator/observability/fu-scheduling-system.test.acc.invocation-0.json",
+            directory
+            / "simulator/observability/fu-scheduling-system.test..acc.invocation-1.json",
+            directory
+            / "simulator/observability/fu-scheduling-system.test.acc.invocation-1.txt",
+            directory / "simulator/observability/nested" / name,
+        )
+        for path in lookalikes:
+            with self.subTest(path=str(path)):
+                _write(path, "x" * 80)
+                with patch.object(results, "MAX_ARTIFACT_BYTES", 32), patch.object(
+                    results, "MAX_FU_TRACE_BYTES", 128
+                ), patch.object(
+                    results,
+                    "file_hash",
+                    side_effect=AssertionError("Over-quota artifact was hashed"),
+                ):
+                    entry = results._artifact(result, path, roots, expected)
+                self.assertEqual(entry["status"], "not_checked_size_limit")
+                self.assertIsNone(entry["sha256"])
+
+    def test_fu_artifact_and_shared_hash_budgets_still_reject_excess(self):
+        directory = self.project / "evidence/aggregate-quota/simulator/observability"
+        first = _write(
+            directory / "fu-scheduling-system.test.acc.invocation-1.json", "x" * 80
+        )
+        second = _write(
+            directory / "fu-scheduling-system.test.acc.invocation-2.json", "y" * 80
+        )
+        roots = [self.project / "evidence"]
+        result = {"checks": [], "metrics": [], "artifacts": [], "errors": []}
+        with patch.object(results, "MAX_ARTIFACT_BYTES", 32), patch.object(
+            results, "MAX_FU_TRACE_BYTES", 79
+        ), patch.object(
+            results,
+            "file_hash",
+            side_effect=AssertionError("Trace limit must precede hashing"),
+        ):
+            rejected = results._artifact(
+                result, first, roots, _sha(first), budget=[160]
+            )
+        self.assertEqual(rejected["status"], "not_checked_size_limit")
+        budget = [120]
+        with patch.object(results, "MAX_ARTIFACT_BYTES", 32), patch.object(
+            results, "MAX_FU_TRACE_BYTES", 128
+        ):
+            accepted = results._artifact(
+                result, first, roots, _sha(first), budget=budget
+            )
+            rejected = results._artifact(
+                result, second, roots, _sha(second), budget=budget
+            )
+        self.assertEqual(accepted["status"], "hash_verified")
+        self.assertEqual(rejected["status"], "not_checked_size_limit")
+        self.assertEqual(budget, [40])
+        self.assertIsNone(rejected["sha256"])
+
+    def test_expanded_fu_quota_still_requires_complete_actual_event_replay(self):
+        directory = self.project / "evidence/direct-quota/simulator/observability"
+        adjacent = _write(
+            directory / "system.gemm_clstr.gemm.invocation-1.json", _observation()
+        )
+        counters = {
+            "attempts": 1,
+            "grants": 1,
+            "denials": 0,
+            "releases": 1,
+            "peak": 1,
+            "outstanding": 0,
+        }
+        data = {
+            "kind": "salam_fu_scheduling",
+            "schema_version": 1,
+            "trace_truncated": False,
+            "invocation": {
+                "name": "system.gemm_clstr.gemm",
+                "elapsed_cycles": 2,
+                "elapsed_ticks": 20,
+            },
+            "units": [{"id": 1, "name": "integer_adder", "limit": 2, **counters}],
+            "totals": counters,
+            "trace": [
+                {
+                    "event": event,
+                    "cycle": cycle,
+                    "tick": tick,
+                    "uid": 3,
+                    "opcode": 13,
+                    "fu_id": 1,
+                    "lease_id": 1,
+                }
+                for event, cycle, tick in (("grant", 1, 110), ("release", 2, 120))
+            ],
+        }
+        roots = [self.project / "evidence"]
+        path = directory / "fu-scheduling-system.gemm_clstr.gemm.invocation-1.json"
+        for truncated, expected in ((False, "passed"), (True, "failed")):
+            with self.subTest(truncated=truncated):
+                data["trace_truncated"] = truncated
+                _write(path, data)
+                result = {"checks": [], "metrics": [], "artifacts": [], "errors": []}
+                with patch.object(results, "MAX_ARTIFACT_BYTES", 128), patch.object(
+                    results, "MAX_FU_TRACE_BYTES", 4096
+                ):
+                    artifact = results._artifact(
+                        result, path, roots, _sha(path), budget=[8192]
+                    )
+                    self.assertEqual(artifact["status"], "hash_verified")
+                    results._direct_salam(result, path, artifact, roots, None)
+                replay = next(
+                    check
+                    for check in result["checks"]
+                    if check["name"] == "SALAM FU event replay"
+                )
+                self.assertEqual(replay["status"], expected, result["checks"])
+        self.assertTrue(adjacent.is_file())
+
+    def test_ordinary_direct_json_retains_its_smaller_validation_quota(self):
+        path = _write(
+            self.project
+            / "evidence/direct-ordinary/simulator/observability/system.test.acc.invocation-1.json",
+            _observation(),
+        )
+        result = {"checks": [], "metrics": [], "artifacts": [], "errors": []}
+        artifact = {"status": "hash_verified", "sha256": _sha(path)}
+        with patch.object(results, "MAX_ARTIFACT_BYTES", 32), patch.object(
+            results, "MAX_FU_TRACE_BYTES", 4096
+        ), patch(
+            "salam_workbench.observability.load_observability",
+            side_effect=AssertionError("Over-quota JSON was parsed"),
+        ):
+            results._direct_salam(
+                result, path, artifact, [self.project / "evidence"], None
+            )
+        check = result["checks"][0]
+        self.assertEqual(check["status"], "failed")
+        self.assertIn("bounded validation limit", check["detail"])
+
+    def test_unverified_manifest_fu_artifact_fails_current_validation(self):
+        path = _write(
+            self.project
+            / "evidence/unverified-fu/simulator/observability/fu-scheduling-system.test.acc.invocation-1.json",
+            "{}",
+        )
+        for status in (
+            "not_checked_size_limit",
+            "hash_mismatch",
+            "present_unbound",
+            "unavailable",
+        ):
+            with self.subTest(status=status):
+                result = {"checks": [], "metrics": [], "artifacts": [], "errors": []}
+                results._direct_salam(
+                    result, path, {"status": status}, [self.project / "evidence"], None
+                )
+                self.assertEqual(result["checks"][0]["status"], "failed")
 
     def test_multiple_invocations_keep_distinct_metric_keys(self):
         directory = self.raw_run(direct=True)

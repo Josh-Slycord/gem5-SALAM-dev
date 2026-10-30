@@ -11,11 +11,17 @@ import re
 from collections import deque
 from pathlib import Path
 
-from .runner import EXPECTED_EXIT_REASON, _read_correctness, _read_exit_events
+from .runner import (
+    EXPECTED_EXIT_REASON,
+    _read_correctness,
+    _read_exit_events,
+    file_hash,
+)
 
 MAX_RECEIPT_BYTES = 8 * 1024 * 1024
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
-MAX_HASH_BYTES = 128 * 1024 * 1024
+MAX_FU_TRACE_BYTES = 512 * 1024 * 1024
+MAX_HASH_BYTES = 768 * 1024 * 1024
 MAX_DIRECTORIES = 6000
 MAX_ARTIFACTS = 512
 MAX_METRICS = 3000
@@ -254,6 +260,21 @@ def _metric(result, name, value, unit, scope, source, status="observed"):
     )
 
 
+def _fu_trace_artifact(path):
+    """Large replay quota applies only to actual direct FU invocation paths."""
+    path = Path(path)
+    return (
+        path.parent.name == "observability"
+        and path.parent.parent.name == "simulator"
+        and re.fullmatch(
+            r"fu-scheduling-system(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+            r"\.invocation-[1-9][0-9]*\.json",
+            path.name,
+        )
+        is not None
+    )
+
+
 def _artifact(result, path, roots, expected=None, kind="evidence", budget=None):
     entry = {
         "name": Path(path).name,
@@ -266,10 +287,13 @@ def _artifact(result, path, roots, expected=None, kind="evidence", budget=None):
         path = _safe(path, roots)
         size = path.stat().st_size
         entry["bytes"] = size
-        if size > MAX_ARTIFACT_BYTES or (budget is not None and size > budget[0]):
+        limit = MAX_FU_TRACE_BYTES if _fu_trace_artifact(path) else MAX_ARTIFACT_BYTES
+        if size > limit or (budget is not None and size > budget[0]):
             entry["status"] = "not_checked_size_limit"
         else:
-            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            digest = file_hash(path)
+            if path.stat().st_size != size:
+                raise OSError("Artifact size changed while hashing")
             if budget is not None:
                 budget[0] -= size
             entry["sha256"] = digest
@@ -308,19 +332,31 @@ def _linked_receipt(result, item, roots, name, budget):
 
 def _direct_salam(result, path, artifact, roots, config_path):
     """Parse direct SALAM files, never infer SALAM timing from system stats."""
+    fu_trace = _fu_trace_artifact(path)
     if artifact["status"] != "hash_verified":
         _check(
             result,
             "Direct SALAM artifact",
-            "unavailable",
-            "Missing a matching run-manifest hash",
+            "failed"
+            if fu_trace or artifact["status"] == "not_checked_size_limit"
+            else "unavailable",
+            "Direct artifact exceeds a reader quota"
+            if artifact["status"] == "not_checked_size_limit"
+            else "Missing a matching run-manifest hash",
             path,
         )
         return
     try:
-        if path.stat().st_size > 64 * 1024 * 1024:
-            raise ValueError("Direct SALAM JSON exceeds 64 MiB validation limit")
-        if path.name.startswith("fu-scheduling-"):
+        limit = MAX_FU_TRACE_BYTES if fu_trace else MAX_ARTIFACT_BYTES
+        if path.stat().st_size > limit:
+            raise ValueError(
+                "Direct SALAM JSON exceeds bounded validation limit ({} bytes)".format(
+                    limit
+                )
+            )
+        if path.name.startswith("fu-scheduling-") and not fu_trace:
+            raise ValueError("Invalid direct FU invocation filename or directory")
+        if fu_trace:
             from .fu_experiments import inspect_fu_invocation
 
             adjacent = path.with_name(path.name[len("fu-scheduling-") :])

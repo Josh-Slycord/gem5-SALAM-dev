@@ -6,6 +6,7 @@ requests, raw result-reader output, screenshots and source identity so the
 application's displayed success can be inspected after the run.
 """
 import argparse
+import configparser
 import datetime
 import json
 import os
@@ -22,9 +23,10 @@ sys.path.insert(0, str(PROJECT))
 os.environ["SALAM_WORKBENCH_ROOT"] = str(PROJECT)
 
 from PySide6.QtCore import QSettings, Qt, QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QFormLayout, QSpinBox
 
 from salam_workbench.checks import _snapshot_sources, source_identity
+from salam_workbench.gui_editor_qt import MODEL_FIELDS
 from salam_workbench.runner import file_hash
 from salam_workbench.workbench_catalog import discover_benchmarks
 from salam_workbench.workbench_results import load_run
@@ -139,6 +141,252 @@ def _configure_gemm(editor):
     }
 
 
+_BREADTH = {
+    "fft": {
+        "unit": "double_multiplier",
+        "instruction": "fmul",
+        "outputs": 1024,
+        "runtime_cycles": 6,
+        "trace_event_limit": 1048576,
+    },
+    "stencil3d": {
+        "unit": "integer_adder",
+        "instruction": "add",
+        "outputs": 16384,
+        "runtime_cycles": 4,
+        "trace_event_limit": 4194304,
+    },
+}
+
+
+def _one_row(tree, name):
+    rows = [
+        tree.topLevelItem(index)
+        for index in range(tree.topLevelItemCount())
+        if tree.topLevelItem(index).text(0) == name
+    ]
+    if len(rows) != 1:
+        raise ValueError("Expected one live editor row for " + name)
+    return rows[0]
+
+
+def _configure_breadth(editor, workload, require_rebuilds):
+    """Edit exposed widgets, including the explicit scalar RegisterBank port."""
+    selection = _BREADTH[workload]
+    editor.mem_size_edit.setText("2GB")
+    if not editor.trace_budget_check.isEnabled():
+        raise ValueError("Selected engine has no source-verified trace-budget control")
+    editor.trace_budget_check.setChecked(True)
+    editor.trace_budget_spin.setValue(selection["trace_event_limit"])
+    if editor.hardware_target_combo.findText(workload) < 0:
+        raise ValueError("GUI did not expose the requested leaf accelerator")
+    editor.hardware_target_combo.setCurrentText(workload)
+    unit = _one_row(editor.fu_tree, selection["unit"])
+    instruction = _one_row(editor.inst_tree, selection["instruction"])
+    unit.setText(1, "1")
+    unit.setText(2, "2")
+    instruction.setText(1, str(selection["runtime_cycles"]))
+    changes = {
+        "mem-size": "2GB",
+        selection["unit"] + ".cycles": 1,
+        selection["unit"] + ".limit": 2,
+        selection["instruction"] + ".runtime_cycles": selection["runtime_cycles"],
+        "fu_trace_event_limit": selection["trace_event_limit"],
+    }
+    if require_rebuilds:
+        model = _one_row(editor.model_tree, selection["unit"])
+        # Synthetic coefficients exercise transport; they are not calibration.
+        for name, value in (("area", "7.125"), ("fu_latency", "7")):
+            model.setText(MODEL_FIELDS.index(name) + 1, value)
+        changes["compiled_profile"] = {
+            selection["unit"]: {"area": 7.125, "fu_latency": 7}
+        }
+    if workload == "stencil3d":
+        memories = [
+            editor.component_tree.topLevelItem(index)
+            for index in range(editor.component_tree.topLevelItemCount())
+            if editor.component_tree.topLevelItem(index)
+            .data(0, Qt.UserRole)
+            .get("type")
+            == "memory"
+            and editor.component_tree.topLevelItem(index)
+            .data(0, Qt.UserRole)
+            .get("memory_type")
+            == "RegisterBank"
+        ]
+        if len(memories) != 1:
+            raise ValueError("Expected one source RegisterBank in stencil3d")
+        memory = memories[0]
+        source_ports = memory.data(0, Qt.UserRole).get("ports")
+        editor.component_tree.setCurrentItem(memory)
+        ports = []
+        for index in range(editor.details_layout.rowCount()):
+            label = editor.details_layout.itemAt(index, QFormLayout.LabelRole)
+            field = editor.details_layout.itemAt(index, QFormLayout.FieldRole)
+            if label and field and label.widget().text() == "Ports:":
+                ports.append(field.widget())
+        if len(ports) != 1 or not isinstance(ports[0], QSpinBox):
+            raise ValueError("RegisterBank Ports widget was not exposed")
+        ports[0].setValue(1)
+        if memory.data(0, Qt.UserRole).get("ports") != 1:
+            raise ValueError(
+                "Visible RegisterBank Ports edit did not change the component"
+            )
+        changes["registerbank_ports"] = {
+            "name": memory.data(0, Qt.UserRole)["name"],
+            "source": source_ports,
+            "selected": 1,
+            "reason": "Compiled RegisterBank has one scalar private response port",
+        }
+    return changes
+
+
+def _assert_breadth_scheduling(result, workload):
+    selection = _BREADTH[workload]
+    units = {}
+    for metric in result.get("metrics", []):
+        name = metric.get("name", "")
+        if (
+            "." + selection["unit"] + "." in name
+            and "." + workload + ".invocation-" in name
+            and metric.get("status") == "validated_direct_trace"
+        ):
+            prefix, field = name.rsplit(".", 1)
+            units.setdefault(prefix, {})[field] = metric.get("value")
+    for name, values in units.items():
+        if (
+            values.get("limit") == 2
+            and type(values.get("peak")) is int
+            and 0 < values["peak"] <= 2
+            and values.get("grants", 0) > 0
+            and values.get("releases") == values.get("grants")
+            and values.get("outstanding") == 0
+        ):
+            return {"name": name, **values}
+    raise ValueError(
+        "Complete direct scheduling replay did not witness the edited "
+        + selection["unit"]
+    )
+
+
+def _read_witness(path):
+    path = Path(path).resolve(strict=True)
+    return json.loads(path.read_text(encoding="utf-8")), {
+        "path": str(path),
+        "sha256": file_hash(path),
+    }
+
+
+def _assert_breadth_rebuild(receipt_path, request, workload, *, require_fresh=True):
+    """Verify changed generated bytes, a real build and effective defaults.
+
+    Repeat acceptance can verify a fingerprint-checked previously rebuilt
+    variant. Fresh acceptance still requires physical generation/build in this
+    execution; both modes retain the same source, binary and SimObject checks.
+    """
+    receipt, gui_source = _read_witness(receipt_path)
+    plan = receipt.get("regeneration_plan", {})
+    if any(
+        plan.get(key) is not True
+        for key in (
+            "topology_python_and_address_headers",
+            "guest_elf_and_accelerator_ir",
+            "simulator_rebuild",
+        )
+    ):
+        raise ValueError("GUI did not request the complete regeneration/rebuild path")
+    hardware = receipt.get("hardware", {})
+    allowed_states = {"built"} if require_fresh else {"built", "reused"}
+    if hardware.get("state") not in allowed_states:
+        raise ValueError(
+            "Fresh hardware rebuild required; cached or reused engines do not establish this acceptance"
+            if require_fresh
+            else "Verified rebuilt hardware required; the base engine is insufficient"
+        )
+    generated, generation_source = _read_witness(hardware["generation_receipt"])
+    build, build_source = _read_witness(hardware["build_receipt"])
+    base = receipt.get("base_build", {})
+    if generated.get("state") != "generated" or generated.get("valid") is not True:
+        raise ValueError("No valid generated hardware source receipt")
+    if generated.get("selection", {}).get("benchmark") != workload:
+        raise ValueError("Generated hardware belongs to a different benchmark")
+    overrides = request["hardware_profile"].get("fu_overrides", {})
+    if generated.get("profile_overrides") != overrides:
+        raise ValueError("Compiled generation did not retain the GUI model edits")
+    outputs = generated.get("outputs", [])
+    engine = Path(hardware["engine_path"]).resolve(strict=True)
+    changed = []
+    original_engine = Path(base["binary"]["path"]).resolve(strict=True).parents[2]
+    for output in outputs:
+        relative = Path(output["relative_path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError("Unsafe generated output witness")
+        installed = engine / relative
+        if file_hash(installed) != output["sha256"]:
+            raise ValueError(
+                "Generated output was not installed exactly: " + str(relative)
+            )
+        original = original_engine / relative
+        if not original.is_file() or file_hash(original) != output["sha256"]:
+            changed.append(relative.as_posix())
+    if not outputs or not changed:
+        raise ValueError("No changed generated hardware bytes were established")
+    if (
+        build.get("state") != "built"
+        or build.get("command", {}).get("return_code") != 0
+    ):
+        raise ValueError("No successful actual SCons command was recorded")
+    if build.get("compiled_source_sha256") == base.get("compiled_source_sha256"):
+        raise ValueError("Compiled source identity did not change from the base")
+    if build.get("binary", {}).get("sha256") == base.get("binary", {}).get("sha256"):
+        raise ValueError("Simulator binary did not change from the base")
+    if file_hash(engine / "build/ARM/gem5.opt") != build["binary"]["sha256"]:
+        raise ValueError("Rebuilt simulator no longer matches its build receipt")
+    pipeline, pipeline_source = _read_witness(receipt["pipeline_receipt"]["path"])
+    ini_path = Path(receipt["run_directory"]) / "simulator/config.ini"
+    ini = configparser.ConfigParser(interpolation=None, strict=True)
+    ini.optionxform = str
+    ini.read_string(ini_path.read_text(encoding="utf-8"))
+    selection = _BREADTH[workload]
+    accelerator = "system." + workload + "_clstr." + workload
+    fu = accelerator + ".hw_interface.functional_units." + selection["unit"]
+    if ini.getfloat(fu, "area") != 7.125 or ini.getint(fu, "fu_latency") != 7:
+        raise ValueError("Compiled GUI model edits did not reach the real SimObject")
+    if ini.getint(fu, "limit") != 2 or ini.getint(fu, "cycles") != 1:
+        raise ValueError("Runtime GUI FU edits did not reach the real SimObject")
+    if (
+        ini.getint(accelerator + ".hw_interface.cycle_counts", selection["instruction"])
+        != selection["runtime_cycles"]
+    ):
+        raise ValueError("GUI instruction latency did not reach the real SimObject")
+    for name in ("top", workload):
+        if (
+            ini.getint(
+                "system." + workload + "_clstr." + name + ".llvm_interface",
+                "fu_trace_event_limit",
+            )
+            != selection["trace_event_limit"]
+        ):
+            raise ValueError("GUI trace budget did not reach both actual interfaces")
+    if pipeline.get("independent_oracle", {}).get("state") != "passed":
+        raise ValueError("Rebuilt pipeline did not independently validate its outputs")
+    return {
+        "state": "passed",
+        "variant_state": hardware["state"],
+        "freshly_built_in_this_run": hardware["state"] == "built",
+        "fresh_build_required": require_fresh,
+        "gui_receipt": gui_source,
+        "generation_receipt": generation_source,
+        "build_receipt": build_source,
+        "pipeline_receipt": pipeline_source,
+        "changed_generated_outputs": changed,
+        "compiled_source_sha256": build["compiled_source_sha256"],
+        "binary_sha256": build["binary"]["sha256"],
+        "config_ini": {"path": str(ini_path), "sha256": file_hash(ini_path)},
+        "model_claim": "Synthetic area and latency coefficients; transport checked, calibration unverified",
+    }
+
+
 def _screenshot(window, path):
     if not window.grab().save(str(path)):
         raise RuntimeError("Qt could not save its integration rendering")
@@ -170,7 +418,17 @@ def _assert_gemm_scheduling(result):
     )
 
 
-def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None):
+def _run_case(
+    app,
+    window,
+    mode,
+    benchmark,
+    directory,
+    timeout,
+    input_seed=None,
+    require_rebuilds=False,
+    verify_rebuilt_profiles=False,
+):
     started = time.monotonic()
     deadline = started + timeout
     directory.mkdir()
@@ -210,6 +468,14 @@ def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None)
                 window.editor.input_seed_spin.setValue(input_seed)
             if benchmark == "benchmarks/sys_validation/gemm":
                 case["configuration_changes"] = _configure_gemm(window.editor)
+            workload = benchmark.rsplit("/", 1)[-1]
+            if (
+                benchmark == "benchmarks/sys_validation/" + workload
+                and workload in _BREADTH
+            ):
+                case["configuration_changes"] = _configure_breadth(
+                    window.editor, workload, require_rebuilds or verify_rebuilt_profiles
+                )
             request = window.editor._make_request()
             if request.get("benchmark") != benchmark:
                 raise ValueError("Editor request differs from the visible benchmark")
@@ -336,6 +602,22 @@ def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None)
             if transported.get("system", {}).get("mem-size") != "2GB":
                 raise ValueError("Edited memory size was not transported")
             case["multiplier_scheduling"] = _assert_gemm_scheduling(result)
+        if mode == "configured" and benchmark in {
+            "benchmarks/sys_validation/" + name for name in _BREADTH
+        }:
+            workload = benchmark.rsplit("/", 1)[-1]
+            if transported.get("system", {}).get("mem-size") != "2GB":
+                raise ValueError("Edited memory size was not transported")
+            case["functional_unit_scheduling"] = _assert_breadth_scheduling(
+                result, workload
+            )
+            if require_rebuilds or verify_rebuilt_profiles:
+                case["regeneration_rebuild_witness"] = _assert_breadth_rebuild(
+                    result["path"],
+                    transported,
+                    workload,
+                    require_fresh=require_rebuilds,
+                )
         if mode == "configured" and input_seed is not None:
             if transported.get("benchmark_input") != {
                 "dataset": "seeded",
@@ -346,6 +628,15 @@ def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None)
             if oracle.get("state") != "passed":
                 raise ValueError(
                     "Results reader did not independently validate every accelerator output"
+                )
+            workload = benchmark.rsplit("/", 1)[-1]
+            if workload in _BREADTH and (
+                oracle.get("expected_count") != _BREADTH[workload]["outputs"]
+                or oracle.get("compared_count") != _BREADTH[workload]["outputs"]
+                or oracle.get("mismatch_count") != 0
+            ):
+                raise ValueError(
+                    "Independent oracle did not compare the complete workload output"
                 )
             case["independent_oracle"] = oracle
             if (
@@ -365,7 +656,12 @@ def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None)
         window.result_tabs.setCurrentIndex(0)
         app.processEvents()
         _screenshot(window, directory / "results.png")
-        window.result_tabs.setCurrentIndex(1)
+        checks_tab = window.checks
+        while checks_tab is not None and window.result_tabs.indexOf(checks_tab) < 0:
+            checks_tab = checks_tab.parentWidget()
+        if checks_tab is None:
+            raise ValueError("Could not locate the actual validation checks tab")
+        window.result_tabs.setCurrentWidget(checks_tab)
         app.processEvents()
         _screenshot(window, directory / "validation.png")
         window.result_tabs.setCurrentWidget(window.topology)
@@ -413,11 +709,45 @@ def main(argv=None):
     parser.add_argument("--evidence-dir", type=Path)
     parser.add_argument("--timeout", type=float, default=7200)
     parser.add_argument("--input-seed", type=int)
+    rebuilds = parser.add_mutually_exclusive_group()
+    rebuilds.add_argument(
+        "--require-rebuilds",
+        action="store_true",
+        help="Require fresh GUI-driven FFT/stencil hardware generation and actual simulator rebuilds; cached variants fail this acceptance",
+    )
+    rebuilds.add_argument(
+        "--verify-rebuilt-profiles",
+        action="store_true",
+        help="Verify GUI-driven FFT/stencil runs using rebuilt profiles; fingerprint-checked cached variants are allowed and reported explicitly",
+    )
     args = parser.parse_args(argv)
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
     if args.input_seed is not None and not 0 <= args.input_seed <= 2147483647:
         parser.error("--input-seed requires a nonnegative signed 32-bit integer")
+    if args.require_rebuilds or args.verify_rebuilt_profiles:
+        rebuild_option = (
+            "--require-rebuilds"
+            if args.require_rebuilds
+            else "--verify-rebuilt-profiles"
+        )
+        if args.input_seed is None:
+            parser.error(
+                rebuild_option
+                + " requires --input-seed for complete independent output checks"
+            )
+        if any(
+            mode != "configured"
+            or benchmark
+            not in (
+                "benchmarks/sys_validation/fft",
+                "benchmarks/sys_validation/stencil3d",
+            )
+            for mode, benchmark in args.cases
+        ):
+            parser.error(
+                rebuild_option + " accepts only configured:fft and configured:stencil3d"
+            )
     evidence = args.evidence_dir or PROJECT / "evidence" / (
         "desktop-workbench-acceptance-"
         + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -474,6 +804,15 @@ def main(argv=None):
         "driver_sha256": file_hash(driver),
         "rendering": "Qt offscreen product render; no manual Windows input claim",
         "backend_results_mocked": False,
+        "fresh_hardware_rebuilds_required": args.require_rebuilds,
+        "verify_rebuilt_profiles": args.verify_rebuilt_profiles,
+        "hardware_acceptance_mode": (
+            "fresh_generation_and_rebuild"
+            if args.require_rebuilds
+            else "verify_rebuilt_profile_including_checked_cache"
+            if args.verify_rebuilt_profiles
+            else "default"
+        ),
         "errors": [],
     }
     _save(evidence / "acceptance.json", record)
@@ -487,7 +826,15 @@ def main(argv=None):
         )
         ticks_before = ticks[0]
         case = _run_case(
-            app, window, mode, benchmark, evidence / name, args.timeout, args.input_seed
+            app,
+            window,
+            mode,
+            benchmark,
+            evidence / name,
+            args.timeout,
+            args.input_seed,
+            args.require_rebuilds,
+            args.verify_rebuilt_profiles,
         )
         case["event_loop_ticks"] = ticks[0] - ticks_before
         if case["event_loop_ticks"] < 1:

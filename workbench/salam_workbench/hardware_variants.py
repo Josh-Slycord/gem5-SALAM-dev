@@ -69,6 +69,10 @@ def _toolchain_hashes():
         "_record",
         "compiled_identity",
         "build_engine",
+        "_safe_generated_debug_object",
+        "_debug_label_recovery_objects",
+        "_archive_debug_label_objects",
+        "_run_build_with_debug_recovery",
         "install_hardware_overlay",
         "verify_engine",
     }
