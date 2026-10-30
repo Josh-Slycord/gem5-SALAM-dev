@@ -1,16 +1,15 @@
 import tempfile
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from salam_workbench.profile_witness import witness_profiles
 
-
 REGISTRY = '_FU_REGISTRY = {"adder": Adder, "multiplier": Multiplier}\n'
 FIELDS = {
-    "power_units": ('String', '"mW"'),
-    "energy_units": ('String', '"pJ"'),
-    "time_units": ('String', '"ns"'),
-    "area_units": ('String', '"um^2"'),
+    "power_units": ("String", '"mW"'),
+    "energy_units": ("String", '"pJ"'),
+    "time_units": ("String", '"ns"'),
+    "area_units": ("String", '"um^2"'),
     "fu_latency": ("UInt32", "5"),
     "internal_power": ("Float", "0.009743773"),
     "switch_power": ("Float", "0.007400587"),
@@ -21,11 +20,17 @@ FIELDS = {
     "path_delay": ("Float", "1.75"),
 }
 VALUES = {
-    "power_units": "mW", "energy_units": "pJ", "time_units": "ns",
-    "area_units": "um^2", "fu_latency": "5",
-    "internal_power": "0.009743773", "switch_power": "0.007400587",
-    "dynamic_power": "0.001800732", "dynamic_energy": "0.009003937",
-    "leakage_power": "7.395312e-05", "area": "5.981433",
+    "power_units": "mW",
+    "energy_units": "pJ",
+    "time_units": "ns",
+    "area_units": "um^2",
+    "fu_latency": "5",
+    "internal_power": "0.009743773",
+    "switch_power": "0.007400587",
+    "dynamic_power": "0.001800732",
+    "dynamic_energy": "0.009003937",
+    "leakage_power": "7.395312e-05",
+    "area": "5.981433",
     "path_delay": "1.75",
 }
 
@@ -52,8 +57,15 @@ class ProfileWitnessTests(unittest.TestCase):
             for field, (param_type, literal) in FIELDS.items():
                 if integer_power and field == "internal_power":
                     param_type = "UInt32"
-                lines.append("    " + field + " = Param." + param_type +
-                             "(" + literal + ", 'fixture')")
+                lines.append(
+                    "    "
+                    + field
+                    + " = Param."
+                    + param_type
+                    + "("
+                    + literal
+                    + ", 'fixture')"
+                )
         self.defaults.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def _write_ini(self, overrides=None, omit=None, accelerators=("acc0", "acc1")):
@@ -61,8 +73,12 @@ class ProfileWitnessTests(unittest.TestCase):
         lines = []
         for accelerator in accelerators:
             for fu in ("adder", "multiplier"):
-                section = ("system.cluster." + accelerator +
-                           ".hw_interface.functional_units." + fu)
+                section = (
+                    "system.cluster."
+                    + accelerator
+                    + ".hw_interface.functional_units."
+                    + fu
+                )
                 if section == omit:
                     continue
                 lines.append("[" + section + "]")
@@ -95,11 +111,16 @@ class ProfileWitnessTests(unittest.TestCase):
         section = "system.cluster.acc0.hw_interface.functional_units.adder"
         self._write_ini(overrides={(section, "internal_power"): "0.25"})
         result = witness_profiles(
-            self.root, self.ini,
-            parameter_overrides={section: {"internal_power": 0.25}})
+            self.root,
+            self.ini,
+            parameter_overrides={section: {"internal_power": 0.25}},
+        )
         self.assertEqual(result["state"], "passed")
-        check = next(c for c in result["checks"]
-                     if c["section"] == section and c["field"] == "internal_power")
+        check = next(
+            c
+            for c in result["checks"]
+            if c["section"] == section and c["field"] == "internal_power"
+        )
         self.assertEqual(check["origin"], "explicit_parameter_override")
         self.assertEqual(check["source_default"], "0.009743773")
 
@@ -108,8 +129,10 @@ class ProfileWitnessTests(unittest.TestCase):
         self._write_ini(omit=section)
         result = witness_profiles(self.root, self.ini)
         self.assertEqual(result["state"], "failed")
-        self.assertIn("missing_functional_unit",
-                      {issue["kind"] for issue in result["issues"]})
+        self.assertIn(
+            "missing_functional_unit",
+            {issue["kind"] for issue in result["issues"]},
+        )
 
 
 if __name__ == "__main__":

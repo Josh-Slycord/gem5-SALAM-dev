@@ -1,23 +1,28 @@
 """Offscreen tests of actual independent GUI widgets; no simulator build here."""
-import os
 import json
-from pathlib import Path
+import os
 import sys
+import tempfile
 import unittest
 from copy import deepcopy
-import tempfile
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QFormLayout, QWidget
 
-
 _PROJECT = Path(__file__).resolve().parents[1]
-_WORKSPACE = _PROJECT / 'workspace.json'
-ENGINE = (Path(json.loads(_WORKSPACE.read_text(encoding='utf-8-sig'))
-               ['configuration_engine']['path']) if _WORKSPACE.is_file()
-          else _PROJECT / 'unbound-engine')
+_WORKSPACE = _PROJECT / "workspace.json"
+ENGINE = (
+    Path(
+        json.loads(_WORKSPACE.read_text(encoding="utf-8-sig"))["configuration_engine"][
+            "path"
+        ]
+    )
+    if _WORKSPACE.is_file()
+    else _PROJECT / "unbound-engine"
+)
 GUI_SRC = ENGINE / "gem5-SALAM-gui/src"
 
 
@@ -34,6 +39,7 @@ class GuiEditorQtTests(unittest.TestCase):
         os.environ["SALAM_WORKBENCH_ROOT"] = str(_PROJECT)
         sys.path.insert(0, str(GUI_SRC))
         from gui.config_generator import ConfigGeneratorDialog
+
         cls.dialog_class = ConfigGeneratorDialog
 
     def setUp(self):
@@ -71,26 +77,40 @@ class GuiEditorQtTests(unittest.TestCase):
         rendered = self.dialog.build_config()["hw_config"]["gemm"]["instructions"]
         self.assertIn("addrspacecast", source)
         self.assertEqual(source["addrspacecast"]["functional_unit"], 0)
-        self.assertEqual({key: row["functional_unit"] for key, row in source.items()},
-                         {key: row["functional_unit"] for key, row in rendered.items()})
+        self.assertEqual(
+            {key: row["functional_unit"] for key, row in source.items()},
+            {key: row["functional_unit"] for key, row in rendered.items()},
+        )
         self.assertEqual(rendered["addrspacecast"]["functional_unit"], 0)
-        row = next(self.dialog.inst_tree.topLevelItem(index)
-                   for index in range(self.dialog.inst_tree.topLevelItemCount())
-                   if self.dialog.inst_tree.topLevelItem(index).text(0) == "addrspacecast")
+        row = next(
+            self.dialog.inst_tree.topLevelItem(index)
+            for index in range(self.dialog.inst_tree.topLevelItemCount())
+            if self.dialog.inst_tree.topLevelItem(index).text(0) == "addrspacecast"
+        )
         self.assertEqual(self.dialog.inst_tree.itemWidget(row, 2).currentData(), 0)
 
-    def test_offscreen_unknown_source_id_remains_raw_until_contract_check(self):
+    def test_offscreen_unknown_source_id_remains_raw_until_contract_check(
+        self,
+    ):
         document = deepcopy(self.dialog._base_document)
         document["hw_config"]["gemm"]["instructions"]["add"]["functional_unit"] = 99
         self.dialog.apply_config(document)
-        row = next(self.dialog.inst_tree.topLevelItem(index)
-                   for index in range(self.dialog.inst_tree.topLevelItemCount())
-                   if self.dialog.inst_tree.topLevelItem(index).text(0) == "add")
+        row = next(
+            self.dialog.inst_tree.topLevelItem(index)
+            for index in range(self.dialog.inst_tree.topLevelItemCount())
+            if self.dialog.inst_tree.topLevelItem(index).text(0) == "add"
+        )
         self.assertEqual(self.dialog.inst_tree.itemWidget(row, 2).currentData(), 99)
-        self.assertEqual(self.dialog.build_config()["hw_config"]["gemm"]
-                         ["instructions"]["add"]["functional_unit"], 99)
+        self.assertEqual(
+            self.dialog.build_config()["hw_config"]["gemm"]["instructions"]["add"][
+                "functional_unit"
+            ],
+            99,
+        )
 
-    def test_offscreen_live_widgets_export_topology_runtime_system_and_model(self):
+    def test_offscreen_live_widgets_export_topology_runtime_system_and_model(
+        self,
+    ):
         self.dialog.component_tree.setCurrentItem(self._component("dma"))
         self._detail("Buffer Size:").setValue(256)
         self.dialog.component_tree.setCurrentItem(self._component("MATRIX1"))
@@ -116,20 +136,33 @@ class GuiEditorQtTests(unittest.TestCase):
         else:
             self.fail("Missing model FU")
         request = self.dialog._make_request()
-        self.assertEqual(request["provenance"]["source_config"]["relative_path"],
-                         "benchmarks/sys_validation/gemm/config.yml")
+        self.assertEqual(
+            request["provenance"]["source_config"]["relative_path"],
+            "benchmarks/sys_validation/gemm/config.yml",
+        )
         self.assertEqual(request["system"]["mem-size"], "2GB")
-        self.assertEqual(request["hardware_profile"]["fu_overrides"],
-                         {"integer_adder": {"internal_power": 0.012345, "fu_latency": 6}})
+        self.assertEqual(
+            request["hardware_profile"]["fu_overrides"],
+            {"integer_adder": {"internal_power": 0.012345, "fu_latency": 6}},
+        )
         self.assertEqual(request["base_address"], "0x10320000")
         document = request["configuration_documents"][0]
-        dma = next(entry["DMA"][0] for entry in document["acc_cluster"] if "DMA" in entry)
-        gemm = next(entry["Accelerator"] for entry in document["acc_cluster"]
-                    if "Accelerator" in entry and entry["Accelerator"][0].get("Name") == "gemm")
+        dma = next(
+            entry["DMA"][0] for entry in document["acc_cluster"] if "DMA" in entry
+        )
+        gemm = next(
+            entry["Accelerator"]
+            for entry in document["acc_cluster"]
+            if "Accelerator" in entry and entry["Accelerator"][0].get("Name") == "gemm"
+        )
         self.assertEqual(dma["BufferSize"], 256)
         self.assertEqual(gemm[1]["Var"][0]["Ports"], 3)
-        self.assertEqual(document["hw_config"]["gemm"]["instructions"]["mul"]["runtime_cycles"], 3)
+        self.assertEqual(
+            document["hw_config"]["gemm"]["instructions"]["mul"]["runtime_cycles"],
+            3,
+        )
         from salam_workbench.gui_execution import validate_request
+
         base, _, source = validate_request(request)
         self.assertEqual(base, ENGINE)
         self.assertEqual(source, ENGINE / "benchmarks/sys_validation/gemm/config.yml")
@@ -141,22 +174,28 @@ class GuiEditorQtTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Duplicate visible model FU row"):
             self.dialog._make_request()
 
-    def test_offscreen_incomplete_visible_rows_rejected_and_identity_explained(self):
+    def test_offscreen_incomplete_visible_rows_rejected_and_identity_explained(
+        self,
+    ):
         self.dialog.component_tree.setCurrentItem(self._component("gemm"))
         name_field = self._detail("Name:")
         self.assertTrue(name_field.isReadOnly())
         self.assertIn("Rename migration", name_field.toolTip())
-        instruction = next(self.dialog.inst_tree.topLevelItem(index)
-                           for index in range(self.dialog.inst_tree.topLevelItemCount())
-                           if self.dialog.inst_tree.topLevelItem(index).text(0) == "mul")
+        instruction = next(
+            self.dialog.inst_tree.topLevelItem(index)
+            for index in range(self.dialog.inst_tree.topLevelItemCount())
+            if self.dialog.inst_tree.topLevelItem(index).text(0) == "mul"
+        )
         original_runtime = instruction.text(1)
         instruction.setText(1, "")
         with self.assertRaisesRegex(ValueError, "Incomplete visible instruction row"):
             self.dialog._make_request()
         instruction.setText(1, original_runtime)
-        fu = next(self.dialog.fu_tree.topLevelItem(index)
-                  for index in range(self.dialog.fu_tree.topLevelItemCount())
-                  if self.dialog.fu_tree.topLevelItem(index).text(0) == "integer_multiplier")
+        fu = next(
+            self.dialog.fu_tree.topLevelItem(index)
+            for index in range(self.dialog.fu_tree.topLevelItemCount())
+            if self.dialog.fu_tree.topLevelItem(index).text(0) == "integer_multiplier"
+        )
         original_cycles = fu.text(1)
         original_limit = fu.text(2)
         fu.setText(1, "2")
@@ -169,30 +208,53 @@ class GuiEditorQtTests(unittest.TestCase):
         fu.setText(2, original_limit)
         self.dialog._make_request()
 
-    def test_offscreen_success_summary_requires_durable_workbench_receipt(self):
+    def test_offscreen_success_summary_requires_durable_workbench_receipt(
+        self,
+    ):
         self.dialog._gui_request = self.dialog._make_request()
         with self.assertRaisesRegex(ValueError, "outside workbench evidence"):
             self.dialog._verify_passing_receipt(
-                {"state": "passed", "evidence_directory": "/tmp/forged-run"})
+                {"state": "passed", "evidence_directory": "/tmp/forged-run"}
+            )
 
     def test_offscreen_native_linux_uses_real_backend_command(self):
         program, arguments = self.dialog._backend_command(self.dialog._make_request())
         self.assertEqual(program, "/usr/bin/python3.8")
-        self.assertEqual(arguments, [
-            "-B", "-m", "salam_workbench.gui_execution", "--request-stdin"])
+        self.assertEqual(
+            arguments,
+            ["-B", "-m", "salam_workbench.gui_execution", "--request-stdin"],
+        )
 
     def test_offscreen_fu_telemetry_words_are_source_bound_counters(self):
         from salam_workbench.gui_editor_qt import _fu_telemetry_lines
-        lines = _fu_telemetry_lines({'fu_scheduling_summary': {
-            'state': 'validated_direct_salam_trace', 'invocations': [{
-                'accelerator': 'system.gemm_clstr.gemm', 'units': [{
-                    'name': 'integer_multiplier', 'limit': 1, 'attempts': 8,
-                    'grants': 2, 'denials': 6, 'releases': 2, 'peak': 1,
-                    'outstanding': 0}]}]}})
-        self.assertIn('validated direct SALAM trace', lines[0])
-        self.assertIn('integer_multiplier (capacity 1)', lines[1])
-        self.assertIn('issue attempts 8, grants 2, blocked 6, releases 2',
-                      lines[1])
+
+        lines = _fu_telemetry_lines(
+            {
+                "fu_scheduling_summary": {
+                    "state": "validated_direct_salam_trace",
+                    "invocations": [
+                        {
+                            "accelerator": "system.gemm_clstr.gemm",
+                            "units": [
+                                {
+                                    "name": "integer_multiplier",
+                                    "limit": 1,
+                                    "attempts": 8,
+                                    "grants": 2,
+                                    "denials": 6,
+                                    "releases": 2,
+                                    "peak": 1,
+                                    "outstanding": 0,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        )
+        self.assertIn("validated direct SALAM trace", lines[0])
+        self.assertIn("integer_multiplier (capacity 1)", lines[1])
+        self.assertIn("issue attempts 8, grants 2, blocked 6, releases 2", lines[1])
         self.assertEqual(_fu_telemetry_lines({}), [])
 
     def test_offscreen_period_choices_follow_selected_model_source(self):
@@ -201,8 +263,10 @@ class GuiEditorQtTests(unittest.TestCase):
             benchmark = root / "benchmarks/sys_validation/gemm"
             benchmark.mkdir(parents=True)
             (benchmark / "config.yml").write_text("{}\n")
-            (benchmark / "configs/hw_interface/functional_units/"
-             "test_model/2ns/default_profile").mkdir(parents=True)
+            (
+                benchmark / "configs/hw_interface/functional_units/"
+                "test_model/2ns/default_profile"
+            ).mkdir(parents=True)
             self.dialog.gem5_path = root
             self.dialog.model_edit.setText("test_model")
             self.assertEqual(self.dialog.cycle_time_combo.count(), 1)
@@ -213,8 +277,10 @@ class GuiEditorQtTests(unittest.TestCase):
             self.dialog.profile_edit.setText("missing_profile")
             self.assertEqual(self.dialog.cycle_time_combo.count(), 0)
             self.assertFalse(self.dialog.cycle_time_combo.isEnabled())
-            self.assertIn("No source-backed profile periods",
-                          self.dialog.cycle_time_combo.toolTip())
+            self.assertIn(
+                "No source-backed profile periods",
+                self.dialog.cycle_time_combo.toolTip(),
+            )
 
 
 if __name__ == "__main__":

@@ -4,9 +4,18 @@ from pathlib import Path
 from .runner import file_hash
 
 RUNTIME_FILES = (
-    "__init__.py", "runner.py", "config.py", "facade.py", "builds.py",
-    "gemm.py", "report.py", "observability.py", "observability_report.py",
-    "variant.py", "variant_report.py", "provenance.py",
+    "__init__.py",
+    "runner.py",
+    "config.py",
+    "facade.py",
+    "builds.py",
+    "gemm.py",
+    "report.py",
+    "observability.py",
+    "observability_report.py",
+    "variant.py",
+    "variant_report.py",
+    "provenance.py",
 )
 
 

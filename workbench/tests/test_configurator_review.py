@@ -1,9 +1,9 @@
 """Acceptance checks for generated topology and overlay provenance."""
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from salam_workbench import configurator as c
@@ -41,20 +41,41 @@ class GeneratedTopologyReviewTests(unittest.TestCase):
         source = self.workspace / "source"
         stage = self.workspace / "stage"
         target = self.workspace / "target"
-        rels = [Path("src/hwacc/generated/a.cc"), Path("src/hwacc/generated/b.cc")]
+        rels = [
+            Path("src/hwacc/generated/a.cc"),
+            Path("src/hwacc/generated/b.cc"),
+        ]
         outputs = []
         for rel, old, new in zip(rels, (b"old-a", b"old-b"), (b"new-a", b"new-b")):
-            source_file, stage_file, target_file = source / rel, stage / rel, target / rel
+            source_file, stage_file, target_file = (
+                source / rel,
+                stage / rel,
+                target / rel,
+            )
             for path in (source_file, stage_file, target_file):
                 path.parent.mkdir(parents=True, exist_ok=True)
             source_file.write_bytes(old)
             stage_file.write_bytes(new)
             target_file.write_bytes(old)
-            outputs.append({"relative_path": rel.as_posix(), "sha256": c.file_hash(stage_file),
-                            "source_engine_sha256": c.file_hash(source_file)})
+            outputs.append(
+                {
+                    "relative_path": rel.as_posix(),
+                    "sha256": c.file_hash(stage_file),
+                    "source_engine_sha256": c.file_hash(source_file),
+                }
+            )
         generation = self.workspace / "generation.json"
-        generation.write_text(json.dumps({"valid": True, "state": "generated", "engine_root": str(source),
-                                          "staged_engine_root": str(stage), "outputs": outputs}))
+        generation.write_text(
+            json.dumps(
+                {
+                    "valid": True,
+                    "state": "generated",
+                    "engine_root": str(source),
+                    "staged_engine_root": str(stage),
+                    "outputs": outputs,
+                }
+            )
+        )
         original_copyfile = c.shutil.copyfile
 
         def fail_second_copy(src, dst, *args, **kwargs):
@@ -66,7 +87,10 @@ class GeneratedTopologyReviewTests(unittest.TestCase):
         with patch.object(c.shutil, "copyfile", side_effect=fail_second_copy):
             result = c.install_hardware_overlay(generation, target, evidence)
         self.assertEqual(result["state"], "failed_partial")
-        self.assertEqual(json.loads((evidence / "overlay.json").read_text())["state"], "failed_partial")
+        self.assertEqual(
+            json.loads((evidence / "overlay.json").read_text())["state"],
+            "failed_partial",
+        )
         self.assertEqual((target / rels[0]).read_bytes(), b"new-a")
         self.assertEqual((target / rels[1]).read_bytes(), b"old-b")
         self.assertEqual(result["outputs"][0]["state"], "installed")

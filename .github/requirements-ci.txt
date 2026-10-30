@@ -1,0 +1,6 @@
+# Hosted CI tools and the pinned GUI test dependencies.
+-r ../workbench/requirements-gui-validated.txt
+black==22.6.0
+isort==5.13.2
+pre-commit==3.5.0
+pre-commit-hooks==4.5.0

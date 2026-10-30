@@ -5,11 +5,10 @@ configuration may import capture_system before gem5 instantiates SimObjects.
 The captured class names complement, but do not replace, config.ini evidence.
 """
 import configparser
-from decimal import Decimal, InvalidOperation
 import json
-from pathlib import Path
 import re
-
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 CPU_TYPES = {
     "DerivO3CPU": "O3CPU",
@@ -19,17 +18,25 @@ CPU_TYPES = {
     "MinorCPU": "MinorCPU",
 }
 SIZE_UNITS = {
-    "B": 1, "kB": 1024, "KB": 1024, "MB": 1024 ** 2,
-    "GB": 1024 ** 3, "TB": 1024 ** 4,
+    "B": 1,
+    "kB": 1024,
+    "KB": 1024,
+    "MB": 1024**2,
+    "GB": 1024**3,
+    "TB": 1024**4,
 }
 FREQ_UNITS = {
-    "Hz": Decimal(1), "kHz": Decimal(1000),
-    "MHz": Decimal(1000000), "GHz": Decimal(1000000000),
+    "Hz": Decimal(1),
+    "kHz": Decimal(1000),
+    "MHz": Decimal(1000000),
+    "GHz": Decimal(1000000000),
     "THz": Decimal(1000000000000),
 }
 TIME_UNITS = {
-    "s": Decimal(1), "ms": Decimal("0.001"),
-    "us": Decimal("0.000001"), "ns": Decimal("0.000000001"),
+    "s": Decimal(1),
+    "ms": Decimal("0.001"),
+    "us": Decimal("0.000001"),
+    "ns": Decimal("0.000000001"),
     "ps": Decimal("0.000000000001"),
 }
 CPU_SECTION = re.compile(r"^system\.cpu(?:[0-9]+)?$")
@@ -61,13 +68,12 @@ def capture_system(system, options=None):
         "system_class": _class_name(system),
         "cpu_classes": [_class_name(cpu) for cpu in cpus],
         "memory_controller_classes": [_class_name(ctrl) for ctrl in controllers],
-        "dram_classes": [_class_name(getattr(ctrl, "dram", None))
-                         for ctrl in controllers],
+        "dram_classes": [
+            _class_name(getattr(ctrl, "dram", None)) for ctrl in controllers
+        ],
         "platform_class": _class_name(platform),
-        "l1i_classes": [_class_name(getattr(cpu, "icache", None))
-                        for cpu in cpus],
-        "l1d_classes": [_class_name(getattr(cpu, "dcache", None))
-                        for cpu in cpus],
+        "l1i_classes": [_class_name(getattr(cpu, "icache", None)) for cpu in cpus],
+        "l1d_classes": [_class_name(getattr(cpu, "dcache", None)) for cpu in cpus],
         "l2_class": _class_name(getattr(system, "l2", None)),
         "workload_class": _class_name(getattr(system, "workload", None)),
     }
@@ -128,7 +134,9 @@ def _sections(parser, expression):
 
 
 def _value(parser, section, key):
-    return parser.get(section, key, fallback=None) if parser.has_section(section) else None
+    return (
+        parser.get(section, key, fallback=None) if parser.has_section(section) else None
+    )
 
 
 def _ranges(value):
@@ -152,6 +160,7 @@ def _bool(value):
         return False
     raise ValueError("Expected Boolean value: " + str(value))
 
+
 def _same_scalar(actual, expected, *, size=False):
     if actual is None:
         return None
@@ -174,11 +183,17 @@ def witness_system(ini_path, spec_system, *, stats_path=None, runtime_system=Non
         runtime_system = json.loads(Path(runtime_system).read_text(encoding="utf-8"))
     if runtime_system is not None and not isinstance(runtime_system, dict):
         raise ValueError("runtime_system must be a capture mapping or JSON path")
-    result = {"schema_version": 1, "kind": "salam_system_witness",
-              "state": "unavailable", "checks": {}, "issues": [],
-              "unmapped_options": [], "ini_path": str(ini_path),
-              "stats_path": str(stats_path) if stats_path else None,
-              "runtime_capture_available": runtime_system is not None}
+    result = {
+        "schema_version": 1,
+        "kind": "salam_system_witness",
+        "state": "unavailable",
+        "checks": {},
+        "issues": [],
+        "unmapped_options": [],
+        "ini_path": str(ini_path),
+        "stats_path": str(stats_path) if stats_path else None,
+        "runtime_capture_available": runtime_system is not None,
+    }
     try:
         parser = _ini(ini_path)
         simfreq, simfreq_source = _simfreq(stats_path)
@@ -191,16 +206,24 @@ def witness_system(ini_path, spec_system, *, stats_path=None, runtime_system=Non
     def add(name, requested, observed, source, equal):
         if equal is None:
             result["checks"][name] = {
-                "status": "unwitnessed", "requested": requested,
-                "observed": observed, "source": source}
+                "status": "unwitnessed",
+                "requested": requested,
+                "observed": observed,
+                "source": source,
+            }
             result["unmapped_options"].append(name)
         else:
             status = "passed" if equal else "failed"
             result["checks"][name] = {
-                "status": status, "requested": requested,
-                "observed": observed, "source": source}
+                "status": status,
+                "requested": requested,
+                "observed": observed,
+                "source": source,
+            }
             if not equal:
-                result["issues"].append(name + " does not match effective configuration")
+                result["issues"].append(
+                    name + " does not match effective configuration"
+                )
 
     cpu_sections = _sections(parser, r"system\.cpu(?:[0-9]+)?")
     cpu_types = [_value(parser, section, "type") for section in cpu_sections]
@@ -213,79 +236,167 @@ def witness_system(ini_path, spec_system, *, stats_path=None, runtime_system=Non
         name = raw_name.replace("_", "-")
         if name == "mem-size":
             observed = _ranges(_value(parser, "system", "mem_ranges"))
-            add(raw_name, requested, observed, "config.ini:system.mem_ranges",
-                observed == _size(requested) if observed is not None else None)
+            add(
+                raw_name,
+                requested,
+                observed,
+                "config.ini:system.mem_ranges",
+                observed == _size(requested) if observed is not None else None,
+            )
         elif name == "cpu-type":
             expected = CPU_TYPES.get(str(requested), str(requested))
-            add(raw_name, requested, cpu_types, "config.ini:system.cpu*.type",
-                all(item == expected for item in cpu_types)
-                if cpu_types else None)
+            add(
+                raw_name,
+                requested,
+                cpu_types,
+                "config.ini:system.cpu*.type",
+                all(item == expected for item in cpu_types) if cpu_types else None,
+            )
         elif name == "num-cpus":
-            add(raw_name, requested, len(cpu_sections),
+            add(
+                raw_name,
+                requested,
+                len(cpu_sections),
                 "config.ini:system.cpu* sections",
-                len(cpu_sections) == int(requested))
+                len(cpu_sections) == int(requested),
+            )
         elif name == "cacheline-size":
             observed = _value(parser, "system", "cache_line_size")
-            add(raw_name, requested, observed, "config.ini:system.cache_line_size",
-                _same_scalar(observed, requested, size=True))
+            add(
+                raw_name,
+                requested,
+                observed,
+                "config.ini:system.cache_line_size",
+                _same_scalar(observed, requested, size=True),
+            )
         elif name == "caches":
-            observed = {"icaches": len(l1i_sections),
-                        "dcaches": len(l1d_sections)}
+            observed = {
+                "icaches": len(l1i_sections),
+                "dcaches": len(l1d_sections),
+            }
             enabled = _bool(requested)
-            equal = (bool(cpu_sections) and len(l1i_sections) == len(cpu_sections) and
-                     len(l1d_sections) == len(cpu_sections)
-                     if enabled else not l1i_sections and not l1d_sections)
-            add(raw_name, requested, observed,
-                "config.ini:system.cpu*.{i,d}cache", equal)
+            equal = (
+                bool(cpu_sections)
+                and len(l1i_sections) == len(cpu_sections)
+                and len(l1d_sections) == len(cpu_sections)
+                if enabled
+                else not l1i_sections and not l1d_sections
+            )
+            add(
+                raw_name,
+                requested,
+                observed,
+                "config.ini:system.cpu*.{i,d}cache",
+                equal,
+            )
         elif name == "l2cache":
-            add(raw_name, requested, len(l2_sections),
+            add(
+                raw_name,
+                requested,
+                len(l2_sections),
                 "config.ini:system.l2* sections",
-                bool(l2_sections) == _bool(requested))
-        elif name in ("l1i-size", "l1d-size", "l2-size",
-                      "l1i-assoc", "l1d-assoc", "l2-assoc"):
+                bool(l2_sections) == _bool(requested),
+            )
+        elif name in (
+            "l1i-size",
+            "l1d-size",
+            "l2-size",
+            "l1i-assoc",
+            "l1d-assoc",
+            "l2-assoc",
+        ):
             kind = name[:3]
-            sections = (l1i_sections if kind == "l1i" else
-                        l1d_sections if kind == "l1d" else l2_sections)
+            sections = (
+                l1i_sections
+                if kind == "l1i"
+                else l1d_sections
+                if kind == "l1d"
+                else l2_sections
+            )
             field = "size" if name.endswith("size") else "assoc"
             observed = [_value(parser, section, field) for section in sections]
-            equal = (all(_same_scalar(value, requested, size=field == "size")
-                         for value in observed) if observed else None)
-            add(raw_name, requested, observed,
-                "config.ini:" + ",".join(sections) + "." + field, equal)
+            equal = (
+                all(
+                    _same_scalar(value, requested, size=field == "size")
+                    for value in observed
+                )
+                if observed
+                else None
+            )
+            add(
+                raw_name,
+                requested,
+                observed,
+                "config.ini:" + ",".join(sections) + "." + field,
+                equal,
+            )
         elif name in ("sys-clock", "cpu-clock"):
-            section = ("system.clk_domain" if name == "sys-clock"
-                       else "system.cpu_clk_domain")
+            section = (
+                "system.clk_domain" if name == "sys-clock" else "system.cpu_clk_domain"
+            )
             observed = _value(parser, section, "clock")
             expected = _ticks(requested, simfreq)
-            add(raw_name, requested, observed,
+            add(
+                raw_name,
+                requested,
+                observed,
                 "config.ini:" + section + ".clock;simFreq=" + simfreq_source,
-                Decimal(observed) == expected if observed is not None else None)
+                Decimal(observed) == expected if observed is not None else None,
+            )
         elif name == "mem-channels":
             count = len(dram_sections)
-            add(raw_name, requested, count, "config.ini:system.mem_ctrls*.dram",
-                count == int(requested) if dram_sections else None)
+            add(
+                raw_name,
+                requested,
+                count,
+                "config.ini:system.mem_ctrls*.dram",
+                count == int(requested) if dram_sections else None,
+            )
         elif name == "mem-ranks":
-            values = [_value(parser, section, "ranks_per_channel")
-                      for section in dram_sections]
-            equal = (all(_same_scalar(value, requested) for value in values)
-                     if values else None)
-            add(raw_name, requested, values,
-                "config.ini:system.mem_ctrls*.dram.ranks_per_channel", equal)
+            values = [
+                _value(parser, section, "ranks_per_channel")
+                for section in dram_sections
+            ]
+            equal = (
+                all(_same_scalar(value, requested) for value in values)
+                if values
+                else None
+            )
+            add(
+                raw_name,
+                requested,
+                values,
+                "config.ini:system.mem_ctrls*.dram.ranks_per_channel",
+                equal,
+            )
         elif name == "mem-type":
             classes = (runtime_system or {}).get("dram_classes")
-            add(raw_name, requested, classes, "live:mem_ctrls*.dram class",
-                all(value == str(requested) for value in classes)
-                if classes else None)
+            add(
+                raw_name,
+                requested,
+                classes,
+                "live:mem_ctrls*.dram class",
+                all(value == str(requested) for value in classes) if classes else None,
+            )
         elif name == "machine-type":
             actual = (runtime_system or {}).get("platform_class")
-            add(raw_name, requested, actual, "live:realview class",
-                actual == str(requested) if actual else None)
+            add(
+                raw_name,
+                requested,
+                actual,
+                "live:realview class",
+                actual == str(requested) if actual else None,
+            )
         elif name == "dtb-file":
             actual = _value(parser, "system.workload", "dtb_filename")
             expected = "" if str(requested).lower() == "none" else str(requested)
-            add(raw_name, requested, actual,
+            add(
+                raw_name,
+                requested,
+                actual,
                 "config.ini:system.workload.dtb_filename",
-                actual == expected if actual is not None else None)
+                actual == expected if actual is not None else None,
+            )
         else:
             add(raw_name, requested, None, "no validated witness mapping", None)
 

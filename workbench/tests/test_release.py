@@ -2,20 +2,31 @@
 import copy
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from salam_workbench import release
 
 COMMIT = "a" * 40
-SELECTION = {"schema_version": 1, "session_directories": [], "run_directories": [],
-             "run_expectations": {}, "evidence_files": [],
-             "workloads": [{"id": "fixture", "status": "deferred", "evidence": [],
-                            "limitations": ["fixture has no executed workload"]}]}
+SELECTION = {
+    "schema_version": 1,
+    "session_directories": [],
+    "run_directories": [],
+    "run_expectations": {},
+    "evidence_files": [],
+    "workloads": [
+        {
+            "id": "fixture",
+            "status": "deferred",
+            "evidence": [],
+            "limitations": ["fixture has no executed workload"],
+        }
+    ],
+}
 
 
 class ReleaseTests(unittest.TestCase):
@@ -29,53 +40,120 @@ class ReleaseTests(unittest.TestCase):
         self.engine.mkdir()
         for tree in release.CURATED_TREES:
             (self.project / tree).mkdir()
-            (self.project / tree / "fixture.txt").write_text("source " + tree, encoding="utf-8")
+            (self.project / tree / "fixture.txt").write_text(
+                "source " + tree, encoding="utf-8"
+            )
         (self.project / "evidence").mkdir()
-        for name, data in (("toolchain.json", {"profile": "fixture"}),
-                           ("receipt.json", {"state": "completed"}),
-                           ("build.json", {"state": "completed", "return_code": 0, "log": "build.log"})):
-            (self.project / "evidence" / name).write_text(json.dumps(data), encoding="utf-8")
-        (self.project / "evidence/build.log").write_text("fixture build success", encoding="utf-8")
+        for name, data in (
+            ("toolchain.json", {"profile": "fixture"}),
+            ("receipt.json", {"state": "completed"}),
+            (
+                "build.json",
+                {"state": "completed", "return_code": 0, "log": "build.log"},
+            ),
+        ):
+            (self.project / "evidence" / name).write_text(
+                json.dumps(data), encoding="utf-8"
+            )
+        (self.project / "evidence/build.log").write_text(
+            "fixture build success", encoding="utf-8"
+        )
         (self.project / "README.md").write_text("fixture", encoding="utf-8")
         self.model = self.engine / release.MODEL
         self.model.parent.mkdir(parents=True)
-        self.model.write_text("model fixture bytes; not a characterization", encoding="utf-8")
+        self.model.write_text(
+            "model fixture bytes; not a characterization", encoding="utf-8"
+        )
         self.selection = copy.deepcopy(SELECTION)
-        self.git_state = {"commit": COMMIT, "tree": "b" * 40, "status_porcelain": ""}
-        self.receipt_paths = ["evidence/receipt.json", "evidence/build.json", "evidence/build.log"]
-        self.receipt = {"path": "evidence/receipt.json", "record": {"state": "completed"},
-                        "engine_source_sha256": "c" * 64}
-        patches = [mock.patch.object(release, "_git_info", side_effect=lambda root: dict(self.git_state)),
-                   mock.patch.object(release, "_receipt_sources", side_effect=lambda *args: (self.receipt, self.receipt_paths)),
-                   mock.patch.object(release, "_model_info", side_effect=lambda *args: {
-                       "path": "engine-assets/" + release.MODEL, "sha256": release._sha(self.model),
-                       "characterization_verified": False, "source_confidence": "repository_claim_unverified",
-                       "declared_model": {"technology_node": "40nm", "units": {"power": "mW"}}})]
+        self.git_state = {
+            "commit": COMMIT,
+            "tree": "b" * 40,
+            "status_porcelain": "",
+        }
+        self.receipt_paths = [
+            "evidence/receipt.json",
+            "evidence/build.json",
+            "evidence/build.log",
+        ]
+        self.receipt = {
+            "path": "evidence/receipt.json",
+            "record": {"state": "completed"},
+            "engine_source_sha256": "c" * 64,
+        }
+        patches = [
+            mock.patch.object(
+                release,
+                "_git_info",
+                side_effect=lambda root: dict(self.git_state),
+            ),
+            mock.patch.object(
+                release,
+                "_receipt_sources",
+                side_effect=lambda *args: (self.receipt, self.receipt_paths),
+            ),
+            mock.patch.object(
+                release,
+                "_model_info",
+                side_effect=lambda *args: {
+                    "path": "engine-assets/" + release.MODEL,
+                    "sha256": release._sha(self.model),
+                    "characterization_verified": False,
+                    "source_confidence": "repository_claim_unverified",
+                    "declared_model": {
+                        "technology_node": "40nm",
+                        "units": {"power": "mW"},
+                    },
+                },
+            ),
+        ]
         for patcher in patches:
             patcher.start()
             self.addCleanup(patcher.stop)
 
     def inspect(self, **kwargs):
-        return release.inspect_release(self.project, self.engine, self.selection, **kwargs)
+        return release.inspect_release(
+            self.project, self.engine, self.selection, **kwargs
+        )
 
     def build(self, **kwargs):
-        return release.build_release(self.project, self.engine, self.selection, release_id="fixture-release", **kwargs)
+        return release.build_release(
+            self.project,
+            self.engine,
+            self.selection,
+            release_id="fixture-release",
+            **kwargs,
+        )
 
     def manifest(self, directory):
         return json.loads((Path(directory) / "release.json").read_text())
 
     def save_manifest(self, directory, manifest):
-        (Path(directory) / "release.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (Path(directory) / "release.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
 
-    def test_inspect_does_not_create_release_and_excludes_build_and_old_releases(self):
-        for relative in ("releases/old/secret.txt", "salam_workbench/__pycache__/cache.pyc", "tests/build/gem5.opt"):
+    def test_inspect_does_not_create_release_and_excludes_build_and_old_releases(
+        self,
+    ):
+        for relative in (
+            "releases/old/secret.txt",
+            "salam_workbench/__pycache__/cache.pyc",
+            "tests/build/gem5.opt",
+        ):
             path = self.project / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("not selected", encoding="utf-8")
         result = self.inspect()
         self.assertEqual(result["kind"], "local_release_plan")
         self.assertEqual(result["rerun"], "not_performed_by_packager")
-        self.assertFalse(any("secret.txt" in f["path"] or "gem5.opt" in f["path"] or "cache.pyc" in f["path"] for f in result["files"]))
+        self.assertFalse(
+            any(
+                "secret.txt" in f["path"]
+                or "gem5.opt" in f["path"]
+                or "cache.pyc" in f["path"]
+                for f in result["files"]
+            )
+        )
         self.assertFalse((self.project / "releases/fixture-release").exists())
         self.assertFalse(result["model"]["characterization_verified"])
 
@@ -88,7 +166,10 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["source_restore"], "external_engine_source_required")
         self.assertTrue(manifest["tooling"]["worktree_snapshot"])
         for entry in manifest["files"]:
-            self.assertEqual(release._sha(Path(result["directory"]) / entry["path"]), entry["sha256"])
+            self.assertEqual(
+                release._sha(Path(result["directory"]) / entry["path"]),
+                entry["sha256"],
+            )
 
     def test_existing_target_is_never_overwritten(self):
         target = self.project / "releases/fixture-release"
@@ -113,19 +194,31 @@ class ReleaseTests(unittest.TestCase):
         result = self.build()
         target = Path(result["directory"])
         original = self.manifest(target)
-        for entry in (dict(original["files"][0], path="../escape"), dict(original["files"][0])):
+        for entry in (
+            dict(original["files"][0], path="../escape"),
+            dict(original["files"][0]),
+        ):
             manifest = copy.deepcopy(original)
             manifest["files"].append(entry)
             self.save_manifest(target, manifest)
             check = release.verify_release(target)
             self.assertFalse(check["integrity_and_saved_evidence_passed"])
 
-    def test_selection_rejects_traversal_duplicates_and_missing_expectations(self):
-        for selection in (dict(SELECTION, session_directories=["../engine"]),
-                          dict(SELECTION, evidence_files=["evidence/build.log", "evidence/build.log"]),
-                          dict(SELECTION, run_directories=["runs/a"]),
-                          dict(SELECTION, session_directories=["evidence/../releases"])):
-            with self.subTest(selection=selection), self.assertRaises(release.ReleaseError):
+    def test_selection_rejects_traversal_duplicates_and_missing_expectations(
+        self,
+    ):
+        for selection in (
+            dict(SELECTION, session_directories=["../engine"]),
+            dict(
+                SELECTION,
+                evidence_files=["evidence/build.log", "evidence/build.log"],
+            ),
+            dict(SELECTION, run_directories=["runs/a"]),
+            dict(SELECTION, session_directories=["evidence/../releases"]),
+        ):
+            with self.subTest(selection=selection), self.assertRaises(
+                release.ReleaseError
+            ):
                 release._selection(selection)
 
     def test_symlink_escape_is_not_followed(self):
@@ -149,26 +242,43 @@ class ReleaseTests(unittest.TestCase):
             self.inspect()
 
     def test_missing_supported_evidence_fails(self):
-        self.selection["workloads"] = [{"id": "gemm", "status": "supported", "evidence": ["evidence/absent.json"], "limitations": []}]
+        self.selection["workloads"] = [
+            {
+                "id": "gemm",
+                "status": "supported",
+                "evidence": ["evidence/absent.json"],
+                "limitations": [],
+            }
+        ]
         with self.assertRaisesRegex(release.ReleaseError, "not an included file"):
             self.inspect()
 
     def test_output_inside_engine_or_curated_tree_is_rejected(self):
-        for output in (self.engine, self.project / "docs", self.project / "runs"):
-            with self.subTest(output=str(output)), self.assertRaisesRegex(release.ReleaseError, "must not be inside"):
+        for output in (
+            self.engine,
+            self.project / "docs",
+            self.project / "runs",
+        ):
+            with self.subTest(output=str(output)), self.assertRaisesRegex(
+                release.ReleaseError, "must not be inside"
+            ):
                 self.build(output_root=output)
 
     def test_changed_source_retains_failed_partial_release(self):
         original = shutil.copyfileobj
         changed = False
+
         def mutate(source, destination, length):
             nonlocal changed
             original(source, destination, length)
             if not changed:
                 self.model.write_text("changed during copy", encoding="utf-8")
                 changed = True
+
         with mock.patch.object(release.shutil, "copyfileobj", side_effect=mutate):
-            with self.assertRaisesRegex(release.ReleaseError, "partial release retained"):
+            with self.assertRaisesRegex(
+                release.ReleaseError, "partial release retained"
+            ):
                 self.build()
         target = self.project / "releases/fixture-release"
         self.assertTrue(target.exists())
@@ -178,31 +288,55 @@ class ReleaseTests(unittest.TestCase):
 
     def test_full_bundle_header_and_expected_head_are_pinned(self):
         bundle = self.root / "engine.bundle"
-        bundle.write_bytes(("# v2 git bundle\n" + COMMIT + " refs/heads/accepted\n\nPACK-fixture").encode())
-        with mock.patch.object(release, "_git", return_value="fixture verification") as git:
+        bundle.write_bytes(
+            (
+                "# v2 git bundle\n" + COMMIT + " refs/heads/accepted\n\nPACK-fixture"
+            ).encode()
+        )
+        with mock.patch.object(
+            release, "_git", return_value="fixture verification"
+        ) as git:
             result = self.build(engine_bundle=bundle)
         self.assertTrue(result["validation"]["integrity_and_saved_evidence_passed"])
         manifest = self.manifest(result["directory"])
         self.assertEqual(manifest["bundle"]["git_bundle_verify"], "passed")
-        self.assertEqual(manifest["bundle"]["fresh_restore"], "not_performed_by_packager")
+        self.assertEqual(
+            manifest["bundle"]["fresh_restore"], "not_performed_by_packager"
+        )
         self.assertTrue(any("bundle" in call.args for call in git.call_args_list))
 
     def test_incremental_bundle_and_dirty_engine_are_rejected(self):
         bundle = self.root / "engine.bundle"
-        bundle.write_bytes(("# v2 git bundle\n-" + "b" * 40 + " prerequisite\n" + COMMIT + " HEAD\n\nPACK").encode())
+        bundle.write_bytes(
+            (
+                "# v2 git bundle\n-"
+                + "b" * 40
+                + " prerequisite\n"
+                + COMMIT
+                + " HEAD\n\nPACK"
+            ).encode()
+        )
         with self.assertRaisesRegex(release.ReleaseError, "prerequisites"):
             self.inspect(engine_bundle=bundle)
         self.git_state["status_porcelain"] = " M src/file.cc"
         with self.assertRaisesRegex(release.ReleaseError, "omit working bytes"):
             self.inspect(engine_bundle=bundle)
 
-    def test_positive_evidence_is_rechecked_not_accepted_from_workload_label(self):
+    def test_positive_evidence_is_rechecked_not_accepted_from_workload_label(
+        self,
+    ):
         path = self.project / "runs/a"
         path.mkdir(parents=True)
         (path / "run.json").write_text("{}", encoding="utf-8")
         self.selection["run_directories"] = ["runs/a"]
         self.selection["run_expectations"] = {"runs/a": "passed"}
-        with mock.patch("salam_workbench.report.load_run", return_value={"correctness_verified": False, "issues": ["raw checker missing"]}):
+        with mock.patch(
+            "salam_workbench.report.load_run",
+            return_value={
+                "correctness_verified": False,
+                "issues": ["raw checker missing"],
+            },
+        ):
             result = self.build()
         self.assertFalse(result["validation"]["integrity_and_saved_evidence_passed"])
         self.assertFalse(result["validation"]["run_checks"][0]["passed"])
@@ -213,10 +347,22 @@ class ReleaseTests(unittest.TestCase):
         (path / "run.json").write_text("{}", encoding="utf-8")
         self.selection["run_directories"] = ["runs/negative"]
         self.selection["run_expectations"] = {"runs/negative": "intentional_failure"}
-        loaded = {"correctness_verified": False, "recorded_state": "failed", "record": {"return_code": 0},
-                  "experiment": {"negative_witness": {"expected_runner_state": "failed"}},
-                  "issues": ["Run state is not passed: failed", "Artifact verification failed: inputs/source.c"]}
-        with mock.patch("salam_workbench.report.load_run", return_value=loaded), mock.patch("salam_workbench.runner._read_correctness", return_value={"outcome": "failed"}):
+        loaded = {
+            "correctness_verified": False,
+            "recorded_state": "failed",
+            "record": {"return_code": 0},
+            "experiment": {"negative_witness": {"expected_runner_state": "failed"}},
+            "issues": [
+                "Run state is not passed: failed",
+                "Artifact verification failed: inputs/source.c",
+            ],
+        }
+        with mock.patch(
+            "salam_workbench.report.load_run", return_value=loaded
+        ), mock.patch(
+            "salam_workbench.runner._read_correctness",
+            return_value={"outcome": "failed"},
+        ):
             result = self.build()
         self.assertFalse(result["validation"]["run_checks"][0]["passed"])
 
@@ -225,32 +371,61 @@ class ReleaseTests(unittest.TestCase):
             path = self.project / "runs" / name
             path.mkdir(parents=True)
             (path / "run.json").write_text("{}", encoding="utf-8")
-        saved = {"kind": "gem5_repeat_comparison", "outcome": "matched", "repeatability_accepted": True,
-                 "runs": [{"run_id": "a"}, {"run_id": "b"}], "metrics": []}
+        saved = {
+            "kind": "gem5_repeat_comparison",
+            "outcome": "matched",
+            "repeatability_accepted": True,
+            "runs": [{"run_id": "a"}, {"run_id": "b"}],
+            "metrics": [],
+        }
         record = self.project / "evidence/comparison.json"
         record.write_text(json.dumps(saved), encoding="utf-8")
         self.selection["run_directories"] = ["runs/a", "runs/b"]
-        self.selection["run_expectations"] = {"runs/a": "passed", "runs/b": "passed"}
+        self.selection["run_expectations"] = {
+            "runs/a": "passed",
+            "runs/b": "passed",
+        }
         self.selection["evidence_files"] = ["evidence/comparison.json"]
-        self.selection["comparisons"] = [{"kind": "gem5_repeat_comparison", "runs": ["runs/a", "runs/b"], "record": "evidence/comparison.json"}]
+        self.selection["comparisons"] = [
+            {
+                "kind": "gem5_repeat_comparison",
+                "runs": ["runs/a", "runs/b"],
+                "record": "evidence/comparison.json",
+            }
+        ]
         return record, saved
 
     def test_comparison_recomputed_from_packaged_run_paths(self):
         record, fresh = self.setup_comparison()
-        with mock.patch("salam_workbench.report.load_run", return_value={"correctness_verified": True, "issues": []}), mock.patch("salam_workbench.report.compare_runs", return_value=fresh) as compare:
+        with mock.patch(
+            "salam_workbench.report.load_run",
+            return_value={"correctness_verified": True, "issues": []},
+        ), mock.patch(
+            "salam_workbench.report.compare_runs", return_value=fresh
+        ) as compare:
             result = self.build()
-        self.assertTrue(result["validation"]["integrity_and_saved_evidence_passed"], result["validation"]["issues"])
+        self.assertTrue(
+            result["validation"]["integrity_and_saved_evidence_passed"],
+            result["validation"]["issues"],
+        )
         self.assertTrue(result["validation"]["comparison_checks"][0]["accepted"])
-        compare.assert_called_once_with(Path(result["directory"]) / "project/runs/a", Path(result["directory"]) / "project/runs/b")
+        compare.assert_called_once_with(
+            Path(result["directory"]) / "project/runs/a",
+            Path(result["directory"]) / "project/runs/b",
+        )
 
     def test_stored_comparison_claim_is_not_trusted(self):
         record, fresh = self.setup_comparison()
         forged = dict(fresh, outcome="different")
         record.write_text(json.dumps(forged), encoding="utf-8")
-        with mock.patch("salam_workbench.report.load_run", return_value={"correctness_verified": True, "issues": []}), mock.patch("salam_workbench.report.compare_runs", return_value=fresh):
+        with mock.patch(
+            "salam_workbench.report.load_run",
+            return_value={"correctness_verified": True, "issues": []},
+        ), mock.patch("salam_workbench.report.compare_runs", return_value=fresh):
             result = self.build()
         self.assertFalse(result["validation"]["integrity_and_saved_evidence_passed"])
         self.assertFalse(result["validation"]["comparison_checks"][0]["accepted"])
+
     def test_output_symlink_is_rejected(self):
         outside = self.root / "outside"
         outside.mkdir()
@@ -271,7 +446,10 @@ class ReleaseTests(unittest.TestCase):
         self.save_manifest(target, manifest)
         check = release.verify_release(target)
         self.assertFalse(check["integrity_and_saved_evidence_passed"])
-        self.assertTrue(any("characterization boundary" in issue for issue in check["issues"]))
+        self.assertTrue(
+            any("characterization boundary" in issue for issue in check["issues"])
+        )
+
     def test_empty_or_incomplete_manifest_fails_closed(self):
         result = self.build()
         target = Path(result["directory"])
@@ -284,7 +462,11 @@ class ReleaseTests(unittest.TestCase):
 
 class ReleaseGitTests(unittest.TestCase):
     def test_git_commands_are_read_only_and_shell_free(self):
-        with mock.patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, COMMIT, "")) as run:
+        with mock.patch.object(
+            release.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, COMMIT, ""),
+        ) as run:
             release._git(Path("/fixture"), "rev-parse", "HEAD")
         args, kwargs = run.call_args
         self.assertIn("--no-optional-locks", args[0])

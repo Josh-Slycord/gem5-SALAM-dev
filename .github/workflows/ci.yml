@@ -1,139 +1,192 @@
-# gem5-SALAM Continuous Integration
-# Implements Phases 1 & 3 of CI/CD plan
-# Author: @agent_3 (CI/CD & Standards Orchestration)
-# Date: 2026-01-05
-
-name: CI
+name: Workbench source validation
 
 on:
   push:
-    branches:
-      - master
-      - main
-      - develop
-      - 'release/*'
+    branches: [main, 'codex/ci-workbench-*']
   pull_request:
-    branches:
-      - master
-      - main
-      - develop
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  # Phase 1: Lint checks
-  lint:
-    name: Code Style
+  source-only:
+    name: Python contracts and SALAM source generation
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Install Git and Python 3.8 system packages
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git build-essential python3.8 python3-pip python3.8-dev \
+            clang-12 llvm-12 gcc-arm-none-eabi libnewlib-dev \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-dev \
+            libegl1 libgl1 libopengl0 libglib2.0-0 libdbus-1-3 libxkbcommon-x11-0 \
+            libxcb-xinerama0 fontconfig fonts-dejavu-core
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Check out the exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          persist-credentials: false
 
-      - name: Install linting tools
+      - name: Install pinned Python source-validation dependencies
         run: |
-          pip install black==22.6.0 isort
+          set -euo pipefail
+          /usr/bin/python3.8 -m pip install --no-input pip==24.3.1
+          /usr/bin/python3.8 -m pip install --no-input -r .github/requirements-ci.txt
+          /usr/bin/python3.8 -c 'import yaml, PySide6.QtWidgets, networkx, numpy'
 
-      - name: Check formatting with black
-        run: black --check --diff .
+      - name: Select source-only engine without a build receipt
+        run: |
+          set -euo pipefail
+          /usr/bin/python3.8 -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          engine = Path(os.environ['GITHUB_WORKSPACE']).resolve(strict=True)
+          workbench = engine / 'workbench'
+          assert (workbench / 'salam_workbench').is_dir()
+          assert not (engine / 'build/ARM/gem5.opt').exists()
+          assert not (workbench / 'evidence/toolchain.json').exists()
+          selection = {'distribution': 'Ubuntu-20.04', 'path': str(engine)}
+          record = {'schema_version': 1, 'project': 'SALAM Research Workbench',
+                    'status': 'CI source fixture; no simulator build/receipt; never a runnable binding',
+                    'engine': dict(selection), 'configuration_engine': dict(selection)}
+          with (workbench / 'workspace.json').open('x', encoding='utf-8') as stream:
+              json.dump(record, stream, indent=2)
+              stream.write('\n')
+          (workbench / 'evidence/ci').mkdir(parents=True, exist_ok=True)
+          PY
 
-      - name: Check import ordering with isort
-        run: isort --check-only --diff .
+      - name: Check Python and curated configuration syntax
+        run: |
+          set -euo pipefail
+          /usr/bin/python3.8 -B - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+          import yaml
+          root = Path('workbench')
+          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts')
+                      for path in (root / folder).rglob('*.py')
+                      if 'vendor' not in path.parts)
+          js = sorted((root / 'experiments').rglob('*.json'))
+          ym = sorted(list((root / 'experiments').rglob('*.yml')) +
+                      list((root / 'experiments').rglob('*.yaml')))
+          assert py and js and ym
+          for path in py:
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          for path in js:
+              json.loads(path.read_text(encoding='utf-8'))
+          for path in ym:
+              list(yaml.safe_load_all(path.read_text(encoding='utf-8')))
+          print('Parsed {} Python, {} JSON, {} YAML files'.format(len(py), len(js), len(ym)))
+          PY
 
-  # Phase 1: Pre-commit hooks
-  pre-commit:
-    name: Pre-commit Hooks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Run fast, config, and GUI source-only unit tiers
+        working-directory: workbench
+        run: |
+          set -euo pipefail
+          for tier in fast config gui; do
+            /usr/bin/python3.8 -B -m salam_workbench.checks \
+              --internal-unit-tier "$tier" --unit-result "evidence/ci/${tier}.json"
+          done
+          /usr/bin/python3.8 -B - <<'PY'
+          import json
+          from pathlib import Path
+          selected = set()
+          for tier in ('fast', 'config', 'gui'):
+              receipt = json.loads((Path('evidence/ci') / (tier + '.json')).read_text())
+              if not receipt.get('success') or not receipt.get('available'):
+                  raise SystemExit(tier + ' did not pass')
+              for key in ('skipped', 'failures', 'errors', 'unassigned_test_files'):
+                  if receipt.get(key):
+                      raise SystemExit(tier + ' has ' + key + ': ' + repr(receipt[key]))
+              tests = receipt.get('selected_tests', [])
+              if not tests or len(tests) != receipt.get('tests_run') or selected.intersection(tests):
+                  raise SystemExit(tier + ' test selection/count is incomplete')
+              selected.update(tests)
+          print('Passed {} distinct source-only unit tests'.format(len(selected)))
+          PY
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Generate GEMM hardware source outside the checkout
+        working-directory: workbench
+        run: |
+          set -euo pipefail
+          /usr/bin/python3.8 -B -m salam_workbench.configurator hardware \
+            --engine "$GITHUB_WORKSPACE" --benchmark-name gemm \
+            --model 40nm_model --period 5ns --profile default_profile \
+            --evidence-dir "$RUNNER_TEMP/salam-hardware-generation"
+          /usr/bin/python3.8 -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE']).resolve(strict=True)
+          evidence = Path(os.environ['RUNNER_TEMP']) / 'salam-hardware-generation'
+          receipt_path = evidence / 'hardware-codegen.json'
+          receipt = json.loads(receipt_path.read_text())
+          stage = Path(receipt['staged_engine_root']).resolve(strict=True)
+          if stage == root or root in stage.parents:
+              raise SystemExit('Generation staged inside checkout')
+          outputs = receipt.get('outputs', [])
+          if (receipt.get('state') != 'generated' or receipt.get('valid') is not True
+                  or receipt.get('errors') or receipt.get('build_consumer_issues')
+                  or len(outputs) != 129):
+              raise SystemExit('GEMM source generation is incomplete')
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          for item in outputs:
+              relative = Path(item['relative_path'])
+              if relative.is_absolute() or '..' in relative.parts:
+                  raise SystemExit('Unsafe generated output path')
+              expected = item['sha256']
+              if digest(stage / relative) != expected or digest(root / relative) != expected:
+                  raise SystemExit('Generated source differs: ' + str(relative))
+          witness = {'kind': 'source_only_hardware_generation', 'state': 'passed',
+                     'generated_outputs_checked': len(outputs), 'source_matches': len(outputs),
+                     'simulator_built': False, 'simulator_run': False,
+                     'generation_receipt_sha256': digest(receipt_path)}
+          output = root / 'workbench/evidence/ci/generation'
+          output.mkdir(parents=True, exist_ok=True)
+          (output / 'generation-witness.json').write_text(
+              json.dumps(witness, indent=2) + '\n')
+          print(json.dumps(witness))
+          PY
+
+      - name: Preserve hardware-generation receipt and logs
+        if: always()
+        run: |
+          mkdir -p workbench/evidence/ci/generation
+          for name in hardware-codegen.json generator.stdout generator.stderr; do
+            if [ -f "$RUNNER_TEMP/salam-hardware-generation/$name" ]; then
+              cp "$RUNNER_TEMP/salam-hardware-generation/$name" \
+                "workbench/evidence/ci/generation/$name"
+            fi
+          done
+
+      - name: Check scoped source and documentation hygiene
+        run: pre-commit run --all-files --show-diff-on-failure
+
+      - name: Upload source-only validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
-
-  # Phase 3: SALAM-Configurator Validation
-  validate-configs:
-    name: SALAM-Configurator Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          pip install PyYAML pydot
-
-      - name: Validate SALAM-Configurator generation
-        run: |
-          export M5_PATH=$(pwd)
-          python SALAM-Configurator/validate_generation.py --verbose
-        env:
-          M5_PATH: ${{ github.workspace }}
-
-  # Python tests (when available)
-  test:
-    name: Python Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          pip install pytest pytest-cov
-
-      - name: Run pyunit tests
-        run: |
-          if [ -d tests/pyunit ]; then
-            cd tests && python run_pyunit.py
-          else
-            echo "No pyunit tests found, skipping"
-          fi
-
-  # Type checking
-  typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install mypy
-        run: pip install mypy types-PyYAML
-
-      - name: Run mypy on SALAM-Configurator
-        run: |
-          mypy SALAM-Configurator/ \
-            --ignore-missing-imports \
-            --no-error-summary \
-            || echo "Type check completed with warnings"
-        continue-on-error: true
+          name: workbench-source-validation
+          path: workbench/evidence/ci/
+          if-no-files-found: warn
+          retention-days: 14

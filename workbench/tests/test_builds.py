@@ -1,9 +1,14 @@
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
-from salam_workbench.builds import selected_receipt, verify_receipt, select_receipt, write_receipt_new
+from salam_workbench.builds import (
+    select_receipt,
+    selected_receipt,
+    verify_receipt,
+    write_receipt_new,
+)
 from salam_workbench.runner import file_hash
 
 
@@ -18,7 +23,8 @@ class BuildReceiptTests(unittest.TestCase):
         (self.root / "evidence").mkdir()
         (self.root / "evidence/toolchain.json").write_text('{"id":"fixture"}')
         self.receipt = {
-            "schema_version": 1, "state": "completed",
+            "schema_version": 1,
+            "state": "completed",
             "binary_sha256": file_hash(self.engine / "build/ARM/gem5.opt"),
             "engine_source_sha256": "source-fixture",
             "toolchain_sha256": file_hash(self.root / "evidence/toolchain.json"),
@@ -57,8 +63,15 @@ class BuildReceiptTests(unittest.TestCase):
             verify_receipt(self.root, self.engine, "source-fixture")
 
     def test_external_receipts_and_traversal_are_rejected(self):
-        for value in ("../receipt.json", "/tmp/receipt.json", "C:/receipt.json", "evidence\\receipt.json"):
-            (self.root / "workspace.json").write_text(json.dumps({"engine": {"build_receipt": value}}))
+        for value in (
+            "../receipt.json",
+            "/tmp/receipt.json",
+            "C:/receipt.json",
+            "evidence\\receipt.json",
+        ):
+            (self.root / "workspace.json").write_text(
+                json.dumps({"engine": {"build_receipt": value}})
+            )
             with self.subTest(value=value), self.assertRaises(ValueError):
                 selected_receipt(self.root)
 

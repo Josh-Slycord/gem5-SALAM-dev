@@ -25,6 +25,10 @@ The validated environment is Ubuntu 20.04 under WSL2, Python 3.8, LLVM/Clang 12,
 
 WSLg can display the Linux Qt GUI on the Windows desktop. A Windows shortcut can launch it without opening a WSL terminal. The [packaging guide](workbench/docs/PACKAGING.md) compares that approach with a pinned Docker environment, an exportable WSL appliance, a full VM and a future native Windows front end.
 
+## CI scope
+
+[CI scope](docs/CI.md) distinguishes source-only unit and generation checks from the local numerical simulations. The hosted job uses a pinned Ubuntu 20.04 container, read-only permissions and immutable action pins. Legacy whole-tree style/type debt and the separate simulator nightly are documented explicitly.
+
 ## Source, evidence and upstream
 
 The repository contains source, required materialized build inputs, deterministic fixtures and authored findings. Raw simulation output, machine-specific configuration and binaries remain in ignored local storage. [Output and Git policy](workbench/docs/HYGIENE.md) explains those boundaries.

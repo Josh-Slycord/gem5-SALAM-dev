@@ -1,10 +1,9 @@
 """Effective gem5 system option witnesses from raw config and live classes."""
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from salam_workbench.system_witness import capture_system, witness_system
-
 
 INI = """[system]
 mem_ranges=0:4096
@@ -47,30 +46,50 @@ class SystemWitnessTests(unittest.TestCase):
 
     def test_distinct_requested_knobs_match_effective_state(self):
         requested = {
-            "mem-size": "4kB", "cpu-type": "DerivO3CPU", "num-cpus": 1,
-            "cacheline-size": 64, "caches": True, "l2cache": True,
-            "l1i-size": "1kB", "l1d-size": "2kB", "l2-size": "4MB",
-            "l1i-assoc": 2, "l1d-assoc": 4, "l2-assoc": 8,
-            "sys-clock": "1GHz", "cpu-clock": "2GHz",
-            "mem-channels": 1, "mem-ranks": 2,
+            "mem-size": "4kB",
+            "cpu-type": "DerivO3CPU",
+            "num-cpus": 1,
+            "cacheline-size": 64,
+            "caches": True,
+            "l2cache": True,
+            "l1i-size": "1kB",
+            "l1d-size": "2kB",
+            "l2-size": "4MB",
+            "l1i-assoc": 2,
+            "l1d-assoc": 4,
+            "l2-assoc": 8,
+            "sys-clock": "1GHz",
+            "cpu-clock": "2GHz",
+            "mem-channels": 1,
+            "mem-ranks": 2,
             "mem-type": "DDR4_2400_8x8",
-            "machine-type": "VExpress_GEM5_V1", "dtb-file": "none",
+            "machine-type": "VExpress_GEM5_V1",
+            "dtb-file": "none",
         }
-        live = {"dram_classes": ["DDR4_2400_8x8"],
-                "platform_class": "VExpress_GEM5_V1"}
-        result = witness_system(self.ini, requested, stats_path=self.stats,
-                                runtime_system=live)
+        live = {
+            "dram_classes": ["DDR4_2400_8x8"],
+            "platform_class": "VExpress_GEM5_V1",
+        }
+        result = witness_system(
+            self.ini, requested, stats_path=self.stats, runtime_system=live
+        )
         self.assertEqual(result["state"], "passed")
         self.assertFalse(result["issues"])
         self.assertFalse(result["unmapped_options"])
-        self.assertTrue(all(item["status"] == "passed"
-                            for item in result["checks"].values()))
+        self.assertTrue(
+            all(item["status"] == "passed" for item in result["checks"].values())
+        )
 
     def test_mismatch_and_unwitnessed_options_remain_distinct(self):
         result = witness_system(
-            self.ini, {"mem-size": "8kB", "bare-metal": True,
-                       "mem-type": "DDR4_2400_8x8"},
-            stats_path=self.stats)
+            self.ini,
+            {
+                "mem-size": "8kB",
+                "bare-metal": True,
+                "mem-type": "DDR4_2400_8x8",
+            },
+            stats_path=self.stats,
+        )
         self.assertEqual(result["state"], "failed")
         self.assertEqual(result["checks"]["mem-size"]["status"], "failed")
         self.assertEqual(result["checks"]["bare-metal"]["status"], "unwitnessed")
@@ -81,7 +100,9 @@ class SystemWitnessTests(unittest.TestCase):
         result = witness_system(self.ini, {"caches": True}, stats_path=self.stats)
         self.assertEqual(result["state"], "failed")
 
-    def test_capture_system_reports_live_classes_without_simulator_imports(self):
+    def test_capture_system_reports_live_classes_without_simulator_imports(
+        self,
+    ):
         class DDR4_2400_8x8:
             pass
 

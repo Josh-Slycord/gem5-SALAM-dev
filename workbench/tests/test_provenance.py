@@ -2,7 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from salam_workbench.provenance import RUNTIME_FILES, snapshot_tooling, assert_tooling_unchanged
+from salam_workbench.provenance import (
+    RUNTIME_FILES,
+    assert_tooling_unchanged,
+    snapshot_tooling,
+)
 
 
 class ToolingSnapshotTests(unittest.TestCase):
@@ -15,7 +19,10 @@ class ToolingSnapshotTests(unittest.TestCase):
             output = root / "snapshot"
             hashes = snapshot_tooling(root, output)
             assert_tooling_unchanged(root, hashes)
-            self.assertEqual((output / "salam_workbench/gemm.py").read_bytes(), b"# fixture\r\n")
+            self.assertEqual(
+                (output / "salam_workbench/gemm.py").read_bytes(),
+                b"# fixture\r\n",
+            )
             (root / "salam_workbench/gemm.py").write_bytes(b"# modified\n")
             with self.assertRaisesRegex(RuntimeError, "changed during experiment"):
                 assert_tooling_unchanged(root, hashes)

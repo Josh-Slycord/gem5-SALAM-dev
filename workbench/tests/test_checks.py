@@ -1,9 +1,9 @@
 """Check receipts use harmless child programs; no simulator or compiler is run."""
 import json
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from salam_workbench import checks
@@ -27,16 +27,32 @@ class CheckTests(unittest.TestCase):
         def make(tier, project, evidence, engine, **options):
             code = script
             if code is None:
-                code = ("from pathlib import Path; import json; "
-                        "Path(" + repr(str(evidence / "unit-results.json")) + ").write_text("
-                        "json.dumps({'success': True, 'tests_run': 1, 'available': True})); "
-                        "print('harmless check fixture')")
-            return [{"name": "fixture", "argv": [sys.executable, "-B", "-c", code],
-                     "cwd": str(project), "environment_overrides": {}}]
+                code = (
+                    "from pathlib import Path; import json; "
+                    "Path("
+                    + repr(str(evidence / "unit-results.json"))
+                    + ").write_text("
+                    "json.dumps({'success': True, 'tests_run': 1, 'available': True})); "
+                    "print('harmless check fixture')"
+                )
+            return [
+                {
+                    "name": "fixture",
+                    "argv": [sys.executable, "-B", "-c", code],
+                    "cwd": str(project),
+                    "environment_overrides": {},
+                }
+            ]
+
         return mock.patch.object(checks, "build_plan", side_effect=make)
 
     def run_fixture(self, **options):
-        return checks.run_checks("fast", project_root=self.project, evidence_root=self.evidence, **options)
+        return checks.run_checks(
+            "fast",
+            project_root=self.project,
+            evidence_root=self.evidence,
+            **options,
+        )
 
     def test_pass_retains_commands_logs_sources_and_hashes(self):
         with self.plan():
@@ -48,10 +64,18 @@ class CheckTests(unittest.TestCase):
         directory = Path(result["evidence_directory"])
         snapshot = directory / "source-snapshot/files/salam_workbench/fixture.py"
         self.assertEqual(snapshot.read_bytes(), self.source.read_bytes())
-        self.assertIn("harmless check fixture", (directory / "00-fixture.stdout").read_text())
+        self.assertIn(
+            "harmless check fixture",
+            (directory / "00-fixture.stdout").read_text(),
+        )
         for artifact in result["artifacts"]:
-            self.assertEqual(file_hash(directory / artifact["path"]), artifact["sha256"])
-        self.assertEqual(json.loads((directory / "check.json").read_text())["state"], "passed")
+            self.assertEqual(
+                file_hash(directory / artifact["path"]), artifact["sha256"]
+            )
+        self.assertEqual(
+            json.loads((directory / "check.json").read_text())["state"],
+            "passed",
+        )
 
     def test_failure_preserves_output_without_claiming_validation(self):
         with self.plan("import sys; print('before failure'); sys.exit(7)"):
@@ -59,7 +83,10 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(result["state"], "failed")
         self.assertEqual(result["steps"][0]["return_code"], 7)
         self.assertNotIn("validation_result", result)
-        self.assertIn("before failure", (self.evidence / "failure/00-fixture.stdout").read_text())
+        self.assertIn(
+            "before failure",
+            (self.evidence / "failure/00-fixture.stdout").read_text(),
+        )
 
     def test_missing_required_result_cannot_pass_exit_zero(self):
         with self.plan("print('no structured test result')"):
@@ -75,16 +102,25 @@ class CheckTests(unittest.TestCase):
         self.assertIsNotNone(result["steps"][0]["return_code"])
 
     def test_source_mutation_keeps_snapshot_and_invalidates_pass(self):
-        code = ("from pathlib import Path; import json; "
-                "Path(" + repr(str(self.source)) + ").write_text('# changed source\\n'); "
-                "Path(" + repr(str(self.evidence / "mutation/unit-results.json")) + ").write_text("
-                "json.dumps({'success': True, 'available': True}))")
+        code = (
+            "from pathlib import Path; import json; "
+            "Path(" + repr(str(self.source)) + ").write_text('# changed source\\n'); "
+            "Path("
+            + repr(str(self.evidence / "mutation/unit-results.json"))
+            + ").write_text("
+            "json.dumps({'success': True, 'available': True}))"
+        )
         with self.plan(code):
             result = self.run_fixture(check_id="mutation")
         self.assertEqual(result["state"], "incomplete")
         self.assertFalse(result["tooling_unchanged"])
-        self.assertEqual((self.evidence / "mutation/source-snapshot/files/salam_workbench/fixture.py").read_text(),
-                         "# original source\n")
+        self.assertEqual(
+            (
+                self.evidence
+                / "mutation/source-snapshot/files/salam_workbench/fixture.py"
+            ).read_text(),
+            "# original source\n",
+        )
 
     def test_reused_id_refuses_to_replace_previous_receipt(self):
         with self.plan():
@@ -104,38 +140,66 @@ class CheckTests(unittest.TestCase):
 
     def test_simulation_refusal_is_durable_and_does_not_execute(self):
         with mock.patch.object(checks, "_execute_step") as execute:
-            result = checks.run_checks("gemm", project_root=self.project, engine=self.engine,
-                                       evidence_root=self.evidence, check_id="no-simulation")
+            result = checks.run_checks(
+                "gemm",
+                project_root=self.project,
+                engine=self.engine,
+                evidence_root=self.evidence,
+                check_id="no-simulation",
+            )
         execute.assert_not_called()
         self.assertEqual(result["state"], "failed")
-        self.assertTrue(any("--allow-simulation" in issue for issue in result["issues"]))
+        self.assertTrue(
+            any("--allow-simulation" in issue for issue in result["issues"])
+        )
         self.assertTrue((self.evidence / "no-simulation/check.json").is_file())
 
     def test_gemm_plan_requires_separate_build_permission(self):
         evidence = self.evidence / "allowed"
-        plan = checks.build_plan("gemm", self.project, evidence, self.engine, allow_simulation=True)
+        plan = checks.build_plan(
+            "gemm", self.project, evidence, self.engine, allow_simulation=True
+        )
         self.assertNotIn("--build-engine", plan[0]["argv"])
-        self.assertEqual(plan[0]["argv"][plan[0]["argv"].index("--runs-root") + 1], str(evidence / "runs"))
-        built = checks.build_plan("gemm", self.project, evidence, self.engine,
-                                  allow_simulation=True, build_engine=True)
+        self.assertEqual(
+            plan[0]["argv"][plan[0]["argv"].index("--runs-root") + 1],
+            str(evidence / "runs"),
+        )
+        built = checks.build_plan(
+            "gemm",
+            self.project,
+            evidence,
+            self.engine,
+            allow_simulation=True,
+            build_engine=True,
+        )
         self.assertIn("--build-engine", built[0]["argv"])
         with self.assertRaises(ValueError):
             checks.build_plan("fast", self.project, evidence, build_engine=True)
 
     def test_missing_compiler_is_unavailable_not_passed(self):
         with mock.patch.object(checks.shutil, "which", return_value=None):
-            result = checks.run_checks("collector", project_root=self.project, engine=self.engine,
-                                       evidence_root=self.evidence, check_id="no-compiler")
+            result = checks.run_checks(
+                "collector",
+                project_root=self.project,
+                engine=self.engine,
+                evidence_root=self.evidence,
+                check_id="no-compiler",
+            )
         self.assertEqual(result["state"], "unavailable")
         self.assertEqual(result["steps"], [])
 
     def test_collector_compiles_only_into_new_evidence_directory(self):
-        for relative in ("src/hwacc/workbench_statistics.hh", "src/hwacc/tests/test_workbench_statistics.cc"):
+        for relative in (
+            "src/hwacc/workbench_statistics.hh",
+            "src/hwacc/tests/test_workbench_statistics.cc",
+        ):
             path = self.engine / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("// synthetic planning fixture\n")
         with mock.patch.object(checks.shutil, "which", return_value=sys.executable):
-            plan = checks.build_plan("collector", self.project, self.evidence, self.engine)
+            plan = checks.build_plan(
+                "collector", self.project, self.evidence, self.engine
+            )
         output = Path(plan[1]["argv"][plan[1]["argv"].index("-o") + 1])
         output.relative_to(self.evidence)
         self.assertEqual(plan[2]["argv"], [str(output)])
@@ -145,10 +209,16 @@ class CheckTests(unittest.TestCase):
         candidate = mock.Mock()
         candidate.id.return_value = "test_offline_viewer.Tests.test_offscreen_window"
         self.assertTrue(checks._gui_test(candidate))
-        candidate.id.return_value = "test_offline_viewer.Tests.test_historical_unavailable"
+        candidate.id.return_value = (
+            "test_offline_viewer.Tests.test_historical_unavailable"
+        )
         self.assertFalse(checks._gui_test(candidate))
         destination = self.root / "unavailable.json"
-        with mock.patch.object(checks.importlib, "import_module", side_effect=ImportError("missing Qt fixture")):
+        with mock.patch.object(
+            checks.importlib,
+            "import_module",
+            side_effect=ImportError("missing Qt fixture"),
+        ):
             status = checks.run_unit_tier("gui", destination)
         result = json.loads(destination.read_text())
         self.assertEqual(status, 2)
@@ -171,35 +241,47 @@ class CheckTests(unittest.TestCase):
         session = self.project / "evidence/gemm-fixture"
         session.mkdir(parents=True)
         paths = [check_dir / "runs" / name for name in ("a", "b", "negative")]
-        document = {"state": "passed",
-                    "baseline_runs": [{"directory": str(path)} for path in paths[:2]],
-                    "negative_witness": {"directory": str(paths[2])}}
+        document = {
+            "state": "passed",
+            "baseline_runs": [{"directory": str(path)} for path in paths[:2]],
+            "negative_witness": {"directory": str(paths[2])},
+        }
         (session / "session.json").write_text(json.dumps(document))
         output = check_dir / "00-gemm-reproduction.stdout"
         output.write_text("Session evidence: " + str(session) + "\n")
-        negative = {"recorded_state": "failed", "raw_correctness": {"outcome": "failed"},
-                    "verified_required_artifacts": {"guest": True}, "issues": ["Run state is not passed: failed"]}
+        negative = {
+            "recorded_state": "failed",
+            "raw_correctness": {"outcome": "failed"},
+            "verified_required_artifacts": {"guest": True},
+            "issues": ["Run state is not passed: failed"],
+        }
         return output, session, document, negative
 
     def test_gemm_verifier_revalidates_raw_negative_and_fresh_comparison(self):
         output, session, document, negative = self.gemm_session()
         destination = output.parent / "validation.json"
-        with mock.patch.object(checks, "PROJECT", self.project), \
-                mock.patch("salam_workbench.report.compare_runs", return_value={"repeatability_accepted": True, "issues": []}) as compare, \
-                mock.patch("salam_workbench.report.load_run", return_value=negative) as load:
+        with mock.patch.object(checks, "PROJECT", self.project), mock.patch(
+            "salam_workbench.report.compare_runs",
+            return_value={"repeatability_accepted": True, "issues": []},
+        ) as compare, mock.patch(
+            "salam_workbench.report.load_run", return_value=negative
+        ) as load:
             self.assertEqual(checks._verify_gemm(output, destination), 0)
             compare.assert_called_once()
             load.assert_called_once()
             negative["verified_required_artifacts"]["guest"] = False
             self.assertEqual(checks._verify_gemm(output, destination), 1)
-        self.assertFalse(json.loads(destination.read_text())["negative_witness_verified"])
+        self.assertFalse(
+            json.loads(destination.read_text())["negative_witness_verified"]
+        )
 
     def test_gemm_verifier_rejects_old_or_unrelated_run_directories(self):
         output, session, document, negative = self.gemm_session()
         document["baseline_runs"][0]["directory"] = str(self.root / "old-run")
         (session / "session.json").write_text(json.dumps(document))
-        with mock.patch.object(checks, "PROJECT", self.project), \
-                mock.patch("salam_workbench.report.compare_runs") as compare:
+        with mock.patch.object(checks, "PROJECT", self.project), mock.patch(
+            "salam_workbench.report.compare_runs"
+        ) as compare:
             with self.assertRaises(ValueError):
                 checks._verify_gemm(output, output.parent / "validation.json")
         compare.assert_not_called()
@@ -208,8 +290,9 @@ class CheckTests(unittest.TestCase):
         output, session, document, negative = self.gemm_session()
         document["baseline_runs"][1] = dict(document["baseline_runs"][0])
         (session / "session.json").write_text(json.dumps(document))
-        with mock.patch.object(checks, "PROJECT", self.project), \
-                mock.patch("salam_workbench.report.compare_runs") as compare:
+        with mock.patch.object(checks, "PROJECT", self.project), mock.patch(
+            "salam_workbench.report.compare_runs"
+        ) as compare:
             with self.assertRaisesRegex(ValueError, "two distinct"):
                 checks._verify_gemm(output, output.parent / "validation.json")
         compare.assert_not_called()

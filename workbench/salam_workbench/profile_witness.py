@@ -4,12 +4,19 @@ This checks parameter transport, not model calibration or measured energy.
 """
 import ast
 import configparser
-from decimal import Decimal, InvalidOperation
 import hashlib
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-FLOAT_FIELDS = ("internal_power", "switch_power", "dynamic_power",
-                "dynamic_energy", "leakage_power", "area", "path_delay")
+FLOAT_FIELDS = (
+    "internal_power",
+    "switch_power",
+    "dynamic_power",
+    "dynamic_energy",
+    "leakage_power",
+    "area",
+    "path_delay",
+)
 UNIT_FIELDS = ("power_units", "energy_units", "time_units", "area_units")
 FIELDS = UNIT_FIELDS + ("fu_latency",) + FLOAT_FIELDS
 NUMERIC = FLOAT_FIELDS + ("fu_latency",)
@@ -25,8 +32,8 @@ def _sha(path):
 def _registry(source):
     for node in ast.parse(source).body:
         if isinstance(node, ast.Assign) and any(
-                isinstance(t, ast.Name) and t.id == "_FU_REGISTRY"
-                for t in node.targets):
+            isinstance(t, ast.Name) and t.id == "_FU_REGISTRY" for t in node.targets
+        ):
             if not isinstance(node.value, ast.Dict):
                 raise ValueError("_FU_REGISTRY must be a literal dictionary")
             items = {}
@@ -55,11 +62,15 @@ def _defaults(source, names):
             if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
                 continue
             target, call = statement.targets[0], statement.value
-            if (not isinstance(target, ast.Name) or target.id not in FIELDS or
-                    not isinstance(call, ast.Call) or not call.args or
-                    not isinstance(call.func, ast.Attribute) or
-                    not isinstance(call.func.value, ast.Name) or
-                    call.func.value.id != "Param"):
+            if (
+                not isinstance(target, ast.Name)
+                or target.id not in FIELDS
+                or not isinstance(call, ast.Call)
+                or not call.args
+                or not isinstance(call.func, ast.Attribute)
+                or not isinstance(call.func.value, ast.Name)
+                or call.func.value.id != "Param"
+            ):
                 continue
             literal = ast.get_source_segment(source, call.args[0])
             value = ast.literal_eval(call.args[0])
@@ -72,8 +83,9 @@ def _defaults(source, names):
             fields[target.id] = (value, literal, call.func.attr)
         classes[node.name] = fields
     if names - classes.keys():
-        raise ValueError("Missing generated classes: " +
-                         ", ".join(sorted(names - classes.keys())))
+        raise ValueError(
+            "Missing generated classes: " + ", ".join(sorted(names - classes.keys()))
+        )
     return classes
 
 
@@ -86,8 +98,7 @@ def _same(field, expected, observed):
         return False
     if not actual.is_finite() or not wanted.is_finite():
         return False
-    return abs(actual - wanted) <= max(Decimal("1e-12"),
-                                      abs(wanted) * Decimal("1e-6"))
+    return abs(actual - wanted) <= max(Decimal("1e-12"), abs(wanted) * Decimal("1e-6"))
 
 
 def _plain(value):
@@ -101,11 +112,18 @@ def witness_profiles(engine_root, config_ini, *, parameter_overrides=None):
     Engine Python is parsed as source; it is never imported or executed.
     """
     root, ini = Path(engine_root), Path(config_ini)
-    result = {"state": "failed", "checks": [], "issues": [], "source_hashes": {},
-              "model_claims": {"coefficient_transport_verified": False,
-                               "calibration_verified": None,
-                               "measured_power_or_energy": False,
-                               "scope": "generated SimObject defaults versus config.ini"}}
+    result = {
+        "state": "failed",
+        "checks": [],
+        "issues": [],
+        "source_hashes": {},
+        "model_claims": {
+            "coefficient_transport_verified": False,
+            "calibration_verified": None,
+            "measured_power_or_energy": False,
+            "scope": "generated SimObject defaults versus config.ini",
+        },
+    }
     overrides = parameter_overrides or {}
     if not isinstance(overrides, dict):
         result["issues"].append({"kind": "invalid_overrides"})
@@ -122,14 +140,21 @@ def witness_profiles(engine_root, config_ini, *, parameter_overrides=None):
     result["source_hashes"]["config.ini"] = _sha(ini)
     try:
         registry = _registry((root / REGISTRY).read_text(encoding="utf-8"))
-        defaults = _defaults((root / DEFAULTS).read_text(encoding="utf-8"),
-                             set(registry.values()))
+        defaults = _defaults(
+            (root / DEFAULTS).read_text(encoding="utf-8"),
+            set(registry.values()),
+        )
         parser = configparser.ConfigParser(interpolation=None, strict=True)
         parser.optionxform = str
         with ini.open(encoding="utf-8") as stream:
             parser.read_file(stream)
-    except (OSError, UnicodeError, SyntaxError, ValueError,
-            configparser.Error) as error:
+    except (
+        OSError,
+        UnicodeError,
+        SyntaxError,
+        ValueError,
+        configparser.Error,
+    ) as error:
         result["issues"].append({"kind": "parse_error", "detail": str(error)})
         return result
     groups = {}
@@ -143,56 +168,93 @@ def witness_profiles(engine_root, config_ini, *, parameter_overrides=None):
         return result
     for accelerator, sections in sorted(groups.items()):
         for name in sorted(sections.keys() - registry.keys()):
-            result["issues"].append({"kind": "unknown_functional_unit",
-                                     "section": sections[name]})
+            result["issues"].append(
+                {"kind": "unknown_functional_unit", "section": sections[name]}
+            )
         for name, class_name in registry.items():
             section = sections.get(name)
             if section is None:
-                result["issues"].append({"kind": "missing_functional_unit",
-                                         "accelerator": accelerator,
-                                         "functional_unit": name})
+                result["issues"].append(
+                    {
+                        "kind": "missing_functional_unit",
+                        "accelerator": accelerator,
+                        "functional_unit": name,
+                    }
+                )
                 continue
             declared = overrides.get(section, {})
             if not isinstance(declared, dict):
-                result["issues"].append({"kind": "invalid_section_overrides",
-                                         "section": section})
+                result["issues"].append(
+                    {"kind": "invalid_section_overrides", "section": section}
+                )
                 continue
             for field in FIELDS:
                 source = defaults[class_name].get(field)
                 if source is None:
-                    result["issues"].append({"kind": "missing_source_default",
-                                             "section": section, "field": field})
+                    result["issues"].append(
+                        {
+                            "kind": "missing_source_default",
+                            "section": section,
+                            "field": field,
+                        }
+                    )
                     continue
                 default, literal, param_type = source
                 explicit = field in declared
                 expected = declared[field] if explicit else default
-                origin = ("explicit_parameter_override" if explicit
-                          else "generated_source_default")
+                origin = (
+                    "explicit_parameter_override"
+                    if explicit
+                    else "generated_source_default"
+                )
                 present = parser.has_option(section, field)
                 actual = parser.get(section, field) if present else None
                 passed = present and _same(field, expected, actual)
-                result["checks"].append({
-                    "accelerator": accelerator, "section": section,
-                    "functional_unit": name, "class": class_name, "field": field,
-                    "expected": _plain(expected), "observed": actual,
-                    "origin": origin, "source_default": _plain(default),
-                    "source_literal": literal, "source_param_type": param_type,
-                    "status": "passed" if passed else "failed"})
+                result["checks"].append(
+                    {
+                        "accelerator": accelerator,
+                        "section": section,
+                        "functional_unit": name,
+                        "class": class_name,
+                        "field": field,
+                        "expected": _plain(expected),
+                        "observed": actual,
+                        "origin": origin,
+                        "source_default": _plain(default),
+                        "source_literal": literal,
+                        "source_param_type": param_type,
+                        "status": "passed" if passed else "failed",
+                    }
+                )
                 if not passed:
-                    result["issues"].append({
-                        "kind": "missing_profile_field" if not present
-                                else "profile_mismatch",
-                        "section": section, "field": field,
-                        "expected": _plain(expected), "observed": actual,
-                        "origin": origin})
-                if (field in FLOAT_FIELDS and
-                        param_type in ("UInt32", "UInt64", "Int32", "Int64") and
-                        default != default.to_integral_value()):
-                    result["issues"].append({
-                        "kind": "lossy_source_param_type", "section": section,
-                        "field": field, "param_type": param_type,
-                        "source_default": _plain(default)})
+                    result["issues"].append(
+                        {
+                            "kind": "missing_profile_field"
+                            if not present
+                            else "profile_mismatch",
+                            "section": section,
+                            "field": field,
+                            "expected": _plain(expected),
+                            "observed": actual,
+                            "origin": origin,
+                        }
+                    )
+                if (
+                    field in FLOAT_FIELDS
+                    and param_type in ("UInt32", "UInt64", "Int32", "Int64")
+                    and default != default.to_integral_value()
+                ):
+                    result["issues"].append(
+                        {
+                            "kind": "lossy_source_param_type",
+                            "section": section,
+                            "field": field,
+                            "param_type": param_type,
+                            "source_default": _plain(default),
+                        }
+                    )
     result["state"] = "passed" if not result["issues"] else "failed"
     result["model_claims"]["coefficient_transport_verified"] = (
-        result["state"] == "passed")
+        result["state"] == "passed"
+    )
     return result

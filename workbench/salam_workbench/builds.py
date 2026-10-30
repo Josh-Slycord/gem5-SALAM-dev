@@ -22,10 +22,16 @@ def _local_path(project, relative):
 def selected_receipt(project):
     project = Path(project).resolve()
     workspace = json.loads((project / "workspace.json").read_text(encoding="utf-8-sig"))
-    relative = workspace.get("engine", {}).get("build_receipt", "evidence/engine-artifact.json")
+    relative = workspace.get("engine", {}).get(
+        "build_receipt", "evidence/engine-artifact.json"
+    )
     path = _local_path(project, relative)
     receipt = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(receipt, dict) or receipt.get("schema_version") != 1 or receipt.get("state") != "completed":
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("schema_version") != 1
+        or receipt.get("state") != "completed"
+    ):
         raise ValueError("Unsupported or unsuccessful engine build receipt")
     return path, receipt
 
@@ -37,7 +43,9 @@ def verify_receipt(project, engine, source_digest):
         raise ValueError("Simulator binary differs from the selected build receipt")
     if receipt.get("engine_source_sha256") != source_digest:
         raise ValueError("Engine source differs from the selected build receipt")
-    if receipt.get("toolchain_sha256") != file_hash(Path(project) / "evidence/toolchain.json"):
+    if receipt.get("toolchain_sha256") != file_hash(
+        Path(project) / "evidence/toolchain.json"
+    ):
         raise ValueError("Toolchain record differs from the selected build receipt")
     return path, receipt
 

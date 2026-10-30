@@ -1,24 +1,39 @@
 """Qt adapter for live SALAM GUI edits and asynchronous checked execution."""
-from copy import deepcopy
 import json
 import os
-from pathlib import Path
 import re
+from copy import deepcopy
+from pathlib import Path
 
 import yaml
 from PySide6.QtCore import QProcess, Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QInputDialog,
-    QLineEdit, QMessageBox, QPushButton, QSpinBox, QTreeWidget,
-    QTreeWidgetItem, QVBoxLayout,
+    QCheckBox,
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
 )
 
 from .gui_editor import (
-    MODEL_FLOAT_FIELDS, MODEL_INT_FIELDS, build_gui_request,
-    discover_profile_periods, extract_components, read_fu_ids, read_fu_registry,
-    render_document, source_hash,
+    MODEL_FLOAT_FIELDS,
+    MODEL_INT_FIELDS,
+    build_gui_request,
+    discover_profile_periods,
+    extract_components,
+    read_fu_ids,
+    read_fu_registry,
+    render_document,
+    source_hash,
 )
-
 
 WORKBENCH_HOST = Path(__file__).resolve().parents[1]
 MODEL_FIELDS = MODEL_FLOAT_FIELDS + MODEL_INT_FIELDS
@@ -32,11 +47,16 @@ def _editable(item):
 def _selected_file(dialog):
     bench_name = dialog.benchmark_combo.currentData()
     bench_dir = dialog.bench_dir_combo.currentText()
-    if not isinstance(bench_name, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", bench_name):
+    if not isinstance(bench_name, str) or not re.fullmatch(
+        r"[A-Za-z0-9_-]+", bench_name
+    ):
         raise ValueError("Select a benchmark")
     if bench_dir not in (
-            "benchmarks/sys_validation", "benchmarks/legacy",
-            "benchmarks/lenet5-nounroll", "benchmarks/mobilenetv2"):
+        "benchmarks/sys_validation",
+        "benchmarks/legacy",
+        "benchmarks/lenet5-nounroll",
+        "benchmarks/mobilenetv2",
+    ):
         raise ValueError("Unsupported benchmark directory")
     benchmark = bench_dir + "/" + bench_name
     root = dialog.gem5_path.resolve(strict=True)
@@ -68,16 +88,24 @@ def _rows(tree, *, hardware):
             if not cycles and not limit and not item.data(0, Qt.UserRole):
                 continue
             if not cycles or not limit:
-                raise ValueError("Incomplete visible FU row: " + name +
-                                 " (cycles and limit, including 0, are required)")
+                raise ValueError(
+                    "Incomplete visible FU row: "
+                    + name
+                    + " (cycles and limit, including 0, are required)"
+                )
             rows[name] = {"cycles": cycles, "limit": limit}
         else:
             runtime = item.text(1).strip()
             selector = tree.itemWidget(item, 2)
-            unit = selector.currentData() if selector is not None else item.text(2).strip()
+            unit = (
+                selector.currentData() if selector is not None else item.text(2).strip()
+            )
             if not runtime or unit in (None, ""):
-                raise ValueError("Incomplete visible instruction row: " + name +
-                                 " (runtime cycles and FU ID, including 0, are required)")
+                raise ValueError(
+                    "Incomplete visible instruction row: "
+                    + name
+                    + " (runtime cycles and FU ID, including 0, are required)"
+                )
             rows[name] = {"runtime_cycles": runtime, "functional_unit": unit}
     return rows
 
@@ -85,13 +113,21 @@ def _rows(tree, *, hardware):
 def _fill_rows(dialog, target):
     doc = dialog._base_document or {}
     hardware = doc.get("hw_config", {}) if isinstance(doc, dict) else {}
-    key = next((name for name in hardware if isinstance(name, str)
-                and name.lower() == target.lower()), target)
+    key = next(
+        (
+            name
+            for name in hardware
+            if isinstance(name, str) and name.lower() == target.lower()
+        ),
+        target,
+    )
     source_settings = hardware.get(key) or {}
     if not isinstance(source_settings, dict):
         raise ValueError("Hardware settings are not a mapping")
     table = dialog._hardware_tables.get(target)
-    fu = (table or {}).get("functional_units", source_settings.get("functional_units", {}))
+    fu = (table or {}).get(
+        "functional_units", source_settings.get("functional_units", {})
+    )
     inst = (table or {}).get("instructions", source_settings.get("instructions", {}))
     if not isinstance(fu, dict) or not isinstance(inst, dict):
         raise ValueError("Hardware tables must be mappings")
@@ -101,8 +137,16 @@ def _fill_rows(dialog, target):
         values = fu.get(name, {})
         if not isinstance(values, dict):
             raise ValueError("FU row is not a mapping")
-        item = _editable(QTreeWidgetItem(dialog.fu_tree, [
-            name, str(values.get("cycles", "")), str(values.get("limit", ""))]))
+        item = _editable(
+            QTreeWidgetItem(
+                dialog.fu_tree,
+                [
+                    name,
+                    str(values.get("cycles", "")),
+                    str(values.get("limit", "")),
+                ],
+            )
+        )
         item.setData(0, Qt.UserRole, name in fu)
     dialog.inst_tree.clear()
     fu_ids = read_fu_ids(dialog.gem5_path)
@@ -110,8 +154,12 @@ def _fill_rows(dialog, target):
         if not isinstance(values, dict):
             raise ValueError("Instruction row is not a mapping")
         value = values.get("functional_unit", "")
-        item = _editable(QTreeWidgetItem(dialog.inst_tree, [
-            name, str(values.get("runtime_cycles", "")), str(value)]))
+        item = _editable(
+            QTreeWidgetItem(
+                dialog.inst_tree,
+                [name, str(values.get("runtime_cycles", "")), str(value)],
+            )
+        )
         selector = QComboBox()
         selector.addItem("0 — unassigned", 0)
         for fu_name, fu_id in fu_ids.items():
@@ -119,8 +167,9 @@ def _fill_rows(dialog, target):
         if value not in [selector.itemData(i) for i in range(selector.count())]:
             # Preserve a source value exactly, including an unknown numeric ID.
             selector.addItem(str(value) + " — source value", value)
-        selector.setCurrentIndex(next(
-            i for i in range(selector.count()) if selector.itemData(i) == value))
+        selector.setCurrentIndex(
+            next(i for i in range(selector.count()) if selector.itemData(i) == value)
+        )
         selector.currentIndexChanged.connect(dialog.update_preview)
         dialog.inst_tree.setItemWidget(item, 2, selector)
 
@@ -132,9 +181,11 @@ def _model_overrides(dialog):
         name = row.text(0).strip()
         if name in result:
             raise ValueError("Duplicate visible model FU row: " + name)
-        fields = {field: row.text(offset + 1).strip()
-                  for offset, field in enumerate(MODEL_FIELDS)
-                  if row.text(offset + 1).strip()}
+        fields = {
+            field: row.text(offset + 1).strip()
+            for offset, field in enumerate(MODEL_FIELDS)
+            if row.text(offset + 1).strip()
+        }
         if fields:
             result[name] = fields
         else:
@@ -148,8 +199,10 @@ def _editor_snapshot(dialog):
             "functional_units": _rows(dialog.fu_tree, hardware="fu"),
             "instructions": _rows(dialog.inst_tree, hardware="instruction"),
         }
-    components = [deepcopy(dialog.component_tree.topLevelItem(i).data(0, Qt.UserRole))
-                  for i in range(dialog.component_tree.topLevelItemCount())]
+    components = [
+        deepcopy(dialog.component_tree.topLevelItem(i).data(0, Qt.UserRole))
+        for i in range(dialog.component_tree.topLevelItemCount())
+    ]
     current = dialog._hardware_tables.get(dialog._active_hardware_target, {})
     return {
         "cluster_name": dialog.cluster_name_edit.text().strip(),
@@ -185,7 +238,10 @@ def _populate_model_tree(dialog):
 def _fu_telemetry_lines(receipt):
     """Readable counters from a verified GUI receipt; no derived power claims."""
     summary = receipt.get("fu_scheduling_summary")
-    if not isinstance(summary, dict) or summary.get("state") != "validated_direct_salam_trace":
+    if (
+        not isinstance(summary, dict)
+        or summary.get("state") != "validated_direct_salam_trace"
+    ):
         return []
     lines = ["FU scheduling (validated direct SALAM trace):"]
     for invocation in summary.get("invocations", []):
@@ -196,9 +252,17 @@ def _fu_telemetry_lines(receipt):
             lines.append(
                 "  {} / {} ({}): issue attempts {}, grants {}, blocked {}, "
                 "releases {}, peak {}, outstanding {}".format(
-                    accelerator, unit["name"], capacity, unit["attempts"],
-                    unit["grants"], unit["denials"], unit["releases"],
-                    unit["peak"], unit["outstanding"]))
+                    accelerator,
+                    unit["name"],
+                    capacity,
+                    unit["attempts"],
+                    unit["grants"],
+                    unit["denials"],
+                    unit["releases"],
+                    unit["peak"],
+                    unit["outstanding"],
+                )
+            )
     if len(lines) == 1:
         lines.append("  No active or capped functional units in this invocation.")
     return lines
@@ -231,13 +295,16 @@ def install_editor(dialog_class):
         old_init(self, gem5_path, parent)
         self.generate_btn.setText("Apply edits, rebuild & run (checked)")
         self.generate_btn.setToolTip(
-            "Exports all edited controls; generates, rebuilds as needed, runs gem5, and checks receipts")
+            "Exports all edited controls; generates, rebuilds as needed, runs gem5, and checks receipts"
+        )
         self.validate_btn.setText("Check editor request")
 
     def setup_basic_tab(self):
         old_basic(self)
         self.alignment_spin.setRange(64, 64)
-        self.alignment_spin.setToolTip("The current generator uses fixed 64-byte address alignment")
+        self.alignment_spin.setToolTip(
+            "The current generator uses fixed 64-byte address alignment"
+        )
         self.cycle_time_combo.blockSignals(True)
         self.cycle_time_combo.clear()
         self.cycle_time_combo.blockSignals(False)
@@ -250,9 +317,11 @@ def install_editor(dialog_class):
         self.cpu_clock_edit = QLineEdit()
         self.sys_clock_edit = QLineEdit()
         for label, widget in (
-                ("Memory size:", self.mem_size_edit), ("DRAM type:", self.mem_type_edit),
-                ("CPU clock (optional):", self.cpu_clock_edit),
-                ("System clock (optional):", self.sys_clock_edit)):
+            ("Memory size:", self.mem_size_edit),
+            ("DRAM type:", self.mem_type_edit),
+            ("CPU clock (optional):", self.cpu_clock_edit),
+            ("System clock (optional):", self.sys_clock_edit),
+        ):
             widget.textChanged.connect(self.update_preview)
             system.addRow(label, widget)
         layout.insertWidget(layout.count() - 1, system_group)
@@ -270,28 +339,44 @@ def install_editor(dialog_class):
         self._refresh_periods(preferred="5ns")
 
     def _refresh_periods(self, *_args, preferred=None):
-        current = preferred if preferred is not None else self.cycle_time_combo.currentText()
+        current = (
+            preferred if preferred is not None else self.cycle_time_combo.currentText()
+        )
         try:
             benchmark, _ = _selected_file(self)
             periods = discover_profile_periods(
-                self.gem5_path, benchmark, self.model_edit.text().strip(),
-                self.profile_edit.text().strip())
-            message = (("Choose a period backed by a hardware model directory. "
-                        "The full profile is validated when you apply edits.")
-                       if periods else "No source-backed profile periods for this selection.")
+                self.gem5_path,
+                benchmark,
+                self.model_edit.text().strip(),
+                self.profile_edit.text().strip(),
+            )
+            message = (
+                (
+                    "Choose a period backed by a hardware model directory. "
+                    "The full profile is validated when you apply edits."
+                )
+                if periods
+                else "No source-backed profile periods for this selection."
+            )
         except Exception as error:
             periods = []
-            message = "No source-backed profile periods for this selection: " + str(error)
+            message = "No source-backed profile periods for this selection: " + str(
+                error
+            )
         self.cycle_time_combo.blockSignals(True)
         self.cycle_time_combo.clear()
         self.cycle_time_combo.addItems(periods)
         self.cycle_time_combo.setCurrentIndex(
-            periods.index(current) if current in periods else -1)
+            periods.index(current) if current in periods else -1
+        )
         self.cycle_time_combo.setEnabled(bool(periods))
         legacy = getattr(self, "_legacy_cycle_times", {})
         if legacy:
-            message += (" Legacy GUI cycle_time metadata (previously ignored): " +
-                        repr(legacy) + ". The selected period controls generation.")
+            message += (
+                " Legacy GUI cycle_time metadata (previously ignored): "
+                + repr(legacy)
+                + ". The selected period controls generation."
+            )
         self.cycle_time_combo.setToolTip(message)
         self.cycle_time_combo.blockSignals(False)
         if hasattr(self, "preview_text"):
@@ -310,7 +395,9 @@ def install_editor(dialog_class):
         target_group = QGroupBox("Accelerator receiving instruction and FU settings")
         form = QFormLayout(target_group)
         self.hardware_target_combo = QComboBox()
-        self.hardware_target_combo.currentTextChanged.connect(self._select_hardware_target)
+        self.hardware_target_combo.currentTextChanged.connect(
+            self._select_hardware_target
+        )
         form.addRow("Accelerator:", self.hardware_target_combo)
         layout.insertWidget(0, target_group)
         add_instruction = QPushButton("Add Instruction Row")
@@ -325,7 +412,9 @@ def install_editor(dialog_class):
         layout.addWidget(model_group)
 
     def _add_instruction_row(self):
-        name, ok = QInputDialog.getText(self, "Instruction name", "Runtime instruction registry name:")
+        name, ok = QInputDialog.getText(
+            self, "Instruction name", "Runtime instruction registry name:"
+        )
         if ok and name:
             _editable(QTreeWidgetItem(self.inst_tree, [name.strip(), "", ""]))
 
@@ -336,12 +425,16 @@ def install_editor(dialog_class):
             benchmark, path = _selected_file(self)
             documents = list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
             if len(documents) != 1:
-                raise ValueError("GUI editor supports one YAML document; multi-document sources remain explicit")
+                raise ValueError(
+                    "GUI editor supports one YAML document; multi-document sources remain explicit"
+                )
             self.apply_config(documents[0], source_path=path)
         except Exception as error:
             self._base_document = None
             if hasattr(self, "validation_output"):
-                self.validation_output.append("Could not load selected YAML: " + str(error))
+                self.validation_output.append(
+                    "Could not load selected YAML: " + str(error)
+                )
 
     def apply_config(self, config, source_path=None):
         cluster, components = extract_components(config)
@@ -350,8 +443,10 @@ def install_editor(dialog_class):
             self._base_document = deepcopy(config)
             hardware = config.get("hw_config", {}) or {}
             self._legacy_cycle_times = {
-                key: value["cycle_time"] for key, value in hardware.items()
-                if isinstance(value, dict) and "cycle_time" in value}
+                key: value["cycle_time"]
+                for key, value in hardware.items()
+                if isinstance(value, dict) and "cycle_time" in value
+            }
             self._hardware_tables = {}
             self._active_hardware_target = None
             if source_path is not None:
@@ -367,7 +462,11 @@ def install_editor(dialog_class):
                 item = QTreeWidgetItem(self.component_tree, [title, kind.title()])
                 item.setData(0, Qt.UserRole, data)
             global_config = config.get("global", {}) or {}
-            memory = global_config.get("memory", {}) if isinstance(global_config, dict) else {}
+            memory = (
+                global_config.get("memory", {})
+                if isinstance(global_config, dict)
+                else {}
+            )
             self.base_addr_edit.setText(str(memory.get("base_address", "0x10020000")))
             self.alignment_spin.setValue(int(memory.get("alignment", 64)))
             self.mem_size_edit.setText("4GB")
@@ -379,10 +478,18 @@ def install_editor(dialog_class):
             self._refresh_periods(preferred="5ns")
             self.hardware_target_combo.blockSignals(True)
             self.hardware_target_combo.clear()
-            accelerators = [item["name"] for item in components if item["type"] == "accelerator"]
+            accelerators = [
+                item["name"] for item in components if item["type"] == "accelerator"
+            ]
             self.hardware_target_combo.addItems(accelerators)
-            target = next((name for name in accelerators
-                           if isinstance(hardware.get(name.lower()), dict)), None)
+            target = next(
+                (
+                    name
+                    for name in accelerators
+                    if isinstance(hardware.get(name.lower()), dict)
+                ),
+                None,
+            )
             if target is None and accelerators:
                 target = accelerators[0]
             if target:
@@ -412,33 +519,54 @@ def install_editor(dialog_class):
         self.update_preview()
 
     def add_memory(self):
-        accelerators = [self.component_tree.topLevelItem(i).data(0, Qt.UserRole)
-                        for i in range(self.component_tree.topLevelItemCount())
-                        if self.component_tree.topLevelItem(i).data(0, Qt.UserRole).get("type") == "accelerator"]
+        accelerators = [
+            self.component_tree.topLevelItem(i).data(0, Qt.UserRole)
+            for i in range(self.component_tree.topLevelItemCount())
+            if self.component_tree.topLevelItem(i).data(0, Qt.UserRole).get("type")
+            == "accelerator"
+        ]
         if not accelerators:
-            QMessageBox.warning(self, "No Accelerator", "Add an accelerator before memory.")
+            QMessageBox.warning(
+                self, "No Accelerator", "Add an accelerator before memory."
+            )
             return
         selected = self.component_tree.currentItem()
         selected_data = selected.data(0, Qt.UserRole) if selected else {}
-        owner = (selected_data.get("name") if selected_data.get("type") == "accelerator"
-                 else selected_data.get("owner", accelerators[-1]["name"]))
+        owner = (
+            selected_data.get("name")
+            if selected_data.get("type") == "accelerator"
+            else selected_data.get("owner", accelerators[-1]["name"])
+        )
         name = "memory_" + str(self.component_tree.topLevelItemCount())
-        data = {"type": "memory", "owner": owner, "fields": {},
-                "name": name, "memory_type": "SPM", "size": 64,
-                "ports": 1, "connections": "", "ready_mode": None,
-                "reset_on_read": None, "read_on_invalid": None, "write_on_valid": None}
+        data = {
+            "type": "memory",
+            "owner": owner,
+            "fields": {},
+            "name": name,
+            "memory_type": "SPM",
+            "size": 64,
+            "ports": 1,
+            "connections": "",
+            "ready_mode": None,
+            "reset_on_read": None,
+            "read_on_invalid": None,
+            "write_on_valid": None,
+        }
         item = QTreeWidgetItem(self.component_tree, [name, "Memory"])
         item.setData(0, Qt.UserRole, data)
         self.update_preview()
 
     def add_accelerator(self):
         old_add_accelerator(self)
-        item = self.component_tree.topLevelItem(self.component_tree.topLevelItemCount() - 1)
+        item = self.component_tree.topLevelItem(
+            self.component_tree.topLevelItemCount() - 1
+        )
         data = item.data(0, Qt.UserRole)
         bench = self.benchmark_combo.currentData()
         if bench:
-            data["ir_path"] = (self.bench_dir_combo.currentText() + "/" + bench +
-                               "/hw/compute.ll")
+            data["ir_path"] = (
+                self.bench_dir_combo.currentText() + "/" + bench + "/hw/compute.ll"
+            )
             data["pio_master"] = "LocalBus"
             data["fields"] = {}
             item.setData(0, Qt.UserRole, data)
@@ -451,7 +579,11 @@ def install_editor(dialog_class):
             for index in range(self.component_tree.topLevelItemCount()):
                 other = self.component_tree.topLevelItem(index)
                 contents = other.data(0, Qt.UserRole)
-                if contents and contents.get("type") == "memory" and contents.get("owner") == old_name:
+                if (
+                    contents
+                    and contents.get("type") == "memory"
+                    and contents.get("owner") == old_name
+                ):
                     contents["owner"] = value
                     other.setData(0, Qt.UserRole, contents)
             position = self.hardware_target_combo.findText(old_name)
@@ -475,12 +607,15 @@ def install_editor(dialog_class):
         old_dma_details(self, item, data)
         master = QLineEdit(str(data.get("pio_master", "LocalBus")))
         master.textChanged.connect(
-            lambda value: self.update_component_data(item, "pio_master", value))
+            lambda value: self.update_component_data(item, "pio_master", value)
+        )
         self.details_layout.addRow("PIO master:", master)
-        interrupt = QLineEdit("" if data.get("interrupt_num") is None
-                              else str(data["interrupt_num"]))
+        interrupt = QLineEdit(
+            "" if data.get("interrupt_num") is None else str(data["interrupt_num"])
+        )
         interrupt.textChanged.connect(
-            lambda value: self.update_component_data(item, "interrupt_num", value))
+            lambda value: self.update_component_data(item, "interrupt_num", value)
+        )
         self.details_layout.addRow("Interrupt number:", interrupt)
 
     def show_accelerator_details(self, item, data):
@@ -492,66 +627,90 @@ def install_editor(dialog_class):
                 field.widget().setReadOnly(True)
                 field.widget().setToolTip(
                     "Accelerator identity is tied to the IR basename, hw_config key, "
-                    "and generated C header. Rename migration is not yet supported.")
+                    "and generated C header. Rename migration is not yet supported."
+                )
             elif label and field and label.widget().text() == "IR Path:":
                 field.widget().setToolTip(
-                    "The IR basename must match this accelerator's consumed hw_config key.")
+                    "The IR basename must match this accelerator's consumed hw_config key."
+                )
         for label, key in (
-                ("PIO master:", "pio_master"), ("Local slaves:", "local_slaves"),
-                ("ConfigPath YAML:", "config_path"), ("Interrupt number:", "interrupt_num")):
+            ("PIO master:", "pio_master"),
+            ("Local slaves:", "local_slaves"),
+            ("ConfigPath YAML:", "config_path"),
+            ("Interrupt number:", "interrupt_num"),
+        ):
             value = data.get(key)
             field = QLineEdit("" if value is None else str(value))
             field.textChanged.connect(
-                lambda text, k=key: self.update_component_data(item, k, text))
+                lambda text, k=key: self.update_component_data(item, k, text)
+            )
             self.details_layout.addRow(label, field)
         debug = QCheckBox()
         debug.setChecked(bool(data.get("debug", False)))
         debug.toggled.connect(
-            lambda enabled: self.update_component_data(item, "debug", enabled))
+            lambda enabled: self.update_component_data(item, "debug", enabled)
+        )
         self.details_layout.addRow("Debug:", debug)
 
     def show_memory_details(self, item, data):
         name = QLineEdit(str(data.get("name", "")))
-        name.textChanged.connect(lambda value: self.update_component_data(item, "name", value))
+        name.textChanged.connect(
+            lambda value: self.update_component_data(item, "name", value)
+        )
         self.details_layout.addRow("Name:", name)
         owner = QComboBox()
-        owners = [self.component_tree.topLevelItem(i).data(0, Qt.UserRole)["name"]
-                  for i in range(self.component_tree.topLevelItemCount())
-                  if self.component_tree.topLevelItem(i).data(0, Qt.UserRole).get("type") == "accelerator"]
+        owners = [
+            self.component_tree.topLevelItem(i).data(0, Qt.UserRole)["name"]
+            for i in range(self.component_tree.topLevelItemCount())
+            if self.component_tree.topLevelItem(i).data(0, Qt.UserRole).get("type")
+            == "accelerator"
+        ]
         owner.addItems(owners)
         owner.setCurrentText(data.get("owner", ""))
         owner.currentTextChanged.connect(
-            lambda value: self.update_component_data(item, "owner", value))
+            lambda value: self.update_component_data(item, "owner", value)
+        )
         self.details_layout.addRow("Accelerator:", owner)
         kind = QComboBox()
         kind.addItems(["SPM", "RegisterBank"])
         kind.setCurrentText(data.get("memory_type", "SPM"))
         kind.currentTextChanged.connect(
-            lambda value: self.update_component_data(item, "memory_type", value))
+            lambda value: self.update_component_data(item, "memory_type", value)
+        )
         self.details_layout.addRow("Memory type:", kind)
         size = QSpinBox()
         size.setRange(1, 0x7FFFFFFF)
         size.setValue(int(data.get("size", 64)))
-        size.valueChanged.connect(lambda value: self.update_component_data(item, "size", value))
+        size.valueChanged.connect(
+            lambda value: self.update_component_data(item, "size", value)
+        )
         self.details_layout.addRow("Size (bytes):", size)
         ports = QSpinBox()
         ports.setRange(1, 1024)
         ports.setValue(int(data.get("ports") or 1))
         ports.valueChanged.connect(
-            lambda value: self.update_component_data(item, "ports", value))
+            lambda value: self.update_component_data(item, "ports", value)
+        )
         self.details_layout.addRow("Ports:", ports)
         connections = QLineEdit(str(data.get("connections", "")))
         connections.textChanged.connect(
-            lambda value: self.update_component_data(item, "connections", value))
+            lambda value: self.update_component_data(item, "connections", value)
+        )
         self.details_layout.addRow("Connections:", connections)
 
     def build_config(self):
         if self._base_document is None:
-            raise ValueError("Load selected benchmark YAML before applying editor changes")
+            raise ValueError(
+                "Load selected benchmark YAML before applying editor changes"
+            )
         from .fu_capability import inspect_fu_capability
+
         capable = inspect_fu_capability(self.gem5_path)["supported"]
-        return render_document(self._base_document, _editor_snapshot(self),
-                               allow_fu_capacity=capable)
+        return render_document(
+            self._base_document,
+            _editor_snapshot(self),
+            allow_fu_capacity=capable,
+        )
 
     def validate_config(self):
         self.validation_output.clear()
@@ -559,15 +718,20 @@ def install_editor(dialog_class):
             self._make_request()
             self.validation_output.append(
                 "Editor request is serializable. Apply edits, rebuild & run "
-                "for generation, simulator, and effective-state verification.")
+                "for generation, simulator, and effective-state verification."
+            )
         except Exception as error:
             self.validation_output.append("Editor request rejected: " + str(error))
 
     def load_config(self):
         from PySide6.QtWidgets import QFileDialog
+
         path, _ = QFileDialog.getOpenFileName(
-            self, "Load configuration", str(self.gem5_path),
-            "YAML Files (*.yml *.yaml);;All Files (*)")
+            self,
+            "Load configuration",
+            str(self.gem5_path),
+            "YAML Files (*.yml *.yaml);;All Files (*)",
+        )
         if not path:
             return
         try:
@@ -590,54 +754,96 @@ def install_editor(dialog_class):
         if self._source_config_relative != selected.relative_to(actual_root).as_posix():
             raise ValueError("Loaded YAML does not match selected benchmark")
         if source_hash(selected) != self._source_sha256:
-            raise ValueError("Selected YAML changed after loading; reload before applying")
+            raise ValueError(
+                "Selected YAML changed after loading; reload before applying"
+            )
         parent = self.parent()
-        distro = parent.wsl_status.get_selected_distro() if (
-            parent and hasattr(parent, "wsl_status")) else None
+        distro = (
+            parent.wsl_status.get_selected_distro()
+            if (parent and hasattr(parent, "wsl_status"))
+            else None
+        )
         if not distro:
             raise ValueError("Select the WSL distribution in the main window")
-        engine_wsl = (str(actual_root) if os.name != "nt"
-                      else self._checked_wsl_path(actual_root, distro))
+        engine_wsl = (
+            str(actual_root)
+            if os.name != "nt"
+            else self._checked_wsl_path(actual_root, distro)
+        )
         snapshot = _editor_snapshot(self)
         return build_gui_request(
-            self._base_document, snapshot, benchmark=benchmark,
-            engine_root=engine_wsl, distro=distro,
+            self._base_document,
+            snapshot,
+            benchmark=benchmark,
+            engine_root=engine_wsl,
+            distro=distro,
             source_config_relative=self._source_config_relative,
             source_config_sha256=self._source_sha256,
-            capability_source_root=actual_root)
+            capability_source_root=actual_root,
+        )
 
     def _backend_command(self, request):
         if self._backend_command_provider is not None:
             return self._backend_command_provider(request)
         if os.name != "nt":
-            return ("/usr/bin/python3.8", [
-                "-B", "-m", "salam_workbench.gui_execution", "--request-stdin"])
+            return (
+                "/usr/bin/python3.8",
+                [
+                    "-B",
+                    "-m",
+                    "salam_workbench.gui_execution",
+                    "--request-stdin",
+                ],
+            )
         workbench_wsl = self._checked_wsl_path(WORKBENCH_HOST, request["distro"])
-        return ("wsl", [
-            "-d", request["distro"], "--cd", workbench_wsl, "--exec",
-            "/usr/bin/python3.8", "-B", "-m",
-            "salam_workbench.gui_execution", "--request-stdin"])
+        return (
+            "wsl",
+            [
+                "-d",
+                request["distro"],
+                "--cd",
+                workbench_wsl,
+                "--exec",
+                "/usr/bin/python3.8",
+                "-B",
+                "-m",
+                "salam_workbench.gui_execution",
+                "--request-stdin",
+            ],
+        )
 
     def generate_files(self):
         self.validation_output.clear()
         try:
-            if self._gui_process is not None and self._gui_process.state() != QProcess.NotRunning:
+            if (
+                self._gui_process is not None
+                and self._gui_process.state() != QProcess.NotRunning
+            ):
                 raise ValueError("A checked configuration run is already active")
             request = self._make_request()
             self._gui_process_output = ""
             self._gui_summary = None
             program, arguments = self._backend_command(request)
             request["provenance"]["transport_mode"] = (
-                "wsl_direct_argv" if program.lower().endswith("wsl") else "native_direct_argv")
+                "wsl_direct_argv"
+                if program.lower().endswith("wsl")
+                else "native_direct_argv"
+            )
             self._gui_request = deepcopy(request)
-            payload = (json.dumps(request, separators=(",", ":")) + "\n").encode("utf-8")
+            payload = (json.dumps(request, separators=(",", ":")) + "\n").encode(
+                "utf-8"
+            )
             process = QProcess(self)
             # wsl.exe receives its Linux cwd through --cd; a Windows process
             # need not use a UNC workbench path as its own cwd.
-            process.setWorkingDirectory(str(Path.home() if os.name == "nt" else WORKBENCH_HOST))
+            process.setWorkingDirectory(
+                str(Path.home() if os.name == "nt" else WORKBENCH_HOST)
+            )
             process.setProgram(program)
             process.setArguments(arguments)
-            process.started.connect(lambda: (process.write(payload), process.closeWriteChannel()))
+            process.started.connect(
+                lambda: (process.write(payload), process.closeWriteChannel())
+            )
             process.readyReadStandardOutput.connect(self._read_gui_stdout)
             process.readyReadStandardError.connect(self._read_gui_stderr)
             process.errorOccurred.connect(self._gui_process_error)
@@ -646,7 +852,8 @@ def install_editor(dialog_class):
             self.generate_btn.setEnabled(False)
             self.validation_output.append(
                 "Applying live editor settings; generated outputs, rebuild, guest, and "
-                "simulator will be checked. The GUI remains responsive.")
+                "simulator will be checked. The GUI remains responsive."
+            )
             process.start()
         except Exception as error:
             self.generate_btn.setEnabled(True)
@@ -667,30 +874,33 @@ def install_editor(dialog_class):
         elif message.get("kind") == "gui_execution_result":
             self._gui_summary = message
             self.validation_output.append(
-                "Evidence: " + str(message.get("evidence_directory")))
+                "Evidence: " + str(message.get("evidence_directory"))
+            )
         else:
             self.validation_output.append(line[-1000:])
 
     def _read_gui_stdout(self):
-        self._gui_process_output += bytes(self._gui_process.readAllStandardOutput()).decode(
-            "utf-8", errors="replace")
+        self._gui_process_output += bytes(
+            self._gui_process.readAllStandardOutput()
+        ).decode("utf-8", errors="replace")
         while "\n" in self._gui_process_output:
             line, self._gui_process_output = self._gui_process_output.split("\n", 1)
             self._process_gui_line(line)
 
     def _read_gui_stderr(self):
         data = bytes(self._gui_process.readAllStandardError()).decode(
-            "utf-8", errors="replace")
+            "utf-8", errors="replace"
+        )
         if data.strip():
             self.validation_output.append(data.strip()[-2000:])
 
     def _gui_process_error(self, error):
         if error == QProcess.FailedToStart:
             self.generate_btn.setEnabled(True)
-            self.validation_output.append("Checked backend failed to start: " +
-                                          self._gui_process.errorString())
-            QMessageBox.warning(self, "Backend Failed",
-                                self._gui_process.errorString())
+            self.validation_output.append(
+                "Checked backend failed to start: " + self._gui_process.errorString()
+            )
+            QMessageBox.warning(self, "Backend Failed", self._gui_process.errorString())
             self._gui_process = None
 
     def _verify_passing_receipt(self, summary):
@@ -698,11 +908,15 @@ def install_editor(dialog_class):
         if not isinstance(path_text, str):
             raise ValueError("Backend omitted evidence directory")
         if os.name == "nt":
-            prefix = self._checked_wsl_path(
-                WORKBENCH_HOST, self._gui_request["distro"]).rstrip("/") + "/evidence/"
+            prefix = (
+                self._checked_wsl_path(
+                    WORKBENCH_HOST, self._gui_request["distro"]
+                ).rstrip("/")
+                + "/evidence/"
+            )
             if not path_text.startswith(prefix):
                 raise ValueError("Evidence path is outside workbench evidence")
-            directory = WORKBENCH_HOST / "evidence" / path_text[len(prefix):]
+            directory = WORKBENCH_HOST / "evidence" / path_text[len(prefix) :]
         else:
             directory = Path(path_text)
         allowed = (WORKBENCH_HOST / "evidence").resolve(strict=True)
@@ -714,17 +928,27 @@ def install_editor(dialog_class):
         try:
             directory.relative_to(allowed)
         except ValueError as error:
-            raise ValueError("Evidence path resolves outside workbench evidence") from error
-        receipt = json.loads((directory / "gui-execution.json").read_text(encoding="utf-8"))
-        saved_request = json.loads((directory / "request.json").read_text(encoding="utf-8"))
+            raise ValueError(
+                "Evidence path resolves outside workbench evidence"
+            ) from error
+        receipt = json.loads(
+            (directory / "gui-execution.json").read_text(encoding="utf-8")
+        )
+        saved_request = json.loads(
+            (directory / "request.json").read_text(encoding="utf-8")
+        )
         if saved_request != self._gui_request:
             raise ValueError("Saved request differs from live GUI widget request")
-        if (receipt.get("state") != "passed" or
-                receipt.get("editor_form_applied") is not True or
-                receipt.get("simulation_requested") is not True or
-                receipt.get("pipeline_state") != "passed" or
-                receipt.get("effective_witness", {}).get("state") != "passed"):
-            raise ValueError("Durable GUI, simulation, or effective-state receipt did not pass")
+        if (
+            receipt.get("state") != "passed"
+            or receipt.get("editor_form_applied") is not True
+            or receipt.get("simulation_requested") is not True
+            or receipt.get("pipeline_state") != "passed"
+            or receipt.get("effective_witness", {}).get("state") != "passed"
+        ):
+            raise ValueError(
+                "Durable GUI, simulation, or effective-state receipt did not pass"
+            )
         if receipt.get("evidence_directory") != path_text:
             raise ValueError("Receipt evidence directory differs from process summary")
         return receipt
@@ -736,22 +960,36 @@ def install_editor(dialog_class):
         self.generate_btn.setEnabled(True)
         self._gui_process = None
         verified = None
-        if (exit_code == 0 and exit_status == QProcess.NormalExit and
-                isinstance(summary, dict) and summary.get("state") == "passed"):
+        if (
+            exit_code == 0
+            and exit_status == QProcess.NormalExit
+            and isinstance(summary, dict)
+            and summary.get("state") == "passed"
+        ):
             try:
                 verified = self._verify_passing_receipt(summary)
             except Exception as error:
-                self.validation_output.append("Receipt verification failed: " + str(error))
+                self.validation_output.append(
+                    "Receipt verification failed: " + str(error)
+                )
         if verified is not None:
             for line in _fu_telemetry_lines(verified):
                 self.validation_output.append(line)
             self.validation_output.append(
-                "Passed: edited settings reached the checked simulation and effective-state witnesses.")
-            QMessageBox.information(self, "Checked Run Passed",
-                                    "The edited configuration passed. See the evidence path.")
+                "Passed: edited settings reached the checked simulation and effective-state witnesses."
+            )
+            QMessageBox.information(
+                self,
+                "Checked Run Passed",
+                "The edited configuration passed. See the evidence path.",
+            )
         else:
             errors = summary.get("errors", []) if isinstance(summary, dict) else []
-            message = "; ".join(errors) if errors else "Backend did not return a passing receipt"
+            message = (
+                "; ".join(errors)
+                if errors
+                else "Backend did not return a passing receipt"
+            )
             self.validation_output.append("Checked run failed: " + message)
             QMessageBox.warning(self, "Checked Run Failed", message)
 

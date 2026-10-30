@@ -25,3 +25,5 @@ Makefile text eol=lf
 
 # Frozen historical reference retains its original Markdown whitespace.
 docs/LEGACY_SIMULATOR_SETUP.md -text -whitespace
+# Exact historical CI before-images.
+docs/ci/legacy-* -text -whitespace
