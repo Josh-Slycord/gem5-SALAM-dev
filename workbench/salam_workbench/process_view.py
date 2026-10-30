@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from .process_internals import InternalsPanel
 from .workbench_results import _roots, _safe
 
 PALETTE = {
@@ -199,7 +201,11 @@ class ProcessPanel(QWidget):
         )
         split.addWidget(self.preview)
         split.setSizes([260, 700])
-        layout.addWidget(split, 1)
+        self.detail_tabs = QTabWidget()
+        self.detail_tabs.addTab(split, "Run evidence")
+        self.internals = InternalsPanel()
+        self.detail_tabs.addTab(self.internals, "Technical mechanisms")
+        layout.addWidget(self.detail_tabs, 1)
         citations = QLabel(
             'Research context: <a href="https://doi.org/10.1109/LCA.2019.2893932">Rogers et al., 2019</a> · <a href="https://doi.org/10.1109/MICRO50266.2020.00047">Rogers et al., MICRO 2020</a> · <a href="https://doi.org/10.1016/j.sysarc.2024.103211">Spencer et al., 2024</a>'
         )

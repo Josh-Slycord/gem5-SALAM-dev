@@ -90,6 +90,35 @@ class ProcessViewTests(unittest.TestCase):
         self.assertEqual(panel.buttons[3].accessibleName(), "Compile workload")
         panel.close()
 
+    def test_technical_drilldown_identifies_real_queue_mechanisms_and_scope(self):
+        panel = ProcessPanel(self.project)
+        panel.show_run(
+            {"benchmark": "benchmarks/sys_validation/gemm", "artifacts": [self.item]}
+        )
+        panel.detail_tabs.setCurrentWidget(panel.internals)
+        panel.internals.buttons[3].click()
+        self.assertEqual(panel.internals.heading.text(), "Read + write queues")
+        self.assertIn("asynchronously", panel.internals.detail.toPlainText())
+        self.assertIn("llvm_interface.cc#L589", panel.internals.references.text())
+        panel.internals.buttons[5].click()
+        self.assertIn("configuration-dependent", panel.internals.detail.toPlainText())
+        self.assertIn("System topology", panel.internals.detail.toPlainText())
+        panel.detail_tabs.setCurrentIndex(0)
+        panel.select_stage(6)
+        panel.artifacts.setCurrentRow(0)
+        self.assertIn("simTicks 123", panel.preview.toPlainText())
+        panel.close()
+
+    def test_no_simulator_output_claim_for_absent_evidence(self):
+        panel = ProcessPanel(self.project)
+        panel.show_run(None)
+        panel.internals.buttons[7].click()
+        self.assertIn(
+            "absent values remain unavailable", panel.internals.detail.toPlainText()
+        )
+        self.assertEqual(panel.artifacts.count(), 0)
+        panel.close()
+
 
 if __name__ == "__main__":
     unittest.main()
