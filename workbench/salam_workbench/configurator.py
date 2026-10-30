@@ -202,8 +202,11 @@ def snapshot_pipeline_tooling(directory):
     directory.mkdir(exist_ok=False)
     hashes = {}
     sources = list((PROJECT / "salam_workbench").rglob("*.py"))
-    sources.extend(path for path in (PROJECT / "experiments/breadth/overlays").rglob("*")
-                   if path.is_file() and path.suffix in (".cpp", ".h"))
+    sources.extend(
+        path
+        for path in (PROJECT / "experiments/breadth/overlays").rglob("*")
+        if path.is_file() and path.suffix in (".cpp", ".h")
+    )
     for source in sorted(sources):
         if "__pycache__" in source.parts:
             continue
@@ -612,7 +615,9 @@ def wire_runtime(workspace, spec, evidence):
             "witness_path": str(evidence / "runtime-applied.json"),
             "system_witness_path": str(evidence / "system-live.json"),
             "system_options": system_options,
-            "result_file_transport": "gem5_semihosting_writefile_text_v1" if "benchmark_input" in spec else None,
+            "result_file_transport": "gem5_semihosting_writefile_text_v1"
+            if "benchmark_input" in spec
+            else None,
         },
     )
     fs = generated / ("fs_" + spec["name"] + ".py")
@@ -797,7 +802,9 @@ def run_configuration(
         from .registerbank_adapter import adapt_configured_registerbanks
 
         result["registerbank_adapter"] = adapt_configured_registerbanks(
-            workspace, spec["benchmark"], source_engine=engine,
+            workspace,
+            spec["benchmark"],
+            source_engine=engine,
             receipt_path=directory / "registerbank-adapter.json",
         )
         config = workspace / spec["benchmark"] / "config.yml"
@@ -865,7 +872,9 @@ def run_configuration(
             _save(fixture_path, fixture)
             result["benchmark_fixture"] = _record(fixture_path)
             result["benchmark_inputs"] = stage_benchmark_inputs(
-                workspace, spec["benchmark"], fixture,
+                workspace,
+                spec["benchmark"],
+                fixture,
                 inject_mismatch=spec["benchmark_input"].get("inject_mismatch", False),
                 force_guest_pass=spec["benchmark_input"].get("force_guest_pass", False),
             )
@@ -996,10 +1005,14 @@ def run_configuration(
                     Path(run["run_directory"]) / "simulator/salam-results.txt",
                     directory / "benchmark-fixture.json",
                 )
-                _save(directory / "independent-oracle.json", result["independent_oracle"])
+                _save(
+                    directory / "independent-oracle.json", result["independent_oracle"]
+                )
                 if result["independent_oracle"].get("state") != "passed":
                     result["numerical_correctness"] = "independent_full_output_failed"
-                    raise ValueError("Independent full-output numerical oracle rejected the simulation")
+                    raise ValueError(
+                        "Independent full-output numerical oracle rejected the simulation"
+                    )
                 result["numerical_correctness"] = "independent_full_output_passed"
             result["stage"] = "effective_configuration"
             ini = Path(run["run_directory"]) / "simulator/config.ini"
@@ -1027,12 +1040,27 @@ def run_configuration(
             applied = json.loads((directory / "runtime-applied.json").read_text())
             result["parameter_witness"] = witness_parameters(ini, applied)
             if "benchmark_input" in spec:
-                result["output_transport_witness"] = witness_parameters(ini, {"parameters": [
-                    {"section": "system", "parameter": "semihosting", "normalized": "system.semihosting"},
-                    {"section": "system.semihosting", "parameter": "type", "normalized": "ArmSemihosting"},
-                ]})
+                result["output_transport_witness"] = witness_parameters(
+                    ini,
+                    {
+                        "parameters": [
+                            {
+                                "section": "system",
+                                "parameter": "semihosting",
+                                "normalized": "system.semihosting",
+                            },
+                            {
+                                "section": "system.semihosting",
+                                "parameter": "type",
+                                "normalized": "ArmSemihosting",
+                            },
+                        ]
+                    },
+                )
                 if result["output_transport_witness"]["state"] != "passed":
-                    raise ValueError("Guest result file transport is not instantiated as requested")
+                    raise ValueError(
+                        "Guest result file transport is not instantiated as requested"
+                    )
             effective = analyze_configuration(
                 config,
                 workspace,

@@ -3,11 +3,10 @@
 The saved selector regenerates the complete fixture; neither a recorded pass
 nor expected values printed by the guest establish numerical acceptance.
 """
-import hashlib
 import ast
+import hashlib
 import json
 from pathlib import Path
-
 
 BENCHMARKS = frozenset(("gemm", "fft", "stencil3d"))
 
@@ -18,18 +17,27 @@ def trace_budget_source_supported(engine):
         return False
     for node in ast.parse(path.read_text()).body:
         if isinstance(node, ast.ClassDef) and node.name == "LLVMInterface":
-            return any(isinstance(field, ast.Assign) and any(
-                isinstance(target, ast.Name) and target.id == "fu_trace_event_limit"
-                for target in field.targets
-            ) for field in node.body)
+            return any(
+                isinstance(field, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "fu_trace_event_limit"
+                    for target in field.targets
+                )
+                for field in node.body
+            )
     return False
 
 
 def validate_input_case(benchmark, case, *, allow_controls=True):
     if benchmark not in {"benchmarks/sys_validation/" + n for n in BENCHMARKS}:
-        raise ValueError("Independent generated inputs require sys_validation GEMM, FFT or stencil3d")
+        raise ValueError(
+            "Independent generated inputs require sys_validation GEMM, FFT or stencil3d"
+        )
     if not isinstance(case, dict) or set(case) - {
-        "dataset", "seed", "inject_mismatch", "force_guest_pass"
+        "dataset",
+        "seed",
+        "inject_mismatch",
+        "force_guest_pass",
     }:
         raise ValueError("Unknown benchmark input fields")
     if case.get("dataset") not in ("seeded", "zeros", "boundary"):
@@ -72,7 +80,9 @@ def assess_configured_output(spec, terminal, fixture_path=None):
         result["terminal_sha256"] = hashlib.sha256(payload).hexdigest()
     result["fixture_sha256"] = fixture["fixture_sha256"]
     result["input_case"] = spec["benchmark_input"]
-    result["scope"] = "All emitted accelerator output elements versus an independent CPU oracle; fixed shapes with generated inputs"
+    result[
+        "scope"
+    ] = "All emitted accelerator output elements versus an independent CPU oracle; fixed shapes with generated inputs"
     return result
 
 

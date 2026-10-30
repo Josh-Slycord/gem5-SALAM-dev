@@ -109,7 +109,10 @@ class WorkbenchResultsTests(unittest.TestCase):
         directory = self.project / "evidence/breadth-stencil"
         directory.mkdir(parents=True)
         _write(directory / "configuration.json", {"state": "prepared"})
-        _write(directory / "specification.json", {"benchmark": "benchmarks/sys_validation/stencil3d"})
+        _write(
+            directory / "specification.json",
+            {"benchmark": "benchmarks/sys_validation/stencil3d"},
+        )
         rows = discover_runs(self.project)
         selected = next(row for row in rows if row["run_id"] == "breadth-stencil")
         self.assertEqual(selected["benchmark"], "benchmarks/sys_validation/stencil3d")

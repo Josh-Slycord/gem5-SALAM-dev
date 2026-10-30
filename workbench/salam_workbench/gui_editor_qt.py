@@ -355,9 +355,15 @@ def install_editor(dialog_class):
         input_form = QFormLayout(input_group)
         self.input_case_combo = QComboBox()
         self.input_case_combo.addItem("Original source input / guest checker", None)
-        self.input_case_combo.addItem("Generated input / independent full-output check", "seeded")
-        self.input_case_combo.addItem("Zero input / independent full-output check", "zeros")
-        self.input_case_combo.addItem("Boundary input / independent full-output check", "boundary")
+        self.input_case_combo.addItem(
+            "Generated input / independent full-output check", "seeded"
+        )
+        self.input_case_combo.addItem(
+            "Zero input / independent full-output check", "zeros"
+        )
+        self.input_case_combo.addItem(
+            "Boundary input / independent full-output check", "boundary"
+        )
         self.input_seed_spin = QSpinBox()
         self.input_seed_spin.setRange(0, 2147483647)
         self.input_seed_spin.setValue(1)
@@ -367,12 +373,18 @@ def install_editor(dialog_class):
         from .benchmark_validation import trace_budget_source_supported
 
         self.trace_budget_check = QCheckBox("Override scheduling trace event budget:")
-        self.trace_budget_check.setEnabled(trace_budget_source_supported(self.gem5_path))
+        self.trace_budget_check.setEnabled(
+            trace_budget_source_supported(self.gem5_path)
+        )
         self.trace_budget_spin.setEnabled(False)
         self.trace_budget_check.toggled.connect(self.trace_budget_spin.setEnabled)
         self.trace_budget_check.toggled.connect(self.update_preview)
-        self.trace_budget_spin.setToolTip("Maximum recorded functional-unit events per accelerator invocation. Truncated traces fail validation. Requires the updated simulator; full-size stencil studies use 1048576.")
-        self.input_seed_spin.setToolTip("Deterministic input seed; supported for sys_validation GEMM, FFT and stencil3d at their current fixed dimensions")
+        self.trace_budget_spin.setToolTip(
+            "Maximum recorded functional-unit events per accelerator invocation. Truncated traces fail validation. Requires the updated simulator; full-size stencil studies use 1048576."
+        )
+        self.input_seed_spin.setToolTip(
+            "Deterministic input seed; supported for sys_validation GEMM, FFT and stencil3d at their current fixed dimensions"
+        )
         self.input_case_combo.currentIndexChanged.connect(self.update_preview)
         self.input_seed_spin.valueChanged.connect(self.update_preview)
         self.trace_budget_spin.valueChanged.connect(self.update_preview)
@@ -1011,15 +1023,23 @@ def install_editor(dialog_class):
             raise ValueError("Receipt evidence directory differs from process summary")
         # The desktop shell runs the same completion gate in its existing
         # background worker; avoid replaying a large trace on its UI thread.
-        if "benchmark_input" in self._gui_request and not getattr(self, "_workbench_embedded", False):
+        if "benchmark_input" in self._gui_request and not getattr(
+            self, "_workbench_embedded", False
+        ):
             from .workbench_completion import verify_completion
 
             assessment = verify_completion(
-                directory, WORKBENCH_HOST, self._gui_request["benchmark"], "configured",
+                directory,
+                WORKBENCH_HOST,
+                self._gui_request["benchmark"],
+                "configured",
                 expected_request=self._gui_request,
             )
             if assessment["state"] != "passed":
-                raise ValueError("Current generated-input completion replay failed: " + str(assessment["errors"]))
+                raise ValueError(
+                    "Current generated-input completion replay failed: "
+                    + str(assessment["errors"])
+                )
         return receipt
 
     def _gui_finished(self, exit_code, exit_status):

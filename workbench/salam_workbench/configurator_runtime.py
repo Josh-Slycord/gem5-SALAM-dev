@@ -17,11 +17,15 @@ def configure_system(system, request_path):
         from m5.objects import ArmSemihosting
 
         system.semihosting = ArmSemihosting()
-        records.append({
-            "section": "system", "parameter": "semihosting",
-            "requested": "ArmSemihosting", "normalized": "system.semihosting",
-            "compiled_type": "ArmSemihosting",
-        })
+        records.append(
+            {
+                "section": "system",
+                "parameter": "semihosting",
+                "requested": "ArmSemihosting",
+                "normalized": "system.semihosting",
+                "compiled_type": "ArmSemihosting",
+            }
+        )
     for section, parameters in request["parameters"].items():
         parts = section.split(".")
         if parts[0] != "system" or any(

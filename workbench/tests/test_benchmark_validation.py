@@ -8,16 +8,24 @@ import unittest
 from pathlib import Path
 
 from salam_workbench.benchmark_oracles import (
-    fixture_sha256, make_fixture, reference_outputs, render_output,
+    fixture_sha256,
+    make_fixture,
+    reference_outputs,
+    render_output,
 )
 from salam_workbench.benchmark_validation import (
-    assess_configured_output, fixture_for_spec, validate_input_case, numerical_output_relative,
+    assess_configured_output,
+    fixture_for_spec,
+    numerical_output_relative,
+    validate_input_case,
 )
 
 
 def _helper(filename):
     path = Path(__file__).with_name(filename)
-    spec = importlib.util.spec_from_file_location("breadth_helper_" + path.stem, str(path))
+    spec = importlib.util.spec_from_file_location(
+        "breadth_helper_" + path.stem, str(path)
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -29,8 +37,9 @@ _reader = _helper("test_workbench_results.py")
 
 def _write(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data) if isinstance(data, dict) else data,
-                    encoding="utf-8")
+    path.write_text(
+        json.dumps(data) if isinstance(data, dict) else data, encoding="utf-8"
+    )
     return path
 
 
@@ -43,32 +52,46 @@ class BenchmarkValidationTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="salam-breadth-validation-")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.spec = {"benchmark": "benchmarks/sys_validation/gemm",
-                     "benchmark_input": {"dataset": "seeded", "seed": 1}}
+        self.spec = {
+            "benchmark": "benchmarks/sys_validation/gemm",
+            "benchmark_input": {"dataset": "seeded", "seed": 1},
+        }
         self.fixture = fixture_for_spec(self.spec)
-        self.terminal = _write(self.root / "system.terminal",
-                               render_output(self.fixture) + "Check Passed\n")
+        self.terminal = _write(
+            self.root / "system.terminal",
+            render_output(self.fixture) + "Check Passed\n",
+        )
 
     def test_malformed_or_explicitly_unknown_output_transport_is_rejected(self):
-        for inputs in (None, [], "text", {"output_transport": None},
-                       {"output_transport": "unknown"}):
+        for inputs in (
+            None,
+            [],
+            "text",
+            {"output_transport": None},
+            {"output_transport": "unknown"},
+        ):
             with self.subTest(inputs=inputs), self.assertRaises(ValueError):
                 numerical_output_relative({"benchmark_inputs": inputs})
         self.assertEqual(numerical_output_relative({}), "simulator/system.terminal")
 
     def test_guest_templates_are_restorable_source_and_midrun_changes_reject(self):
         from unittest.mock import patch
+
         from salam_workbench.checks import source_identity
         from salam_workbench.configurator import snapshot_pipeline_tooling
         from salam_workbench.provenance import assert_tooling_unchanged
 
-        template = _write(self.root / "experiments/breadth/overlays/common/result.h", "// original\n")
+        template = _write(
+            self.root / "experiments/breadth/overlays/common/result.h", "// original\n"
+        )
         _write(self.root / "salam_workbench/example.py", "answer = 1\n")
         relative = template.relative_to(self.root).as_posix()
         self.assertIn(relative, source_identity(self.root)["files"])
         with patch("salam_workbench.configurator.PROJECT", self.root):
             hashes = snapshot_pipeline_tooling(self.root / "snapshot")
-        self.assertEqual((self.root / "snapshot" / relative).read_bytes(), template.read_bytes())
+        self.assertEqual(
+            (self.root / "snapshot" / relative).read_bytes(), template.read_bytes()
+        )
         template.write_text("// changed\n")
         with self.assertRaisesRegex(RuntimeError, "Tooling source changed"):
             assert_tooling_unchanged(self.root, hashes)
@@ -124,9 +147,15 @@ class BenchmarkValidationTests(unittest.TestCase):
             with self.subTest(selector=selector):
                 with self.assertRaises(ValueError):
                     validate_input_case(self.spec["benchmark"], selector)
-        controls = {"dataset": "seeded", "seed": 1,
-                    "inject_mismatch": True, "force_guest_pass": True}
-        self.assertEqual(validate_input_case(self.spec["benchmark"], controls), controls)
+        controls = {
+            "dataset": "seeded",
+            "seed": 1,
+            "inject_mismatch": True,
+            "force_guest_pass": True,
+        }
+        self.assertEqual(
+            validate_input_case(self.spec["benchmark"], controls), controls
+        )
         with self.assertRaises(ValueError):
             validate_input_case("benchmarks/sys_validation/bfs", controls)
 
@@ -136,16 +165,24 @@ class BenchmarkValidationTests(unittest.TestCase):
         fixture.snapshot["benchmark_input"] = {"dataset": "seeded", "seed": 2}
         request = fixture.request()
         self.assertEqual(request["benchmark_input"], {"dataset": "seeded", "seed": 2})
-        self.assertEqual(request["provenance"]["editor_snapshot"]["benchmark_input"],
-                         request["benchmark_input"])
+        self.assertEqual(
+            request["provenance"]["editor_snapshot"]["benchmark_input"],
+            request["benchmark_input"],
+        )
 
     def test_gui_cannot_enable_backend_negative_controls_even_when_false(self):
         fixture = _gui.GuiEditorTests("runTest")
         fixture.setUp()
-        for key, value in (("inject_mismatch", True), ("force_guest_pass", True),
-                           ("inject_mismatch", False)):
-            fixture.snapshot["benchmark_input"] = {"dataset": "seeded", "seed": 1,
-                                                    key: value}
+        for key, value in (
+            ("inject_mismatch", True),
+            ("force_guest_pass", True),
+            ("inject_mismatch", False),
+        ):
+            fixture.snapshot["benchmark_input"] = {
+                "dataset": "seeded",
+                "seed": 1,
+                key: value,
+            }
             with self.subTest(key=key, value=value):
                 with self.assertRaisesRegex(ValueError, "backend-only"):
                     fixture.request()
@@ -158,8 +195,10 @@ class BenchmarkValidationTests(unittest.TestCase):
         output = reference_outputs(self.fixture)
         if corrupted_output:
             output[0] += 1
-        terminal = _write(raw / "simulator/system.terminal",
-                          render_output(self.fixture, output) + "Check Passed\n")
+        terminal = _write(
+            raw / "simulator/system.terminal",
+            render_output(self.fixture, output) + "Check Passed\n",
+        )
         record = json.loads((raw / "run.json").read_text())
         for item in record["artifacts"]:
             if item["path"] == "simulator/system.terminal":
@@ -172,18 +211,25 @@ class BenchmarkValidationTests(unittest.TestCase):
             fixture["inputs"]["a"][1] += 1
             fixture["fixture_sha256"] = fixture_sha256(fixture)
         fixture_path = _write(directory / "fixture.json", fixture)
-        pipeline = _write(directory / "configuration.json", {
-            "state": "passed", "run_directory": str(raw),
-            "specification": _record(spec_path),
-            "benchmark_fixture": _record(fixture_path),
-            "independent_oracle": {"state": "passed"},
-        })
+        pipeline = _write(
+            directory / "configuration.json",
+            {
+                "state": "passed",
+                "run_directory": str(raw),
+                "specification": _record(spec_path),
+                "benchmark_fixture": _record(fixture_path),
+                "independent_oracle": {"state": "passed"},
+            },
+        )
         return _reader.load_run(pipeline, helpers.project)
 
     def test_results_reader_replays_complete_outputs_and_ignores_saved_pass(self):
         positive = self._reader_case()
-        check = next(row for row in positive["checks"]
-                     if row["name"] == "Independent numerical validation")
+        check = next(
+            row
+            for row in positive["checks"]
+            if row["name"] == "Independent numerical validation"
+        )
         self.assertEqual(check["status"], "passed")
         failed = self._reader_case(corrupted_output=True)
         self.assertEqual(failed["state"], "passed")  # Recorded status is preserved.
@@ -192,8 +238,11 @@ class BenchmarkValidationTests(unittest.TestCase):
 
     def test_results_reader_regenerates_fixture_despite_matching_saved_file_hash(self):
         result = self._reader_case(tampered_fixture=True)
-        check = next(row for row in result["checks"]
-                     if row["name"] == "Independent numerical validation")
+        check = next(
+            row
+            for row in result["checks"]
+            if row["name"] == "Independent numerical validation"
+        )
         self.assertEqual(check["status"], "failed")
         self.assertEqual(result["validation_state"], "failed")
 

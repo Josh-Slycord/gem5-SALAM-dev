@@ -311,7 +311,10 @@ def _external_hw(result, workspace, relative, accelerator, path):
 
 def _topology(result, documents, base_address, config_path, generated_root):
     configpath_enabled = _configpath_consumer(generated_root)
-    from .registerbank_adapter import registerbank_ports_supported, registerbank_port_kind
+    from .registerbank_adapter import (
+        registerbank_port_kind,
+        registerbank_ports_supported,
+    )
 
     registerbank_enabled = registerbank_ports_supported(generated_root)
     registerbank_kind = registerbank_port_kind(generated_root)
@@ -681,8 +684,17 @@ def _topology(result, documents, base_address, config_path, generated_root):
                                 "unconsumed_register_field",
                                 "RegisterBank generator ignores SPM controls",
                             )
-                        if var["Type"] == "RegisterBank" and "Ports" in var and not registerbank_enabled:
-                            _bad(result, vp + ".Ports", "unconsumed_register_field", "RegisterBank port count requires the verified staged generator adapter")
+                        if (
+                            var["Type"] == "RegisterBank"
+                            and "Ports" in var
+                            and not registerbank_enabled
+                        ):
+                            _bad(
+                                result,
+                                vp + ".Ports",
+                                "unconsumed_register_field",
+                                "RegisterBank port count requires the verified staged generator adapter",
+                            )
                         if not _uint(var.get("Size"), True):
                             _bad(
                                 result,
@@ -737,9 +749,13 @@ def _topology(result, documents, base_address, config_path, generated_root):
                                     "invalid_connection",
                                     "Expected comma-separated device:positive-port-count",
                                 )
-                            elif var["Type"] == "RegisterBank" and not registerbank_enabled and any(
-                                int(token.strip().split(":")[1]) != 1
-                                for token in tokens
+                            elif (
+                                var["Type"] == "RegisterBank"
+                                and not registerbank_enabled
+                                and any(
+                                    int(token.strip().split(":")[1]) != 1
+                                    for token in tokens
+                                )
                             ):
                                 _bad(
                                     result,
@@ -765,21 +781,40 @@ def _topology(result, documents, base_address, config_path, generated_root):
                             )
                             if var["Type"] == "RegisterBank" and registerbank_enabled:
                                 connections = [(an, var.get("Ports", 1))]
-                                if "Connections" in var and isinstance(var["Connections"], str):
+                                if "Connections" in var and isinstance(
+                                    var["Connections"], str
+                                ):
                                     for token in var["Connections"].split(","):
                                         device, count = token.strip().split(":")
                                         connections.append((device, int(count)))
                                 if registerbank_kind == "unknown":
-                                    _bad(result, vp, "unknown_register_port", "Cannot establish compiled RegisterBank private-port declaration")
-                                if registerbank_kind == "scalar" and sum(count for _, count in connections) != 1:
-                                    _bad(result, vp, "scalar_register_port_limit", "Compiled RegisterBank exposes one private response port; multiple private connections require a simulator implementation and rebuild")
+                                    _bad(
+                                        result,
+                                        vp,
+                                        "unknown_register_port",
+                                        "Cannot establish compiled RegisterBank private-port declaration",
+                                    )
+                                if (
+                                    registerbank_kind == "scalar"
+                                    and sum(count for _, count in connections) != 1
+                                ):
+                                    _bad(
+                                        result,
+                                        vp,
+                                        "scalar_register_port_limit",
+                                        "Compiled RegisterBank exposes one private response port; multiple private connections require a simulator implementation and rebuild",
+                                    )
                                 peers = []
                                 for device, count in connections:
                                     if not _uint(count, True):
                                         continue
                                     for _ in range(count):
                                         index = register_indices.get(device.lower(), 0)
-                                        peers.append("system.{}.{}.reg[{}]".format(name.lower(), device.lower(), index))
+                                        peers.append(
+                                            "system.{}.{}.reg[{}]".format(
+                                                name.lower(), device.lower(), index
+                                            )
+                                        )
                                         register_indices[device.lower()] = index + 1
                                 _expect(result, section, "reg_port", " ".join(peers))
                             if var["Type"] == "SPM":

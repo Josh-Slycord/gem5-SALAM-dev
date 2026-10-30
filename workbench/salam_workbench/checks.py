@@ -101,8 +101,11 @@ def source_identity(project, engine=None, tier="fast"):
             if "__pycache__" not in path.parts
         )
     sources.extend(project.glob("requirements*.txt"))
-    sources.extend(path for path in (project / "experiments/breadth/overlays").rglob("*")
-                   if path.is_file() and path.suffix in (".cpp", ".h"))
+    sources.extend(
+        path
+        for path in (project / "experiments/breadth/overlays").rglob("*")
+        if path.is_file() and path.suffix in (".cpp", ".h")
+    )
     sources.extend((project / ".github" / "workflows").glob("*.yml"))
     files = {}
     for path in sorted(set(sources)):

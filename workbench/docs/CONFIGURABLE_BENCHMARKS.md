@@ -38,7 +38,7 @@ outputs checked independently. The Run button, background completion gate,
 results reader, topology renderer and saved screenshots were exercised without
 mocking a simulator result. This was Qt offscreen acceptance, not a manual
 Windows interaction test. Its local receipt is
-`evidence/desktop-workbench-acceptance-20261030T090848-b5a1535e/acceptance.json`.
+`evidence/desktop-workbench-postformat-20261030-v1/acceptance.json`.
 The GUI suites also check preset round trips and rejection of changed selectors
 or nominal success receipts without current evidence. GUI-driven hardware
 profile rebuilds for FFT/stencil are not established by the backend matrix.
@@ -47,10 +47,15 @@ Final automated validation passed 541 checks (250 fast, 239 configuration,
 52 GUI), with zero skips, failures or unassigned test modules. The native C++
 scheduler test also compiled and passed with warnings treated as errors; it
 tests the small/default/expanded trace bounds and balanced ownership counters.
-Local receipts are under `evidence/checks/20261030T090815-fast-a3fa96ef66`,
-`evidence/checks/20261030T090823-config-2bf8e4bfd2`,
-`evidence/checks/20261030T090828-gui-e3c80368c7`, and
+Local receipts are under `evidence/checks/breadth-postformat-fast-20261030-v1`,
+`evidence/checks/breadth-postformat-config-20261030-v1`,
+`evidence/checks/breadth-postformat-gui-20261030-v1`, and
 `evidence/breadth-native-scheduler-validation-20261030-v1`.
+
+The pinned formatting and import-order checks also pass. Their separate receipt
+(`evidence/breadth-ci-hygiene-20261030-v1/hygiene.json`) preserves source hashes
+before and after formatting and verifies the AST is unchanged apart from
+import-group ordering. Earlier simulation receipts remain intact.
 
 ## Contract
 

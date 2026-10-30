@@ -654,15 +654,24 @@ def load_run(path, project):
         _check(result, "Simulator exit", "unavailable", str(error), run_path)
     if pipeline.get("benchmark_fixture"):
         try:
-            from .benchmark_validation import assess_configured_output, numerical_output_relative
+            from .benchmark_validation import (
+                assess_configured_output,
+                numerical_output_relative,
+            )
 
             spec_path, spec = _linked_receipt(
-                result, pipeline.get("specification"), roots,
-                "Independent numerical specification", budget,
+                result,
+                pipeline.get("specification"),
+                roots,
+                "Independent numerical specification",
+                budget,
             )
             fixture_path, fixture = _linked_receipt(
-                result, pipeline.get("benchmark_fixture"), roots,
-                "Generated input fixture", budget,
+                result,
+                pipeline.get("benchmark_fixture"),
+                roots,
+                "Generated input fixture",
+                budget,
             )
             if spec is None or fixture is None or "benchmark_input" not in spec:
                 raise ValueError("Independent numerical evidence is incomplete")
@@ -672,16 +681,29 @@ def load_run(path, project):
                 raise ValueError("Independent numerical output is not hash verified")
             assessment = assess_configured_output(spec, numerical_path, fixture_path)
             result["independent_oracle"] = assessment
-            result["provenance"]["independent_numerical_validation"] = assessment["state"]
+            result["provenance"]["independent_numerical_validation"] = assessment[
+                "state"
+            ]
             _check(
-                result, "Independent numerical validation", assessment["state"],
+                result,
+                "Independent numerical validation",
+                assessment["state"],
                 "Compared {}/{} complete accelerator outputs; {} mismatches; {}".format(
-                    assessment.get("compared_count", 0), assessment.get("expected_count", 0),
-                    assessment.get("mismatch_count", 0), assessment.get("issues", []),
-                ), numerical_path,
+                    assessment.get("compared_count", 0),
+                    assessment.get("expected_count", 0),
+                    assessment.get("mismatch_count", 0),
+                    assessment.get("issues", []),
+                ),
+                numerical_path,
             )
         except (OSError, ValueError, KeyError, TypeError) as error:
-            _check(result, "Independent numerical validation", "failed", str(error), run_path)
+            _check(
+                result,
+                "Independent numerical validation",
+                "failed",
+                str(error),
+                run_path,
+            )
     else:
         _check(
             result,

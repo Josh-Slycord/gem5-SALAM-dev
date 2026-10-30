@@ -263,8 +263,9 @@ class GuiEffectiveTests(unittest.TestCase):
                 gui_evidence_dir=gui_evidence_dir,
             )
 
-    def enable_generated_input_contract(self, *, numerical_state="independent_full_output_passed",
-                                        oracle_state="passed"):
+    def enable_generated_input_contract(
+        self, *, numerical_state="independent_full_output_passed", oracle_state="passed"
+    ):
         """Reuse the synthetic graph/build fixture with a supported input selector.
 
         This exercises configuration acceptance only; no generated protocol or
@@ -278,28 +279,45 @@ class GuiEffectiveTests(unittest.TestCase):
         self.write(source, yaml.safe_dump(BASE, sort_keys=False))
         self.snapshot["benchmark_input"] = {"dataset": "seeded", "seed": 17}
         self.request = build_gui_request(
-            BASE, self.snapshot, benchmark=self.benchmark,
-            engine_root=self.engine, distro="Ubuntu-20.04",
+            BASE,
+            self.snapshot,
+            benchmark=self.benchmark,
+            engine_root=self.engine,
+            distro="Ubuntu-20.04",
             source_config_relative=self.benchmark + "/config.yml",
             source_config_sha256=_sha(source),
         )
         self.spec["benchmark"] = self.benchmark
         self.spec["benchmark_input"] = dict(self.request["benchmark_input"])
         self.spec["configuration_documents"] = self.request["configuration_documents"]
-        self.write(self.workspace / self.benchmark / "config.yml",
-                   yaml.safe_dump_all(self.spec["configuration_documents"], sort_keys=False))
+        self.write(
+            self.workspace / self.benchmark / "config.yml",
+            yaml.safe_dump_all(self.spec["configuration_documents"], sort_keys=False),
+        )
         generated = self.workspace / "configs/SALAM/generated/demo.py"
-        self.write(generated, "def makeHWAcc():\n    ir = {!r}\n    config = {!r}\n".format(
-            str(self.workspace / previous / "hw/demo.ll"),
-            str(self.workspace / self.benchmark / "config.yml"),
-        ))
+        self.write(
+            generated,
+            "def makeHWAcc():\n    ir = {!r}\n    config = {!r}\n".format(
+                str(self.workspace / previous / "hw/demo.ll"),
+                str(self.workspace / self.benchmark / "config.yml"),
+            ),
+        )
         self.generation["selection"]["benchmark"] = "gemm"
-        self.write(self.evidence / "request.json", json.dumps(self.request, sort_keys=True))
+        self.write(
+            self.evidence / "request.json", json.dumps(self.request, sort_keys=True)
+        )
         normalization = json.loads((self.evidence / "normalization.json").read_text())
         normalization["raw_request_sha256"] = _sha(self.evidence / "request.json")
-        normalization["configuration_documents_before"] = self.request["configuration_documents"]
-        normalization["configuration_documents_after"] = self.spec["configuration_documents"]
-        self.write(self.evidence / "normalization.json", json.dumps(normalization, sort_keys=True))
+        normalization["configuration_documents_before"] = self.request[
+            "configuration_documents"
+        ]
+        normalization["configuration_documents_after"] = self.spec[
+            "configuration_documents"
+        ]
+        self.write(
+            self.evidence / "normalization.json",
+            json.dumps(normalization, sort_keys=True),
+        )
         pipeline_path = self.evidence / "configuration.json"
         pipeline = json.loads(pipeline_path.read_text())
         pipeline["numerical_correctness"] = numerical_state
@@ -311,44 +329,57 @@ class GuiEffectiveTests(unittest.TestCase):
         result = self.witness()
         self.assertEqual(result["state"], "passed", result["issues"])
         checks = {item["field"]: item for item in result["checks"]}
-        self.assertEqual(checks["pipeline.numerical_correctness"]["requested"],
-                         "independent_full_output_passed")
+        self.assertEqual(
+            checks["pipeline.numerical_correctness"]["requested"],
+            "independent_full_output_passed",
+        )
         self.assertEqual(checks["pipeline.independent_oracle"]["status"], "passed")
-        self.assertEqual(checks["request_to_spec.benchmark_input"]["observed"],
-                         {"dataset": "seeded", "seed": 17})
+        self.assertEqual(
+            checks["request_to_spec.benchmark_input"]["observed"],
+            {"dataset": "seeded", "seed": 17},
+        )
 
     def test_generated_inputs_reject_guest_only_success(self):
         self.enable_generated_input_contract(numerical_state="guest_checker_passed")
         result = self.witness()
         self.assertEqual(result["state"], "failed")
-        self.assertIn("pipeline.numerical_correctness",
-                      {item["field"] for item in result["issues"]})
+        self.assertIn(
+            "pipeline.numerical_correctness",
+            {item["field"] for item in result["issues"]},
+        )
 
     def test_generated_live_request_cannot_drop_selector_and_use_legacy_contract(self):
         self.enable_generated_input_contract(numerical_state="guest_checker_passed")
         del self.spec["benchmark_input"]
         result = self.witness()
         self.assertEqual(result["state"], "failed")
-        self.assertTrue(any("benchmark_input" in item["field"] for item in result["issues"]))
+        self.assertTrue(
+            any("benchmark_input" in item["field"] for item in result["issues"])
+        )
 
     def test_generated_input_selector_is_bound_to_the_actual_widget_snapshot(self):
         self.enable_generated_input_contract()
         self.request["provenance"]["editor_snapshot"]["benchmark_input"]["seed"] = 18
-        self.write(self.evidence / "request.json", json.dumps(self.request, sort_keys=True))
+        self.write(
+            self.evidence / "request.json", json.dumps(self.request, sort_keys=True)
+        )
         path = self.evidence / "normalization.json"
         receipt = json.loads(path.read_text())
         receipt["raw_request_sha256"] = _sha(self.evidence / "request.json")
         self.write(path, json.dumps(receipt, sort_keys=True))
         result = self.witness()
         self.assertEqual(result["state"], "failed")
-        self.assertTrue(any("benchmark_input" in item["field"] for item in result["issues"]))
+        self.assertTrue(
+            any("benchmark_input" in item["field"] for item in result["issues"])
+        )
 
     def test_generated_inputs_require_independent_oracle_pass_and_same_selector(self):
         self.enable_generated_input_contract(oracle_state="failed")
         result = self.witness()
         self.assertEqual(result["state"], "failed")
-        self.assertIn("pipeline.independent_oracle",
-                      {item["field"] for item in result["issues"]})
+        self.assertIn(
+            "pipeline.independent_oracle", {item["field"] for item in result["issues"]}
+        )
         pipeline_path = self.evidence / "configuration.json"
         pipeline = json.loads(pipeline_path.read_text())
         pipeline["independent_oracle"] = {"state": "passed"}
@@ -356,13 +387,19 @@ class GuiEffectiveTests(unittest.TestCase):
         self.spec["benchmark_input"] = {"dataset": "seeded", "seed": 18}
         result = self.witness()
         self.assertEqual(result["state"], "failed")
-        self.assertIn("request_to_spec.benchmark_input", {item["field"] for item in result["issues"]})
+        self.assertIn(
+            "request_to_spec.benchmark_input",
+            {item["field"] for item in result["issues"]},
+        )
 
     def test_legacy_guest_checker_contract_is_preserved_without_generated_inputs(self):
         result = self.witness()
         self.assertEqual(result["state"], "passed", result["issues"])
-        check = next(item for item in result["checks"]
-                     if item["field"] == "pipeline.numerical_correctness")
+        check = next(
+            item
+            for item in result["checks"]
+            if item["field"] == "pipeline.numerical_correctness"
+        )
         self.assertEqual(check["requested"], "guest_checker_passed")
         self.assertEqual(check["observed"], "guest_checker_passed")
         self.assertNotIn("benchmark_input", self.spec)

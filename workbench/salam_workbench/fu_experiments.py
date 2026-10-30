@@ -104,8 +104,16 @@ def validate_fu_trace(data):
         return result
     if "trace_event_limit" in data:
         budget = data["trace_event_limit"]
-        if not _integer(budget, positive=True) or budget > 4194304 or len(events) > budget:
-            _issue(result, "trace_event_limit", "Recorded event budget is invalid or exceeded")
+        if (
+            not _integer(budget, positive=True)
+            or budget > 4194304
+            or len(events) > budget
+        ):
+            _issue(
+                result,
+                "trace_event_limit",
+                "Recorded event budget is invalid or exceeded",
+            )
             return result
         result["trace_event_limit"] = budget
     indexed, names = {}, set()
@@ -352,9 +360,17 @@ def inspect_fu_invocation(path, config_ini=None):
             parser = _ini(config_ini)
             accelerator = data["invocation"]["name"]
             if "trace_event_limit" in data:
-                actual_budget = parser.get(accelerator + ".llvm_interface", "fu_trace_event_limit", fallback=None)
+                actual_budget = parser.get(
+                    accelerator + ".llvm_interface",
+                    "fu_trace_event_limit",
+                    fallback=None,
+                )
                 if actual_budget != str(data["trace_event_limit"]):
-                    _issue(result, "effective_trace_event_limit", "Recorded trace budget differs from the instantiated LLVMInterface")
+                    _issue(
+                        result,
+                        "effective_trace_event_limit",
+                        "Recorded trace budget differs from the instantiated LLVMInterface",
+                    )
             for unit in replay["units"]:
                 section = accelerator + FU_SECTION + unit["name"]
                 actual = parser.get(section, "limit", fallback=None)

@@ -98,7 +98,10 @@ class FuTraceTest(unittest.TestCase):
         for limit in (0, True, 6, 4194305, "1048576"):
             data["trace_event_limit"] = limit
             with self.subTest(limit=limit):
-                self.assertIn("trace_event_limit", [i["code"] for i in validate_fu_trace(data)["issues"]])
+                self.assertIn(
+                    "trace_event_limit",
+                    [i["code"] for i in validate_fu_trace(data)["issues"]],
+                )
 
     def test_complete_replay_with_simultaneous_distinct_units(self):
         replay = validate_fu_trace(_sample())

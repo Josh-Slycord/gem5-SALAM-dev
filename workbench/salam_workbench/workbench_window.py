@@ -1278,7 +1278,9 @@ class WorkbenchWindow(QMainWindow):
             editor.alignment_spin.setValue(snapshot["alignment"])
             input_case = snapshot.get("benchmark_input")
             editor.input_case_combo.setCurrentIndex(
-                editor.input_case_combo.findData(input_case["dataset"]) if input_case else 0
+                editor.input_case_combo.findData(input_case["dataset"])
+                if input_case
+                else 0
             )
             editor.input_seed_spin.setValue(input_case["seed"] if input_case else 1)
             editor.trace_budget_spin.setValue(snapshot.get("trace_event_limit", 262144))

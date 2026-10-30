@@ -4,8 +4,13 @@ import math
 import unittest
 
 from salam_workbench.benchmark_oracles import (
-    assess_output, encode_output, fixture_sha256, make_fixture,
-    reference_outputs, render_output, validate_fixture,
+    assess_output,
+    encode_output,
+    fixture_sha256,
+    make_fixture,
+    reference_outputs,
+    render_output,
+    validate_fixture,
 )
 
 
@@ -14,8 +19,13 @@ class BenchmarkOracleTests(unittest.TestCase):
         for name in ("gemm", "fft", "stencil3d"):
             first = make_fixture(name, "seeded", 1)
             self.assertEqual(first, make_fixture(name, "seeded", 1))
-            self.assertNotEqual(first["inputs"], make_fixture(name, "seeded", 2)["inputs"])
-            self.assertNotEqual(first["fixture_sha256"], make_fixture(name, "seeded", 2)["fixture_sha256"])
+            self.assertNotEqual(
+                first["inputs"], make_fixture(name, "seeded", 2)["inputs"]
+            )
+            self.assertNotEqual(
+                first["fixture_sha256"],
+                make_fixture(name, "seeded", 2)["fixture_sha256"],
+            )
 
     def test_all_dataset_definitions_validate(self):
         for name in ("gemm", "fft", "stencil3d"):
@@ -32,9 +42,14 @@ class BenchmarkOracleTests(unittest.TestCase):
 
     def test_invalid_identity_dimensions_counts_and_types(self):
         original = make_fixture("gemm")
-        changes = (("schema_version", True), ("seed", -1), ("seed", True),
-                   ("benchmark", "bfs"), ("output_count", 63),
-                   ("shape", {"rows": 16, "inner": 8, "cols": 8}))
+        changes = (
+            ("schema_version", True),
+            ("seed", -1),
+            ("seed", True),
+            ("benchmark", "bfs"),
+            ("output_count", 63),
+            ("shape", {"rows": 16, "inner": 8, "cols": 8}),
+        )
         for key, value in changes:
             fixture = copy.deepcopy(original)
             fixture[key] = value
@@ -66,16 +81,24 @@ class BenchmarkOracleTests(unittest.TestCase):
         self.assertEqual(reference_outputs(impulse), [[1.0, 0.0]] * 1024)
         fixture = make_fixture("fft", "zeros")
         frequency = 7
-        fixture["inputs"]["real"] = [math.cos(2 * math.pi * frequency * n / 1024)
-                                        for n in range(1024)]
-        fixture["inputs"]["imag"] = [math.sin(2 * math.pi * frequency * n / 1024)
-                                        for n in range(1024)]
+        fixture["inputs"]["real"] = [
+            math.cos(2 * math.pi * frequency * n / 1024) for n in range(1024)
+        ]
+        fixture["inputs"]["imag"] = [
+            math.sin(2 * math.pi * frequency * n / 1024) for n in range(1024)
+        ]
         fixture["fixture_sha256"] = fixture_sha256(fixture)
         expected = reference_outputs(fixture)
         peak = int(format(frequency, "010b")[::-1], 2)
         self.assertAlmostEqual(expected[peak][0], 1024, places=6)
-        self.assertLess(max(math.hypot(real, imag) for i, (real, imag) in enumerate(expected)
-                            if i != peak), 1e-6)
+        self.assertLess(
+            max(
+                math.hypot(real, imag)
+                for i, (real, imag) in enumerate(expected)
+                if i != peak
+            ),
+            1e-6,
+        )
 
     def test_stencil_coordinates_and_boundary_values(self):
         fixture = make_fixture("stencil3d", "baseline")
@@ -109,14 +132,24 @@ class BenchmarkOracleTests(unittest.TestCase):
     def test_wrong_identity_and_wrong_kind_fail(self):
         fixture = make_fixture("gemm")
         text = render_output(fixture)
-        self.assertEqual(assess_output(text.replace(fixture["fixture_sha256"], "0" * 64), fixture)["state"], "failed")
-        self.assertEqual(assess_output(text.replace("int32", "complex128"), fixture)["state"], "failed")
+        self.assertEqual(
+            assess_output(text.replace(fixture["fixture_sha256"], "0" * 64), fixture)[
+                "state"
+            ],
+            "failed",
+        )
+        self.assertEqual(
+            assess_output(text.replace("int32", "complex128"), fixture)["state"],
+            "failed",
+        )
 
     def test_single_wrong_value_fails_despite_guest_pass_marker(self):
         fixture = make_fixture("gemm")
         values = reference_outputs(fixture)
         values[17] += 1
-        result = assess_output(render_output(fixture, values) + "Check Passed\n", fixture)
+        result = assess_output(
+            render_output(fixture, values) + "Check Passed\n", fixture
+        )
         self.assertEqual(result["state"], "failed")
         self.assertEqual(result["mismatch_count"], 1)
         self.assertEqual(result["compared_count"], 64)
@@ -143,13 +176,19 @@ class BenchmarkOracleTests(unittest.TestCase):
         )
         for changed in changes:
             with self.subTest(first=changed[3]):
-                self.assertEqual(assess_output("\n".join(changed), fixture)["state"], "failed")
+                self.assertEqual(
+                    assess_output("\n".join(changed), fixture)["state"], "failed"
+                )
 
     def test_missing_footer_repeated_blocks_and_outside_rows_fail(self):
         fixture = make_fixture("gemm")
         text = render_output(fixture)
-        changes = ("\n".join(text.splitlines()[:-1]), text + text,
-                   text + "SALAM_RESULT 0 00000000\n", "Check Passed\n")
+        changes = (
+            "\n".join(text.splitlines()[:-1]),
+            text + text,
+            text + "SALAM_RESULT 0 00000000\n",
+            "Check Passed\n",
+        )
         for changed in changes:
             self.assertEqual(assess_output(changed, fixture)["state"], "failed")
 
@@ -157,9 +196,13 @@ class BenchmarkOracleTests(unittest.TestCase):
         fixture = make_fixture("fft", "baseline")
         values = reference_outputs(fixture)
         values[0][0] += 0.5e-6
-        self.assertEqual(assess_output(render_output(fixture, values), fixture)["state"], "passed")
+        self.assertEqual(
+            assess_output(render_output(fixture, values), fixture)["state"], "passed"
+        )
         values[0][0] += 2e-6
-        self.assertEqual(assess_output(render_output(fixture, values), fixture)["state"], "failed")
+        self.assertEqual(
+            assess_output(render_output(fixture, values), fixture)["state"], "failed"
+        )
 
     def test_signed_integer_bits_and_invalid_payload(self):
         fixture = make_fixture("gemm", "boundary")

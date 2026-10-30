@@ -76,12 +76,19 @@ class FuCapabilityTests(unittest.TestCase):
         marker = self._capable()
         data = json.loads(marker.read_text())
         interface = self.engine / "src/hwacc/LLVMInterface.py"
-        interface.write_text("class LLVMInterface:\n    fu_trace_event_limit = Param.UInt32(262144, 'trace')\n")
+        interface.write_text(
+            "class LLVMInterface:\n    fu_trace_event_limit = Param.UInt32(262144, 'trace')\n"
+        )
         header = self.engine / "src/hwacc/fu_scheduling_pool.hh"
         header.write_text(header.read_text() + "// SALAM_FU_TRACE_BUDGET_V1\n")
         data["source_files"]["src/hwacc/LLVMInterface.py"] = _sha(interface)
         data["source_files"]["src/hwacc/fu_scheduling_pool.hh"] = _sha(header)
-        data["trace_budget"] = {"parameter": "LLVMInterface.fu_trace_event_limit", "default": 262144, "minimum": 1, "maximum": 4194304}
+        data["trace_budget"] = {
+            "parameter": "LLVMInterface.fu_trace_event_limit",
+            "default": 262144,
+            "minimum": 1,
+            "maximum": 4194304,
+        }
         marker.write_text(json.dumps(data))
         return marker
 

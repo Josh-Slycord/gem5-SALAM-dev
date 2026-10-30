@@ -133,7 +133,9 @@ def _configure_gemm(editor):
         "integer_multiplier.cycles": 1,
         "integer_multiplier.limit": 2,
         "mul.runtime_cycles": 16,
-        "fu_trace_event_limit": 1048576 if editor.trace_budget_check.isChecked() else None,
+        "fu_trace_event_limit": 1048576
+        if editor.trace_budget_check.isChecked()
+        else None,
     }
 
 
@@ -335,16 +337,28 @@ def _run_case(app, window, mode, benchmark, directory, timeout, input_seed=None)
                 raise ValueError("Edited memory size was not transported")
             case["multiplier_scheduling"] = _assert_gemm_scheduling(result)
         if mode == "configured" and input_seed is not None:
-            if transported.get("benchmark_input") != {"dataset": "seeded", "seed": input_seed}:
+            if transported.get("benchmark_input") != {
+                "dataset": "seeded",
+                "seed": input_seed,
+            }:
                 raise ValueError("Selected generated inputs did not reach the backend")
             oracle = result.get("independent_oracle", {})
             if oracle.get("state") != "passed":
-                raise ValueError("Results reader did not independently validate every accelerator output")
+                raise ValueError(
+                    "Results reader did not independently validate every accelerator output"
+                )
             case["independent_oracle"] = oracle
-            if benchmark.endswith("/gemm") and window.editor.trace_budget_check.isChecked():
+            if (
+                benchmark.endswith("/gemm")
+                and window.editor.trace_budget_check.isChecked()
+            ):
                 for name in ("top", "gemm"):
-                    if transported.get("parameters", {}).get("system.gemm_clstr." + name + ".llvm_interface") != {"fu_trace_event_limit": 1048576}:
-                        raise ValueError("GUI trace-budget override did not reach the checked backend")
+                    if transported.get("parameters", {}).get(
+                        "system.gemm_clstr." + name + ".llvm_interface"
+                    ) != {"fu_trace_event_limit": 1048576}:
+                        raise ValueError(
+                            "GUI trace-budget override did not reach the checked backend"
+                        )
         case["rendered_metrics"] = _tree_rows(window.metrics)
         case["rendered_checks"] = _tree_rows(window.checks)
         window.pages.setCurrentIndex(2)
@@ -472,7 +486,9 @@ def main(argv=None):
             flush=True,
         )
         ticks_before = ticks[0]
-        case = _run_case(app, window, mode, benchmark, evidence / name, args.timeout, args.input_seed)
+        case = _run_case(
+            app, window, mode, benchmark, evidence / name, args.timeout, args.input_seed
+        )
         case["event_loop_ticks"] = ticks[0] - ticks_before
         if case["event_loop_ticks"] < 1:
             case["state"] = "failed"

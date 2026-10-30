@@ -106,16 +106,29 @@ def inspect_fu_capability(engine_root, build_receipt=None):
             raise ValueError("FU capability manifest has unrecognized fields")
         if "trace_budget" in data:
             budget = data["trace_budget"]
-            if not isinstance(budget, dict) or set(budget) != {"parameter", "default", "minimum", "maximum"} or budget.get("parameter") != "LLVMInterface.fu_trace_event_limit" or any(
-                type(budget.get(key)) is not int or budget[key] != value
-                for key, value in (("default", 262144), ("minimum", 1), ("maximum", 4194304))
+            if (
+                not isinstance(budget, dict)
+                or set(budget) != {"parameter", "default", "minimum", "maximum"}
+                or budget.get("parameter") != "LLVMInterface.fu_trace_event_limit"
+                or any(
+                    type(budget.get(key)) is not int or budget[key] != value
+                    for key, value in (
+                        ("default", 262144),
+                        ("minimum", 1),
+                        ("maximum", 4194304),
+                    )
+                )
             ):
                 raise ValueError("Unrecognized configurable FU trace budget contract")
             if "src/hwacc/LLVMInterface.py" not in data.get("source_files", {}):
                 raise ValueError("Trace budget capability omits its SimObject source")
             from .benchmark_validation import trace_budget_source_supported
 
-            if not trace_budget_source_supported(engine) or "SALAM_FU_TRACE_BUDGET_V1" not in (engine / SCHEDULER_HEADER).read_text():
+            if (
+                not trace_budget_source_supported(engine)
+                or "SALAM_FU_TRACE_BUDGET_V1"
+                not in (engine / SCHEDULER_HEADER).read_text()
+            ):
                 raise ValueError("Configurable trace budget lacks its source consumers")
             result["trace_budget"] = budget
         files = data.get("source_files")

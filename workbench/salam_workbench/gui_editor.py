@@ -580,12 +580,22 @@ def build_gui_request(
         from .benchmark_validation import trace_budget_source_supported
 
         limit = snapshot["trace_event_limit"]
-        if type(limit) is not int or not 1 <= limit <= 4194304 or not trace_budget_source_supported(local_source):
-            raise ValueError("Trace event budget requires the updated simulator and a value from 1 to 4194304")
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 4194304
+            or not trace_budget_source_supported(local_source)
+        ):
+            raise ValueError(
+                "Trace event budget requires the updated simulator and a value from 1 to 4194304"
+            )
         cluster = snapshot["cluster_name"].lower()
         for component in snapshot["components"]:
             if component["type"] == "accelerator":
-                request["parameters"]["system.{}.{}.llvm_interface".format(cluster, component["name"].lower())] = {"fu_trace_event_limit": limit}
+                request["parameters"][
+                    "system.{}.{}.llvm_interface".format(
+                        cluster, component["name"].lower()
+                    )
+                ] = {"fu_trace_event_limit": limit}
     if snapshot.get("benchmark_input") is not None:
         from .benchmark_validation import validate_input_case
 

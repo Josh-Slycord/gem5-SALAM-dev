@@ -323,7 +323,9 @@ def apply_request(
         from .registerbank_adapter import adapt_configured_registerbanks
 
         receipt["registerbank_adapter"] = adapt_configured_registerbanks(
-            preflight, spec["benchmark"], source_engine=base,
+            preflight,
+            spec["benchmark"],
+            source_engine=base,
             receipt_path=directory / "preflight-registerbank-adapter.json",
         )
         contract = analyze_configuration(
