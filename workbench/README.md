@@ -34,7 +34,8 @@ GEMM, FFT and stencil3d also offer generated inputs with a saved deterministic
 seed and an independent check of every accelerator output. Select the input in
 the configuration editor; results are captured through gem5's guest file-output
 interface and replayed by the host checker. See [configurable benchmarks](docs/CONFIGURABLE_BENCHMARKS.md)
-for fixed shape limits, staged guest repairs and the explicit simulation study.
+for fixed shape limits, staged guest repairs, the simulation study, and real
+FFT/stencil GUI regeneration, rebuild and complete-output acceptance.
 
 The results view keeps recorded status separate from the current evidence
 assessment. It exposes direct SALAM accelerator metrics, gem5 system statistics,
@@ -119,6 +120,6 @@ Use the workbench's `hardware_codegen` / configurator entry points for generatio
 
 ## Coverage boundaries
 
-Prior checkpoints cover fixed GEMM, BFS, Needleman–Wunsch, FFT and stencil3d datasets with independent checks; the new controlled scheduling study covers scalar integer multiplication in GEMM. The GUI can apply supported configuration groups, but every possible topology, hardware profile and benchmark combination has not been validated. Memory/control resource admission, pipelined FUs, nonzero per-instruction caps and a clean-host appliance remain open work.
+Prior checkpoints cover fixed GEMM, BFS, Needleman–Wunsch, FFT and stencil3d datasets with independent checks. Generated-input GUI acceptance additionally covers GEMM integer multiplication, FFT double multiplication and stencil integer addition, including compiled profile probes and active FU capacities. The GUI can apply supported configuration groups, but every possible topology, hardware profile and benchmark combination has not been validated. Memory/control resource admission, pipelined FUs, nonzero per-instruction caps and a clean-host appliance remain open work.
 
 The original WSL engines and recovered research archives are preserved. Official TeCSAR repositories are read-only reference sources; this fork is the publication and integration target.

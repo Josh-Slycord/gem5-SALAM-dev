@@ -236,6 +236,146 @@ class GuiEditorQtTests(unittest.TestCase):
         self.assertEqual(base, ENGINE)
         self.assertEqual(source, ENGINE / "benchmarks/sys_validation/gemm/config.yml")
 
+    def _select_workload(self, workload):
+        index = self.dialog.benchmark_combo.findData(workload)
+        self.assertGreaterEqual(index, 0)
+        self.dialog.benchmark_combo.setCurrentIndex(index)
+        self.dialog.hardware_target_combo.setCurrentText(workload)
+        self.assertEqual(self.dialog._active_hardware_target, workload)
+
+    def _hardware_row(self, tree, name):
+        matches = [
+            tree.topLevelItem(index)
+            for index in range(tree.topLevelItemCount())
+            if tree.topLevelItem(index).text(0) == name
+        ]
+        self.assertEqual(len(matches), 1, name)
+        return matches[0]
+
+    def _configured_workload_request(self, workload, unit, instruction, cycles):
+        from salam_workbench.gui_editor_qt import MODEL_FIELDS
+        from salam_workbench.gui_execution import read_request, validate_request
+
+        self._select_workload(workload)
+        self.dialog.input_case_combo.setCurrentIndex(1)
+        self.dialog.input_seed_spin.setValue(31)
+        model = self._hardware_row(self.dialog.model_tree, unit)
+        model.setText(1 + MODEL_FIELDS.index("fu_latency"), "7")
+        model.setText(1 + MODEL_FIELDS.index("area"), "7.125")
+        runtime = self._hardware_row(self.dialog.inst_tree, instruction)
+        runtime.setText(1, str(cycles))
+        capacity = self._hardware_row(self.dialog.fu_tree, unit)
+        capacity.setText(1, "1")
+        capacity.setText(2, "2")
+        request = read_request(json.dumps(self.dialog._make_request()))
+        base, _, source = validate_request(request)
+        self.assertEqual(base, ENGINE)
+        self.assertEqual(
+            source, ENGINE / ("benchmarks/sys_validation/" + workload + "/config.yml")
+        )
+        self.assertEqual(request["benchmark_input"], {"dataset": "seeded", "seed": 31})
+        self.assertEqual(
+            request["hardware_profile"]["fu_overrides"],
+            {unit: {"fu_latency": 7, "area": 7.125}},
+        )
+        hardware = request["configuration_documents"][0]["hw_config"][workload]
+        self.assertEqual(
+            hardware["instructions"][instruction]["runtime_cycles"], cycles
+        )
+        self.assertEqual(hardware["functional_units"][unit], {"cycles": 1, "limit": 2})
+        snapshot = request["provenance"]["editor_snapshot"]
+        self.assertEqual(snapshot["hardware_target"], workload)
+        self.assertEqual(snapshot["benchmark_input"], request["benchmark_input"])
+        self.assertEqual(
+            snapshot["hardware_by_accelerator"][workload]["functional_units"][unit],
+            {"cycles": "1", "limit": "2"},
+        )
+        self.assertEqual(
+            request["provenance"]["source_config"]["relative_path"],
+            "benchmarks/sys_validation/" + workload + "/config.yml",
+        )
+        # Transported values must still agree with the independently retained
+        # widget snapshot; changing just the apparent settings is rejected.
+        changed = deepcopy(request)
+        changed["hardware_profile"]["fu_overrides"][unit]["fu_latency"] = 8
+        with self.assertRaisesRegex(ValueError, "actual widget snapshot"):
+            validate_request(changed)
+        return request
+
+    def test_fft_live_compiled_model_runtime_capacity_and_input_transport(self):
+        request = self._configured_workload_request(
+            "fft", "double_multiplier", "fmul", 6
+        )
+        self.assertEqual(request["benchmark"], "benchmarks/sys_validation/fft")
+        self.assertNotIn("gemm", request["configuration_documents"][0]["hw_config"])
+
+    def test_stencil_live_scalar_registerbank_edit_survives_request_transport(self):
+        self._select_workload("stencil3d")
+        memory = self._component("C_VAR")
+        self.assertEqual(memory.data(0, Qt.UserRole)["ports"], 2)
+        self.dialog.component_tree.setCurrentItem(memory)
+        self.assertEqual(self._detail("Ports:").value(), 2)
+        self._detail("Ports:").setValue(1)
+        request = self._configured_workload_request(
+            "stencil3d", "integer_adder", "add", 4
+        )
+        snapshot = request["provenance"]["editor_snapshot"]
+        memories = {
+            component["name"]: component
+            for component in snapshot["components"]
+            if component["type"] == "memory"
+        }
+        self.assertEqual(memories["C_VAR"]["ports"], 1)
+        self.assertEqual(memories["C_VAR"]["memory_type"], "RegisterBank")
+        self.assertEqual(memories["ORIG"]["ports"], 2)
+        self.assertEqual(memories["SOL"]["ports"], 2)
+        records = next(
+            entry["Accelerator"]
+            for entry in request["configuration_documents"][0]["acc_cluster"]
+            if "Accelerator" in entry
+            and entry["Accelerator"][0].get("Name") == "stencil3d"
+        )
+        variables = {
+            variable["Name"]: variable
+            for record in records
+            for variable in record.get("Var", [])
+        }
+        self.assertEqual(variables["C_VAR"]["Ports"], 1)
+        # The loaded source is a separate provenance layer and remains intact.
+        original = next(
+            entry["Accelerator"]
+            for entry in self.dialog._base_document["acc_cluster"]
+            if "Accelerator" in entry
+            and entry["Accelerator"][0].get("Name") == "stencil3d"
+        )
+        self.assertEqual(original[1]["Var"][0]["Ports"], 2)
+
+    def test_switching_fft_stencil_and_back_clears_hardware_edits(self):
+        self._configured_workload_request("fft", "double_multiplier", "fmul", 6)
+        self._select_workload("stencil3d")
+        request = self.dialog._make_request()
+        self.assertEqual(request["hardware_profile"]["fu_overrides"], {})
+        snapshot = request["provenance"]["editor_snapshot"]
+        self.assertEqual(snapshot["hardware_target"], "stencil3d")
+        self.assertNotIn("fft", snapshot["hardware_by_accelerator"])
+        self.assertNotIn("gemm", snapshot["hardware_by_accelerator"])
+        hardware = request["configuration_documents"][0]["hw_config"]
+        self.assertNotIn("fft", hardware)
+        self.assertNotIn("gemm", hardware)
+        self.assertEqual(
+            hardware["stencil3d"]["instructions"]["add"]["runtime_cycles"], 1
+        )
+        self._select_workload("fft")
+        restored = self.dialog._make_request()
+        self.assertEqual(restored["hardware_profile"]["fu_overrides"], {})
+        hardware = restored["configuration_documents"][0]["hw_config"]["fft"]
+        self.assertEqual(hardware["instructions"]["fmul"]["runtime_cycles"], 4)
+        self.assertNotIn("double_multiplier", hardware.get("functional_units", {}))
+        self.assertNotIn(
+            "stencil3d",
+            restored["provenance"]["editor_snapshot"]["hardware_by_accelerator"],
+        )
+
     def test_offscreen_duplicate_model_row_rejected(self):
         first = self.dialog.model_tree.topLevelItem(0)
         second = self.dialog.model_tree.topLevelItem(1)

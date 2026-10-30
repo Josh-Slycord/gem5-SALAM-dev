@@ -525,12 +525,39 @@ def _flatten(suite):
 
 def _gui_test(test):
     method = test.id().rsplit(".", 1)[-1]
+    gui_only = set(GUI_MODULES) - set(FAST_MODULES) - set(CONFIG_MODULES)
     return (
-        test.__class__.__module__
-        in ("test_workbench_window", "test_workbench_topology", "test_process_view")
+        test.__class__.__module__ in gui_only
         or method.startswith("test_offscreen_")
         or method in GRAPH_TESTS
     )
+
+
+def _unit_test_owner(module, test):
+    """Assign every discovered method once using its registered module.
+
+    Dedicated modules run whole. Only modules explicitly shared with the GUI
+    tier split methods by the recovered viewer's dependency convention.
+    Ambiguous ownership is an error, rather than a reason to drop a method.
+    """
+    owners = {
+        tier
+        for tier, modules in (
+            ("fast", FAST_MODULES),
+            ("config", CONFIG_MODULES),
+            ("gui", GUI_MODULES),
+        )
+        if module in modules
+    }
+    if len(owners) == 1:
+        return owners.pop()
+    if "gui" in owners:
+        if _gui_test(test):
+            return "gui"
+        owners.remove("gui")
+    if len(owners) == 1:
+        return owners.pop()
+    raise ValueError("Test has no unique tier owner: {} ({})".format(test.id(), module))
 
 
 def run_unit_tier(tier, destination):
@@ -541,6 +568,9 @@ def run_unit_tier(tier, destination):
         "available": True,
         "success": False,
         "selected_tests": [],
+        "discovered_tests": [],
+        "excluded_tests": [],
+        "unassigned_tests": [],
         "tests_run": 0,
         "skipped": [],
         "failures": [],
@@ -569,13 +599,25 @@ def run_unit_tier(tier, destination):
         loader = unittest.TestLoader()
         for module in modules:
             for test in _flatten(loader.loadTestsFromName(module)):
-                if (
-                    isinstance(test, unittest.loader._FailedTest)
-                    or (tier == "gui" and _gui_test(test))
-                    or (tier != "gui" and not _gui_test(test))
-                ):
+                result["discovered_tests"].append(test.id())
+                try:
+                    owner = (
+                        tier
+                        if isinstance(test, unittest.loader._FailedTest)
+                        else _unit_test_owner(module, test)
+                    )
+                except ValueError as error:
+                    result["unassigned_tests"].append(
+                        {"test": test.id(), "module": module, "reason": str(error)}
+                    )
+                    continue
+                if owner == tier:
                     suite.addTest(test)
                     result["selected_tests"].append(test.id())
+                else:
+                    result["excluded_tests"].append(
+                        {"test": test.id(), "module": module, "owner": owner}
+                    )
         known_modules = set(FAST_MODULES) | set(CONFIG_MODULES) | set(GUI_MODULES)
         result["unassigned_test_files"] = sorted(
             path.name
@@ -591,7 +633,12 @@ def run_unit_tier(tier, destination):
             ],
             failures=[test.id() for test, _ in executed.failures],
             errors=[test.id() for test, _ in executed.errors],
-            success=executed.wasSuccessful() and executed.testsRun > 0,
+            success=(
+                executed.wasSuccessful()
+                and executed.testsRun > 0
+                and not result["unassigned_tests"]
+                and not result["unassigned_test_files"]
+            ),
         )
     except ImportError as error:
         result.update(available=False, diagnostic=str(error))

@@ -113,20 +113,40 @@ jobs:
           done
           /usr/bin/python3.8 -B - <<'PY'
           import json
+          import unittest
           from pathlib import Path
           selected = set()
           for tier in ('fast', 'config', 'gui'):
               receipt = json.loads((Path('evidence/ci') / (tier + '.json')).read_text())
               if not receipt.get('success') or not receipt.get('available'):
                   raise SystemExit(tier + ' did not pass')
-              for key in ('skipped', 'failures', 'errors', 'unassigned_test_files'):
+              for key in ('skipped', 'failures', 'errors', 'unassigned_test_files', 'unassigned_tests'):
                   if receipt.get(key):
                       raise SystemExit(tier + ' has ' + key + ': ' + repr(receipt[key]))
               tests = receipt.get('selected_tests', [])
               if not tests or len(tests) != receipt.get('tests_run') or selected.intersection(tests):
                   raise SystemExit(tier + ' test selection/count is incomplete')
               selected.update(tests)
-          print('Passed {} distinct source-only unit tests'.format(len(selected)))
+          discovered = set()
+          pending = [unittest.TestLoader().discover('tests')]
+          while pending:
+              item = pending.pop()
+              if isinstance(item, unittest.TestSuite):
+                  pending.extend(item)
+              else:
+                  if item.id() in discovered:
+                      raise SystemExit('Duplicate discovered test: ' + item.id())
+                  discovered.add(item.id())
+          missing, extra = sorted(discovered - selected), sorted(selected - discovered)
+          coverage = {'state': 'passed' if not missing and not extra else 'failed',
+                      'selected_count': len(selected), 'discovered_count': len(discovered),
+                      'missing_tests': missing, 'extra_tests': extra,
+                      'selected_tests': sorted(selected), 'discovered_tests': sorted(discovered)}
+          (Path('evidence/ci') / 'test-inventory.json').write_text(
+              json.dumps(coverage, indent=2) + '\n')
+          if missing or extra:
+              raise SystemExit('Tier selection differs from independent discovery: ' + repr(coverage))
+          print('Passed every one of {} independently discovered source-only unit tests'.format(len(selected)))
           PY
 
       - name: Generate GEMM hardware source outside the checkout

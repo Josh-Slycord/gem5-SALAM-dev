@@ -40,10 +40,10 @@ mocking a simulator result. This was Qt offscreen acceptance, not a manual
 Windows interaction test. Its local receipt is
 `evidence/desktop-workbench-postformat-20261030-v1/acceptance.json`.
 The GUI suites also check preset round trips and rejection of changed selectors
-or nominal success receipts without current evidence. GUI-driven hardware
-profile rebuilds for FFT/stencil are not established by the backend matrix.
+or nominal success receipts without current evidence. The FFT/stencil GUI rebuild acceptance below adds separate evidence to this
+backend matrix.
 
-Final automated validation passed 541 checks (250 fast, 239 configuration,
+That breadth source state passed 541 checks (250 fast, 239 configuration,
 52 GUI), with zero skips, failures or unassigned test modules. The native C++
 scheduler test also compiled and passed with warnings treated as errors; it
 tests the small/default/expanded trace bounds and balanced ownership counters.
@@ -56,6 +56,100 @@ The pinned formatting and import-order checks also pass. Their separate receipt
 (`evidence/breadth-ci-hygiene-20261030-v1/hygiene.json`) preserves source hashes
 before and after formatting and verifies the AST is unchanged apart from
 import-group ordering. Earlier simulation receipts remain intact.
+
+## GUI FFT and stencil regeneration/rebuild acceptance, 2026-10-30
+
+Both workloads now pass through the production desktop window: live widget
+edits, topology/address regeneration, guest/IR compilation, real simulation,
+effective-setting verification, complete independent numerical checks and
+complete direct scheduling replay. Qt renders offscreen; these are real Run
+button/QProcess/completion/result-reader executions, not manual Windows input.
+
+| Workload | Active FU and capacity | Instruction cycles | Outputs independently checked | Trace event budget |
+| --- | --- | ---: | ---: | ---: |
+| FFT | `double_multiplier`, 2 | `fmul=6` | 1,024 complex values | 1,048,576 |
+| stencil3d | `integer_adder`, 2 | `add=4` | 16,384 int32 values | 4,194,304 |
+
+Both select seed 17, 2 GiB memory, FU cycles 1, and compiled profile probes
+`area=7.125`, `fu_latency=7`. These synthetic profile numbers test transport;
+they are not calibrated hardware area, delay or power estimates. Separate
+runtime instruction and capacity settings are checked against actual
+SimObjects and independently replayed scheduling events. FFT recorded 8,194
+capacity denials; stencil recorded 2,327,649. Each selected FU reached peak 2,
+released every grant, and ended with zero outstanding reservations.
+
+Stencil explicitly changes the visible `C_VAR` RegisterBank Ports control from
+2 to 1; the two scratchpad port counts remain 2. Original source YAML remains
+hash-identical. Multiport RegisterBank hardware is still separate work.
+
+The initial GUI attempts generated and installed the exact selected hardware
+source, ran SCons, and produced simulator binaries and compiled-source hashes
+different from the verified base. The first constrained stencil simulation
+checked every numerical output but was correctly rejected because its
+1,048,576-event scheduling capture was truncated. The accepted recapture uses
+4,194,304 events and replays all **2,761,773** leaf events plus its separate
+45,926-event top invocation. They are not summed as independent accelerator work.
+
+The final GUI repeat explicitly records verified cache reuse of those rebuilt
+engines. Reuse still requires matching generated outputs, current compiled
+source, binary hashes, selected profile, toolchain and actual `config.ini`.
+It is not reported as another simulator rebuild.
+
+Two derived-data negative controls copy the accepted run artifacts, change one
+observed output, refresh that file's transport hash, and retain the guest pass
+and nominal recorded pass. The production reader compares every output and
+rejects exactly the intended numerical mismatch; the actual Validation widgets
+show failure. These are replay controls, not additional simulator executions.
+Accepted artifacts are verified unchanged after each control.
+
+Local evidence:
+
+* Fresh generation/build attempts: `evidence/desktop-fft-stencil-rebuild-20261030-v2/`.
+  Its overall failed state preserves the initial stencil trace rejection.
+* Accepted current-source GUI runs: `evidence/desktop-fft-stencil-rebuild-final-20261030-v1/acceptance.json`.
+* Derived numerical rejection controls: `evidence/gui-fft-stencil-output-controls-20261030-v1/inputs/controls.json`.
+  Control copies live under `inputs/` so they do not become ordinary run-history entries.
+* All **564 distinct unit checks** pass: 259 fast, 247 configuration, 58 GUI.
+  `evidence/gui-rebuild-test-inventory-20261030-v1/coverage.json` independently
+  discovers the same 564 methods and proves exact, nonoverlapping tier coverage.
+  Final tier receipts are under `evidence/checks/gui-rebuild-final-*-20261030-v1/`.
+
+The coverage fix removes a name-prefix filter from dedicated GUI modules that
+had omitted six input/configuration tests. Dedicated modules now run whole;
+shared viewer methods have one explicit owner. Receipts expose discoveries,
+intentional exclusions and unresolved methods. Hosted CI independently discovers
+the full inventory and refuses missing, extra or duplicate execution.
+
+The first FFT link also exposed an undefined compiler `.LVL` debug label in a
+fresh generated parameter object. The failed object and logs are preserved;
+ordinary regeneration removed the bad references without flag changes. The
+build adapter now permits exactly one identical-command retry only for this
+narrow generated-object/debug-section diagnostic, archiving the object first.
+Code/data symbol failures, compiler errors, unsafe paths and repeated failures
+remain failures. Recovery helpers participate in the variant fingerprint.
+
+To require a new, uncached build fingerprint through the GUI:
+
+```bash
+python3.8 -B scripts/verify_workbench_window.py \
+  --cases configured:fft,configured:stencil3d --input-seed 17 \
+  --require-rebuilds --evidence-dir evidence/gui-fresh-unique --timeout 1800
+```
+
+For subsequent runs against a verified rebuilt profile, replace
+`--require-rebuilds` with `--verify-rebuilt-profiles` and choose a new evidence
+directory. Both modes apply the same compiled/live settings; the strict mode
+rejects cache reuse. Then exercise independent numerical rejection:
+
+```bash
+python3.8 -B scripts/verify_gui_output_rejection.py \
+  --acceptance evidence/gui-repeat-unique/acceptance.json \
+  --evidence-dir evidence/gui-output-controls-unique/inputs
+```
+
+No gem5 version upgrade is part of this change. Fixed workload shapes,
+quiescent/mid-invocation checkpoint coverage, calibrated power models and a
+clean-host installation remain separate validation work.
 
 ## Contract
 
@@ -163,8 +257,11 @@ presets retain it. The constructor validates the bound; invocation resets keep
 the chosen value; direct FU JSON records it. The host checks that the recorded
 budget matches `config.ini` and replays every event. This affects retained
 diagnostics, not FU admission, timing, resource counts or numerical execution.
-Truncated traces continue to fail. The GUI bounds direct JSON reads to 64 MiB;
-a larger requested maximum does not remove that reader bound.
+Truncated traces continue to fail. Strictly named FU invocation traces under
+`simulator/observability` have a 512 MiB read/hash quota; ordinary artifacts and
+other direct JSON retain 64 MiB. Total hashing is bounded to 768 MiB per read,
+and hashing streams file chunks. Unverified FU evidence or an exceeded trace
+quota fails validation; a larger capture request does not remove these bounds.
 
 This is the first bounded expansion. Arbitrary dimensions, complete topology
 families, multi-accelerator workflows, pipelined resource policies and a clean
