@@ -30,3 +30,9 @@ Source-validation snapshot, 31 October 2026 UTC. The configured GEMM/FFT/stencil
 - Native PyStats 18 and two standalone C++ executable tests have their stated narrow scope. They do not represent the complete upstream gem5 regression suite.
 
 The final independent composite and aggregate have been reviewed and indexed. Keep the original failed records and unresolved observations available; broader stability and coverage remain open. The Ubuntu 20.04 user-session startup warning is observed but not repaired or attributed by this port.
+
+## CI follow-up: remaining scope and integrity uncertainty
+
+The historical six-case simulation evidence remains bound to the original e587/900309 snapshot. A test-only source-identity transition and CI-profile correction were independently checked; all other identity inputs, four compiled-source inventories, private workspace and 159 historical artifacts remained unchanged at capture. Fresh 661-test outer coverage and a separate current-identity 64-output GEMM smoke passed; this does not rerun the historical six cases or establish broader stability.
+
+Two additional native base hash reads differed from later matching native reads and retained copies. A subsequent completed byte comparison matched a retained copy without restoration or binary writes. The inconsistent observations and their unknown cause remain open. Do not describe them as established persistent on-disk modification/corruption or assign a host, RAM, filesystem or cache cause. The original compiler failures, transient binding failures and two native audit aborts remain preserved. Hosted results at the fixed follow-up head are separate from the completed local checks.

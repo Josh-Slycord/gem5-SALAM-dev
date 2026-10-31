@@ -471,6 +471,8 @@ jobs:
               'python_config': '/usr/bin/python3.12-config', 'linker': '/usr/bin/ld',
               'llvm_bin': '/usr/lib/llvm-14/bin', 'llvm_config': '/usr/bin/llvm-config-14',
               'arm_bin': '/usr/bin',
+              'arm_sysroot': '/usr/lib/arm-none-eabi',
+              'arm_include': '/usr/lib/arm-none-eabi/include',
           }
           record['configuration_engine']['toolchain_profile'] = profile
           record['configuration_engine']['distribution'] = 'Ubuntu-24.04'
@@ -481,6 +483,8 @@ jobs:
           assert selected['python'] == sys.executable
           for key in ('python', 'scons', 'cxx', 'python_config', 'linker', 'llvm_config'):
               assert Path(selected[key]).is_file(), key
+          for key in ('arm_sysroot', 'arm_include'):
+              assert Path(selected[key]).is_dir(), key
           argv = build_argv(selected)
           assert '--with-salam' in argv and 'LLVM_CONFIG=/usr/bin/llvm-config-14' in argv
           witness = {

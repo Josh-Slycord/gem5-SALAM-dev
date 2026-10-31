@@ -50,8 +50,11 @@ class FullSystemTemplateTests(unittest.TestCase):
         self.assertEqual(imports.count(name), 1)
         self.assertEqual(len(calls), 1)
         self.assertEqual(
-            [ast.unparse(argument) for argument in calls[0].args],
-            ["args", "test_sys"],
+            [ast.dump(argument) for argument in calls[0].args],
+            [
+                ast.dump(ast.parse(expression, mode="eval").body)
+                for expression in ("args", "test_sys")
+            ],
         )
         self.assertNotIn("TEMPLATE", imports)
         self.assertFalse(

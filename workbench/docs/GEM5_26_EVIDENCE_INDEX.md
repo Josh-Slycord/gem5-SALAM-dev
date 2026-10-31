@@ -100,3 +100,17 @@ The final aggregate binds 34,944 complete independent NumPy outputs, zero mismat
 | stencil3d | 23 | 16384 | `29ac5a38e9d42019d2f1797f3e5b723a6b9e4d74bd2b628dca080f61990a8096` | fresh_bounded_ordinary_process_composite |
 
 The machine-readable index contains byte lengths and complete paths. The aggregate also binds engine binaries, compiled-source digests, fixtures, profile/build lineage and pair identities. Bounded WHEA/kernel observations are inconclusive, and no settings change was made. Publication/PR/hosted CI status is separate from this pre-publication local validation snapshot.
+
+## Test/CI-only follow-up evidence
+
+The original e587/900309 six-case records remain unchanged. New fb9539 unit/seed29-smoke results are separately bound; native hash inconsistencies remain unresolved and hosted status is separate.
+
+| ID | Scope | Primary record | SHA-256 |
+|---|---|---|---|
+| ci-test-only-transition | Independent exact e587 to fb9539 test-only source transition; 124 other inputs, four compiled inventories, private workspace and 159 historical artifacts unchanged | [after.json](D:/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/ci-followup-20261031-v1/independent-transition-v3/after.json) | `b49e934f3cfb67830ced5f6b9b9d2476e5e2885cb705edf364464f41012a7291` |
+| ci-current-strict-661 | Fresh exact 661-test inventory at current fb9539; proper 310/289/62 outer processes and source stability passed | [STRICT_INVENTORY.json](D:/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/ci-followup-20261031-v1/current-outer-checks/STRICT_INVENTORY.json) | `6abe7522ae7b236dcabb5f856b468a6b68418ed5499bffe28f05ce330181eaae` |
+| ci-current-outer-exit | Actual normal outer-driver completion and all three tier states | [root-process-tool-result.json](D:/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/ci-followup-20261031-v1/current-outer-checks/root-process-tool-result.json) | `66bb2ff702b9ef9835adb40f64f0e4df1b8a5bccb041563e96381ce751158842` |
+| ci-current-gemm29-gui | Extra current-identity real GUI GEMM seed29 pass; existing verified base engine; no rebuild | [acceptance.json](//wsl.localhost/Ubuntu-24.04/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-post-ci-gui-gemm-seed29-v1/acceptance.json) | `34c7a5b59069bea3457a96d28f2d59900fc96b4657cc68a44dfc95d1f5d96ef1` |
+| ci-current-gemm29-numpy | Separate normal-process independent 64-output smoke comparison passed; original files unchanged; no simulator rerun | [process-receipt.json](//wsl.localhost/Ubuntu-24.04/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-post-ci-gemm29-numpy-20261031-v1/process-receipt.json) | `88f5bc0f9b642caeb3cc63e5a8642d0ee802fe4b951f4164a5b4987f7cbfb75f` |
+| ci-native-base-hash-observation | Two captured native c5ac base hash reads; incompatible later matching reads remain an unresolved observation | [root-native-binary-observation-20261031-v1.stdout](D:/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/root-native-binary-observation-20261031-v1.stdout) | `8e1bfb769390b9a214298f1e20825ed6a648878e9cc40d92c3091cd0f6b1ad40` |
+| ci-readonly-base-recheck | Later expected native base/retained-copy hashes and completed native byte match; no restoration or writes; cause unknown | [summary.json](D:/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/ci-followup-20261031-v1/base-binary-drift-observation/summary.json) | `5761874ad0f78253d5f5421ff94203a7c4d867fd1a19d5feacb11cb1ff0ecdbf` |
