@@ -2,8 +2,6 @@
  * Copyright (c) 2014-2015 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -72,7 +70,11 @@ class ScheduleStage
     void exec();
 
     // Stats related variables and methods
-    const std::string& name() const { return _name; }
+    const std::string &
+    name() const
+    {
+        return _name;
+    }
     enum SchNonRdyType
     {
         SCH_SCALAR_ALU_NRDY,
@@ -120,7 +122,7 @@ class ScheduleStage
     enum SCH_STATUS
     {
         RFBUSY = 0, // RF busy reading operands
-        RFREADY, // ready for exec
+        RFREADY,    // ready for exec
     };
 
   private:

@@ -1,3 +1,15 @@
+# Copyright (c) 2026 ARM Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
 # Copyright (c) 2009 The Hewlett-Packard Development Company
 # All rights reserved.
@@ -25,48 +37,68 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from slicc.symbols.Symbol import Symbol
 from slicc.symbols.State import WildcardState
+from slicc.symbols.Symbol import Symbol
+
 
 class Transition(Symbol):
-    def __init__(self, table, machine, state, event, nextState, actions,
-                 request_types, location):
-        ident = "%s|%s" % (state, event)
-        super(Transition, self).__init__(table, ident, location)
+    def __init__(
+        self,
+        table,
+        machine,
+        state,
+        event,
+        nextState,
+        actions,
+        request_types,
+        location,
+        ignore_resources,
+    ):
+        ident = f"{state}|{event}"
+        super().__init__(table, ident, location)
 
         self.state = machine.states[state]
         self.event = machine.events[event]
-        if nextState == '*':
+        if nextState == "*":
             # check to make sure there is a getNextState function declared
             found = False
             for func in machine.functions:
-                if func.c_ident == 'getNextState_Addr':
+                if func.c_ident == "getNextState_Addr":
                     found = True
                     break
             if not found:
-                fatal("Machine uses a wildcard transition without getNextState defined")
-            self.nextState = WildcardState(machine.symtab,
-                                           '*', location)
+                fatal(
+                    "Machine uses a wildcard transition without getNextState defined"
+                )
+            self.nextState = WildcardState(machine.symtab, "*", location)
         else:
             self.nextState = machine.states[nextState]
-        self.actions = [ machine.actions[a] for a in actions ]
-        self.request_types = [ machine.request_types[s] for s in request_types ]
+        self.actions = [machine.actions[a] for a in actions]
+        self.request_types = [machine.request_types[s] for s in request_types]
         self.resources = {}
 
-        for action in self.actions:
-            for var,value in action.resources.items():
-                num = int(value)
-                if var in self.resources:
-                    num += int(value)
-                self.resources[var] = str(num)
+        if ignore_resources:
+            print("%s: transition ignores resource allocation" % location)
+        else:
+            for action in self.actions:
+                for var, value in action.resources.items():
+                    num = int(value)
+                    if var in self.resources:
+                        num += int(value)
+                    self.resources[var] = str(num)
 
     def __repr__(self):
-      return "[Transition: (%r, %r) -> %r, %r]" % \
-             (self.state, self.event, self.nextState, self.actions)
+        return "[Transition: ({!r}, {!r}) -> {!r}, {!r}]".format(
+            self.state,
+            self.event,
+            self.nextState,
+            self.actions,
+        )
 
     def getActionShorthands(self):
         assert self.actions
 
-        return ''.join(a.short for a in self.actions)
+        return "".join(a.short for a in self.actions)
 
-__all__ = [ "Transition" ]
+
+__all__ = ["Transition"]

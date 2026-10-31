@@ -7,7 +7,16 @@ from pathlib import Path
 import yaml
 
 from .config_contract import _Loader
+from .ir_toolchain import (
+    assert_clean_ir_environment,
+    compiler_binding,
+    guest_compiler_argv,
+    ir_compiler_argv,
+)
 from .regression import _command
+from .toolchain_profile import is_modern, load_toolchain
+
+PROJECT = Path(__file__).resolve().parents[1]
 
 
 def address_macros(headers):
@@ -53,12 +62,14 @@ def check_preprocessed_macros(text, expected):
 def witness_build_inputs(workspace, spec, contract, directory, env):
     workspace, directory = Path(workspace), Path(directory)
     benchmark = workspace / spec["benchmark"]
+    profile = load_toolchain(PROJECT)
+    assert_clean_ir_environment(env, profile)
     headers = [
         benchmark / (cluster["name"] + "_hw_defines.h")
         for cluster in contract["components"]["clusters"]
     ]
     expected = address_macros(headers)
-    sources = [("guest", benchmark / "sw/main.cpp", ["/usr/bin/arm-none-eabi-g++"])]
+    sources = [("guest", benchmark / "sw/main.cpp", guest_compiler_argv(profile))]
     for index, relative in enumerate(contract["ir_paths"]):
         source = workspace / Path(relative).with_suffix(".c")
         if not source.is_file():
@@ -69,11 +80,7 @@ def witness_build_inputs(workspace, spec, contract, directory, env):
             (
                 "ir-" + str(index),
                 source,
-                [
-                    "/usr/lib/llvm-12/bin/clang",
-                    "-target",
-                    "armv7-pc-none-eabi",
-                ],
+                ir_compiler_argv(profile),
             )
         )
     checks = []
@@ -102,12 +109,22 @@ def witness_build_inputs(workspace, spec, contract, directory, env):
                 "reason": "Pure kernel source has no generated MMIO header",
             }
         checks.append(dict(check, source=str(source), command=command))
-    return {
+    record = {
         "state": "passed",
         "expected_macros": expected,
         "checks": checks,
         "scope": "Actual compiler preprocessor inputs, before simulator execution",
     }
+    if is_modern(profile):
+        guest = Path(guest_compiler_argv(profile)[0]).resolve(strict=True)
+        if not guest.is_file():
+            raise ValueError("Selected guest compiler is not a regular file")
+        record["toolchain"] = compiler_binding(profile)
+        record["selected_guest_compiler"] = {
+            "path": str(guest),
+            "sha256": hashlib.sha256(guest.read_bytes()).hexdigest(),
+        }
+    return record
 
 
 _HEADER_START = b"//BEGIN GENERATED CODE"

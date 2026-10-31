@@ -91,7 +91,6 @@ namespace gem5
 {
 
 /* A namespace for all of the Statistics */
-GEM5_DEPRECATED_NAMESPACE(Stats, statistics);
 namespace statistics
 {
 
@@ -198,6 +197,9 @@ class InfoAccess
     /** Grab the information class for this statistic */
     const Info *info() const;
 
+    /** Check if the info is new style stats */
+    bool newStyleStats() const;
+
   public:
     InfoAccess()
         : _info(nullptr) {};
@@ -259,7 +261,7 @@ class DataWrap : public InfoAccess
             parent->addStat(info);
 
         if (name) {
-            info->setName(name, parent == nullptr);
+            info->setName(name, !newStyleStats());
             info->flags.set(display);
         }
 
@@ -277,6 +279,8 @@ class DataWrap : public InfoAccess
             warn_once("One of the stats is a legacy stat. " + common_message);
     }
 
+    virtual ~DataWrap() { delete info(); }
+
     /**
      * Set the name and marks this stat to print at the end of simulation.
      * @param name The new name.
@@ -286,7 +290,7 @@ class DataWrap : public InfoAccess
     name(const std::string &name)
     {
         Info *info = this->info();
-        info->setName(name);
+        info->setName(name, !newStyleStats());
         info->flags.set(display);
         return this->self();
     }
@@ -675,8 +679,8 @@ class FunctorProxy : public ProxyInfo
  */
 template <class T>
 class FunctorProxy<T,
-    typename std::enable_if_t<std::is_constructible<std::function<Result()>,
-        const T &>::value>> : public ProxyInfo
+    typename std::enable_if_t<std::is_constructible_v<std::function<Result()>,
+        const T &>>> : public ProxyInfo
 {
   private:
     std::function<Result()> functor;
@@ -952,7 +956,10 @@ class VectorBase : public DataWrapVec<Derived, VectorInfoProxy>
         fatal_if(s <= 0, "Storage size must be positive");
         fatal_if(check(), "Stat has already been initialized");
 
-        storage.resize(s, new Storage(this->info()->getStorageParams()));
+        storage.reserve(s);
+        for (size_type i = 0; i < s; ++i)
+            storage.push_back(new Storage(this->info()->getStorageParams()));
+
         this->setInit();
     }
 
@@ -999,7 +1006,7 @@ class VectorBase : public DataWrapVec<Derived, VectorInfoProxy>
     zero() const
     {
         for (off_type i = 0; i < size(); ++i)
-            if (data(i)->zero())
+            if (!data(i)->zero())
                 return false;
         return true;
     }
@@ -1178,7 +1185,10 @@ class Vector2dBase : public DataWrapVec2d<Derived, Vector2dInfoProxy>
         info->x = _x;
         info->y = _y;
 
-        storage.resize(x * y, new Storage(info->getStorageParams()));
+        storage.reserve(x * y);
+        for (size_type i = 0; i < x * y; ++i)
+            storage.push_back(new Storage(this->info()->getStorageParams()));
+
         this->setInit();
 
         return self;
@@ -1309,6 +1319,15 @@ class DistBase : public DataWrap<Derived, DistInfoProxy>
     {
     }
 
+    virtual ~DistBase()
+    {
+        if (this->info()) {
+            // Note: we have to do a direct call of the constructor because of
+            // placement new used above.
+            data()->~Storage();
+        }
+    }
+
     /**
      * Add a value to the distribtion n times. Calls sample on the storage
      * class.
@@ -1387,7 +1406,10 @@ class VectorDistBase : public DataWrapVec<Derived, VectorDistInfoProxy>
         fatal_if(s <= 0, "Storage size must be positive");
         fatal_if(check(), "Stat has already been initialized");
 
-        storage.resize(s, new Storage(this->info()->getStorageParams()));
+        storage.reserve(s);
+        for (size_type i = 0; i < s; ++i)
+            storage.push_back(new Storage(this->info()->getStorageParams()));
+
         this->setInit();
     }
 

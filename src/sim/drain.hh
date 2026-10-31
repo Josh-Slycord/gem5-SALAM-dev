@@ -39,6 +39,7 @@
 #define __SIM_DRAIN_HH__
 
 #include <atomic>
+#include <cstddef>
 #include <mutex>
 #include <vector>
 
@@ -88,7 +89,14 @@ class DrainManager
 
   public:
     /** Get the singleton DrainManager instance */
-    static DrainManager &instance() { return _instance; }
+    static DrainManager &
+    instance()
+    {
+        /** Singleton instance of the drain manager, constructed on first use
+         */
+        static DrainManager _instance;
+        return _instance;
+    }
 
     /**
      * Try to drain the system.
@@ -118,11 +126,11 @@ class DrainManager
     /**
      * Run state fixups before a checkpoint restore operation.
      *
-     * This is called before restoring the checkpoint and to make 
+     * This is called before restoring the checkpoint and to make
      * sure that everything has been set to drained.
      *
-     * When restoring from a checkpoint, this function should be called 
-     * first before calling the resume() function. And also before 
+     * When restoring from a checkpoint, this function should be called
+     * first before calling the resume() function. And also before
      * calling loadstate() on any object.
      *
      * The drain state of an object isn't stored in a checkpoint since
@@ -191,9 +199,6 @@ class DrainManager
 
     /** Global simulator drain state */
     DrainState _state;
-
-    /** Singleton instance of the drain manager */
-    static DrainManager _instance;
 };
 
 /**
@@ -276,6 +281,12 @@ class Drainable
      * state. The simulator therefore repeats the draining process
      * until all objects return DrainState::Drained on the first call
      * to drain().
+     *
+     * A Drainable constructed while the manager is Draining has not yet
+     * been asked to drain and has not contributed to the active drain count.
+     * It therefore starts in the Running state rather than inheriting
+     * Draining. A later dmDrain() call, normally from the next tryDrain()
+     * pass, transitions and accounts for it normally.
      *
      * @return DrainState::Drained if the object is drained at this
      * point in time, DrainState::Draining if it needs further

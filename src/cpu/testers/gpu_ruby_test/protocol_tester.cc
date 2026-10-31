@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -36,7 +34,6 @@
 #include <algorithm>
 #include <ctime>
 #include <fstream>
-#include <random>
 
 #include "cpu/testers/gpu_ruby_test/cpu_thread.hh"
 #include "cpu/testers/gpu_ruby_test/dma_thread.hh"
@@ -143,11 +140,20 @@ ProtocolTester::ProtocolTester(const Params &p)
 
     sentExitSignal = false;
 
-    // set random seed number
+    // set random seed number, if specified.
+    // Note: random_m5 will use a fixed key if random_seed is not set.
+    // This ensures a reproducable.
     if (p.random_seed != 0) {
-        srand(p.random_seed);
+        rng->init(p.random_seed);
     } else {
-        srand(time(NULL));
+        warn(
+            "If `random_seed == 0` (or `random_seed` is unset) "
+            "ProtocolTester does not seed the RNG. This will NOT result in "
+            "the RNG generating different results each run. In this case the "
+            "RNG is seeded by a default value. This differs from behavior in "
+            "previous versions of gem5. Setting `random_seed` to a non-zero "
+            "value is strongly recommended."
+        );
     }
 
     actionCount = 0;
@@ -287,7 +293,7 @@ ProtocolTester::checkExit()
         if (!sentExitSignal) {
             // all done
             inform("Total completed episodes: %d\n", nextEpisodeId - 1);
-            exitSimLoop("GPU Ruby Tester: Passed!");
+            exitSimulationLoopClassic("GPU Ruby Tester: Passed!");
             sentExitSignal = true;
         }
         return true;

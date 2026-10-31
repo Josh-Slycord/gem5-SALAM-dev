@@ -27,17 +27,19 @@
 
 # Utility functions
 def parse_commit_subject(subject):
-    parsed_subject = subject.split(":", maxsplit = 1)
+    parsed_subject = subject.split(":", maxsplit=1)
 
     # If the subject does not have a colon, it either does not have tags
-    # or does not have a message
+    # or does not have a message. In this case, we assume that the subject
+    # is the commit message.
     if len(parsed_subject) <= 1:
-        return None, None
+        return [], parsed_subject[0]
 
-    tags = [ tag.strip() for tag in parsed_subject[0].split(",") ]
+    tags = [tag.strip() for tag in parsed_subject[0].split(",")]
     message = parsed_subject[1]
 
     return tags, message
+
 
 # Convert time in seconds to a plausible unit
 def convert_time_in_seconds(delta):
@@ -52,21 +54,36 @@ def convert_time_in_seconds(delta):
 
     return f"{time}{time_unit}"
 
+
 # End of Utility functions
 
-def add_maintainers_to_change(change, maintainers, maintainers_account_ids,
-                              gerrit_api):
+
+def add_maintainers_to_change(
+    change, maintainers, maintainers_account_ids, gerrit_api
+):
     tags, message = parse_commit_subject(change["subject"])
     change_id = change["id"]
     maintainer_emails = set()
+
+    # There are cases that a reviewer being removed from the reviewer list
+    # by another reviewer. We want to respect this removal. To do this,
+    # we can avoid adding reviewers that have been added/removed to the
+    # reviewer list.
+    avoid_emails = set()
+    for update in change["reviewer_updates"]:
+        avoid_emails.add(update["reviewer"]["email"])
     for tag in tags:
         try:
             for name, email in maintainers[tag].maintainers:
                 maintainer_emails.add(email)
         except KeyError:
-            print((f"warning: `change-{change_id}` has an unknown tag: "
-                   f"`{tag}`"))
+            print(
+                f"warning: `change-{change_id}` has an unknown tag: "
+                f"`{tag}`"
+            )
     for email in maintainer_emails:
+        if email in avoid_emails:
+            continue
         try:
             account_id = maintainers_account_ids[email]
             gerrit_api.add_reviewer(change_id, account_id)

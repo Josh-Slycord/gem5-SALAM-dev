@@ -38,7 +38,6 @@ namespace gem5
 
 class ThreadContext;
 
-GEM5_DEPRECATED_NAMESPACE(GuestABI, guest_abi);
 namespace guest_abi
 {
 
@@ -58,7 +57,7 @@ struct StateInitializer
 
 template <typename ABI>
 struct StateInitializer<ABI, typename std::enable_if_t<
-    std::is_constructible<typename ABI::State, const ThreadContext *>::value>>
+    std::is_constructible_v<typename ABI::State, const ThreadContext *>>>
 {
     static typename ABI::State
     init(const ThreadContext *tc)
@@ -113,7 +112,7 @@ prepareForResult(ThreadContext *tc, typename ABI::State &state)
 
 template <typename ABI, typename ...Args>
 static inline void
-prepareForArguments(GEM5_VAR_USED ThreadContext *tc,
+prepareForArguments([[maybe_unused]] ThreadContext *tc,
         typename ABI::State &state)
 {
     GEM5_FOR_EACH_IN_PACK(Preparer<ABI, Argument, Args>::prepare(tc, state));
@@ -144,8 +143,9 @@ struct ResultStorer
 
 template <typename ABI, typename Ret>
 struct ResultStorer<ABI, Ret, typename std::enable_if_t<
-    std::is_same<void (*)(ThreadContext *, const Ret &, typename ABI::State &),
-                 decltype(&Result<ABI, Ret>::store)>::value>>
+    std::is_same_v<void (*)(ThreadContext *, const Ret &,
+                            typename ABI::State &),
+                 decltype(&Result<ABI, Ret>::store)>>>
 {
     static void
     store(ThreadContext *tc, const Ret &ret, typename ABI::State &state)
@@ -169,7 +169,7 @@ template <typename ABI, typename Arg>
 static Arg
 getArgument(ThreadContext *tc, typename ABI::State &state)
 {
-    return Argument<ABI, Arg>::get(tc, state);
+    return (Arg)Argument<ABI, Arg>::get(tc, state);
 }
 
 } // namespace guest_abi

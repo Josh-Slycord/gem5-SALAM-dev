@@ -26,14 +26,16 @@
 
 from typing import Optional
 
+
 class TimeConversion:
     """
     A class for specifying a scale factor necessary to translate a simulation
     time measurement (e.g. ticks) into seconds.
     """
-    scale_factor: float
-    description: Optional[str]
 
-    def __init__(self, scale_factor: float, description: Optional[str] = None):
+    scale_factor: float
+    description: str | None
+
+    def __init__(self, scale_factor: float, description: str | None = None):
         self.scale_factor = scale_factor
         self.description = description

@@ -59,6 +59,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdio>
+#include <sstream>
 
 #include "base/atomicio.hh"
 #include "base/logging.hh"
@@ -117,11 +118,11 @@ VncServer::DataEvent::process(int revent)
  */
 VncServer::VncServer(const Params &p)
     : VncInput(p), listenEvent(NULL), dataEvent(NULL), number(p.number),
-      dataFd(-1), sendUpdate(false),
-      supportsRawEnc(false), supportsResizeEnc(false)
+      dataFd(-1), listener(p.port.build(p.name)),
+      sendUpdate(false), supportsRawEnc(false), supportsResizeEnc(false)
 {
     if (p.port)
-        listen(p.port);
+        listen();
 
     curState = WaitForProtocolVersion;
 
@@ -139,7 +140,8 @@ VncServer::VncServer(const Params &p)
     pixelFormat.greenshift = pixelConverter.ch_g.offset;
     pixelFormat.blueshift = pixelConverter.ch_b.offset;
 
-    DPRINTF(VNC, "Vnc server created at port %d\n", p.port);
+    if (hasListener())
+        DPRINTF(VNC, "Vnc server created at %s\n", getListenerOutput());
 }
 
 VncServer::~VncServer()
@@ -154,27 +156,30 @@ VncServer::~VncServer()
         delete dataEvent;
 }
 
+std::string
+VncServer::getListenerOutput() const
+{
+    if (!hasListener()) {
+        return "";
+    }
+
+    std::stringstream ss;
+    listener->output(ss);
+    return ss.str();
+}
 
 //socket creation and vnc client attach
 void
-VncServer::listen(int port)
+VncServer::listen()
 {
     if (ListenSocket::allDisabled()) {
         warn_once("Sockets disabled, not accepting vnc client connections");
         return;
     }
 
-    while (!listener.listen(port, true)) {
-        DPRINTF(VNC,
-                "can't bind address vnc server port %d in use PID %d\n",
-                port, getpid());
-        port++;
-    }
+    listener->listen();
 
-    ccprintf(std::cerr, "%s: Listening for connections on port %d\n",
-             name(), port);
-
-    listenEvent = new ListenEvent(this, listener.getfd(), POLLIN);
+    listenEvent = new ListenEvent(this, listener->getfd(), POLLIN);
     pollQueue.schedule(listenEvent);
 }
 
@@ -187,10 +192,10 @@ VncServer::accept()
     // thread.
     EventQueue::ScopedMigration migrate(eventQueue());
 
-    if (!listener.islistening())
+    if (!listener->islistening())
         panic("%s: cannot accept a connection if not listening!", name());
 
-    int fd = listener.accept(true);
+    int fd = listener->accept();
     if (fd < 0) {
         warn("%s: failed to accept VNC connection!", name());
         return;
@@ -378,7 +383,7 @@ VncServer::checkProtocolVersion()
 {
     assert(curState == WaitForProtocolVersion);
 
-    GEM5_VAR_USED size_t len;
+    [[maybe_unused]] size_t len;
     char version_string[13];
 
     // Null terminate the message so it's easier to work with

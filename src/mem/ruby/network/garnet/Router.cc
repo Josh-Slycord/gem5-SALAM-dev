@@ -143,7 +143,7 @@ Router::addOutPort(PortDirection outport_dirn,
 
     routingUnit.addRoute(routing_table_entry);
     routingUnit.addWeight(link_weight);
-    routingUnit.addOutDirection(outport_dirn, port_num);
+    routingUnit.addOutDirection(outport_dirn, port_num, out_link->mVnets);
 }
 
 PortDirection
@@ -250,16 +250,14 @@ Router::printFaultVector(std::ostream& out)
 {
     int temperature_celcius = BASELINE_TEMPERATURE_CELCIUS;
     int num_fault_types = m_network_ptr->fault_model->number_of_fault_types;
-    float fault_vector[num_fault_types];
-    get_fault_vector(temperature_celcius, fault_vector);
+    auto fault_vector = std::make_unique<float[]>(num_fault_types);
+    get_fault_vector(temperature_celcius, fault_vector.get());
     out << "Router-" << m_id << " fault vector: " << std::endl;
-    for (int fault_type_index = 0; fault_type_index < num_fault_types;
-         fault_type_index++) {
-        out << " - probability of (";
-        out <<
-        m_network_ptr->fault_model->fault_type_to_string(fault_type_index);
-        out << ") = ";
-        out << fault_vector[fault_type_index] << std::endl;
+    for (int i = 0; i < num_fault_types; i++) {
+        out << " - probability of ("
+            << m_network_ptr->fault_model->fault_type_to_string(i)
+            << ") = "
+            << fault_vector[i] << std::endl;
     }
 }
 
@@ -272,6 +270,26 @@ Router::printAggregateFaultProbability(std::ostream& out)
                                     &aggregate_fault_prob);
     out << "Router-" << m_id << " fault probability: ";
     out << aggregate_fault_prob << std::endl;
+}
+
+bool
+Router::functionalRead(Packet *pkt, WriteMask &mask)
+{
+    bool read = false;
+    if (crossbarSwitch.functionalRead(pkt, mask))
+        read = true;
+
+    for (uint32_t i = 0; i < m_input_unit.size(); i++) {
+        if (m_input_unit[i]->functionalRead(pkt, mask))
+            read = true;
+    }
+
+    for (uint32_t i = 0; i < m_output_unit.size(); i++) {
+        if (m_output_unit[i]->functionalRead(pkt, mask))
+            read = true;
+    }
+
+    return read;
 }
 
 uint32_t

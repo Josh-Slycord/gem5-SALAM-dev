@@ -42,10 +42,11 @@
 
 #include <vector>
 
-#include "arch/locked_mem.hh"
+#include "base/addr_range_map.hh"
 #include "base/loader/memory_image.hh"
 #include "base/loader/object_file.hh"
 #include "cpu/thread_context.hh"
+#include "debug/AddrRanges.hh"
 #include "debug/LLSC.hh"
 #include "debug/MemoryAccess.hh"
 #include "mem/packet_access.hh"
@@ -57,14 +58,23 @@ namespace gem5
 namespace memory
 {
 
-AbstractMemory::AbstractMemory(const Params &p) :
-    ClockedObject(p), range(p.range), pmemAddr(NULL),
-    backdoor(params().range, nullptr,
-             (MemBackdoor::Flags)(MemBackdoor::Readable |
-                                  MemBackdoor::Writeable)),
-    confTableReported(p.conf_table_reported), inAddrMap(p.in_addr_map),
-    kvmMap(p.kvm_map), _system(NULL),
-    stats(*this)
+AbstractMemory::AbstractMemory(const Params &p)
+    : ClockedObject(p),
+      range(p.range),
+      pmemAddr(nullptr),
+      isSparse(p.range.isSparse()),
+      accessBackingMemory(false),
+      backdoor(params().range, nullptr,
+               (MemBackdoor::Flags)(p.writeable ? MemBackdoor::Readable |
+                                                      MemBackdoor::Writeable
+                                                : MemBackdoor::Readable)),
+      confTableReported(p.conf_table_reported),
+      inAddrMap(p.in_addr_map),
+      kvmMap(p.kvm_map),
+      writeable(p.writeable),
+      collectStats(p.collect_stats),
+      _system(NULL),
+      stats(*this)
 {
     panic_if(!range.valid() || !range.size(),
              "Memory range %s must be valid with non-zero size.",
@@ -103,16 +113,32 @@ AbstractMemory::initState()
 }
 
 void
-AbstractMemory::setBackingStore(uint8_t* pmem_addr)
+AbstractMemory::setBackingStore(uint8_t *pmem_addr, const AddrRange &_range)
 {
     // If there was an existing backdoor, let everybody know it's going away.
     if (backdoor.ptr())
         backdoor.invalidate();
 
-    // The back door can't handle interleaved memory.
-    backdoor.ptr(range.interleaved() ? nullptr : pmem_addr);
+    // The back door can't handle interleaved or sparse memory.
+    backdoor.ptr((range.interleaved() || range.isSparse()) ? nullptr
+                                                           : pmem_addr);
 
-    pmemAddr = pmem_addr;
+    assert(_range.valid());
+    DPRINTF(AddrRanges, "Inserting range %s at address %p\n",
+            _range.to_string(), pmem_addr);
+    auto it = pmemMap.insert(_range, pmem_addr);
+    panic_if(it == pmemMap.end(),
+             "Failed to insert backing store range %s (overlap?)\n",
+             _range.to_string());
+
+    if (!range.isSparse()) {
+        panic_if(_range.start() != range.start() ||
+                     _range.end() != range.end(),
+                 "Backing store range does not match abstract memory range");
+        pmemAddr = pmem_addr;
+    }
+
+    accessBackingMemory = true;
 }
 
 AbstractMemory::MemStats::MemStats(AbstractMemory &_mem)
@@ -339,7 +365,7 @@ AbstractMemory::checkLockedAddrList(PacketPtr pkt)
                                            InvalidContextID;
                 if (owner_cid != requestor_cid) {
                     ThreadContext* ctx = system()->threads[owner_cid];
-                    TheISA::globalClearExclusive(ctx);
+                    ctx->getIsaPtr()->globalClearExclusive();
                 }
                 i = lockedAddrList.erase(i);
             } else {
@@ -393,11 +419,10 @@ AbstractMemory::access(PacketPtr pkt)
 
     assert(pkt->getAddrRange().isSubset(range));
 
-    uint8_t *host_addr = toHostAddr(pkt->getAddr());
-
     if (pkt->cmd == MemCmd::SwapReq) {
         if (pkt->isAtomicOp()) {
-            if (pmemAddr) {
+            if (accessBackingMemory) {
+                uint8_t *host_addr = toHostAddr(pkt->getAddr());
                 pkt->setData(host_addr);
                 (*(pkt->getAtomicOp()))(host_addr);
             }
@@ -406,13 +431,16 @@ AbstractMemory::access(PacketPtr pkt)
             uint64_t condition_val64;
             uint32_t condition_val32;
 
-            panic_if(!pmemAddr, "Swap only works if there is real memory " \
+            panic_if(!accessBackingMemory,
+                     "Swap only works if there is real memory "
                      "(i.e. null=False)");
 
             bool overwrite_mem = true;
             // keep a copy of our possible write value, and copy what is at the
             // memory address into the packet
             pkt->writeData(&overwrite_val[0]);
+
+            uint8_t *host_addr = toHostAddr(pkt->getAddr());
             pkt->setData(host_addr);
 
             if (pkt->req->isCondSwap()) {
@@ -433,7 +461,9 @@ AbstractMemory::access(PacketPtr pkt)
 
             assert(!pkt->req->isInstFetch());
             TRACE_PACKET("Read/Write");
-            stats.numOther[pkt->req->requestorId()]++;
+            if (collectStats) {
+                stats.numOther[pkt->req->requestorId()]++;
+            }
         }
     } else if (pkt->isRead()) {
         assert(!pkt->isWrite());
@@ -443,14 +473,18 @@ AbstractMemory::access(PacketPtr pkt)
             // to do the LL/SC tracking here
             trackLoadLocked(pkt);
         }
-        if (pmemAddr) {
+        if (accessBackingMemory) {
+            uint8_t *host_addr = toHostAddr(pkt->getAddr());
             pkt->setData(host_addr);
         }
         TRACE_PACKET(pkt->req->isInstFetch() ? "IFetch" : "Read");
-        stats.numReads[pkt->req->requestorId()]++;
-        stats.bytesRead[pkt->req->requestorId()] += pkt->getSize();
-        if (pkt->req->isInstFetch())
-            stats.bytesInstRead[pkt->req->requestorId()] += pkt->getSize();
+        if (collectStats) {
+            stats.numReads[pkt->req->requestorId()]++;
+            stats.bytesRead[pkt->req->requestorId()] += pkt->getSize();
+            if (pkt->req->isInstFetch()) {
+                stats.bytesInstRead[pkt->req->requestorId()] += pkt->getSize();
+            }
+        }
     } else if (pkt->isInvalidate() || pkt->isClean()) {
         assert(!pkt->isWrite());
         // in a fastmem system invalidating and/or cleaning packets
@@ -459,15 +493,18 @@ AbstractMemory::access(PacketPtr pkt)
         // no need to do anything
     } else if (pkt->isWrite()) {
         if (writeOK(pkt)) {
-            if (pmemAddr) {
+            if (accessBackingMemory) {
+                uint8_t *host_addr = toHostAddr(pkt->getAddr());
                 pkt->writeData(host_addr);
                 DPRINTF(MemoryAccess, "%s write due to %s\n",
                         __func__, pkt->print());
             }
             assert(!pkt->req->isInstFetch());
             TRACE_PACKET("Write");
-            stats.numWrites[pkt->req->requestorId()]++;
-            stats.bytesWritten[pkt->req->requestorId()] += pkt->getSize();
+            if (collectStats) {
+                stats.numWrites[pkt->req->requestorId()]++;
+                stats.bytesWritten[pkt->req->requestorId()] += pkt->getSize();
+            }
         }
     } else {
         panic("Unexpected packet %s", pkt->print());
@@ -483,16 +520,16 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
 {
     assert(pkt->getAddrRange().isSubset(range));
 
-    uint8_t *host_addr = toHostAddr(pkt->getAddr());
-
     if (pkt->isRead()) {
-        if (pmemAddr) {
+        if (accessBackingMemory) {
+            uint8_t *host_addr = toHostAddr(pkt->getAddr());
             pkt->setData(host_addr);
         }
         TRACE_PACKET("Read");
         pkt->makeResponse();
     } else if (pkt->isWrite()) {
-        if (pmemAddr) {
+        if (accessBackingMemory) {
+            uint8_t *host_addr = toHostAddr(pkt->getAddr());
             pkt->writeData(host_addr);
         }
         TRACE_PACKET("Write");
@@ -505,7 +542,12 @@ AbstractMemory::functionalAccess(PacketPtr pkt)
         // through printObj().
         prs->printLabels();
         // Right now we just print the single byte at the specified address.
-        ccprintf(prs->os, "%s%#x\n", prs->curPrefix(), *host_addr);
+        uint8_t val = 0;
+        if (accessBackingMemory) {
+            uint8_t *host_addr = toHostAddr(pkt->getAddr());
+            val = *host_addr;
+        }
+        ccprintf(prs->os, "%s%#x\n", prs->curPrefix(), val);
     } else {
         panic("AbstractMemory: unimplemented functional command %s",
               pkt->cmdString());

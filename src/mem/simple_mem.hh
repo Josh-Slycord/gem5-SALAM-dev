@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 ARM Limited
+ * Copyright (c) 2012-2013, 2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -48,6 +48,8 @@
 
 #include <list>
 
+#include "base/random.hh"
+#include "enums/LatencyDistribution.hh"
 #include "mem/abstract_mem.hh"
 #include "mem/port.hh"
 #include "params/SimpleMemory.hh"
@@ -98,6 +100,8 @@ class SimpleMemory : public AbstractMemory
         Tick recvAtomicBackdoor(
                 PacketPtr pkt, MemBackdoorPtr &_backdoor) override;
         void recvFunctional(PacketPtr pkt) override;
+        void recvMemBackdoorReq(const MemBackdoorReq &req,
+                MemBackdoorPtr &backdoor) override;
         bool recvTimingReq(PacketPtr pkt) override;
         void recvRespRetry() override;
         AddrRangeList getAddrRanges() const override;
@@ -114,7 +118,8 @@ class SimpleMemory : public AbstractMemory
     /**
      * Fudge factor added to the latency.
      */
-    const Tick latency_var;
+    const LatencyDistribution latencyDist;
+    const Tick latencyDistParam;
 
     /**
      * Internal (unbounded) storage to mimic the delay caused by the
@@ -129,6 +134,12 @@ class SimpleMemory : public AbstractMemory
      * the regulation.
      */
     const double bandwidth;
+
+    /**
+     * Whether to enable the backdoor mechanism or not. If disabled, it will
+     * ignore the backdoor requests when receives.
+     */
+    const bool enableBackdoor;
 
     /**
      * Track the state of the memory as either idle or busy, no need
@@ -147,6 +158,8 @@ class SimpleMemory : public AbstractMemory
      * retry. This is only used as a check.
      */
     bool retryResp;
+
+    mutable Random::RandomPtr rng = Random::genRandom();
 
     /**
      * Release the memory after being busy and send a retry if a
@@ -191,6 +204,8 @@ class SimpleMemory : public AbstractMemory
     Tick recvAtomic(PacketPtr pkt);
     Tick recvAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &_backdoor);
     void recvFunctional(PacketPtr pkt);
+    void recvMemBackdoorReq(const MemBackdoorReq &req,
+            MemBackdoorPtr &backdoor);
     bool recvTimingReq(PacketPtr pkt);
     void recvRespRetry();
 };

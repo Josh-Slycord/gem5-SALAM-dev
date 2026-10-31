@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -61,7 +59,11 @@ class RegisterFile : public SimObject
     RegisterFile(const RegisterFileParams &p);
     virtual ~RegisterFile();
     virtual void setParent(ComputeUnit *_computeUnit);
-    int numRegs() const { return _numRegs; }
+    int
+    numRegs() const
+    {
+        return _numRegs;
+    }
 
     // State functions
 
@@ -79,7 +81,10 @@ class RegisterFile : public SimObject
 
       public:
         RegisterEvent(RegisterFile *_rf, int _regIdx)
-            : rf(_rf), regIdx(_regIdx) { setFlags(AutoDelete); }
+            : rf(_rf), regIdx(_regIdx)
+        {
+            setFlags(AutoDelete);
+        }
     };
 
     // Register Event to mark a register as free in the scoreboard/busy vector
@@ -87,7 +92,8 @@ class RegisterFile : public SimObject
     {
       public:
         MarkRegFreeScbEvent(RegisterFile *_rf, int _regIdx)
-            : RegisterEvent(_rf, _regIdx) { }
+            : RegisterEvent(_rf, _regIdx)
+        {}
         void process();
     };
 
@@ -96,7 +102,8 @@ class RegisterFile : public SimObject
     {
       public:
         MarkRegBusyScbEvent(RegisterFile *_rf, int _regIdx)
-            : RegisterEvent(_rf, _regIdx) { }
+            : RegisterEvent(_rf, _regIdx)
+        {}
         void process();
     };
 
@@ -128,8 +135,7 @@ class RegisterFile : public SimObject
                                                   GPUDynInstPtr ii);
     // Queue the register writes. Assumes canScheduleWriteOperandsFromLoad
     // was called immediately prior and returned True
-    virtual void scheduleWriteOperandsFromLoad(Wavefront *w,
-                                               GPUDynInstPtr ii);
+    virtual void scheduleWriteOperandsFromLoad(Wavefront *w, GPUDynInstPtr ii);
 
     // ExecRF is invoked every cycle by the compute unit and may be
     // used to model detailed timing of the register file.
@@ -145,7 +151,7 @@ class RegisterFile : public SimObject
     virtual void dispatchInstruction(GPUDynInstPtr ii);
 
   protected:
-    ComputeUnit* computeUnit;
+    ComputeUnit *computeUnit;
     int simdId;
 
     // flag indicating if a register is busy
@@ -160,6 +166,10 @@ class RegisterFile : public SimObject
 
         // Total number of register reads per DWORD per thread
         statistics::Scalar registerReads;
+
+        statistics::Scalar rfc_cache_read_hits;
+        statistics::Scalar rfc_cache_write_hits;
+
         // Total number of register writes per DWORD per thread
         statistics::Scalar registerWrites;
 

@@ -40,7 +40,7 @@ namespace Iris
 class ISA : public BaseISA
 {
   public:
-    ISA(const Params &p) : BaseISA(p) {}
+    ISA(const Params &p) : BaseISA(p, "fastmodel") {}
 
     void serialize(CheckpointOut &cp) const override;
 
@@ -51,6 +51,36 @@ class ISA : public BaseISA
     {
         ArmISA::CPSR cpsr = tc->readMiscRegNoEffect(ArmISA::MISCREG_CPSR);
         return ArmISA::inUserMode(cpsr);
+    }
+
+    PCStateBase *
+    newPCState(Addr new_inst_addr=0) const override
+    {
+        return new ArmISA::PCState(new_inst_addr);
+    }
+
+    RegVal
+    readMiscRegNoEffect(RegIndex idx) const override
+    {
+        panic("readMiscRegNoEffect not implemented.");
+    }
+
+    RegVal
+    readMiscReg(RegIndex idx) override
+    {
+        panic("readMiscReg not implemented.");
+    }
+
+    void
+    setMiscRegNoEffect(RegIndex idx, RegVal val) override
+    {
+        panic("setMiscRegNoEffect not implemented.");
+    }
+
+    void
+    setMiscReg(RegIndex idx, RegVal val) override
+    {
+        panic("setMiscReg not implemented.");
     }
 };
 

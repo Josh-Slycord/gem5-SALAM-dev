@@ -122,7 +122,7 @@ class FunctionalUnitGenerator():
         self.fu_list = fu_list
         with open(self.scons_dir_fu, 'w+') as self.scons_file:
             self.scons_file.write("Import('*')\n")
-            self.scons_file.write("if env['TARGET_ISA'] == 'arm':\n\n")
+            self.scons_file.write("if env[\"CONF\"][\"USE_ARM_ISA\"] and env.get(\"WITH_SALAM\", False):\n\n")
             for unit in self.fu_list:
                 self.scons_file.write("    Source('" + unit + ".cc')\n")
 
@@ -605,6 +605,6 @@ class FunctionalUnitGenerator():
         self.inst_list = inst_list
         with open(self.scons_dir_inst, 'w+') as self.scons_file:
             self.scons_file.write("Import('*')\n")
-            self.scons_file.write("if env['TARGET_ISA'] == 'arm':\n\n")
+            self.scons_file.write("if env[\"CONF\"][\"USE_ARM_ISA\"] and env.get(\"WITH_SALAM\", False):\n\n")
             for inst in self.inst_list:
                 self.scons_file.write("    Source('" + inst + ".cc')\n")

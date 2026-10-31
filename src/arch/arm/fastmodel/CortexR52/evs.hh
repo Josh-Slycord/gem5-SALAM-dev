@@ -32,6 +32,7 @@
 
 #include "arch/arm/fastmodel/amba_ports.hh"
 #include "arch/arm/fastmodel/common/signal_receiver.hh"
+#include "arch/arm/fastmodel/common/signal_sender.hh"
 #include "arch/arm/fastmodel/iris/cpu.hh"
 #include "arch/arm/fastmodel/protocol/exported_clock_rate_control.hh"
 #include "arch/arm/fastmodel/protocol/signal_interrupt.hh"
@@ -45,6 +46,7 @@
 #include "scx_evs_CortexR52x2.h"
 #include "scx_evs_CortexR52x3.h"
 #include "scx_evs_CortexR52x4.h"
+#include "sim/signal.hh"
 #include "systemc/ext/core/sc_event.hh"
 #include "systemc/ext/core/sc_module.hh"
 #include "systemc/tlm_port_wrapper.hh"
@@ -52,7 +54,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(FastModel, fastmodel);
 namespace fastmodel
 {
 
@@ -78,6 +79,8 @@ class ScxEvsCortexR52 : public Types::Base, public Iris::BaseCpuEvs
     struct CorePins
     {
         using CoreInt = IntSinkPin<CorePins>;
+        template <typename T>
+        using SignalInitiator = amba_pv::signal_master_port<T>;
 
         std::string name;
         Evs *evs;
@@ -102,6 +105,13 @@ class ScxEvsCortexR52 : public Types::Base, public Iris::BaseCpuEvs
         AmbaInitiator llpp;
         AmbaInitiator flash;
         AmbaInitiator amba;
+
+        SignalSender core_reset;
+        SignalSender poweron_reset;
+        SignalSender halt;
+        SignalReceiverInt standbywfi;
+
+        SignalInitiator<uint64_t> cfgvectable;
     };
 
     std::vector<std::unique_ptr<CorePins>> corePins;
@@ -109,6 +119,14 @@ class ScxEvsCortexR52 : public Types::Base, public Iris::BaseCpuEvs
     using ClstrInt = IntSinkPin<ScxEvsCortexR52>;
 
     std::vector<std::unique_ptr<ClstrInt>> spis;
+
+    AmbaTarget ext_slave;
+
+    SignalSender top_reset;
+
+    SignalSender dbg_reset;
+
+    SignalSinkPort<bool> model_reset;
 
     CortexR52Cluster *gem5CpuCluster;
 
@@ -140,13 +158,13 @@ class ScxEvsCortexR52 : public Types::Base, public Iris::BaseCpuEvs
     }
     void start_of_simulation() override {}
 
-    void sendFunc(PacketPtr pkt) override;
-
     void setClkPeriod(Tick clk_period) override;
 
     void setSysCounterFrq(uint64_t sys_counter_frq) override;
 
     void setCluster(SimObject *cluster) override;
+
+    void setResetAddr(int core, Addr addr, bool secure) override;
 };
 
 struct ScxEvsCortexR52x1Types

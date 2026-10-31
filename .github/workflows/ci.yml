@@ -2,7 +2,7 @@ name: Workbench source validation
 
 on:
   push:
-    branches: [main, 'codex/ci-workbench-*']
+    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -71,7 +71,8 @@ jobs:
           selection = {'distribution': 'Ubuntu-20.04', 'path': str(engine)}
           record = {'schema_version': 1, 'project': 'SALAM Research Workbench',
                     'status': 'CI source fixture; no simulator build/receipt; never a runnable binding',
-                    'engine': dict(selection), 'configuration_engine': dict(selection)}
+                    'engine': dict(selection), 'configuration_engine': dict(selection,
+                    toolchain_profile='ubuntu20-llvm12-python38-armgcc9')}
           with (workbench / 'workspace.json').open('x', encoding='utf-8') as stream:
               json.dump(record, stream, indent=2)
               stream.write('\n')
@@ -226,6 +227,358 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: workbench-source-validation
+          path: workbench/evidence/ci/
+          if-no-files-found: warn
+          retention-days: 14
+
+  source-only-gem5-26:
+    name: Python 3.12 contracts and explicit gem5 26 source generation
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+    steps:
+      - name: Install Git and Python 3.12 system packages
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git build-essential python3.12 python3-pip python3.12-dev python3.12-venv \
+            clang-14 llvm-14 llvm-14-dev gcc-arm-none-eabi libnewlib-dev \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            libegl1 libgl1 libopengl0 libglib2.0-0 libdbus-1-3 libxkbcommon-x11-0 \
+            libxcb-xinerama0 fontconfig fonts-dejavu-core
+
+      - name: Check out the exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Trust this checked-out workspace for Git
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install pinned Python source-validation dependencies
+        run: |
+          set -euo pipefail
+          /usr/bin/python3.12 -m venv "$RUNNER_TEMP/salam-ci26"
+          echo "$RUNNER_TEMP/salam-ci26/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/salam-ci26/bin/python" -m pip install --no-input pip==24.3.1
+          "$RUNNER_TEMP/salam-ci26/bin/python" -m pip install --no-input -r .github/requirements-ci-gem5-26.txt
+          "$RUNNER_TEMP/salam-ci26/bin/python" -c 'import yaml, PySide6.QtWidgets, networkx, numpy'
+
+      - name: Verify imported workflows cannot execute in this fork
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          from pathlib import Path
+          import yaml
+          guard = "github.repository == 'gem5/gem5'"
+          def guarded(expression):
+              if expression == guard:
+                  return True
+              prefix = '$' + '{{ ' + guard + ' && '
+              if not expression.startswith(prefix) or not expression.endswith(') }}'):
+                  return False
+              condition = expression[len(prefix):-3].rstrip()
+              if not condition.startswith('('):
+                  return False
+              depth, quoted, index = 0, False, 0
+              while index < len(condition):
+                  char = condition[index]
+                  if char == "'":
+                      if quoted and condition[index:index + 2] == "''":
+                          index += 2
+                          continue
+                      quoted = not quoted
+                  elif not quoted:
+                      depth += (char == '(') - (char == ')')
+                      if depth < 0 or (depth == 0 and index != len(condition) - 1):
+                          return False
+                  index += 1
+              return depth == 0 and not quoted
+          assert guarded(guard)
+          assert guarded('$' + '{{ ' + guard + ' && (always()) }}')
+          assert not guarded(guard + ' || true')
+          assert not guarded('$' + '{{ ' + guard + ' && (false) || (true) }}')
+          checked = 0
+          for path in sorted(Path('.github/workflows').iterdir()):
+              if path.suffix not in ('.yml', '.yaml') or path.name == 'ci.yml':
+                  continue
+              workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+              for name, job in workflow['jobs'].items():
+                  expression = job.get('if', '')
+                  if not guarded(expression):
+                      raise SystemExit('Imported job lacks official-repository guard: ' + str(path) + ':' + name)
+                  checked += 1
+          if not checked:
+              raise SystemExit('No imported workflow jobs were checked')
+          print('Verified official-repository guards on {} imported jobs'.format(checked))
+          PY
+
+      - name: Record the modern source-validation environment
+        run: |
+          set -euo pipefail
+          mkdir -p workbench/evidence/ci
+          "$RUNNER_TEMP/salam-ci26/bin/python" -m pip freeze > workbench/evidence/ci/python-freeze.txt
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import hashlib
+          import json
+          import platform
+          import subprocess
+          import sys
+          from pathlib import Path
+          files = ('.github/requirements-ci-gem5-26.txt',
+                   'workbench/requirements-gui-gem5-26-validated.txt')
+          record = {
+              'kind': 'source_validation_environment',
+              'python_executable': sys.executable, 'python_version': platform.python_version(),
+              'platform': platform.platform(), 'os_release': Path('/etc/os-release').read_text(),
+              'dependency_inputs': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest()
+                                    for name in files},
+              'compiler': subprocess.check_output(['/usr/bin/g++', '--version'], text=True).splitlines()[0],
+              'llvm_version': subprocess.check_output(['/usr/bin/llvm-config-14', '--version'], text=True).strip(),
+              'simulator_built': False, 'simulator_run': False,
+          }
+          Path('workbench/evidence/ci/environment.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY
+
+      - name: Select legacy-default unit-contract fixture under Python 3.12
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          engine = Path(os.environ['GITHUB_WORKSPACE']).resolve(strict=True)
+          workbench = engine / 'workbench'
+          assert (workbench / 'salam_workbench').is_dir()
+          assert not (engine / 'build/ARM/gem5.opt').exists()
+          assert not (workbench / 'evidence/toolchain.json').exists()
+          selection = {'distribution': 'Ubuntu-20.04', 'path': str(engine)}
+          record = {'schema_version': 1, 'project': 'SALAM Research Workbench',
+                    'status': 'Python 3.12 unit-contract fixture with explicit legacy command defaults; no simulator build or runnable binding',
+                    'engine': dict(selection), 'configuration_engine': dict(selection,
+                    toolchain_profile='ubuntu20-llvm12-python38-armgcc9')}
+          with (workbench / 'workspace.json').open('x', encoding='utf-8') as stream:
+              json.dump(record, stream, indent=2)
+              stream.write('\n')
+          (workbench / 'evidence/ci').mkdir(parents=True, exist_ok=True)
+          PY
+
+      - name: Check Python and curated configuration syntax
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+          import yaml
+          root = Path('workbench')
+          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts')
+                      for path in (root / folder).rglob('*.py')
+                      if 'vendor' not in path.parts)
+          js = sorted((root / 'experiments').rglob('*.json'))
+          ym = sorted(list((root / 'experiments').rglob('*.yml')) +
+                      list((root / 'experiments').rglob('*.yaml')))
+          assert py and js and ym
+          for path in py:
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          for path in js:
+              json.loads(path.read_text(encoding='utf-8'))
+          for path in ym:
+              list(yaml.safe_load_all(path.read_text(encoding='utf-8')))
+          print('Parsed {} Python, {} JSON, {} YAML files'.format(len(py), len(js), len(ym)))
+          PY
+
+      - name: Run fast, config, and GUI source-only unit tiers
+        working-directory: workbench
+        run: |
+          set -euo pipefail
+          for tier in fast config gui; do
+            "$RUNNER_TEMP/salam-ci26/bin/python" -B -m salam_workbench.checks \
+              --internal-unit-tier "$tier" --unit-result "evidence/ci/${tier}.json"
+          done
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import json
+          import unittest
+          from pathlib import Path
+          selected = set()
+          for tier in ('fast', 'config', 'gui'):
+              receipt = json.loads((Path('evidence/ci') / (tier + '.json')).read_text())
+              if not receipt.get('success') or not receipt.get('available'):
+                  raise SystemExit(tier + ' did not pass')
+              for key in ('skipped', 'failures', 'errors', 'unassigned_test_files', 'unassigned_tests'):
+                  if receipt.get(key):
+                      raise SystemExit(tier + ' has ' + key + ': ' + repr(receipt[key]))
+              tests = receipt.get('selected_tests', [])
+              if not tests or len(tests) != receipt.get('tests_run') or selected.intersection(tests):
+                  raise SystemExit(tier + ' test selection/count is incomplete')
+              selected.update(tests)
+          discovered = set()
+          pending = [unittest.TestLoader().discover('tests')]
+          while pending:
+              item = pending.pop()
+              if isinstance(item, unittest.TestSuite):
+                  pending.extend(item)
+              else:
+                  if item.id() in discovered:
+                      raise SystemExit('Duplicate discovered test: ' + item.id())
+                  discovered.add(item.id())
+          missing, extra = sorted(discovered - selected), sorted(selected - discovered)
+          coverage = {'state': 'passed' if not missing and not extra else 'failed',
+                      'selected_count': len(selected), 'discovered_count': len(discovered),
+                      'missing_tests': missing, 'extra_tests': extra,
+                      'selected_tests': sorted(selected), 'discovered_tests': sorted(discovered)}
+          (Path('evidence/ci') / 'test-inventory.json').write_text(
+              json.dumps(coverage, indent=2) + '\n')
+          if missing or extra:
+              raise SystemExit('Tier selection differs from independent discovery: ' + repr(coverage))
+          print('Passed every one of {} independently discovered source-only unit tests'.format(len(selected)))
+          PY
+
+      - name: Select explicit modern source-generation profile without a build receipt
+        working-directory: workbench
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from salam_workbench.toolchain_profile import MODERN_ID, build_argv, load_toolchain
+          root = Path(os.environ['GITHUB_WORKSPACE']).resolve(strict=True)
+          venv = Path(os.environ['RUNNER_TEMP']) / 'salam-ci26'
+          manifest = root / 'workbench/workspace.json'
+          record = json.loads(manifest.read_text())
+          assert 'build_receipt' not in record['configuration_engine']
+          assert not (root / 'build/ARM/gem5.opt').exists()
+          profile = {
+              'id': MODERN_ID, 'python': str(venv / 'bin/python'),
+              'scons': str(venv / 'bin/scons'), 'cxx': '/usr/bin/g++',
+              'python_config': '/usr/bin/python3.12-config', 'linker': '/usr/bin/ld',
+              'llvm_bin': '/usr/lib/llvm-14/bin', 'llvm_config': '/usr/bin/llvm-config-14',
+              'arm_bin': '/usr/bin',
+              'arm_sysroot': '/usr/lib/arm-none-eabi',
+              'arm_include': '/usr/lib/arm-none-eabi/include',
+          }
+          record['configuration_engine']['toolchain_profile'] = profile
+          record['configuration_engine']['distribution'] = 'Ubuntu-24.04'
+          record['status'] = 'CI modern source-generation fixture; no simulator build/receipt; never a runnable binding'
+          manifest.write_text(json.dumps(record, indent=2) + '\n')
+          selected = load_toolchain(manifest=record)
+          assert selected == profile
+          assert selected['python'] == sys.executable
+          for key in ('python', 'scons', 'cxx', 'python_config', 'linker', 'llvm_config'):
+              assert Path(selected[key]).is_file(), key
+          for key in ('arm_sysroot', 'arm_include'):
+              assert Path(selected[key]).is_dir(), key
+          argv = build_argv(selected)
+          assert '--with-salam' in argv and 'LLVM_CONFIG=/usr/bin/llvm-config-14' in argv
+          witness = {
+              'kind': 'source_only_modern_profile_selection', 'state': 'passed',
+              'profile': selected, 'build_argv_not_executed': argv,
+              'python_sha256': hashlib.sha256(Path(sys.executable).read_bytes()).hexdigest(),
+              'simulator_built': False, 'simulator_run': False,
+          }
+          (root / 'workbench/evidence/ci/toolchain-selection.json').write_text(
+              json.dumps(witness, indent=2) + '\n')
+          PY
+
+      - name: Generate GEMM hardware source outside the checkout
+        working-directory: workbench
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B -m salam_workbench.configurator hardware \
+            --engine "$GITHUB_WORKSPACE" --benchmark-name gemm \
+            --model 40nm_model --period 5ns --profile default_profile \
+            --evidence-dir "$RUNNER_TEMP/salam-hardware-generation"
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ['GITHUB_WORKSPACE']).resolve(strict=True)
+          evidence = Path(os.environ['RUNNER_TEMP']) / 'salam-hardware-generation'
+          receipt_path = evidence / 'hardware-codegen.json'
+          receipt = json.loads(receipt_path.read_text())
+          stage = Path(receipt['staged_engine_root']).resolve(strict=True)
+          if stage == root or root in stage.parents:
+              raise SystemExit('Generation staged inside checkout')
+          selected_python = str(Path(os.environ['RUNNER_TEMP']) / 'salam-ci26/bin/python')
+          if receipt.get('command', {}).get('argv', [None])[0] != selected_python:
+              raise SystemExit('Generation did not use the explicit modern Python')
+          outputs = receipt.get('outputs', [])
+          if (receipt.get('state') != 'generated' or receipt.get('valid') is not True
+                  or receipt.get('errors') or receipt.get('build_consumer_issues')
+                  or len(outputs) != 129):
+              raise SystemExit('GEMM source generation is incomplete')
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          for item in outputs:
+              relative = Path(item['relative_path'])
+              if relative.is_absolute() or '..' in relative.parts:
+                  raise SystemExit('Unsafe generated output path')
+              expected = item['sha256']
+              if digest(stage / relative) != expected or digest(root / relative) != expected:
+                  raise SystemExit('Generated source differs: ' + str(relative))
+          witness = {'kind': 'source_only_hardware_generation', 'state': 'passed',
+                     'generated_outputs_checked': len(outputs), 'source_matches': len(outputs),
+                     'simulator_built': False, 'simulator_run': False,
+                     'generation_receipt_sha256': digest(receipt_path)}
+          output = root / 'workbench/evidence/ci/generation'
+          output.mkdir(parents=True, exist_ok=True)
+          (output / 'generation-witness.json').write_text(
+              json.dumps(witness, indent=2) + '\n')
+          print(json.dumps(witness))
+          PY
+
+      - name: Preserve hardware-generation receipt and logs
+        if: always()
+        run: |
+          mkdir -p workbench/evidence/ci/generation
+          for name in hardware-codegen.json generator.stdout generator.stderr; do
+            if [ -f "$RUNNER_TEMP/salam-hardware-generation/$name" ]; then
+              cp "$RUNNER_TEMP/salam-hardware-generation/$name" \
+                "workbench/evidence/ci/generation/$name"
+            fi
+          done
+
+      - name: Check scoped source and documentation hygiene
+        run: |
+          set -euo pipefail
+          checkout_root="$(git --no-optional-locks -c core.fsmonitor=false rev-parse --show-toplevel)"
+          printf 'Git checkout root: %s\n' "$checkout_root"
+          test "$checkout_root" = "$GITHUB_WORKSPACE"
+          pre-commit run --all-files --show-diff-on-failure
+          git --no-optional-locks -c core.fsmonitor=false diff --check
+          git --no-optional-locks -c core.fsmonitor=false diff --exit-code
+
+      - name: Preserve pre-commit failure log
+        if: failure()
+        run: |
+          mkdir -p workbench/evidence/ci
+          if [ -f "$HOME/.cache/pre-commit/pre-commit.log" ]; then
+            cp "$HOME/.cache/pre-commit/pre-commit.log" workbench/evidence/ci/precommit.log
+          fi
+
+      - name: Upload source-only validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: workbench-source-validation-gem5-26
           path: workbench/evidence/ci/
           if-no-files-found: warn
           retention-days: 14

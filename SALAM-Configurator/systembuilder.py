@@ -61,6 +61,7 @@ import shutil
 import argparse
 import tempfile
 import difflib
+import keyword
 from parser import *
 
 # This requires M5_PATH to point to your gem5-SALAM directory
@@ -543,6 +544,35 @@ def genHeaderFiles(headerList, clusters):
         )
 
 
+def render_full_system_template(template, module_name):
+    """Bind the unique template import and accelerator call by their content."""
+    if not isinstance(module_name, str) or not module_name.isidentifier():
+        raise ValueError("Full-system module name must be a Python identifier")
+    if keyword.iskeyword(module_name):
+        raise ValueError("Full-system module name cannot be a Python keyword")
+    replacements = {
+        "import TEMPLATE": "import " + module_name,
+        "TEMPLATE.makeHWAcc(args, test_sys)": (
+            module_name + ".makeHWAcc(args, test_sys)"
+        ),
+    }
+    counts = dict.fromkeys(replacements, 0)
+    rendered = []
+    for line in template.splitlines(keepends=True):
+        marker = line.strip()
+        if marker in replacements:
+            counts[marker] += 1
+            line = line.replace(marker, replacements[marker], 1)
+        rendered.append(line)
+    for marker, count in counts.items():
+        if count != 1:
+            raise ValueError(
+                "Full-system template requires exactly one %r placeholder; found %d"
+                % (marker, count)
+            )
+    return "".join(rendered)
+
+
 def genFullSystemFile(clusters):
     template_path = M5_Path + "/SALAM-Configurator/fs_template.py"
     output_path = CONFIG_Path + "fs_" + fileName + ".py"
@@ -552,14 +582,10 @@ def genFullSystemFile(clusters):
         print(f"[DRY-RUN] Would write: {output_path} (full system config)")
         return
 
-    shutil.copyfile(template_path, output_path)
-    f = open(output_path, "r")
-    fullSystem = f.readlines()
-    f.close()
-    fullSystem[68] = "import " + fileName + "\n"
-    fullSystem[250] = "        " + fileName + ".makeHWAcc(args, test_sys)\n"
+    with open(template_path, "r") as f:
+        fullSystem = render_full_system_template(f.read(), fileName)
     with open(output_path, "w") as f:
-        f.writelines(fullSystem)
+        f.write(fullSystem)
     print(f"Wrote: {output_path}")
 
 

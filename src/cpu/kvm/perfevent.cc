@@ -46,6 +46,7 @@
 #include <cassert>
 #include <cerrno>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 
 #include "base/logging.hh"
@@ -53,6 +54,39 @@
 
 namespace gem5
 {
+
+namespace
+{
+
+bool
+readPerfEventParanoid(long &value)
+{
+    constexpr const char *path = "/proc/sys/kernel/perf_event_paranoid";
+    char buf[32] = {};
+
+    const int fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd == -1) {
+        return false;
+    }
+
+    const ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (bytes <= 0) {
+        return false;
+    }
+
+    char *end = nullptr;
+    errno = 0;
+    const long parsed = std::strtol(buf, &end, 10);
+    if (errno != 0 || end == buf) {
+        return false;
+    }
+
+    value = parsed;
+    return true;
+}
+
+} // anonymous namespace
 
 PerfKvmCounterConfig::PerfKvmCounterConfig(uint32_t type, uint64_t config)
 {
@@ -171,16 +205,42 @@ PerfKvmCounter::attach(PerfKvmCounterConfig &config,
                  0); // Flags
     if (fd == -1)
     {
-        if (errno == EACCES)
-        {
-            panic("PerfKvmCounter::attach recieved error EACCESS\n"
-            "  This error may be caused by a too restrictive setting\n"
-            "  in the file '/proc/sys/kernel/perf_event_paranoid'\n"
-            "  The default value was changed to 2 in kernel 4.6\n"
-            "  A value greater than 1 prevents gem5 from making\n"
-            "  the syscall to perf_event_open");
+        const int saved_errno = errno;
+        if (saved_errno == EACCES || saved_errno == EPERM) {
+            long perfEventParanoid = 0;
+            const bool haveParanoid = readPerfEventParanoid(perfEventParanoid);
+
+            if (haveParanoid && perfEventParanoid > 1) {
+                panic("PerfKvmCounter::attach failed with %s.\n"
+                      "  /proc/sys/kernel/perf_event_paranoid is %ld.\n"
+                      "  Values greater than 1 block gem5 from opening the\n"
+                      "  perf counters needed by KVM CPUs with usePerf=True.\n"
+                      "  Lower perf_event_paranoid, grant CAP_PERFMON/\n"
+                      "  CAP_SYS_ADMIN, or set usePerf=False.\n",
+                      strerror(saved_errno), perfEventParanoid);
+            }
+
+            if (haveParanoid) {
+                panic(
+                    "PerfKvmCounter::attach failed with %s.\n"
+                    "  /proc/sys/kernel/perf_event_paranoid is %ld, so the\n"
+                    "  host is not blocked by the usual >1 sysctl check.\n"
+                    "  The perf_event_open permission failure is instead due\n"
+                    "  to some other host policy or missing capability.\n"
+                    "  Grant CAP_PERFMON/CAP_SYS_ADMIN, adjust host perf\n"
+                    "  policy, or set usePerf=False.\n",
+                    strerror(saved_errno), perfEventParanoid);
+            }
+
+            panic(
+                "PerfKvmCounter::attach failed with %s.\n"
+                "  perf_event_open permission was denied and gem5 could not\n"
+                "  read /proc/sys/kernel/perf_event_paranoid to diagnose the\n"
+                "  host policy. Lower the host perf restrictions, grant\n"
+                "  CAP_PERFMON/CAP_SYS_ADMIN, or set usePerf=False.\n",
+                strerror(saved_errno));
         }
-        panic("PerfKvmCounter::attach failed (%i)\n", errno);
+        panic("PerfKvmCounter::attach failed (%i)\n", saved_errno);
     }
 
     mmapPerf(1);

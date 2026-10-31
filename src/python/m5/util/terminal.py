@@ -26,7 +26,9 @@
 #
 # Author: Steve Reinhardt
 
+import os
 import sys
+from typing import TextIO
 
 # Intended usage example:
 #
@@ -52,69 +54,102 @@ color_names = "Black Red Green Yellow Blue Magenta Cyan".split()
 # Please feel free to add information about other terminals here.
 #
 capability_map = {
-         'Bold': 'bold',
-          'Dim': 'dim',
-        'Blink': 'blink',
-    'Underline': 'smul',
-      'Reverse': 'rev',
-     'Standout': 'smso',
-       'Normal': 'sgr0'
+    "Bold": "bold",
+    "Dim": "dim",
+    "Blink": "blink",
+    "Underline": "smul",
+    "Reverse": "rev",
+    "Standout": "smso",
+    "Normal": "sgr0",
 }
 
 capability_names = list(capability_map.keys())
 
+
 def null_cap_string(s, *args):
-    return ''
+    return ""
+
 
 try:
     import curses
+
     curses.setupterm()
+
     def cap_string(s, *args):
         cap = curses.tigetstr(s)
         if cap:
-            return curses.tparm(cap, *args).decode('utf-8')
+            return curses.tparm(cap, *args).decode("utf-8")
         else:
-            return ''
+            return ""
+
 except:
     cap_string = null_cap_string
 
-class ColorStrings(object):
+
+class ColorStrings:
     def __init__(self, cap_string):
         for i, c in enumerate(color_names):
-            setattr(self, c, cap_string('setaf', i))
+            setattr(self, c, cap_string("setaf", i))
         for name, cap in capability_map.items():
             setattr(self, name, cap_string(cap))
+
 
 termcap = ColorStrings(cap_string)
 no_termcap = ColorStrings(null_cap_string)
 
-if sys.stdout.isatty():
+
+def should_use_colors(out: TextIO):
+    # is there a *non-empty* variable named NO_COLOR/NOCOLOR in the env?
+    must_not_colour = (
+        os.getenv("NO_COLOR", default="") != ""
+        or os.getenv("NOCOLOR", default="") != ""
+    )
+    # is there a *non-empty* variable named CLICOLOR_FORCE/FORCE_COLOR in the env?
+    should_force = (
+        os.getenv("CLICOLOR_FORCE", default="") != ""
+        or os.getenv("FORCE_COLOR", default="") != ""
+    )
+    istty = out.isatty() and os.getenv("TERM", default="dumb") != "dumb"
+    return should_force or ((not must_not_colour) and istty)
+
+
+if should_use_colors(sys.stdout):
     tty_termcap = termcap
 else:
     tty_termcap = no_termcap
 
-def get_termcap(use_colors = None):
+
+def get_termcap(stream=sys.stdout, use_colors=None):
+    if use_colors is None:
+        # option unspecified; default behavior is to use colors iff isatty && NO_COLOR is not set
+        use_colors = should_use_colors(stream)
+
     if use_colors:
         return termcap
-    elif use_colors is None:
-        # option unspecified; default behavior is to use colors iff isatty
-        return tty_termcap
     else:
         return no_termcap
+
 
 def test_termcap(obj):
     for c_name in color_names:
         c_str = getattr(obj, c_name)
         print(c_str + c_name + obj.Normal)
         for attr_name in capability_names:
-            if attr_name == 'Normal':
+            if attr_name == "Normal":
                 continue
             attr_str = getattr(obj, attr_name)
             print(attr_str + c_str + attr_name + " " + c_name + obj.Normal)
-        print(obj.Bold + obj.Underline +
-              c_name + "Bold Underline " + c + obj.Normal)
+        print(
+            obj.Bold
+            + obj.Underline
+            + c_name
+            + "Bold Underline "
+            + c
+            + obj.Normal
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print("=== termcap enabled ===")
     test_termcap(termcap)
     print(termcap.Normal)

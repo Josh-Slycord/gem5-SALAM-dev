@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 ARM Limited
+ * Copyright (c) 2021,2026 Arm Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -13,6 +13,7 @@
  *
  * Copyright (c) 2020 Inria
  * Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
+ * Copyright (c) 2025 Google
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +62,7 @@
 #include "mem/ruby/network/BasicRouter.hh"
 #include "mem/ruby/network/simple/PerfectSwitch.hh"
 #include "mem/ruby/network/simple/Throttle.hh"
+#include "mem/ruby/network/simple/routing/BaseRoutingUnit.hh"
 #include "mem/ruby/protocol/MessageSizeType.hh"
 #include "params/Switch.hh"
 
@@ -77,28 +79,37 @@ class SimpleNetwork;
 class Switch : public BasicRouter
 {
   public:
+
+    // Makes sure throttle sends messages to the links after the switch is
+    // done forwarding the messages in the same cycle
+    static constexpr Event::Priority PERFECTSWITCH_EV_PRI = Event::Default_Pri;
+    static constexpr Event::Priority THROTTLE_EV_PRI = Event::Default_Pri + 1;
+
     typedef SwitchParams Params;
     Switch(const Params &p);
     ~Switch() = default;
     void init();
 
     void addInPort(const std::vector<MessageBuffer*>& in);
-    void addOutPort(const std::vector<MessageBuffer*>& out,
+    void addOutPort(std::string switch_name,
+                    const std::vector<MessageBuffer*>& out,
                     const NetDest& routing_table_entry,
-                    Cycles link_latency, int bw_multiplier);
+                    Cycles link_latency, int link_weight, int bw_multiplier,
+                    bool is_external,
+                    PortDirection dst_inport = "");
 
-    void resetStats();
-    void collateStats();
-    void regStats();
     const statistics::Formula & getMsgCount(unsigned int type) const
     { return *(switchStats.m_msg_counts[type]); }
 
     void print(std::ostream& out) const;
     void init_net_ptr(SimpleNetwork* net_ptr) { m_network_ptr = net_ptr; }
+    SimpleNetwork* getNetPtr() const { return m_network_ptr; }
 
     bool functionalRead(Packet *);
     bool functionalRead(Packet *, WriteMask&);
     uint32_t functionalWrite(Packet *);
+
+    BaseRoutingUnit& getRoutingUnit() { return m_routing_unit; }
 
   private:
     // Private copy constructor and assignment operator
@@ -109,6 +120,11 @@ class Switch : public BasicRouter
     SimpleNetwork* m_network_ptr;
     std::list<Throttle> throttles;
 
+    const Cycles m_int_routing_latency;
+    const Cycles m_ext_routing_latency;
+
+    BaseRoutingUnit &m_routing_unit;
+
     unsigned m_num_connected_buffers;
     std::vector<MessageBuffer*> m_port_buffers;
 
@@ -116,13 +132,26 @@ class Switch : public BasicRouter
   public:
     struct SwitchStats : public statistics::Group
     {
-        SwitchStats(statistics::Group *parent);
+      private:
+        Switch *parent;
+
+      public:
+        SwitchStats(Switch *parent);
+        void regStats() override; // Need to override as throttles creates late
 
         // Statistical variables
-        statistics::Formula m_avg_utilization;
-        statistics::Formula* m_msg_counts[MessageSizeType_NUM];
-        statistics::Formula* m_msg_bytes[MessageSizeType_NUM];
+        statistics::Formula percent_links_utilized;
+        std::vector<statistics::Formula *> m_msg_counts;
+        std::vector<statistics::Formula *> m_msg_bytes;
     } switchStats;
+
+    void profFrontEndRdy(Message *msg, MessageBuffer *src_link, int vnet);
+    void profFrontEndRdyClone(Message *msg, MessageBuffer *src_link, int vnet,
+                              Message *clone_from_msg);
+    void profFrontEndFwd(Message *msg, int vnet);
+    void profBackEndRdy(Message *msg, int vnet);
+    void profBackEndFwd(Message *msg, MessageBuffer *dest_link, int vnet);
+    void profBackEndFwdExt(Message *msg, MessageBuffer *dest_link, int vnet);
 };
 
 inline std::ostream&

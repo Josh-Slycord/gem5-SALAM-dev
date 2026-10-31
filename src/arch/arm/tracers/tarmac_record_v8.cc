@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 ARM Limited
+ * Copyright (c) 2017-2019, 2022, 2025-2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -39,7 +39,6 @@
 
 #include <memory>
 
-#include "arch/arm/insts/static_inst.hh"
 #include "arch/arm/mmu.hh"
 #include "arch/arm/tracers/tarmac_tracer.hh"
 
@@ -48,7 +47,7 @@ namespace gem5
 
 using namespace ArmISA;
 
-namespace Trace {
+namespace trace {
 
 TarmacTracerRecordV8::TraceInstEntryV8::TraceInstEntryV8(
     const TarmacContext& tarmCtx,
@@ -90,22 +89,19 @@ TarmacTracerRecordV8::TraceRegEntryV8::TraceRegEntryV8(
 }
 
 void
-TarmacTracerRecordV8::TraceRegEntryV8::updateInt(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecordV8::TraceRegEntryV8::updateInt(const TarmacContext& tarmCtx)
 {
     // Do not trace pseudo register accesses: invalid
     // register entry.
-    if (regRelIdx > NUM_ARCH_INTREGS) {
+    if (regId.index() > int_reg::NumArchRegs) {
         regValid = false;
         return;
     }
 
-    TraceRegEntry::updateInt(tarmCtx, regRelIdx);
+    TraceRegEntry::updateInt(tarmCtx);
 
-    if ((regRelIdx != PCReg) || (regRelIdx != StackPointerReg) ||
-        (regRelIdx != FramePointerReg) || (regRelIdx != ReturnAddressReg)) {
+    if ((regId != int_reg::Pc) || (regId != StackPointerReg) ||
+        (regId != FramePointerReg) || (regId != ReturnAddressReg)) {
 
         const auto* arm_inst = static_cast<const ArmStaticInst*>(
             tarmCtx.staticInst.get()
@@ -113,33 +109,27 @@ TarmacTracerRecordV8::TraceRegEntryV8::updateInt(
 
         regWidth = (arm_inst->getIntWidth());
         if (regWidth == 32) {
-            regName = "W" + std::to_string(regRelIdx);
+            regName = "W" + std::to_string(regId.index());
         } else {
-            regName = "X" + std::to_string(regRelIdx);
+            regName = "X" + std::to_string(regId.index());
         }
     }
 }
 
 void
-TarmacTracerRecordV8::TraceRegEntryV8::updateMisc(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecordV8::TraceRegEntryV8::updateMisc(const TarmacContext& tarmCtx)
 {
-    TraceRegEntry::updateMisc(tarmCtx, regRelIdx);
+    TraceRegEntry::updateMisc(tarmCtx);
     // System registers are 32bit wide
     regWidth = 32;
 }
 
 void
-TarmacTracerRecordV8::TraceRegEntryV8::updateVec(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecordV8::TraceRegEntryV8::updateVec(const TarmacContext& tarmCtx)
 {
     auto thread = tarmCtx.thread;
-    const auto& vec_container = thread->readVecReg(
-        RegId(regClass, regRelIdx));
+    ArmISA::VecRegContainer vec_container;
+    thread->getReg(regId, &vec_container);
     auto vv = vec_container.as<VecElem>();
 
     regWidth = ArmStaticInst::getCurSveVecLenInBits(thread);
@@ -153,18 +143,15 @@ TarmacTracerRecordV8::TraceRegEntryV8::updateVec(
     }
 
     regValid = true;
-    regName = "Z" + std::to_string(regRelIdx);
+    regName = "Z" + std::to_string(regId.index());
 }
 
 void
-TarmacTracerRecordV8::TraceRegEntryV8::updatePred(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecordV8::TraceRegEntryV8::updatePred(const TarmacContext& tarmCtx)
 {
     auto thread = tarmCtx.thread;
-    const auto& pred_container = thread->readVecPredReg(
-        RegId(regClass, regRelIdx));
+    ArmISA::VecPredRegContainer pred_container;
+    thread->getReg(regId, &pred_container);
 
     // Predicate registers are always 1/8 the size of related vector
     // registers. (getCurSveVecLenInBits(thread) / 8)
@@ -181,7 +168,164 @@ TarmacTracerRecordV8::TraceRegEntryV8::updatePred(
     }
 
     regValid = true;
-    regName = "P" + std::to_string(regRelIdx);
+    regName = "P" + std::to_string(regId.index());
+}
+
+void
+TarmacTracerRecordV8::TraceRegEntryV8::updateMatrix(
+    const TarmacContext &tarmCtx)
+{
+    const auto *arm_inst =
+        static_cast<const ArmSmeStaticInst *>(tarmCtx.staticInst.get());
+    auto touch_record = arm_inst->getTouchRecord();
+
+    if (touch_record.type == ArmSmeStaticInst::TouchType::MatNoTouch) {
+        return;
+    }
+
+    switch (touch_record.elemSize) {
+        case 1:
+            updateMatValue<uint8_t>(tarmCtx, touch_record.type,
+                                    touch_record.tileIdx, touch_record.vecIdx);
+            break;
+        case 2:
+            updateMatValue<uint16_t>(tarmCtx, touch_record.type,
+                                     touch_record.tileIdx,
+                                     touch_record.vecIdx);
+            break;
+        case 4:
+            updateMatValue<uint32_t>(tarmCtx, touch_record.type,
+                                     touch_record.tileIdx,
+                                     touch_record.vecIdx);
+            break;
+        case 8:
+            updateMatValue<uint64_t>(tarmCtx, touch_record.type,
+                                     touch_record.tileIdx,
+                                     touch_record.vecIdx);
+            break;
+    }
+}
+
+template <typename MatElem>
+void
+TarmacTracerRecordV8::TraceRegEntryV8::updateMatValue(
+    const TarmacContext &tarmCtx, ArmISA::ArmSmeStaticInst::TouchType type,
+    uint8_t tile_idx, const std::vector<uint16_t> vec_idx)
+{
+    auto thread = tarmCtx.thread;
+    ArmISA::MatRegContainer matrix_container;
+    thread->getReg(regId, &matrix_container);
+
+    regWidth = ArmStaticInst::getCurSveVecLenInBits(thread);
+    auto num_elements = regWidth / (sizeof(VecElem) * 8);
+    auto mat_elements = regWidth / (sizeof(MatElem) * 8);
+
+    const unsigned seg_num_elems = 128 / (sizeof(VecElem) * 8);
+    const unsigned seg_mat_elems = 128 / (sizeof(MatElem) * 8);
+    union DataMap
+    {
+        VecElem vec_elems[seg_num_elems];
+        MatElem mat_elems[seg_mat_elems];
+    };
+    DataMap data_map;
+
+    constexpr const char *datatype = (sizeof(MatElem) == 1)   ? "B"
+                                     : (sizeof(MatElem) == 2) ? "H"
+                                     : (sizeof(MatElem) == 4) ? "S"
+                                     : (sizeof(MatElem) == 8) ? "D"
+                                                              : "";
+
+    switch (type) {
+        case ArmSmeStaticInst::TouchType::MatTouchTile: {
+            values.resize(num_elements * mat_elements);
+            auto tile = matrix_container.asTile<MatElem>(tile_idx);
+
+            for (int rowi = 0; rowi < mat_elements; rowi++) {
+                for (int coli = 0, coli_v = 0; coli < mat_elements;
+                     coli += seg_mat_elems, coli_v += seg_num_elems) {
+                    for (int i = 0; i < seg_mat_elems; i++) {
+                        data_map.mat_elems[i] = tile[rowi][coli + i];
+                    }
+                    for (int i = 0; i < seg_num_elems; i++) {
+                        values[rowi * num_elements + coli_v + i] =
+                            data_map.vec_elems[i];
+                    }
+                }
+                matRegName.push_back("ZA" + std::to_string(tile_idx) + "H_" +
+                                     datatype + "_" + std::to_string(rowi));
+            }
+
+            matRegValid = true;
+        } break;
+        case ArmSmeStaticInst::TouchType::MatTouchTileHSlice: {
+            values.resize(num_elements * vec_idx.size());
+            for (int rowi = 0; rowi < vec_idx.size(); rowi++) {
+                auto row = matrix_container.asTile<MatElem>(tile_idx).asHSlice(
+                    vec_idx[rowi]);
+
+                for (int coli = 0, coli_v = 0; coli < mat_elements;
+                     coli += seg_mat_elems, coli_v += seg_num_elems) {
+                    for (int i = 0; i < seg_mat_elems; i++) {
+                        data_map.mat_elems[i] = row[coli + i];
+                    }
+                    for (int i = 0; i < seg_num_elems; i++) {
+                        values[rowi * num_elements + coli_v + i] =
+                            data_map.vec_elems[i];
+                    }
+                }
+                matRegName.push_back("ZA" + std::to_string(tile_idx) + "H_" +
+                                     datatype + "_" +
+                                     std::to_string(vec_idx[rowi]));
+            }
+
+            matRegValid = true;
+        } break;
+        case ArmSmeStaticInst::TouchType::MatTouchTileVSlice: {
+            values.resize(num_elements * vec_idx.size());
+            for (int coli = 0; coli < vec_idx.size(); coli++) {
+                auto col = matrix_container.asTile<MatElem>(tile_idx).asVSlice(
+                    vec_idx[coli]);
+
+                for (int rowi = 0, rowi_v = 0; rowi < mat_elements;
+                     rowi += seg_mat_elems, rowi_v += seg_num_elems) {
+                    for (int i = 0; i < seg_mat_elems; i++) {
+                        data_map.mat_elems[i] = col[rowi + i];
+                    }
+                    for (int i = 0; i < seg_num_elems; i++) {
+                        values[coli * num_elements + rowi_v + i] =
+                            data_map.vec_elems[i];
+                    }
+                }
+                matRegName.push_back("ZA" + std::to_string(tile_idx) + "V_" +
+                                     datatype + "_" +
+                                     std::to_string(vec_idx[coli]));
+            }
+
+            matRegValid = true;
+        } break;
+        case ArmSmeStaticInst::TouchType::MatTouchHSlice: {
+            values.resize(num_elements * vec_idx.size());
+            for (int rowi = 0; rowi < vec_idx.size(); rowi++) {
+                auto row = matrix_container.asHSlice<MatElem>(vec_idx[rowi]);
+
+                for (int coli = 0, coli_v = 0; coli < mat_elements;
+                     coli += seg_mat_elems, coli_v += seg_num_elems) {
+                    for (int i = 0; i < seg_mat_elems; i++) {
+                        data_map.mat_elems[i] = row[coli + i];
+                    }
+                    for (int i = 0; i < seg_num_elems; i++) {
+                        values[rowi * num_elements + coli_v + i] =
+                            data_map.vec_elems[i];
+                    }
+                }
+                matRegName.push_back("ZA" + std::to_string(vec_idx[rowi]));
+            }
+
+            matRegValid = true;
+        } break;
+        default:
+            break;
+    }
 }
 
 void
@@ -299,23 +443,35 @@ TarmacTracerRecordV8::TraceRegEntryV8::print(
                  regName,              /* Register name */
                  formatReg());         /* Register value */
     }
+    if (matRegValid) {
+        int num_elements = values.size() / matRegName.size();
+        for (int i = 0; i < matRegName.size(); i++) {
+            ccprintf(outs, "%s clk %s R %s %s\n", curTick(), /* Tick time */
+                     cpuName,                                /* Cpu name */
+                     matRegName[i], /* Register name */
+                     formatReg(num_elements * i, num_elements));
+            /* Register value */
+        }
+    }
 }
 
 std::string
-TarmacTracerRecordV8::TraceRegEntryV8::formatReg() const
+TarmacTracerRecordV8::TraceRegEntryV8::formatReg(int start, int count) const
 {
     if (regWidth <= 64) {
-        // Register width is < 64 bit (scalar register).
-        return csprintf("%0*x", regWidth / 4, values[Lo]);
+        // Register width is <= 64 bit (scalar register).
+        const auto regValue = values[Lo] & mask(regWidth);
+        return csprintf("%0*x", regWidth / 4, regValue);
     } else {
+        int elem_count = count < 0 ? (values.size() - start) : count;
 
         // Register width is > 64 bit (vector).  Iterate over every vector
         // element. Since the vector values are stored in Little Endian, print
         // starting from the last element.
         std::string reg_val;
-        for (auto it = values.rbegin(); it != values.rend(); it++) {
-            reg_val += csprintf("%0*x_",
-                static_cast<int>(sizeof(VecElem) * 2), *it);
+        for (int i = 0; i < elem_count; i++) {
+            reg_val += csprintf("%0*x_", static_cast<int>(sizeof(VecElem) * 2),
+                                values[start + elem_count - 1 - i]);
         }
 
         // Remove trailing underscore
@@ -325,5 +481,5 @@ TarmacTracerRecordV8::TraceRegEntryV8::formatReg() const
     }
 }
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5

@@ -24,6 +24,7 @@ from .runner import (
     file_hash,
     run_experiment,
 )
+from .toolchain_profile import apply_environment, load_toolchain, require_legacy_harness
 
 PROJECT = Path(__file__).resolve().parents[1]
 CATALOG = PROJECT / "experiments/regression/catalog.json"
@@ -507,8 +508,7 @@ def stage_sources(engine, workspace, entry):
 def _environment(workspace):
     env = {key: value for key, value in os.environ.items() if key in ENV_ALLOWLIST}
     env["M5_PATH"] = str(workspace)
-    env["PATH"] = "/usr/lib/llvm-12/bin:" + env.get("PATH", "/usr/bin:/bin")
-    return env
+    return apply_environment(env, load_toolchain(PROJECT))
 
 
 def _command(argv, cwd, logs, label, env, timeout):
@@ -920,6 +920,7 @@ def execute_workload(engine, entry, preparation, source, runs_root):
 
 
 def run_regression(engine, workloads=("bfs", "nw"), repeats=2, runs_root=None):
+    require_legacy_harness(PROJECT, "regression")
     if repeats not in (1, 2):
         raise ValueError("repeats must be one or two")
     catalog = load_catalog()

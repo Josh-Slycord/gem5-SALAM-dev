@@ -12,6 +12,7 @@ from . import gemm
 from .builds import selected_receipt, verify_receipt
 from .provenance import assert_tooling_unchanged, snapshot_tooling
 from .runner import file_hash
+from .toolchain_profile import require_legacy_harness
 from .variant_report import write_variant_report
 
 STUDY = {
@@ -60,6 +61,7 @@ def parameter_experiment(engine, source, latency):
 
 
 def run_study(engine, runs_root):
+    require_legacy_harness(gemm.PROJECT, "compare")
     engine, runs_root = (
         Path(engine).resolve(strict=True),
         Path(runs_root).resolve(),

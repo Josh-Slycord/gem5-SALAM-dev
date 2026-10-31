@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 ARM Limited
+ * Copyright (c) 2014, 2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -45,39 +45,137 @@
 #ifndef __BASE_RANDOM_HH__
 #define __BASE_RANDOM_HH__
 
+#include <cmath>
 #include <random>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "base/compiler.hh"
+#include "base/logging.hh"
 #include "base/types.hh"
-#include "sim/serialize.hh"
 
 namespace gem5
 {
 
-class Checkpoint;
-
-class Random : public Serializable
+class Random
 {
+  friend class RandomTest;
 
   public:
+    using RandomPtr = std::shared_ptr<Random>;
+    using Instances = std::vector<std::weak_ptr<Random>>;
+
+    static RandomPtr genRandom(Random* r = nullptr)
+    {
+        if (instances == nullptr)
+            instances = new Instances();
+
+        /*
+        * If `r` is null we create a new RNG with the global seed and wrap
+        * it in a `shared_ptr`. Otherwise, we wrap the existing RNG in a
+        * `shared_ptr` and add it to the vector of instances.
+        *
+        * This is done to ensure that the RNG is not deleted while it is still
+        * in use. The `shared_ptr` will keep the RNG alive until all references
+        * to it are gone.
+        */
+        auto randpoint = r ? std::shared_ptr<Random>(r, [](Random*){})
+                         : std::shared_ptr<Random>(new Random(globalSeed));
+        // Check if randpoint is not already in the vector
+        bool exists = false;
+        for (const auto& weak_ptr : *instances) {
+            if (!weak_ptr.expired() && weak_ptr.lock() == randpoint) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            instances->emplace_back(randpoint);
+        }
+
+        return randpoint;
+    }
+
+    static RandomPtr genRandom(uint32_t s)
+    {
+        if (instances == nullptr)
+            instances = new Instances();
+
+        auto randpoint = std::shared_ptr<Random>(new Random(s));
+        // Check if randpoint is not already in the vector
+        bool exists = false;
+        for (const auto& weak_ptr : *instances) {
+            if (!weak_ptr.expired() && weak_ptr.lock() == randpoint) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            instances->emplace_back(randpoint);
+        }
+
+        return randpoint;
+    }
+
+    static uint64_t globalSeed;
 
     /**
      * @ingroup api_base_utils
      */
     std::mt19937_64 gen;
 
+  private:
+    /**
+     * Collection of all live instances
+     * of Random to enable global
+     * reseeding. We use a pointer
+     * because the loader will initialize
+     * it to 0x0 (it is in .bss), allowing us to avoid
+     * Static Initialization Order Fiasco
+     * if static Random instances are inialized
+     * before the vector by having the constructors
+     * of Random allocate memory for the pointer.
+     * This requires that nullptr matches how
+     * the loader initializes memory
+     */
+    static_assert(nullptr == 0x0, "nullptr is not 0x0, Random instance tracking will fail");
+    static Instances* instances;
+
     /**
      * @ingroup api_base_utils
      * @{
      */
-    Random();
+    Random() = delete;
     Random(uint32_t s);
+
+    Random(const Random& rng) = delete;
+    Random& operator=(const Random& rng) = delete;
+
+    Random(Random&& rng) = delete;
+    Random& operator=(Random&& rng) = delete;
+
+  public:
     /** @} */ // end of api_base_utils
     ~Random();
 
     void init(uint32_t s);
+
+    /**
+     * Facility to reseed all live instances
+     * and ensure future default constructed
+     * instances also use the new see
+     */
+    static void reseedAll(uint64_t seed)
+    {
+        globalSeed = seed;
+
+        if (instances == nullptr)
+          return;
+
+        for (auto rng_ptr : *instances)
+            rng_ptr.lock()->init(seed);
+    }
 
     /**
      * Use the SFINAE idiom to choose an implementation based on
@@ -86,44 +184,61 @@ class Random : public Serializable
      * @ingroup api_base_utils
      */
     template <typename T>
-    typename std::enable_if_t<std::is_integral<T>::value, T>
+    typename std::enable_if_t<std::is_integral_v<T>, T>
     random()
     {
         // [0, max_value] for integer types
-        std::uniform_int_distribution<T> dist;
-        return dist(gen);
+        return gen() % std::numeric_limits<T>::max();
     }
 
     /**
      * @ingroup api_base_utils
      */
     template <typename T>
-    typename std::enable_if_t<std::is_floating_point<T>::value, T>
+    typename std::enable_if_t<std::is_floating_point_v<T>, T>
     random()
     {
         // [0, 1) for real types
-        std::uniform_real_distribution<T> dist;
-        return dist(gen);
+        warn_once("FP random numbers are not uniformly distributed.");
+        return ((T) gen()) /
+          ((T) std::numeric_limits<uint64_t>::max());
     }
+
     /**
      * @ingroup api_base_utils
      */
     template <typename T>
-    typename std::enable_if_t<std::is_integral<T>::value, T>
+    typename std::enable_if_t<std::is_integral_v<T>, T>
     random(T min, T max)
     {
-        std::uniform_int_distribution<T> dist(min, max);
-        return dist(gen);
+        assert(min <= max);
+        // + 1 to handle cases where min == max
+        T r = gen() % (max - min + 1) + min;
+        return r;
     }
 
-    void serialize(CheckpointOut &cp) const override;
-    void unserialize(CheckpointIn &cp) override;
-};
+    /**
+     * @ingroup api_base_utils
+     */
+    template <typename T>
+    typename std::enable_if_t<std::is_integral_v<T>, T>
+    random_norm(T avg, T stdev)
+    {
+        std::normal_distribution<double> dist((double)avg, (double)stdev);
+        return (T)std::llround(dist(gen));
+    }
 
-/**
- * @ingroup api_base_utils
- */
-extern Random random_mt;
+    /**
+     * @ingroup api_base_utils
+     */
+    template <typename T>
+    typename std::enable_if_t<std::is_floating_point_v<T>, T>
+    random_norm(T avg, T stdev)
+    {
+        std::normal_distribution<T> dist(avg, stdev);
+        return dist(gen);
+    }
+};
 
 } // namespace gem5
 

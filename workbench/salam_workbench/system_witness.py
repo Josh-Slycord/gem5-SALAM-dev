@@ -16,6 +16,10 @@ CPU_TYPES = {
     "TimingSimpleCPU": "TimingSimpleCPU",
     "AtomicSimpleCPU": "AtomicSimpleCPU",
     "MinorCPU": "MinorCPU",
+    "ArmO3CPU": "BaseO3CPU",
+    "ArmTimingSimpleCPU": "BaseTimingSimpleCPU",
+    "ArmAtomicSimpleCPU": "BaseAtomicSimpleCPU",
+    "ArmMinorCPU": "BaseMinorCPU",
 }
 SIZE_UNITS = {
     "B": 1,

@@ -2,8 +2,6 @@
  * Copyright (c) 2014-2015 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -94,12 +92,16 @@ class GlobalMemPipeline
     void handleResponse(GPUDynInstPtr gpuDynInst);
 
     bool
-    isGMReqFIFOWrRdy(uint32_t pendReqs=0) const
+    isGMReqFIFOWrRdy(uint32_t pendReqs = 0) const
     {
         return (gmIssuedRequests.size() + pendReqs) < gmQueueSize;
     }
 
-    const std::string &name() const { return _name; }
+    const std::string &
+    name() const
+    {
+        return _name;
+    }
     void
     incLoadVRFBankConflictCycles(int num_cycles)
     {
@@ -110,6 +112,8 @@ class GlobalMemPipeline
     bool outstandingReqsCheck(GPUDynInstPtr mp) const;
 
     void acqCoalescerToken(GPUDynInstPtr mp);
+
+    void printProgress();
 
   private:
     ComputeUnit &computeUnit;

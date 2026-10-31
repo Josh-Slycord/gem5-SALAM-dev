@@ -32,10 +32,14 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "arch/x86/insts/static_inst.hh"
+#include "arch/x86/regs/float.hh"
 #include "arch/x86/regs/int.hh"
+#include "arch/x86/regs/misc.hh"
+#include "arch/x86/regs/segment.hh"
 #include "arch/x86/types.hh"
 #include "base/compiler.hh"
 #include "base/cprintf.hh"
@@ -55,6 +59,10 @@ struct DestOp
     RegIndex opIndex() const { return dest; }
 
     DestOp(RegIndex _dest, size_t _size) : dest(_dest), size(_size) {}
+    template <class InstType>
+    DestOp(RegIndex _dest, InstType *inst) : dest(_dest),
+        size(inst->getDestSize())
+    {}
 };
 
 struct Src1Op
@@ -64,6 +72,10 @@ struct Src1Op
     RegIndex opIndex() const { return src1; }
 
     Src1Op(RegIndex _src1, size_t _size) : src1(_src1), size(_size) {}
+    template <class InstType>
+    Src1Op(RegIndex _src1, InstType *inst) : src1(_src1),
+        size(inst->getSrcSize())
+    {}
 };
 
 struct Src2Op
@@ -73,6 +85,23 @@ struct Src2Op
     RegIndex opIndex() const { return src2; }
 
     Src2Op(RegIndex _src2, size_t _size) : src2(_src2), size(_size) {}
+    template <class InstType>
+    Src2Op(RegIndex _src2, InstType *inst) : src2(_src2),
+        size(inst->getSrcSize())
+    {}
+};
+
+struct Src3Op
+{
+    const RegIndex src3;
+    const size_t size;
+    RegIndex opIndex() const { return src3; }
+
+    Src3Op(RegIndex _src3, size_t _size) : src3(_src3), size(_size) {}
+    template <class InstType>
+    Src3Op(RegIndex _src3, InstType *inst) : src3(_src3),
+        size(inst->getSrcSize())
+    {}
 };
 
 struct DataOp
@@ -103,19 +132,34 @@ struct DataLowOp
     {}
 };
 
+template <class T, class Enabled=void>
+struct HasDataSize : public std::false_type {};
+
+template <class T>
+struct HasDataSize<T, decltype((void)&T::dataSize)> : public std::true_type {};
+
+template <class T>
+constexpr bool HasDataSizeV = HasDataSize<T>::value;
+
 template <class Base>
 struct IntOp : public Base
 {
     using ArgType = GpRegIndex;
 
-    template <class InstType>
-    IntOp(InstType *inst, ArgType idx) : Base(idx.index, inst->dataSize) {}
+    template <class Inst>
+    IntOp(Inst *inst, std::enable_if_t<HasDataSizeV<Inst>, ArgType> idx) :
+        Base(idx.index, inst->dataSize)
+    {}
+
+    template <class Inst>
+    IntOp(Inst *inst, std::enable_if_t<!HasDataSizeV<Inst>, ArgType> idx) :
+        Base(idx.index, inst)
+    {}
 
     void
     print(std::ostream &os) const
     {
-        X86StaticInst::printReg(os, RegId(IntRegClass, this->opIndex()),
-                this->size);
+        X86StaticInst::printReg(os, intRegClass[this->opIndex()], this->size);
     }
 };
 
@@ -126,14 +170,13 @@ struct FoldedOp : public Base
 
     template <class InstType>
     FoldedOp(InstType *inst, ArgType idx) :
-        Base(INTREG_FOLDED(idx.index, inst->foldOBit), inst->dataSize)
+        Base(intRegFolded(idx.index, inst->foldOBit), inst->dataSize)
     {}
 
     void
     print(std::ostream &os) const
     {
-        X86StaticInst::printReg(os, RegId(IntRegClass, this->opIndex()),
-                this->size);
+        X86StaticInst::printReg(os, intRegClass[this->opIndex()], this->size);
     }
 };
 
@@ -194,8 +237,7 @@ struct MiscOp : public Base
     void
     print(std::ostream &os) const
     {
-        X86StaticInst::printReg(os, RegId(MiscRegClass, this->opIndex()),
-                this->size);
+        X86StaticInst::printReg(os, miscRegClass[this->opIndex()], this->size);
     }
 };
 
@@ -204,13 +246,20 @@ struct FloatOp : public Base
 {
     using ArgType = FpRegIndex;
 
-    template <class InstType>
-    FloatOp(InstType *inst, ArgType idx) : Base(idx.index, inst->dataSize) {}
+    template <class Inst>
+    FloatOp(Inst *inst, std::enable_if_t<HasDataSizeV<Inst>, ArgType> idx) :
+        Base(idx.index, inst->dataSize)
+    {}
+
+    template <class Inst>
+    FloatOp(Inst *inst, std::enable_if_t<!HasDataSizeV<Inst>, ArgType> idx) :
+        Base(idx.index, inst)
+    {}
 
     void
     print(std::ostream &os) const
     {
-        X86StaticInst::printReg(os, RegId(FloatRegClass, this->opIndex()),
+        X86StaticInst::printReg(os, floatRegClass[this->opIndex()],
                 this->size);
     }
 };
@@ -234,6 +283,8 @@ using IntSrc1Op = IntOp<Src1Op>;
 using FoldedSrc2Op = FoldedOp<Src2Op>;
 using FloatSrc2Op = FloatOp<Src2Op>;
 using IntSrc2Op = IntOp<Src2Op>;
+
+using FloatSrc3Op = FloatOp<Src3Op>;
 
 using FoldedDataOp = FoldedOp<DataOp>;
 using FloatDataOp = FloatOp<DataOp>;
@@ -261,9 +312,11 @@ struct Imm64Op
     using ArgType = uint64_t;
 
     uint64_t imm64;
+    uint8_t imm8;
 
     template <class InstType>
-    Imm64Op(InstType *inst, ArgType _imm64) : imm64(_imm64) {}
+    Imm64Op(InstType *inst, ArgType _imm64) : imm64(_imm64), imm8(_imm64)
+    {}
 
     void
     print(std::ostream &os) const
@@ -324,12 +377,12 @@ struct AddrOp
 
     template <class InstType>
     AddrOp(InstType *inst, const ArgType &args) : scale(args.scale),
-        index(INTREG_FOLDED(args.index.index, inst->foldABit)),
-        base(INTREG_FOLDED(args.base.index, inst->foldABit)),
+        index(intRegFolded(args.index.index, inst->foldABit)),
+        base(intRegFolded(args.base.index, inst->foldABit)),
         disp(args.disp), segment(args.segment.index),
         size(inst->addressSize)
     {
-        assert(segment < NUM_SEGMENTREGS);
+        assert(segment < segment_idx::NumIdxs);
     }
 
     void
@@ -349,7 +402,7 @@ class InstOperands : public Base, public Operands...
     template <std::size_t ...I, typename ...CTorArgs>
     InstOperands(std::index_sequence<I...>, ExtMachInst mach_inst,
             const char *mnem, const char *inst_mnem, uint64_t set_flags,
-            OpClass op_class, GEM5_VAR_USED ArgTuple args,
+            OpClass op_class, [[maybe_unused]] ArgTuple args,
             CTorArgs... ctor_args) :
         Base(mach_inst, mnem, inst_mnem, set_flags, op_class, ctor_args...),
         Operands(this, std::get<I>(args))...
@@ -371,7 +424,7 @@ class InstOperands : public Base, public Operands...
     {
         std::stringstream response;
         Base::printMnemonic(response, this->instMnem, this->mnemonic);
-        int count = 0;
+        [[maybe_unused]] int count = 0;
         GEM5_FOR_EACH_IN_PACK(ccprintf(response, count++ ? ", " : ""),
                               Operands::print(response));
         return response.str();

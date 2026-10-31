@@ -27,8 +27,9 @@ import gem5_scons
 
 Import('*')
 
-if env['USE_SYSTEMC']:
-    SimObject('SystemC.py')
+if env['CONF']['USE_SYSTEMC']:
+    SimObject('SystemC.py', sim_objects=[
+        'SystemC_Kernel', 'SystemC_ScObject', 'SystemC_ScModule'])
 
     Source('channel.cc')
     Source('event.cc')
@@ -38,8 +39,8 @@ if env['USE_SYSTEMC']:
     Source('object.cc')
     Source('port.cc')
     Source('process.cc')
-    Source('scheduler.cc')
     Source('sched_event.cc')
+    Source('scheduler.cc')
     Source('sensitivity.cc')
     Source('time.cc')
 
@@ -65,9 +66,19 @@ if env['USE_SYSTEMC']:
         Source('python.cc')
         Source('sc_main_python.cc')
         append = {}
-        with gem5_scons.Configure(main) as conf:
+        with gem5_scons.Configure(env) as conf:
             for flag in ('-Wno-self-assign-overloaded', '-Wno-self-assign'):
                 if conf.CheckCxxFlag(flag, autoadd=False):
                     append['CCFLAGS'] = [flag]
                     break
         Source('sc_time_python.cc', append=append)
+
+    # Disable the false positive warning for the event members of the scheduler.
+    flag = '-Wno-free-nonheap-object'
+    # Check whether the linker accepts the flag in an isolated environment so
+    # SCons does not build unrelated library targets during configuration.
+    flag_env = env.Clone()
+    flag_env.Replace(LIBS=[], LIBPATH=[])
+    with gem5_scons.Configure(flag_env) as conf:
+        if conf.CheckLinkFlag(flag, autoadd=False, set_for_shared=False):
+            env.Append(LINKFLAGS=[flag], SHLINKFLAGS=[flag])

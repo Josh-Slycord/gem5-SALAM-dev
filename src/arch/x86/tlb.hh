@@ -76,6 +76,11 @@ namespace X86ISA
         TlbEntry *lookup(Addr va, bool update_lru = true);
 
         void setConfigAddress(uint32_t addr);
+        //concatenate Page Addr and pcid
+        inline Addr concAddrPcid(Addr vpn, uint64_t pcid)
+        {
+          return (vpn | pcid);
+        }
 
       protected:
 
@@ -110,8 +115,10 @@ namespace X86ISA
 
             statistics::Scalar rdAccesses;
             statistics::Scalar wrAccesses;
+            statistics::Scalar exAccesses;
             statistics::Scalar rdMisses;
             statistics::Scalar wrMisses;
+            statistics::Scalar exMisses;
         } stats;
 
         Fault translateInt(bool read, RequestPtr req, ThreadContext *tc);
@@ -156,7 +163,7 @@ namespace X86ISA
         Fault finalizePhysical(const RequestPtr &req, ThreadContext *tc,
                                BaseMMU::Mode mode) const override;
 
-        TlbEntry *insert(Addr vpn, const TlbEntry &entry);
+        TlbEntry *insert(Addr vpn, const TlbEntry &entry, uint64_t pcid);
 
         // Checkpointing
         void serialize(CheckpointOut &cp) const override;

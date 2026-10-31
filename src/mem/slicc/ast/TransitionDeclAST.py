@@ -1,3 +1,15 @@
+# Copyright (c) 2026 ARM Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
 # Copyright (c) 2009 The Hewlett-Packard Development Company
 # All rights reserved.
@@ -28,16 +40,27 @@
 from slicc.ast.DeclAST import DeclAST
 from slicc.symbols import Transition
 
+
 class TransitionDeclAST(DeclAST):
-    def __init__(self, slicc, request_types, states, events, next_state,
-                 actions):
-        super(TransitionDeclAST, self).__init__(slicc)
+    def __init__(
+        self,
+        slicc,
+        request_types,
+        states,
+        events,
+        next_state,
+        actions,
+        transition_decl_type,
+    ):
+        super().__init__(slicc)
 
         self.request_types = request_types
         self.states = states
         self.events = events
         self.next_state = next_state
         self.actions = actions
+        assert transition_decl_type in ["transition", "transition_no_stall"]
+        self.no_stall = transition_decl_type == "transition_no_stall"
 
     def __repr__(self):
         return "[TransitionDecl: ]"
@@ -50,24 +73,37 @@ class TransitionDeclAST(DeclAST):
 
         for action in self.actions:
             if action not in machine.actions:
-                self.error("Invalid action: %s is not part of machine: %s" % \
-                           (action, machine))
+                self.error(
+                    f"Invalid action: {action} is not part of machine: {machine}"
+                )
 
         for request_type in self.request_types:
             if request_type not in machine.request_types:
-                self.error("Invalid protocol access type: " \
-                           "%s is not part of machine: %s" % \
-                           (request_type, machine))
+                self.error(
+                    "Invalid protocol access type: "
+                    "%s is not part of machine: %s" % (request_type, machine)
+                )
 
         for state in self.states:
             if state not in machine.states:
-                self.error("Invalid state: %s is not part of machine: %s" % \
-                           (state, machine))
+                self.error(
+                    f"Invalid state: {state} is not part of machine: {machine}"
+                )
             next_state = self.next_state or state
             for event in self.events:
                 if event not in machine.events:
-                    self.error("Invalid event: %s is not part of machine: %s" % \
-                               (event, machine))
-                t = Transition(self.symtab, machine, state, event, next_state,
-                               self.actions, self.request_types, self.location)
+                    self.error(
+                        f"Invalid event: {event} is not part of machine: {machine}"
+                    )
+                t = Transition(
+                    self.symtab,
+                    machine,
+                    state,
+                    event,
+                    next_state,
+                    self.actions,
+                    self.request_types,
+                    self.location,
+                    self.no_stall,
+                )
                 machine.addTransition(t)

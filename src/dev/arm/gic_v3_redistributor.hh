@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 ARM Limited
+ * Copyright (c) 2019-2022 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -254,12 +254,15 @@ class Gicv3Redistributor : public Serializable
   public:
 
     Gicv3Redistributor(Gicv3 * gic, uint32_t cpu_id);
+    virtual ~Gicv3Redistributor() = default;
     uint32_t getAffinity() const;
     void init();
     uint64_t read(Addr addr, size_t size, bool is_secure_access);
     void sendPPInt(uint32_t int_id);
     void clearPPInt(uint32_t int_id);
     void write(Addr addr, uint64_t data, size_t size, bool is_secure_access);
+
+    void copy(Gicv3Registers *from, Gicv3Registers *to);
 };
 
 } // namespace gem5

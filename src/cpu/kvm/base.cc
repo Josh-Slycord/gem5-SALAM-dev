@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2015, 2017 ARM Limited
+ * Copyright (c) 2012, 2015, 2017, 2021 ARM Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -42,8 +42,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <csignal>
+#include <ctime>
 #include <ostream>
 
 #include "base/compiler.hh"
@@ -62,21 +64,39 @@
 namespace gem5
 {
 
+namespace
+{
+
+uint64_t
+timespecDiffNs(const timespec &start, const timespec &end)
+{
+    const uint64_t start_ns =
+        static_cast<uint64_t>(start.tv_sec) * 1000000000ULL + start.tv_nsec;
+    const uint64_t end_ns =
+        static_cast<uint64_t>(end.tv_sec) * 1000000000ULL + end.tv_nsec;
+    return end_ns - start_ns;
+}
+
+} // anonymous namespace
+
 BaseKvmCPU::BaseKvmCPU(const BaseKvmCPUParams &params)
     : BaseCPU(params),
-      vm(*params.system->getKvmVM()),
+      vm(nullptr),
       _status(Idle),
       dataPort(name() + ".dcache_port", this),
       instPort(name() + ".icache_port", this),
       alwaysSyncTC(params.alwaysSyncTC),
       threadContextDirty(true),
       kvmStateDirty(false),
-      vcpuID(vm.allocVCPUID()), vcpuFD(-1), vcpuMMapSize(0),
+      usePerf(params.usePerf),
+      vcpuID(-1), vcpuFD(-1), vcpuMMapSize(0),
       _kvmRun(NULL), mmioRing(NULL),
       pageSize(sysconf(_SC_PAGE_SIZE)),
       tickEvent([this]{ tick(); }, "BaseKvmCPU tick",
                 false, Event::CPU_Tick_Pri),
       activeInstPeriod(0),
+      hwCycles(nullptr),
+      hwInstructions(nullptr),
       perfControlledByTimer(params.usePerfOverflow),
       hostFactor(params.hostFactor), stats(this),
       ctrInsts(0)
@@ -87,15 +107,31 @@ BaseKvmCPU::BaseKvmCPU(const BaseKvmCPUParams &params)
 
     if (FullSystem)
         thread = new SimpleThread(this, 0, params.system, params.mmu,
-                                  params.isa[0]);
+                                  params.isa[0], params.decoder[0]);
     else
         thread = new SimpleThread(this, /* thread_num */ 0, params.system,
                                   params.workload[0], params.mmu,
-                                  params.isa[0]);
+                                  params.isa[0], params.decoder[0]);
 
     thread->setStatus(ThreadContext::Halted);
     tc = thread->getTC();
     threadContexts.push_back(tc);
+
+    if ((!usePerf) && perfControlledByTimer) {
+        panic("KVM: invalid combination of parameters: cannot use "
+              "perfControlledByTimer without usePerf\n");
+    }
+
+    // If we use perf, we create new PerfKVMCounters
+    if (usePerf) {
+        hwCycles = std::unique_ptr<PerfKvmCounter>(new PerfKvmCounter());
+        hwInstructions = std::unique_ptr<PerfKvmCounter>(new PerfKvmCounter());
+    } else {
+        inform("Using KVM CPU without perf. The stats related to the number "
+               "of cycles and instructions executed by the KVM CPU will not "
+               "be updated. The stats should not be used for performance "
+               "evaluation.");
+    }
 }
 
 BaseKvmCPU::~BaseKvmCPU()
@@ -108,12 +144,10 @@ BaseKvmCPU::~BaseKvmCPU()
 void
 BaseKvmCPU::init()
 {
+    vm = system->getKvmVM();
+    vcpuID = vm->allocVCPUID();
     BaseCPU::init();
-
-    if (numThreads != 1)
-        fatal("KVM: Multithreading not supported");
-
-    tc->initMemProxies(tc);
+    fatal_if(numThreads != 1, "KVM: Multithreading not supported");
 }
 
 void
@@ -122,19 +156,19 @@ BaseKvmCPU::startup()
     const BaseKvmCPUParams &p =
         dynamic_cast<const BaseKvmCPUParams &>(params());
 
-    Kvm &kvm(*vm.kvm);
+    Kvm &kvm = *vm->kvm;
 
     BaseCPU::startup();
 
     assert(vcpuFD == -1);
 
     // Tell the VM that a CPU is about to start.
-    vm.cpuStartup();
+    vm->cpuStartup();
 
     // We can't initialize KVM CPUs in BaseKvmCPU::init() since we are
     // not guaranteed that the parent KVM VM has initialized at that
     // point. Initialize virtual CPUs here instead.
-    vcpuFD = vm.createVCPU(vcpuID);
+    vcpuFD = vm->createVCPU(vcpuID);
 
     // Map the KVM run structure
     vcpuMMapSize = kvm.getVCPUMMapSize();
@@ -158,9 +192,9 @@ BaseKvmCPU::startup()
         inform("KVM: Coalesced not supported by host OS\n");
     }
 
-    Event *startupEvent(
-        new EventFunctionWrapper([this]{ startupThread(); }, name(), true));
-    schedule(startupEvent, curTick());
+    schedule(new EventFunctionWrapper([this]{
+                restartEqThread();
+            }, name(), true), curTick());
 }
 
 BaseKvmCPU::Status
@@ -232,7 +266,7 @@ BaseKvmCPU::finishMMIOPending()
 }
 
 void
-BaseKvmCPU::startupThread()
+BaseKvmCPU::restartEqThread()
 {
     // Do thread-specific initialization. We need to setup signal
     // delivery for counters and timers from within the thread that
@@ -250,7 +284,7 @@ BaseKvmCPU::startupThread()
     setupCounters();
 
     if (p.usePerfOverflow) {
-        runTimer.reset(new PerfKvmTimer(hwCycles,
+        runTimer.reset(new PerfKvmTimer(*hwCycles,
                                         KVM_KICK_SIGNAL,
                                         p.hostFactor,
                                         p.hostFreq));
@@ -263,8 +297,6 @@ BaseKvmCPU::startupThread()
 
 BaseKvmCPU::StatGroup::StatGroup(statistics::Group *parent)
     : statistics::Group(parent),
-    ADD_STAT(committedInsts, statistics::units::Count::get(),
-             "Number of instructions committed"),
     ADD_STAT(numVMExits, statistics::units::Count::get(),
              "total number of KVM exits"),
     ADD_STAT(numVMHalfEntries, statistics::units::Count::get(),
@@ -341,7 +373,7 @@ BaseKvmCPU::drain()
             deschedule(tickEvent);
         _status = Idle;
 
-        GEM5_FALLTHROUGH;
+        [[fallthrough]];
       case Idle:
         // Idle, no need to drain
         assert(!tickEvent.scheduled());
@@ -393,6 +425,13 @@ BaseKvmCPU::drainResume()
     DPRINTF(Kvm, "drainResume\n");
     verifyMemoryMode();
 
+    /* The simulator may have terminated the threads servicing event
+     * queues. In that case, we need to re-initialize the new
+     * threads. */
+    schedule(new EventFunctionWrapper([this]{
+                restartEqThread();
+            }, name(), true), curTick());
+
     // The tick event is de-scheduled as a part of the draining
     // process. Re-schedule it if the thread context is active.
     if (tc->status() == ThreadContext::Active) {
@@ -421,8 +460,10 @@ BaseKvmCPU::notifyFork()
         vcpuFD = -1;
         _kvmRun = NULL;
 
-        hwInstructions.detach();
-        hwCycles.detach();
+        if (usePerf) {
+            hwInstructions->detach();
+            hwCycles->detach();
+        }
     }
 }
 
@@ -687,7 +728,9 @@ BaseKvmCPU::kvmRunDrain()
 uint64_t
 BaseKvmCPU::getHostCycles() const
 {
-    return hwCycles.read();
+    if (usePerf)
+        return hwCycles->read();
+    return 0;
 }
 
 Tick
@@ -743,21 +786,43 @@ BaseKvmCPU::kvmRun(Tick ticks)
         // Get hardware statistics after synchronizing contexts. The KVM
         // state update might affect guest cycle counters.
         uint64_t baseCycles(getHostCycles());
-        uint64_t baseInstrs(hwInstructions.read());
+        uint64_t baseInstrs = 0;
+        timespec runStartTs = {};
+        timespec runEndTs = {};
+        if (usePerf) {
+            baseInstrs = hwInstructions->read();
+        } else {
+            // Without perf, we cannot translate guest progress from a
+            // hardware cycle counter. Measure the time spent inside KVM and
+            // use that elapsed host time to keep simulated time moving.
+            if (clock_gettime(CLOCK_MONOTONIC, &runStartTs) == -1) {
+                panic("KVM: Failed to read CLOCK_MONOTONIC before KVM_RUN "
+                      "(errno: %i)\n",
+                      errno);
+            }
+        }
 
         // Arm the run timer and start the cycle timer if it isn't
         // controlled by the overflow timer. Starting/stopping the cycle
         // timer automatically starts the other perf timers as they are in
         // the same counter group.
         runTimer->arm(ticks);
-        if (!perfControlledByTimer)
-            hwCycles.start();
+        if (usePerf && (!perfControlledByTimer)) {
+            hwCycles->start();
+        }
 
         ioctlRun();
 
+        if (!usePerf && clock_gettime(CLOCK_MONOTONIC, &runEndTs) == -1) {
+            panic("KVM: Failed to read CLOCK_MONOTONIC after KVM_RUN "
+                  "(errno: %i)\n",
+                  errno);
+        }
+
         runTimer->disarm();
-        if (!perfControlledByTimer)
-            hwCycles.stop();
+        if (usePerf && (!perfControlledByTimer)) {
+            hwCycles->stop();
+        }
 
         // The control signal may have been delivered after we exited
         // from KVM. It will be pending in that case since it is
@@ -767,14 +832,36 @@ BaseKvmCPU::kvmRun(Tick ticks)
         discardPendingSignal(KVM_KICK_SIGNAL);
 
         const uint64_t hostCyclesExecuted(getHostCycles() - baseCycles);
-        const uint64_t simCyclesExecuted(hostCyclesExecuted * hostFactor);
-        const uint64_t instsExecuted(hwInstructions.read() - baseInstrs);
-        ticksExecuted = runTimer->ticksFromHostCycles(hostCyclesExecuted);
+        const uint64_t hostNsExecuted =
+            usePerf ? 0 : timespecDiffNs(runStartTs, runEndTs);
+        uint64_t instsExecuted = 0;
+        if (usePerf) {
+            instsExecuted = hwInstructions->read() - baseInstrs;
+        }
+        if (usePerf) {
+            ticksExecuted = runTimer->ticksFromHostCycles(hostCyclesExecuted);
+        } else {
+            // Immediate MMIO exits can be so short that they round down to 0.
+            // Clamp to one cycle so the event queue always makes forward
+            // progress after a real KVM entry.
+            ticksExecuted = std::max<Tick>(
+                runTimer->ticksFromHostNs(hostNsExecuted), clockPeriod());
+        }
+        const uint64_t simCyclesExecuted =
+            usePerf ? hostCyclesExecuted * hostFactor
+                    : ticksToCycles(ticksExecuted);
 
         /* Update statistics */
-        baseStats.numCycles += simCyclesExecuted;;
-        stats.committedInsts += instsExecuted;
+        baseStats.numCycles += simCyclesExecuted;
+        baseStats.numInsts += instsExecuted;
         ctrInsts += instsExecuted;
+
+        const ThreadID tid = thread->threadId();
+        const bool in_user_mode = thread->getIsaPtr()->inUserMode();
+        commitStats[tid]->numInsts += instsExecuted;
+        if (in_user_mode) {
+            commitStats[tid]->numUserInsts += instsExecuted;
+        }
 
         DPRINTF(KvmRun,
                 "KVM: Executed %i instructions in %i cycles "
@@ -1107,11 +1194,14 @@ BaseKvmCPU::doMMIOAccess(Addr paddr, void *data, int size, bool write)
         //
         // We won't be able to rewind the current PC to the "correct"
         // value without figuring out how big the current instruction
-        // is, and that's probably not worth the effort.
-        tc->setNPC(tc->instAddr());
-        // We currently assume that there is no need to migrate to a
-        // different event queue when doing local accesses. Currently, they
-        // are only used for m5ops, so it should be a valid assumption.
+        // is, and that's probably not worth the effort
+        std::unique_ptr<PCStateBase> pc(tc->pcState().clone());
+        stutterPC(*pc);
+        tc->pcState(*pc);
+        // Local m5ops can perform functional guest-memory accesses or
+        // schedule exit events, so serialize them on the device event queue
+        // just like regular MMIO handling in multi-core KVM mode.
+        EventQueue::ScopedMigration migrate(deviceEventQueue());
         const Cycles ipr_delay = mmio_req->localAccessor(tc, pkt);
         threadContextDirty = true;
         delete pkt;
@@ -1128,7 +1218,8 @@ BaseKvmCPU::doMMIOAccess(Addr paddr, void *data, int size, bool write)
 void
 BaseKvmCPU::setSignalMask(const sigset_t *mask)
 {
-    std::unique_ptr<struct kvm_signal_mask> kvm_mask;
+    std::unique_ptr<struct kvm_signal_mask, void(*)(void *p)>
+        kvm_mask(nullptr, [](void *p) { operator delete(p); });
 
     if (mask) {
         kvm_mask.reset((struct kvm_signal_mask *)operator new(
@@ -1279,10 +1370,16 @@ BaseKvmCPU::setupCounters()
             .samplePeriod(42);
     }
 
-    hwCycles.attach(cfgCycles,
-                    0); // TID (0 => currentThread)
+    // We might be re-attaching counters due threads being
+    // re-initialised after fork.
+    if (usePerf) {
+        if (hwCycles->attached()) {
+            hwCycles->detach();
+        }
 
-    setupInstCounter();
+        hwCycles->attach(cfgCycles, 0); // TID (0 => currentThread)
+        setupInstCounter();
+    }
 }
 
 bool
@@ -1332,10 +1429,16 @@ BaseKvmCPU::setupInstStop()
 void
 BaseKvmCPU::setupInstCounter(uint64_t period)
 {
+    // This function is for setting up instruction counter using perf
+    if (!usePerf) {
+        return;
+    }
+
     // No need to do anything if we aren't attaching for the first
     // time or the period isn't changing.
-    if (period == activeInstPeriod && hwInstructions.attached())
+    if (period == activeInstPeriod && hwInstructions->attached()) {
         return;
+    }
 
     PerfKvmCounterConfig cfgInstructions(PERF_TYPE_HARDWARE,
                                          PERF_COUNT_HW_INSTRUCTIONS);
@@ -1354,15 +1457,15 @@ BaseKvmCPU::setupInstCounter(uint64_t period)
 
     // We need to detach and re-attach the counter to reliably change
     // sampling settings. See PerfKvmCounter::period() for details.
-    if (hwInstructions.attached())
-        hwInstructions.detach();
-    assert(hwCycles.attached());
-    hwInstructions.attach(cfgInstructions,
+    if (hwInstructions->attached())
+        hwInstructions->detach();
+    assert(hwCycles->attached());
+    hwInstructions->attach(cfgInstructions,
                           0, // TID (0 => currentThread)
-                          hwCycles);
+                          *hwCycles);
 
     if (period)
-        hwInstructions.enableSignals(KVM_KICK_SIGNAL);
+        hwInstructions->enableSignals(KVM_KICK_SIGNAL);
 
     activeInstPeriod = period;
 }

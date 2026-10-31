@@ -39,6 +39,8 @@
 
 #include "base/logging.hh"
 #include "base/stats/info.hh"
+#include "base/trace.hh"
+#include "debug/Stats.hh"
 
 namespace gem5
 {
@@ -57,7 +59,6 @@ bool emptyStrings(const T &labels)
 }
 
 
-GEM5_DEPRECATED_NAMESPACE(Stats, statistics);
 namespace statistics
 {
 
@@ -77,10 +78,11 @@ Hdf5::~Hdf5()
 {
 }
 
-
 void
-Hdf5::begin()
+Hdf5::begin(const std::string &message)
 {
+    // HDF5 format ignores the message parameter
+    // as it doesn't support text messages
     h5File = H5::H5File(fname,
                         // Truncate the file if this is the first dump
                         dumpCount > 0 ? H5F_ACC_RDWR : H5F_ACC_TRUNC);
@@ -254,6 +256,8 @@ Hdf5::appendStat(const Info &info, int rank, hsize_t *dims, const double *data)
 
         fspace = H5::DataSpace(rank, dims, max_dims.data());
         try {
+            DPRINTF(Stats, "Creating dataset %s in group %s\n",
+                info.name, group.getObjnameByIdx(group.getId()));
             data_set = group.createDataSet(info.name,
                 H5::PredType::NATIVE_DOUBLE, fspace, props);
         } catch (const H5::Exception &e) {

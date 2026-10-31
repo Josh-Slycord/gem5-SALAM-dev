@@ -33,7 +33,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
 def macroop CMP_R_M
 {
     ld t1, seg, sib, disp
@@ -49,17 +49,15 @@ def macroop CMP_R_P
 
 def macroop CMP_M_I
 {
-    limm t2, imm
     ld t1, seg, sib, disp
-    sub t0, t1, t2, flags=(OF, SF, ZF, AF, PF, CF)
+    subi t0, t1, imm, flags=(OF, SF, ZF, AF, PF, CF)
 };
 
 def macroop CMP_P_I
 {
-    limm t2, imm
     rdip t7
     ld t1, seg, riprel, disp
-    sub t0, t1, t2, flags=(OF, SF, ZF, AF, PF, CF)
+    subi t0, t1, imm, flags=(OF, SF, ZF, AF, PF, CF)
 };
 
 def macroop CMP_M_R
@@ -82,7 +80,6 @@ def macroop CMP_R_R
 
 def macroop CMP_R_I
 {
-    limm t1, imm
-    sub t0, reg, t1, flags=(OF, SF, ZF, AF, PF, CF)
+    subi t0, reg, imm, flags=(OF, SF, ZF, AF, PF, CF)
 };
-'''
+"""

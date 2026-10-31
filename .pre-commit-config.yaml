@@ -2,7 +2,7 @@
 # Historical gem5 and SALAM files retain their own provenance and style.
 minimum_pre_commit_version: '3.5.0'
 
-files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci\.txt)|\.pre-commit-config\.yaml|docs/CI\.md)'
+files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md)'
 exclude: '^workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)'
 
 repos:

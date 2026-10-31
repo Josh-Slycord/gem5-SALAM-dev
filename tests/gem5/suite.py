@@ -36,31 +36,43 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
 import copy
+import os
 import subprocess
 import sys
 
-from testlib.test_util import TestFunction
+from testlib.configuration import constants
+from testlib.helper import (
+    gcov_delete_files,
+    log_call,
+    run_gcovr,
+)
 from testlib.suite import TestSuite
-from testlib.helper import log_call
-from testlib.configuration import constants, config
-from .fixture import TempdirFixture, Gem5Fixture, VariableFixture
+from testlib.test_util import TestFunction
 
 from . import verifier
+from .fixture import (
+    Gem5Fixture,
+    TempdirFixture,
+    VariableFixture,
+)
 
-def gem5_verify_config(name,
-                       config,
-                       config_args,
-                       verifiers,
-                       gem5_args=tuple(),
-                       fixtures=[],
-                       valid_isas=constants.supported_isas,
-                       valid_variants=constants.supported_variants,
-                       length=constants.supported_lengths[0],
-                       valid_hosts=constants.supported_hosts,
-                       protocol=None):
-    '''
+
+def gem5_verify_config(
+    name,
+    config,
+    config_args,
+    verifiers,
+    gem5_args=tuple(),
+    fixtures=None,
+    valid_isas=constants.supported_isas,
+    valid_variants=constants.supported_variants,
+    length=constants.supported_lengths[0],
+    valid_hosts=constants.supported_hosts,
+    protocol=None,
+    uses_kvm=False,
+):
+    """
     Helper class to generate common gem5 tests using verifiers.
 
     The generated TestSuite will run gem5 with the provided config and
@@ -84,35 +96,36 @@ def gem5_verify_config(name,
 
     :param valid_variants: An iterable with the variant levels that
         this test can be ran for. (E.g. opt, debug)
-    '''
+
+    :param uses_kvm: States if this verifier uses KVM. If so, the "kvm" tag
+        will be included.
+    """
+    fixtures = [] if fixtures is None else fixtures
     fixtures = list(fixtures)
     testsuites = []
 
     for host in valid_hosts:
         for opt in valid_variants:
             for isa in valid_isas:
-
                 # Create a tempdir fixture to be shared throughout the test.
                 tempdir = TempdirFixture()
                 gem5_returncode = VariableFixture(
-                        name=constants.gem5_returncode_fixture_name)
+                    name=constants.gem5_returncode_fixture_name
+                )
 
                 # Common name of this generated testcase.
-                _name = '{given_name}-{isa}-{host}-{opt}'.format(
-                        given_name=name,
-                        isa=isa,
-                        host=host,
-                        opt=opt)
+                _name = f"{name}-{isa}-{host}-{opt}"
                 if protocol:
-                    _name += '-'+protocol
+                    _name += "-" + protocol
 
                 # Create the running of gem5 subtest.  NOTE: We specifically
                 # create this test before our verifiers so this is listed
                 # first.
                 tests = []
                 gem5_execution = TestFunction(
-                        _create_test_run_gem5(config, config_args, gem5_args),
-                        name=_name)
+                    _create_test_run_gem5(config, config_args, gem5_args),
+                    name=_name,
+                )
                 tests.append(gem5_execution)
 
                 # Create copies of the verifier subtests for this isa and
@@ -123,6 +136,9 @@ def gem5_verify_config(name,
                 # Add the isa and variant to tags list.
                 tags = [isa, opt, length, host]
 
+                if uses_kvm:
+                    tags.append(constants.kvm_tag)
+
                 # Create the gem5 target for the specific architecture and
                 # variant.
                 _fixtures = copy.copy(fixtures)
@@ -132,20 +148,21 @@ def gem5_verify_config(name,
 
                 # Finally construct the self contained TestSuite out of our
                 # tests.
-                testsuites.append(TestSuite(
-                    name=_name,
-                    fixtures=_fixtures,
-                    tags=tags,
-                    tests=tests))
+                testsuites.append(
+                    TestSuite(
+                        name=_name, fixtures=_fixtures, tags=tags, tests=tests
+                    )
+                )
     return testsuites
+
 
 def _create_test_run_gem5(config, config_args, gem5_args):
     def test_run_gem5(params):
-        '''
+        """
         Simple \'test\' which runs gem5 and saves the result into a tempdir.
 
         NOTE: Requires fixtures: tempdir, gem5
-        '''
+        """
         fixtures = params.fixtures
 
         if gem5_args is None:
@@ -165,18 +182,52 @@ def _create_test_run_gem5(config, config_args, gem5_args):
         # fixture, but we always require it even if that verifier isn't being
         # ran.
         tempdir = fixtures[constants.tempdir_fixture_name].path
-        gem5 = fixtures[constants.gem5_binary_fixture_name].path
+
+        gem5_fixture = fixtures[constants.gem5_binary_fixture_name]
+
+        gem5 = gem5_fixture.path
+        gcov = gem5_fixture.gcov
+        gem5_build_target_dir = gem5_fixture.target_dir
+        gem5_base_dir = gem5_fixture.directory
+        test_threads = gem5_fixture.test_threads
+
+        if gcov == "ind-test-and-gcov":
+            params.log.message(
+                "Now cleaning up gcda and .py.gcno files from previous runs "
+                "or the build process. In the directory "
+                f"{gem5_build_target_dir}."
+            )
+            gcov_delete_files(gem5_build_target_dir, "all")
+
         command = [
             gem5,
-            '-d',  # Set redirect dir to tempdir.
+            "-d",  # Set redirect dir to tempdir.
             tempdir,
-            '-re',# TODO: Change to const. Redirect stdout and stderr
+            "-re",  # TODO: Change to const. Redirect stdout and stderr
+            "--silent-redirect",
         ]
         command.extend(_gem5_args)
         command.append(config)
         # Config_args should set up the program args.
         command.extend(config_args)
-        log_call(params.log, command, time=params.time,
-            stdout=sys.stdout, stderr=sys.stderr)
+        log_call(
+            params.log,
+            command,
+            time=params.time,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        if gcov == "ind-test-and-gcov":
+            # run gcovr to get coverage metrics for each individual test
+            run_gcovr(
+                gem5_base_dir,
+                gem5_build_target_dir,
+                tempdir,
+                test_threads,
+                gem5_fixture.isa,
+                params.log,
+                params.time,
+                gcov,
+            )
 
     return test_run_gem5

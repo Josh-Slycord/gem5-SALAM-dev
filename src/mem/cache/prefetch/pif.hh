@@ -38,18 +38,20 @@
 #define __MEM_CACHE_PREFETCH_PIF_HH__
 
 #include <deque>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "base/cache/associative_cache.hh"
 #include "base/circular_queue.hh"
-#include "mem/cache/prefetch/associative_set.hh"
 #include "mem/cache/prefetch/queued.hh"
+#include "mem/cache/tags/tagged_entry.hh"
 
 namespace gem5
 {
 
 struct PIFPrefetcherParams;
 
-GEM5_DEPRECATED_NAMESPACE(Prefetcher, prefetch);
 namespace prefetch
 {
 
@@ -137,13 +139,20 @@ class PIF : public Queued
 
         struct IndexEntry : public TaggedEntry
         {
+            IndexEntry(TagExtractor ext)
+              : TaggedEntry()
+            {
+                registerTagExtractor(ext);
+            }
+
             HistoryBuffer::iterator historyIt;
         };
+
         /**
          * The index table is a small cache-like structure that facilitates
          * fast search of the history buffer.
          */
-        AssociativeSet<IndexEntry> index;
+        AssociativeCache<IndexEntry> index;
 
         /**
          * A Stream Address Buffer (SAB) tracks a window of consecutive
@@ -165,17 +174,19 @@ class PIF : public Queued
         class PrefetchListenerPC : public ProbeListenerArgBase<Addr>
         {
           public:
-            PrefetchListenerPC(PIF &_parent, ProbeManager *pm,
-                             const std::string &name)
-                : ProbeListenerArgBase(pm, name),
-                  parent(_parent) {}
+            PrefetchListenerPC(PIF &_parent, std::string name)
+                : ProbeListenerArgBase(std::move(name)), parent(_parent)
+            {}
             void notify(const Addr& pc) override;
           protected:
             PIF &parent;
         };
 
         /** Array of probe listeners */
-        std::vector<PrefetchListenerPC *> listenersPC;
+        std::vector<ProbeListenerPtr<PrefetchListenerPC>> listenersPC;
+
+        /** Probes to connect in regProbeListeners() */
+        std::vector<std::pair<SimObject *, std::string>> probeEventsPC;
 
 
     public:
@@ -183,10 +194,15 @@ class PIF : public Queued
         ~PIF() = default;
 
         void calculatePrefetch(const PrefetchInfo &pfi,
-                               std::vector<AddrPriority> &addresses);
+                               std::vector<AddrPriority> &addresses,
+                               const CacheAccessor &cache) override;
+
+        void regProbeListeners() override;
 
         /**
-         * Add a SimObject and a probe name to monitor the retired instructions
+         * Add a SimObject and a probe name to monitor the retired
+         * instructions. The listener is only connected in
+         * regProbeListeners().
          * @param obj The SimObject pointer to listen from
          * @param name The probe name
          */

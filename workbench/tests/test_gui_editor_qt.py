@@ -7,6 +7,8 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
+from salam_workbench.toolchain_profile import load_toolchain
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
@@ -14,21 +16,19 @@ from PySide6.QtWidgets import QApplication, QFormLayout, QWidget
 
 _PROJECT = Path(__file__).resolve().parents[1]
 _WORKSPACE = _PROJECT / "workspace.json"
-ENGINE = (
-    Path(
-        json.loads(_WORKSPACE.read_text(encoding="utf-8-sig"))["configuration_engine"][
-            "path"
-        ]
-    )
+_CONFIGURATION = (
+    json.loads(_WORKSPACE.read_text(encoding="utf-8-sig"))["configuration_engine"]
     if _WORKSPACE.is_file()
-    else _PROJECT / "unbound-engine"
+    else {}
 )
+ENGINE = Path(_CONFIGURATION.get("path", _PROJECT / "unbound-engine"))
+_DISTRIBUTION = _CONFIGURATION.get("distribution", "Ubuntu-20.04")
 GUI_SRC = ENGINE / "gem5-SALAM-gui/src"
 
 
 class _WSLStatus:
     def get_selected_distro(self):
-        return "Ubuntu-20.04"
+        return _DISTRIBUTION
 
 
 @unittest.skipUnless(GUI_SRC.is_dir(), "independent WSL GUI unavailable")
@@ -428,7 +428,7 @@ class GuiEditorQtTests(unittest.TestCase):
 
     def test_offscreen_native_linux_uses_real_backend_command(self):
         program, arguments = self.dialog._backend_command(self.dialog._make_request())
-        self.assertEqual(program, "/usr/bin/python3.8")
+        self.assertEqual(program, load_toolchain(_PROJECT)["python"])
         self.assertEqual(
             arguments,
             ["-B", "-m", "salam_workbench.gui_execution", "--request-stdin"],

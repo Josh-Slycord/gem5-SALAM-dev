@@ -46,6 +46,7 @@
 #ifndef __MEM_ABSTRACT_MEMORY_HH__
 #define __MEM_ABSTRACT_MEMORY_HH__
 
+#include "base/addr_range_map.hh"
 #include "mem/backdoor.hh"
 #include "mem/port.hh"
 #include "params/AbstractMemory.hh"
@@ -114,8 +115,22 @@ class AbstractMemory : public ClockedObject
     // Address range of this memory
     AddrRange range;
 
-    // Pointer to host memory used to implement this memory
+    // Pointer to host memory used to implement this memory.
+    // Note: pmemAddr provides an O(1) direct pointer calculation for
+    // contiguous (non-sparse) memories, which is essential for performance
+    // on the simulation critical path. It acts as a cached optimization.
     uint8_t* pmemAddr;
+
+    // Map of address ranges to host memory pointers. This is always populated
+    // and valid.
+    AddrRangeMap<uint8_t *> pmemMap;
+
+    // Whether the memory is sparse
+    const bool isSparse;
+
+    // True if we should access either pmemAddr or the address in pmemMap.
+    // False if we should assume all data is 0 and skip the backing store.
+    bool accessBackingMemory;
 
     // Backdoor to access this memory.
     MemBackdoor backdoor;
@@ -128,6 +143,12 @@ class AbstractMemory : public ClockedObject
 
     // Should KVM map this memory for the guest
     const bool kvmMap;
+
+    // Are writes allowed to this memory
+    const bool writeable;
+
+    // Should collect traffic statistics
+    const bool collectStats;
 
     std::list<LockedAddr> lockedAddrList;
 
@@ -149,8 +170,12 @@ class AbstractMemory : public ClockedObject
     // requesting execution context), 'true' otherwise.  Note that
     // this method must be called on *all* stores since even
     // non-conditional stores must clear any matching lock addresses.
-    bool writeOK(PacketPtr pkt) {
+    bool
+    writeOK(PacketPtr pkt)
+    {
         const RequestPtr &req = pkt->req;
+        if (!writeable)
+            return false;
         if (lockedAddrList.empty()) {
             // no locked addrs: nothing to check, store_conditional fails
             bool isLLSC = pkt->isLLSC();
@@ -231,8 +256,11 @@ class AbstractMemory : public ClockedObject
      * controller.
      *
      * @param pmem_addr Pointer to a segment of host memory
+     * @param range The part of the sparse subset of the address range this
+     *              pointer covers. Ignored if the AbstractMemory range is not
+     *              sparse.
      */
-    void setBackingStore(uint8_t* pmem_addr);
+    void setBackingStore(uint8_t *pmem_addr, const AddrRange &range);
 
     void
     getBackdoor(MemBackdoorPtr &bd_ptr)
@@ -290,7 +318,14 @@ class AbstractMemory : public ClockedObject
     inline uint8_t *
     toHostAddr(Addr addr) const
     {
-        return pmemAddr + addr - range.start();
+        if (isSparse) {
+            auto it = pmemMap.contains(addr);
+            assert(it != pmemMap.end());
+            return it->second + addr - it->first.start();
+        } else {
+            assert(pmemAddr);
+            return pmemAddr + addr - range.start();
+        }
     }
 
     /**

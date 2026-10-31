@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 ARM Limited
+ * Copyright (c) 2017-2018, 2022 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -43,6 +43,8 @@
 #ifndef __ARCH_ARM_TRACERS_TARMAC_TRACER_HH__
 #define __ARCH_ARM_TRACERS_TARMAC_TRACER_HH__
 
+#include <memory>
+
 #include "arch/arm/tracers/tarmac_record.hh"
 #include "arch/arm/tracers/tarmac_record_v8.hh"
 #include "params/TarmacTracer.hh"
@@ -52,8 +54,11 @@ namespace gem5
 {
 
 class ThreadContext;
+class OutputStream;
 
-namespace Trace {
+namespace trace {
+
+class TarmacTracer;
 
 /**
  * This object type is encapsulating the informations needed by
@@ -62,18 +67,21 @@ namespace Trace {
 class TarmacContext
 {
   public:
-    TarmacContext(ThreadContext* _thread,
+    TarmacContext(const TarmacTracer &_tracer,
+                  ThreadContext* _thread,
                   const StaticInstPtr _staticInst,
-                  ArmISA::PCState _pc)
-      : thread(_thread), staticInst(_staticInst), pc(_pc)
+                  const PCStateBase &_pc)
+      : tracer(_tracer), thread(_thread), staticInst(_staticInst),
+        pc(_pc.clone())
     {}
 
     std::string tarmacCpuName() const;
 
   public:
+    const TarmacTracer &tracer;
     ThreadContext* thread;
     const StaticInstPtr staticInst;
-    ArmISA::PCState pc;
+    std::unique_ptr<PCStateBase> pc;
 };
 
 /**
@@ -99,15 +107,18 @@ class TarmacTracer : public InstTracer
      * - TarmacV8
      */
     InstRecord* getInstRecord(Tick when, ThreadContext *tc,
-                              const StaticInstPtr staticInst,
-                              ArmISA::PCState pc,
-                              const StaticInstPtr macroStaticInst = NULL);
+            const StaticInstPtr staticInst, const PCStateBase &pc,
+            const StaticInstPtr macroStaticInst=nullptr) override;
+
+    std::ostream& output();
 
   protected:
     typedef std::unique_ptr<Printable> PEntryPtr;
     typedef TarmacTracerRecord::InstPtr InstPtr;
     typedef TarmacTracerRecord::MemPtr MemPtr;
     typedef TarmacTracerRecord::RegPtr RegPtr;
+
+    OutputStream *outstream;
 
     /**
      * startTick and endTick allow to trace a specific window of ticks
@@ -128,7 +139,7 @@ class TarmacTracer : public InstTracer
     std::vector<RegPtr> regQueue;
 };
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5
 
 #endif // __ARCH_ARM_TRACERS_TARMAC_TRACER_HH__

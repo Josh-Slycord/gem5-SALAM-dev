@@ -1,8 +1,6 @@
 # Copyright (c) 2021 Advanced Micro Devices, Inc.
 # All rights reserved.
 #
-# For use for simulation and test purposes only
-#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -29,12 +27,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from m5.objects.TesterThread import TesterThread
 from m5.params import *
 from m5.proxy import *
 
-from m5.objects.TesterThread import TesterThread
 
 class DmaThread(TesterThread):
-    type = 'DmaThread'
+    type = "DmaThread"
     cxx_header = "cpu/testers/gpu_ruby_test/dma_thread.hh"
-    cxx_class = 'gem5::DmaThread'
+    cxx_class = "gem5::DmaThread"

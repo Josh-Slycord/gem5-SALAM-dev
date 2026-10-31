@@ -40,7 +40,9 @@
 
 #include "arch/generic/mmu.hh"
 #include "arch/riscv/isa.hh"
+#include "arch/riscv/page_size.hh"
 #include "arch/riscv/pma_checker.hh"
+#include "arch/riscv/pmp.hh"
 #include "arch/riscv/tlb.hh"
 
 #include "params/RiscvMMU.hh"
@@ -53,16 +55,47 @@ namespace RiscvISA {
 class MMU : public BaseMMU
 {
   public:
-    PMAChecker *pma;
+    BasePMAChecker *pma;
+    PMP *pmp;
 
-    MMU(const RiscvMMUParams &p)
-      : BaseMMU(p), pma(p.pma_checker)
-    {}
-
-    PrivilegeMode
-    getMemPriv(ThreadContext *tc, BaseMMU::Mode mode)
+    MMU(const RiscvMMUParams &p) : BaseMMU(p), pma(p.pma_checker), pmp(p.pmp)
     {
-        return static_cast<TLB*>(dtb)->getMemPriv(tc, mode);
+        auto *itb_ptr = static_cast<TLB *>(itb);
+        auto *dtb_ptr = static_cast<TLB *>(dtb);
+
+        itb_ptr->setPMP(pmp);
+        dtb_ptr->setPMP(pmp);
+    }
+
+    void
+    reset() override
+    {
+        // Reset PMP Cfg
+        getPMP()->pmpReset();
+    }
+
+    Addr
+    getValidAddr(Addr vaddr, ThreadContext *tc, Mode mode) override
+    {
+        if (mode == BaseMMU::Execute) {
+            return static_cast<TLB*>(itb)->getValidAddr(vaddr, tc, mode);
+        }
+        return static_cast<TLB*>(dtb)->getValidAddr(vaddr, tc, mode);
+    }
+
+    TranslationGenPtr
+    translateFunctional(Addr start, Addr size, ThreadContext *tc,
+            Mode mode, Request::Flags flags) override
+    {
+        return TranslationGenPtr(new MMUTranslationGen(
+                PageBytes, start, size, tc, this, mode, flags));
+    }
+
+    MemAccessInfo
+    getMemAccessInfo(ThreadContext *tc, BaseMMU::Mode mode)
+    {
+        return static_cast<TLB*>(dtb)->getMemAccessInfo(
+          tc, mode, (Request::ArchFlagsType)0);
     }
 
     Walker *
@@ -77,14 +110,44 @@ class MMU : public BaseMMU
       MMU *ommu = dynamic_cast<MMU*>(old_mmu);
       BaseMMU::takeOverFrom(ommu);
       pma->takeOverFrom(ommu->pma);
+      pmp->takeOverFrom(ommu->pmp);
 
+      auto *itb_ptr = static_cast<TLB *>(itb);
+      auto *dtb_ptr = static_cast<TLB *>(dtb);
+      itb_ptr->setPMP(pmp);
+      dtb_ptr->setPMP(pmp);
+    }
+
+    void
+    demapPage(ThreadContext *tc, Addr vaddr, uint64_t asn,
+              bool is_gvma = false, bool is_vvma = false)
+    {
+        static_cast<TLB *>(itb)->demapPage(tc, vaddr, asn, is_gvma, is_vvma);
+        static_cast<TLB *>(dtb)->demapPage(tc, vaddr, asn, is_gvma, is_vvma);
     }
 
     PMP *
     getPMP()
     {
-        return static_cast<TLB*>(dtb)->pmp;
+        return pmp;
     }
+
+    /*
+     * The usage of Memory Request Arch Flags for RISC-V
+     *  | 7 ------------- 3 | 2 ------ 0 |
+     *  |     Reserved      |  LDST Size |
+     *  | ------------------| -----------|
+     */
+    enum RiscvFlags
+    {
+        ByteAlign = 0,
+        HalfWordAlign = 1,
+        WordAlign = 2,
+        DoubleWordAlign = 3,
+        QuadWordAlign = 4,
+
+        AlignmentMask = 0x7,
+    };
 };
 
 } // namespace RiscvISA

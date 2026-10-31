@@ -54,6 +54,33 @@ class ThreadContext;
    simply create an ITLB and DTLB that will point to the real TLB */
 namespace RiscvISA {
 
+class MemAccessInfo
+{
+  public:
+    PrivilegeMode priv;
+    bool virt;
+    bool force_virt;
+    bool hlvx;
+    bool lr;
+
+    MemAccessInfo() = default;
+    MemAccessInfo(
+      PrivilegeMode priv, bool virt, bool force_virt, bool hlvx, bool lr) :
+      priv(priv), virt(virt), force_virt(force_virt), hlvx(hlvx), lr(lr) {}
+
+    bool
+    bypassTLB() const
+    {
+        return (force_virt || hlvx);
+    }
+};
+
+enum XlateStage
+{
+  FIRST_STAGE,
+  GSTAGE
+};
+
 class Walker;
 
 class TLB : public BaseTLB
@@ -75,11 +102,9 @@ class TLB : public BaseTLB
 
         statistics::Scalar readHits;
         statistics::Scalar readMisses;
-        statistics::Scalar read_acv;
         statistics::Scalar readAccesses;
         statistics::Scalar writeHits;
         statistics::Scalar writeMisses;
-        statistics::Scalar write_acv;
         statistics::Scalar writeAccesses;
 
         statistics::Formula hits;
@@ -88,7 +113,7 @@ class TLB : public BaseTLB
     } stats;
 
   public:
-    PMAChecker *pma;
+    BasePMAChecker *pma;
     PMP *pmp;
 
   public:
@@ -96,18 +121,34 @@ class TLB : public BaseTLB
     TLB(const Params &p);
 
     Walker *getWalker();
+    void setPMP(PMP *_pmp);
 
     void takeOverFrom(BaseTLB *old) override {}
 
+    /**
+     * Insert an entry into the TLB.
+     * @param vpn The virtual page number extracted from the address.
+     *            It is shifted based on the page size. We assume the
+     *            smallest defined page size and remove the upper bits of the
+     *            virtual address that are not part of the page number.
+     * @param entry The entry to insert.
+     */
     TlbEntry *insert(Addr vpn, const TlbEntry &entry);
     void flushAll() override;
     void demapPage(Addr vaddr, uint64_t asn) override;
+    void demapPage(ThreadContext *tc, Addr vaddr, uint64_t asn,
+                   bool is_gvma = false, bool is_vvma = false);
 
-    Fault checkPermissions(STATUS status, PrivilegeMode pmode, Addr vaddr,
-                           BaseMMU::Mode mode, PTESv39 pte);
-    Fault createPagefault(Addr vaddr, BaseMMU::Mode mode);
+    Fault checkPermissions(ThreadContext *tc, MemAccessInfo mem_access,
+                           Addr vaddr, BaseMMU::Mode mode, PTE pte,
+                           Addr gvaddr = 0x0,
+                           XlateStage stage = XlateStage::FIRST_STAGE);
 
-    PrivilegeMode getMemPriv(ThreadContext *tc, BaseMMU::Mode mode);
+    Fault createPagefault(Addr vaddr, BaseMMU::Mode mode, Addr gvaddr = 0x0,
+                          bool gpf = false, bool virt = false);
+
+    MemAccessInfo getMemAccessInfo(ThreadContext *tc, BaseMMU::Mode mode,
+                                  const Request::ArchFlagsType arch_flags);
 
     // Checkpointing
     void serialize(CheckpointOut &cp) const override;
@@ -125,7 +166,8 @@ class TLB : public BaseTLB
      */
     Port *getTableWalkerPort() override;
 
-    Addr translateWithTLB(Addr vaddr, uint16_t asid, BaseMMU::Mode mode);
+    Addr hiddenTranslateWithTLB(Addr vaddr, uint16_t asid, Addr xmode,
+                                BaseMMU::Mode mode);
 
     Fault translateAtomic(const RequestPtr &req,
                           ThreadContext *tc, BaseMMU::Mode mode) override;
@@ -137,10 +179,35 @@ class TLB : public BaseTLB
     Fault finalizePhysical(const RequestPtr &req, ThreadContext *tc,
                            BaseMMU::Mode mode) const override;
 
+    Addr
+    getValidAddr(Addr vaddr, ThreadContext *tc, BaseMMU::Mode mode)
+    {
+      /**
+        * For RV32, we follow what the specification said:
+        * When mapping between narrower and wider addresses,
+        * RISC-V zero-extends a narrower physical address to a
+        * wider size.
+        */
+        ISA* isa = static_cast<ISA*>(tc->getIsaPtr());
+        if (isa->rvType() == RV32) {
+            return bits(vaddr, 31, 0);
+        }
+        return vaddr;
+    }
+    /**
+     * Perform the tlb lookup
+     * @param vpn The virtual page number extracted from the address.
+     *            It is shifted based on the page size. We assume the
+     *            smallest defined page size and remove the upper bits of the
+     *            virtual address that are not part of the page number.
+     * @param asid The address space identifier as specified by satp.
+     * @param mode The mode of the memory operation.
+     * @param hidden If the lookup should be hidden from the statistics.
+     */
+    TlbEntry *lookup(Addr vpn, uint16_t asid, BaseMMU::Mode mode, bool hidden);
+
   private:
     uint64_t nextSeq() { return ++lruSeq; }
-
-    TlbEntry *lookup(Addr vpn, uint16_t asid, BaseMMU::Mode mode, bool hidden);
 
     void evictLRU();
     void remove(size_t idx);

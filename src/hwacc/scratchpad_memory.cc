@@ -426,7 +426,7 @@ Tick
 ScratchpadMemory::getLatency() const
 {
     return latency +
-        (latency_var ? random_mt.random<Tick>(0, latency_var) : 0);
+        (latency_var ? rng->random<Tick>(0, latency_var) : 0);
 }
 
 void
@@ -477,7 +477,7 @@ ScratchpadMemory::drain()
 
 ScratchpadMemory::MemoryPort::MemoryPort(const std::string& _name,
                                      ScratchpadMemory& _memory)
-    : ResponsePort(_name, &_memory), memory(_memory)
+    : ResponsePort(_name), memory(_memory)
 { }
 
 AddrRangeList

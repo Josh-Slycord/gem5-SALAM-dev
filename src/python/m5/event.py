@@ -38,24 +38,31 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import m5
-import _m5.event
+import warnings
 
+import m5
+
+import _m5.event
 from _m5.event import GlobalSimLoopExitEvent as SimExit
 from _m5.event import PyEvent as Event
-from _m5.event import getEventQueue, setEventQueue
+from _m5.event import (
+    getEventQueue,
+    setEventQueue,
+)
 
 mainq = None
+
 
 class EventWrapper(Event):
     """Helper class to wrap callable objects in an Event base class"""
 
     def __init__(self, func, **kwargs):
-        super(EventWrapper, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if not callable(func):
-            raise RuntimeError("Can't wrap '%s', object is not callable" % \
-                               str(func))
+            raise RuntimeError(
+                f"Can't wrap '{str(func)}', object is not callable"
+            )
 
         self._func = func
 
@@ -63,18 +70,18 @@ class EventWrapper(Event):
         self._func()
 
     def __str__(self):
-        return "EventWrapper(%s)" % (str(self._func), )
+        return f"EventWrapper({str(self._func)})"
 
 
 class ProgressEvent(Event):
     def __init__(self, eventq, period):
-        super(ProgressEvent, self).__init__()
+        super().__init__()
         self.period = int(period)
         self.eventq = eventq
         self.eventq.schedule(self, m5.curTick() + self.period)
 
     def __call__(self):
-        print("Progress! Time now %fs" % (m5.curTick()/1e12))
+        print(f"Progress! Time now {m5.curTick() / 1000000000000.0:f}s")
         self.eventq.schedule(self, m5.curTick() + self.period)
 
 
@@ -83,5 +90,58 @@ def create(func, priority=Event.Default_Pri):
 
     return EventWrapper(func, priority=priority)
 
-__all__ = [ 'Event', 'EventWrapper', 'ProgressEvent', 'SimExit',
-            'mainq', 'create' ]
+
+def exitSimulationLoopClassic(
+    message, exit_code=0, when=None, repeat=0, serialize=False
+):
+    """Schedule a classic exit while preserving its cause and code."""
+    return _m5.event.exitSimulationLoopClassic(
+        str(message), int(exit_code), when, repeat, serialize
+    )
+
+
+def exitSimulationLoop(hypercall_id, payload=None, when=None, repeat=None):
+    """Schedule an exit identified by a hypercall ID and payload."""
+    if payload is None:
+        payload = {}
+    return _m5.event.exitSimulationLoop(hypercall_id, payload, when, repeat)
+
+
+def exitSimLoop(message, exit_code=0, when=None, repeat=0, serialize=False):
+    """Compatibility wrapper preserving the legacy exitSimLoop signature.
+
+    This helper preserves the original signature and uses the classic
+    hypercall path so handlers can observe structured metadata.
+    """
+
+    warnings.warn(
+        "m5.event.exitSimLoop is deprecated. Use "
+        "exitSimulationLoopClassic to preserve legacy cause/code behavior, "
+        "or exitSimulationLoop for hypercall-based exits.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    # Use the classic C++ helper so this compatibility wrapper keeps the
+    # legacy message/code, delay, repeat, and simQuantum behavior while also
+    # attaching structured hypercall metadata for ExitHandlers.
+    _m5.event.exitSimulationLoopClassic(
+        str(message),
+        int(exit_code),
+        when,
+        repeat,
+        serialize,
+    )
+
+
+__all__ = [
+    "Event",
+    "EventWrapper",
+    "ProgressEvent",
+    "SimExit",
+    "mainq",
+    "create",
+    "exitSimulationLoop",
+    "exitSimulationLoopClassic",
+    "exitSimLoop",
+]

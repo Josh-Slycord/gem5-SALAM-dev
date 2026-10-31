@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -54,6 +52,7 @@
 #include <string>
 #include <vector>
 
+#include "base/random.hh"
 #include "base/types.hh"
 #include "cpu/testers/gpu_ruby_test/address_manager.hh"
 #include "mem/packet.hh"
@@ -76,7 +75,7 @@ class ProtocolTester : public ClockedObject
       public:
         SeqPort(const std::string &_name, ProtocolTester *_tester, PortID _id,
                 PortID _index)
-            : RequestPort(_name, _tester, _id)
+            : RequestPort(_name, _id)
         {}
 
       protected:
@@ -199,6 +198,8 @@ class ProtocolTester : public ClockedObject
     bool sentExitSignal;
 
     OutputStream* logFile;
+
+    Random::RandomPtr rng = Random::genRandom();
 };
 
 } // namespace gem5

@@ -49,6 +49,9 @@ AddOption('--debug-build', dest='debug_build', action='store_true',
 AddOption('--run-tests', dest='run_tests', action='store_true',
           help='Enable test output xml files as build targets.')
 AddOption('--verbose', dest='verbose', action='store_true')
+AddOption('--no-duplicate-sources', action='store_false', default=True,
+          dest='duplicate_sources',
+          help='Do not create symlinks to sources in the build directory')
 
 # Universal settings.
 if GetOption('debug_build'):
@@ -94,7 +97,8 @@ else:
 # Propogate the environment's PATH setting.
 main['ENV']['PATH'] = os.environ['PATH']
 # Pass through terminal information to, for instance, enable color output.
-main['ENV']['TERM'] = os.environ['TERM']
+if 'TERM' in os.environ:
+    main['ENV']['TERM'] = os.environ['TERM']
 # Pass through the java CLASSPATH (if it exists) so we can find libraries.
 main['ENV']['CLASSPATH'] = os.environ.get('CLASSPATH', '')
 
@@ -137,6 +141,10 @@ if not main['HAVE_LUA51']:
 
 conf.Finish()
 
+main['HAVE_GTEST'] = googletest_dir.File('SConscript').exists()
+if not main['HAVE_GTEST']:
+    print('googletest not found, not building unit tests.')
+
 # Put the sconsign file in the build dir so everything can be deleted at once.
 main.SConsignFile(os.path.join(abspath(build_dir), 'sconsign'))
 # Use soft links instead of hard links when setting up a build directory.
@@ -177,11 +185,15 @@ native = main.Clone()
 native_dir = build_dir.Dir('native')
 
 # Bring in the googletest sources.
-native.SConscript(googletest_dir.File('SConscript'),
-        variant_dir=native_dir.Dir('googletest'), exports={ 'main': native })
+if native['HAVE_GTEST']:
+    native.SConscript(googletest_dir.File('SConscript'),
+            variant_dir=native_dir.Dir('googletest'),
+            exports={ 'env': native },
+            duplicate=GetOption('duplicate_sources'))
 
 native.SConscript(src_dir.File('SConscript.native'),
-        variant_dir=native_dir, exports={ 'env': native })
+        variant_dir=native_dir, exports={ 'env': native },
+                  duplicate=GetOption('duplicate_sources'))
 
 main['CC'] = '${CROSS_COMPILE}gcc'
 main['CXX'] = '${CROSS_COMPILE}g++'
@@ -265,8 +277,11 @@ for root, dirs, files in os.walk(abspath(src_dir)):
         # this abi.
         abi_dir = build_dir.Dir(env.subst('${ABI}'))
         # Bring in the googletest sources.
-        env.SConscript(googletest_dir.File('SConscript'),
-                variant_dir=abi_dir.Dir('googletest'),
-                exports={ 'main': env })
+        if env['HAVE_GTEST']:
+            env.SConscript(googletest_dir.File('SConscript'),
+                    variant_dir=abi_dir.Dir('googletest'),
+                    exports='env',
+                    duplicate=GetOption('duplicate_sources'))
         env.SConscript(src_dir.File('SConscript'),
-                       variant_dir=abi_dir, exports='env')
+                       variant_dir=abi_dir, exports='env',
+                       duplicate=GetOption('duplicate_sources'))

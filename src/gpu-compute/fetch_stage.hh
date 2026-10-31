@@ -2,8 +2,6 @@
  * Copyright (c) 2014-2015 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -64,8 +62,16 @@ class FetchStage
     void fetch(PacketPtr pkt, Wavefront *wave);
 
     // Stats related variables and methods
-    const std::string& name() const { return _name; }
-    FetchUnit &fetchUnit(int simdId) { return _fetchUnit.at(simdId); }
+    const std::string &
+    name() const
+    {
+        return _name;
+    }
+    FetchUnit &
+    fetchUnit(int simdId)
+    {
+        return _fetchUnit.at(simdId);
+    }
 
   private:
     int numVectorALUs;

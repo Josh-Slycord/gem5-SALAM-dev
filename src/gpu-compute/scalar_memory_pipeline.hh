@@ -2,8 +2,6 @@
  * Copyright (c) 2016-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -38,6 +36,7 @@
 #include <string>
 
 #include "gpu-compute/misc.hh"
+#include "mem/request.hh"
 #include "params/ComputeUnit.hh"
 #include "sim/stats.hh"
 
@@ -63,11 +62,26 @@ class ScalarMemPipeline
     ScalarMemPipeline(const ComputeUnitParams &p, ComputeUnit &cu);
     void exec();
 
-    std::queue<GPUDynInstPtr> &getGMReqFIFO() { return issuedRequests; }
-    std::queue<GPUDynInstPtr> &getGMStRespFIFO() { return returnedStores; }
-    std::queue<GPUDynInstPtr> &getGMLdRespFIFO() { return returnedLoads; }
+    std::queue<GPUDynInstPtr> &
+    getGMReqFIFO()
+    {
+        return issuedRequests;
+    }
+    std::queue<GPUDynInstPtr> &
+    getGMStRespFIFO()
+    {
+        return returnedStores;
+    }
+    std::queue<GPUDynInstPtr> &
+    getGMLdRespFIFO()
+    {
+        return returnedLoads;
+    }
 
     void issueRequest(GPUDynInstPtr gpuDynInst);
+
+    void injectScalarMemFence(GPUDynInstPtr gpuDynInst, bool kernelMemSync,
+                              RequestPtr req);
 
     bool
     isGMLdRespFIFOWrRdy() const
@@ -82,12 +96,18 @@ class ScalarMemPipeline
     }
 
     bool
-    isGMReqFIFOWrRdy(uint32_t pendReqs=0) const
+    isGMReqFIFOWrRdy(uint32_t pendReqs = 0) const
     {
         return (issuedRequests.size() + pendReqs) < queueSize;
     }
 
-    const std::string& name() const { return _name; }
+    const std::string &
+    name() const
+    {
+        return _name;
+    }
+
+    void printProgress();
 
   private:
     ComputeUnit &computeUnit;
