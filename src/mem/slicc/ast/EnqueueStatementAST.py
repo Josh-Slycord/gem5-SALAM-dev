@@ -1,3 +1,15 @@
+# Copyright (c) 2026 Arm Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 2013 Advanced Micro Devices, Inc.
 # Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
 # Copyright (c) 2009 The Hewlett-Packard Development Company
@@ -29,18 +41,33 @@
 from slicc.ast.StatementAST import StatementAST
 from slicc.symbols import Var
 
+
 class EnqueueStatementAST(StatementAST):
-    def __init__(self, slicc, queue_name, type_ast, lexpr, statements):
-        super(EnqueueStatementAST, self).__init__(slicc)
+    def __init__(
+        self,
+        slicc,
+        queue_name,
+        type_ast,
+        lexpr,
+        bypass_strict_fifo,
+        texpr,
+        statements,
+    ):
+        super().__init__(slicc)
 
         self.queue_name = queue_name
         self.type_ast = type_ast
         self.latexpr = lexpr
+        self.bypass_strict_fifo = bypass_strict_fifo
+        self.timestampexpr = texpr
         self.statements = statements
 
     def __repr__(self):
-        return "[EnqueueStatementAst: %s %s %s]" % \
-               (self.queue_name, self.type_ast.ident, self.statements)
+        return "[EnqueueStatementAst: {} {} {}]".format(
+            self.queue_name,
+            self.type_ast.ident,
+            self.statements,
+        )
 
     def generate(self, code, return_type, **kwargs):
         code("{")
@@ -50,25 +77,53 @@ class EnqueueStatementAST(StatementAST):
         msg_type = self.type_ast.type
 
         # Add new local var to symbol table
-        v = Var(self.symtab, "out_msg", self.location, msg_type, "*out_msg",
-                self.pairs)
+        v = Var(
+            self.symtab,
+            "out_msg",
+            self.location,
+            msg_type,
+            "*out_msg",
+            self.pairs,
+        )
         self.symtab.newSymbol(v)
 
         # Declare message
-        code("std::shared_ptr<${{msg_type.c_ident}}> out_msg = "\
-             "std::make_shared<${{msg_type.c_ident}}>(clockEdge());")
+        code(
+            "std::shared_ptr<${{msg_type.c_ident}}> out_msg = "
+            "std::make_shared<${{msg_type.c_ident}}>(clockEdge(), "
+            "    m_ruby_system->getBlockSizeBytes(), m_ruby_system);"
+        )
 
         # The other statements
         t = self.statements.generate(code, None)
         self.queue_name.assertType("OutPort")
 
+        if self.timestampexpr != None:
+            ret_type, rcode = self.timestampexpr.inline(True)
+            code("out_msg->setTransactionTime($rcode);")
+
         if self.latexpr != None:
             ret_type, rcode = self.latexpr.inline(True)
-            code("(${{self.queue_name.var.code}}).enqueue(" \
-                 "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)));")
+            if self.bypass_strict_fifo != None:
+                bypass_strict_fifo_code = self.bypass_strict_fifo.inline(False)
+                code(
+                    "(${{self.queue_name.var.code}}).enqueue("
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), "
+                    "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled(), "
+                    "$bypass_strict_fifo_code);"
+                )
+            else:
+                code(
+                    "(${{self.queue_name.var.code}}).enqueue("
+                    "out_msg, clockEdge(), cyclesToTicks(Cycles($rcode)), "
+                    "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled());"
+                )
         else:
-            code("(${{self.queue_name.var.code}}).enqueue(out_msg, "\
-                 "clockEdge(), cyclesToTicks(Cycles(1)));")
+            code(
+                "(${{self.queue_name.var.code}}).enqueue(out_msg, "
+                "clockEdge(), cyclesToTicks(Cycles(1)),"
+                "m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled());"
+            )
 
         # End scope
         self.symtab.popFrame()

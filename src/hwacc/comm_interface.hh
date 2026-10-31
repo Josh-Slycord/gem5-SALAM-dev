@@ -132,7 +132,7 @@ class CommInterface : public BasicPioDevice
         MemoryRequest *writeReq;
       public:
         RegPort(const std::string& name, CommInterface *_owner, PortID id=InvalidPortID) :
-          RequestPort(name, _owner), owner(_owner) {}
+          RequestPort(name, id), owner(_owner) {}
         void setReadReq(MemoryRequest * req = nullptr) { readReq = req; }
         void setWriteReq(MemoryRequest * req = nullptr) { writeReq = req; }
       protected:

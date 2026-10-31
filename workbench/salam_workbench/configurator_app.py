@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 
+from .toolchain_profile import is_modern, load_toolchain
+
 PROJECT = Path(__file__).resolve().parents[1]
 
 
@@ -21,6 +23,11 @@ def launch(argv=None):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     manifest = json.loads((PROJECT / "workspace.json").read_text(encoding="utf-8-sig"))
     selected = manifest["configuration_engine"]
+    profile = load_toolchain(PROJECT, manifest=manifest)
+    if is_modern(profile) and os.name != "nt":
+        expected_prefix = Path(profile["python"]).parent.parent.resolve()
+        if Path(sys.prefix).resolve() != expected_prefix:
+            raise ValueError("Launch this isolated GUI with " + profile["python"])
     engine = Path(selected["path"]).resolve(strict=True)
     gui = engine / "gem5-SALAM-gui/src"
     os.environ["SALAM_WORKBENCH_ROOT"] = str(PROJECT)
@@ -47,6 +54,14 @@ def launch(argv=None):
         args.benchmark,
         auto_discover=not args.inspect,
     )
+    if is_modern(profile):
+        reference_index = window.mode_combo.findData("reference")
+        if reference_index >= 0:
+            item = window.mode_combo.model().item(reference_index)
+            item.setEnabled(False)
+            item.setToolTip(
+                "Legacy reference mode has not been ported to gem5 26. Use configured simulation with its independent numerical check."
+            )
     if args.inspect:
         from .workbench_catalog import discover_benchmarks
 
@@ -59,6 +74,9 @@ def launch(argv=None):
             "state": "ready",
             "engine": str(engine),
             "distribution": selected["distribution"],
+            "toolchain_profile": profile["id"],
+            "backend_python": profile["python"],
+            "reference_mode_available": not is_modern(profile),
             "benchmark": request["benchmark"],
             "action": request["action"],
             "button": dialog.generate_btn.text(),
@@ -80,7 +98,7 @@ def launch(argv=None):
             "reference_workloads": [
                 item["key"]
                 for item in window.catalog
-                if item.get("fixed_dataset_check_available")
+                if item.get("fixed_dataset_check_available") and not is_modern(profile)
             ],
         }
         print(json.dumps(result))

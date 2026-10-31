@@ -53,7 +53,7 @@ spawnWork(ProcessFuncWrapper *func, const char *name,
         if (opts->_dontInitialize)
             dontInitialize = true;
         if (opts->_stackSize != -1)
-            warn("Ignoring request to set stack size.\n");
+            warn_once("Ignoring request to set stack size.\n");
     }
 
     if (!name || name[0] == '\0') {
@@ -108,7 +108,7 @@ spawnWork(ProcessFuncWrapper *func, const char *name,
                 proc->name());
     }
 
-    scheduler.reg(proc);
+    scheduler().reg(proc);
 
     return proc;
 }

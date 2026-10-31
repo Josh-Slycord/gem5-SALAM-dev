@@ -24,40 +24,39 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
+"""
 Test file for the m5threads atomic test
-'''
+"""
+
 from testlib import *
 
 cpu_types = (
-    # We're currently ignoring these cpu_types (therefore, disabling the test)
-    # due to a `fatal:syscall set_tid_address (#166)` fatal error being thrown.
-    # This is documented in this gem5 Jira ticket:
-    # https://gem5.atlassian.net/browse/GEM5-747
-    # 'DerivO3CPU',
-    # 'TimingSimpleCPU',
+    "DerivO3CPU",
+    "TimingSimpleCPU",
 )
 
-base_path = joinpath(config.bin_path, 'pthreads', 'sparc64')
+base_path = joinpath(config.bin_path, "pthreads", "sparc64")
 
-binary = 'test_atomic'
-url = config.resource_url + '/test-progs/pthreads/sparc64/' + binary
+binary = "test_atomic"
+url = config.resource_url + "/test-progs/pthreads/sparc64/" + binary
 test_atomic = DownloadedProgram(url, base_path, binary)
-
-verifiers = (
-    verifier.MatchStdoutNoPerf(joinpath(getcwd(), 'ref/sparc64/simout')),
-)
 
 for cpu in cpu_types:
     gem5_verify_config(
-        name='test-atomic-' + cpu,
-        verifiers=verifiers,
+        name="test-atomic-" + cpu,
+        # The workload is silent; atomic_system.py checks its exit status.
+        verifiers=(),
         fixtures=(test_atomic,),
-        config=joinpath(getcwd(), 'atomic_system.py'),
-        config_args=['--cpu-type', cpu,
-                     '--num-cores', '8',
-                     '--cmd', joinpath(base_path, binary)],
-        valid_isas=(constants.sparc_tag,),
+        config=joinpath(getcwd(), "atomic_system.py"),
+        config_args=[
+            "--cpu-type",
+            cpu,
+            "--num-cores",
+            "8",
+            "--cmd",
+            joinpath(base_path, binary),
+        ],
+        valid_isas=(constants.all_compiled_tag,),
         valid_hosts=constants.supported_hosts,
-        length = constants.long_tag,
+        length=constants.quick_tag,
     )

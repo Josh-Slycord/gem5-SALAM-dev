@@ -45,6 +45,7 @@
 
 #include "sim/global_event.hh"
 #include "sim/serialize.hh"
+#include "sim/sim_exit.hh"
 
 namespace gem5
 {
@@ -59,19 +60,56 @@ class GlobalSimLoopExitEvent : public GlobalEvent
     std::string cause;
     int code;
     Tick repeat;
+    uint64_t hypercall_id = 0;
+    std::map<std::string, std::string> payload;
 
   public:
+    /**
+     * Constructor for exits that must preserve the legacy cause/code fields
+     * while still dispatching through a hypercall-aware ExitHandler.
+     *
+     * CLASSIC_GENERATOR callers should supply the matching cause/code payload.
+     * If they pass an empty payload, it is synthesized from the legacy fields.
+     */
     GlobalSimLoopExitEvent(Tick when, const std::string &_cause, int c,
+                           Tick repeat, uint64_t hypercall_id,
+                           std::map<std::string, std::string> payload);
+
+    GlobalSimLoopExitEvent(const std::string &_cause, int c, Tick repeat,
+                           uint64_t hypercall_id,
+                           std::map<std::string, std::string> payload);
+
+    /**
+     * Constructor for exits that only dispatch through the hypercall-aware
+     * ExitHandler path. Legacy cause/code fields are left empty/zero.
+     *
+     * These are used to construct Exit Handlers on the Python side.
+     */
+    GlobalSimLoopExitEvent(Tick when, uint64_t hypercall_id,
+                           std::map<std::string, std::string> payload =
+                               std::map<std::string, std::string>(),
                            Tick repeat = 0);
-    GlobalSimLoopExitEvent(const std::string &_cause, int c, Tick repeat = 0);
+
+    GlobalSimLoopExitEvent(uint64_t hypercall_id,
+        std::map<std::string, std::string> payload =
+            std::map<std::string, std::string>());
 
     const std::string getCause() const { return cause; }
     int getCode() const { return code; }
 
-    void process();     // process event
+    uint64_t getHypercallId() const { return hypercall_id; }
+    const std::map<std::string, std::string> getPayload() const {
+        return payload;
+    }
 
+    virtual void process();// process event
+    virtual void clean(){};//cleaning event
+    ~GlobalSimLoopExitEvent (){
+      DPRINTF(Event,"GlobalSimLoopExitEvent destructed\n");
+    };
     virtual const char *description() const;
 };
+
 
 class LocalSimLoopExitEvent : public Event
 {

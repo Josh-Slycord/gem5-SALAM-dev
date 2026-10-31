@@ -29,6 +29,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+
 #include "base/gtest/logging.hh"
 #include "base/logging.hh"
 
@@ -38,12 +40,28 @@ using namespace gem5;
 class LoggingFixture : public ::testing::Test
 {
   public:
-    void SetUp() override { old = std::cerr.rdbuf(gtestLogOutput.rdbuf()); }
-    void TearDown() override { std::cerr.rdbuf(old); }
+    void
+    SetUp() override
+    {
+        old = std::cerr.rdbuf(gtestLogOutput.rdbuf());
+        oldTerm = getenv("TERM");
+        setenv("TERM", "dumb", /* overwrite */ true);
+    }
+    void
+    TearDown() override
+    {
+        std::cerr.rdbuf(old);
+        if (oldTerm == nullptr) {
+            unsetenv("TERM");
+        } else {
+            setenv("TERM", oldTerm, true);
+        }
+    }
 
   private:
     /** Used to restore cerr's streambuf. */
     std::streambuf *old;
+    const char *oldTerm;
 };
 
 /** Test the most basic print. */
@@ -155,6 +173,27 @@ TEST_F(LoggingFixture, DisabledPrint)
     gtestLogOutput.str("");
     logger.print(Logger::Loc("File", 10), "message");
     ASSERT_EQ(gtestLogOutput.str(), "");
+}
+
+/** Test print with extra logs. */
+TEST_F(LoggingFixture, PrintWithExtraLogs)
+{
+    Logger logger("test: ");
+
+    logger.registerExtraLog([]() { return "Extra log 1\n"; });
+
+    gtestLogOutput.str("");
+    logger.print(Logger::Loc("File", 10), "message");
+    ASSERT_EQ(gtestLogOutput.str(), "File:10: test: message\nExtra log 1\n");
+
+    logger.registerExtraLog([]() { return "Extra log 2"; });
+    logger.registerExtraLog([]() { return "Extra log 3"; });
+
+    gtestLogOutput.str("");
+    logger.print(Logger::Loc("File", 10), "message");
+    ASSERT_EQ(
+        gtestLogOutput.str(),
+        "File:10: test: message\nExtra log 1\nExtra log 2\nExtra log 3\n");
 }
 
 /** Test printing with the warn logger, enabled and disabled. */
@@ -543,14 +582,20 @@ TEST(LoggingDeathTest, FatalIf)
         "fatal: fatal condition true occurred: message\nMemory Usage:"));
 }
 
-/** Test macro chatty_assert. */
-TEST(LoggingDeathTest, ChattyAssert)
+/** Test macro gem5_assert. */
+TEST(LoggingDeathTest, gem5Assert)
 {
 #ifdef NDEBUG
     GTEST_SKIP() << "Skipping as assertions are "
         "stripped out of fast builds";
 #endif
-    chatty_assert(true, "message\n");
-    ASSERT_DEATH(chatty_assert(false, "message\n"), ::testing::HasSubstr(
+    gem5_assert(true, "message\n");
+    ASSERT_DEATH(gem5_assert(false, "message\n"), ::testing::HasSubstr(
         "panic: assert(false) failed: message\nMemory Usage:"));
+    ASSERT_DEATH(gem5_assert(false, "%s, %s!\n", "Hello", "World"),
+        ::testing::HasSubstr(
+        "panic: assert(false) failed: Hello, World!\nMemory Usage:"));
+    gem5_assert(true);
+    ASSERT_DEATH(gem5_assert(false), ::testing::HasSubstr(
+        "panic: assert(false) failed\nMemory Usage:"));
 }

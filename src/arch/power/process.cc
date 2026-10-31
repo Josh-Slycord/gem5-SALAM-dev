@@ -65,7 +65,7 @@ PowerProcess::PowerProcess(
 
     Addr stack_base = 0xbf000000L;
 
-    Addr max_stack_size = 8 * 1024 * 1024;
+    Addr max_stack_size = params.maxStackSize;
 
     // Set pointer for next thread stack.  Reserve 8M for main stack.
     Addr next_thread_stack_base = stack_base - max_stack_size;
@@ -103,7 +103,7 @@ PowerProcess::initState()
     initVirtMem->readBlob(getStartPC(), &entryPoint, sizeof(Addr));
 
     // Update the PC state
-    auto pc = tc->pcState();
+    auto pc = tc->pcState().as<PowerISA::PCState>();
     pc.byteOrder(byteOrder);
     pc.set(gtoh(entryPoint, byteOrder));
     tc->pcState(pc);
@@ -111,7 +111,7 @@ PowerProcess::initState()
     // The second doubleword of the descriptor contains the TOC base
     // address for the function
     initVirtMem->readBlob(getStartPC() + 8, &tocBase, sizeof(Addr));
-    tc->setIntReg(TOCPointerReg, gtoh(tocBase, byteOrder));
+    tc->setReg(TOCPointerReg, gtoh(tocBase, byteOrder));
 
     // Fix symbol table entries as they would otherwise point to the
     // function descriptor rather than the actual entry point address
@@ -122,8 +122,8 @@ PowerProcess::initState()
         loader::Symbol symbol = sym;
 
         // Try to read entry point from function descriptor
-        if (initVirtMem->tryReadBlob(sym.address, &entry, sizeof(Addr)))
-            symbol.address = gtoh(entry, byteOrder);
+        if (initVirtMem->tryReadBlob(sym.address(), &entry, sizeof(Addr)))
+            symbol.relocate(gtoh(entry, byteOrder));
 
         symbolTable->insert(symbol);
     }
@@ -337,11 +337,11 @@ PowerProcess::argsInit(int pageSize)
     ThreadContext *tc = system->threads[contextIds[0]];
 
     //Set the stack pointer register
-    tc->setIntReg(StackPointerReg, stack_min);
+    tc->setReg(StackPointerReg, stack_min);
 
     //Reset the special-purpose registers
-    for (int i = 0; i < NumIntSpecialRegs; i++)
-        tc->setIntReg(NumIntArchRegs + i, 0);
+    for (int i = int_reg::NumArchRegs; i < int_reg::NumRegs; i++)
+        tc->setReg(intRegClass[i], (RegVal)0);
 
     //Set the machine status for a typical userspace
     Msr msr = 0;
@@ -354,9 +354,9 @@ PowerProcess::argsInit(int pageSize)
     msr.dr = 1;
     msr.ri = 1;
     msr.le = isLittleEndian;
-    tc->setIntReg(INTREG_MSR, msr);
+    tc->setReg(int_reg::Msr, msr);
 
-    auto pc = tc->pcState();
+    auto pc = tc->pcState().as<PowerISA::PCState>();
     pc.set(getStartPC());
     pc.byteOrder(byteOrder);
     tc->pcState(pc);

@@ -43,6 +43,7 @@
 __version__ = "3.0.0.pre[1.0.0]"
 
 import argparse
+import os
 import sys
 
 import m5
@@ -50,6 +51,11 @@ from m5.defines import buildEnv
 from m5.objects import *
 from m5.util import addToPath, fatal, warn
 from m5.util.fdthelper import *
+
+from gem5.isas import ISA
+
+if not buildEnv.get("USE_ARM_ISA", False):
+    fatal("The generated SALAM full-system configuration requires an ARM build")
 
 addToPath("../")
 addToPath("../../")
@@ -100,35 +106,21 @@ def cmd_line_template():
 
 def build_test_system(np):
     cmdline = cmd_line_template()
-    if buildEnv["TARGET_ISA"] == "mips":
-        test_sys = makeLinuxMipsSystem(test_mem_mode, bm[0], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "sparc":
-        test_sys = makeSparcSystem(test_mem_mode, bm[0], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "riscv":
-        test_sys = makeBareMetalRiscvSystem(test_mem_mode, bm[0], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "x86":
-        test_sys = makeLinuxX86System(
-            test_mem_mode, np, bm[0], args.ruby, cmdline=cmdline
-        )
-    elif buildEnv["TARGET_ISA"] == "arm":
-        test_sys = makeArmSystem(
-            test_mem_mode,
-            args.machine_type,
-            np,
-            bm[0],
-            args.dtb_filename,
-            bare_metal=args.bare_metal,
-            cmdline=cmdline,
-            external_memory=args.external_memory_system,
-            ruby=args.ruby,
-            security=args.enable_security_extensions,
-            vio_9p=args.vio_9p,
-            bootloader=args.bootloader,
-        )
-        if args.enable_context_switch_stats_dump:
-            test_sys.enable_context_switch_stats_dump = True
-    else:
-        fatal("Incapable of building %s full system!", buildEnv["TARGET_ISA"])
+    test_sys = makeArmSystem(
+        test_mem_mode,
+        args.machine_type,
+        np,
+        bm[0],
+        args.dtb_filename,
+        bare_metal=args.bare_metal,
+        cmdline=cmdline,
+        external_memory=args.external_memory_system,
+        ruby=args.ruby,
+        vio_9p=args.vio_9p,
+        bootloader=args.bootloader,
+    )
+    if args.enable_context_switch_stats_dump:
+        test_sys.workload.enable_context_switch_stats_dump = True
 
     # Set the cache line size for the entire system
     test_sys.cache_line_size = args.cacheline_size
@@ -149,19 +141,11 @@ def build_test_system(np):
         clock=args.cpu_clock, voltage_domain=test_sys.cpu_voltage_domain
     )
 
-    if buildEnv["TARGET_ISA"] == "riscv":
-        test_sys.workload.bootloader = args.kernel
-    elif args.kernel is not None:
+    if args.kernel is not None:
         test_sys.workload.object_file = binary(args.kernel)
 
     if args.script is not None:
         test_sys.readfile = args.script
-
-    if args.lpae:
-        test_sys.have_lpae = True
-
-    if args.virtualisation:
-        test_sys.have_virtualization = True
 
     test_sys.init_param = args.init_param
 
@@ -247,8 +231,7 @@ def build_test_system(np):
 
         MemConfig.config_mem(args, test_sys)
 
-    if buildEnv["TARGET_ISA"] == "arm":
-        TEMPLATE.makeHWAcc(args, test_sys)
+    TEMPLATE.makeHWAcc(args, test_sys)
 
     if ObjectList.is_kvm_cpu(TestCPUClass) or ObjectList.is_kvm_cpu(FutureClass):
         # Assign KVM CPUs to their own event queues / threads. This
@@ -269,26 +252,19 @@ def build_test_system(np):
 def build_drive_system(np):
     # driver system CPU is always simple, so is the memory
     # Note this is an assignment of a class, not an instance.
-    DriveCPUClass = AtomicSimpleCPU
+    DriveCPUClass = ArmAtomicSimpleCPU
     drive_mem_mode = "atomic"
     DriveMemClass = SimpleMemory
 
     cmdline = cmd_line_template()
-    if buildEnv["TARGET_ISA"] == "mips":
-        drive_sys = makeLinuxMipsSystem(drive_mem_mode, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "sparc":
-        drive_sys = makeSparcSystem(drive_mem_mode, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "x86":
-        drive_sys = makeLinuxX86System(drive_mem_mode, np, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "arm":
-        drive_sys = makeArmSystem(
-            drive_mem_mode,
-            args.machine_type,
-            np,
-            bm[1],
-            args.dtb_filename,
-            cmdline=cmdline,
-        )
+    drive_sys = makeArmSystem(
+        drive_mem_mode,
+        args.machine_type,
+        np,
+        bm[1],
+        args.dtb_filename,
+        cmdline=cmdline,
+    )
 
     # Create a top-level voltage domain
     drive_sys.voltage_domain = VoltageDomain(voltage=args.sys_voltage)
@@ -309,7 +285,7 @@ def build_drive_system(np):
     drive_sys.cpu = DriveCPUClass(clk_domain=drive_sys.cpu_clk_domain, cpu_id=0)
     drive_sys.cpu.createThreads()
     drive_sys.cpu.createInterruptController()
-    drive_sys.cpu.connectAllPorts(drive_sys.membus)
+    drive_sys.cpu.connectBus(drive_sys.membus)
     if args.kernel is not None:
         drive_sys.workload.object_file = binary(args.kernel)
 
@@ -333,7 +309,7 @@ def build_drive_system(np):
 
 # Add args
 parser = argparse.ArgumentParser()
-Options.addCommonOptions(parser)
+Options.addCommonOptions(parser, default_isa=ISA.ARM)
 Options.addFSOptions(parser)
 addHWAccOptions(parser)
 
@@ -421,7 +397,7 @@ if args.timesync:
 if args.frame_capture:
     VncServer.frame_capture = True
 
-if buildEnv["TARGET_ISA"] == "arm" and not args.bare_metal and not args.dtb_filename:
+if not args.bare_metal and not args.dtb_filename:
     if args.machine_type not in [
         "VExpress_GEM5",
         "VExpress_GEM5_V1",

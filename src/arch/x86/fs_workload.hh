@@ -55,7 +55,6 @@ namespace gem5
 namespace X86ISA
 {
 
-GEM5_DEPRECATED_NAMESPACE(SMBios, smbios);
 namespace smbios
 {
 
@@ -63,7 +62,6 @@ class SMBiosTable;
 
 } // namespace smbios
 
-GEM5_DEPRECATED_NAMESPACE(IntelMP, intelmp);
 namespace intelmp
 {
 
@@ -72,24 +70,35 @@ class ConfigTable;
 
 } // namespace intelmp
 
-void installSegDesc(ThreadContext *tc, SegmentRegIndex seg,
-                    SegDescriptor desc, bool longmode);
+void installSegDesc(ThreadContext *tc, int seg, SegDescriptor desc,
+        bool longmode);
 
 class FsWorkload : public KernelWorkload
 {
   public:
-    using Params = X86FsWorkloadParams;
+    PARAMS(X86FsWorkload);
     FsWorkload(const Params &p);
-
+    ~FsWorkload()
+    {
+        if (kernelPanicPcEvent != nullptr) {
+            delete kernelPanicPcEvent;
+        }
+        if (kernelOopsPcEvent != nullptr) {
+            delete kernelOopsPcEvent;
+        }
+    }
   public:
     void initState() override;
-
+    void startup() override;
     void
     setSystem(System *sys) override
     {
         KernelWorkload::setSystem(sys);
-        gdb = BaseRemoteGDB::build<RemoteGDB>(system);
+        gdb = BaseRemoteGDB::build<RemoteGDB>(
+                params().remote_gdb_port, system);
     }
+
+    ByteOrder byteOrder() const override { return ByteOrder::little; }
 
   protected:
 
@@ -105,6 +114,14 @@ class FsWorkload : public KernelWorkload
             Addr &fpSize, Addr &tableSize, Addr table=0);
 
     void writeOutACPITables(Addr begin, Addr &size);
+
+  private:
+    bool enable_osxsave;
+
+    PCEvent *kernelPanicPcEvent = nullptr;
+    PCEvent *kernelOopsPcEvent = nullptr;
+    void addExitOnKernelPanicEvent();
+    void addExitOnKernelOopsEvent();
 };
 
 } // namespace X86ISA

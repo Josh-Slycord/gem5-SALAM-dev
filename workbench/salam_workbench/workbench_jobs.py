@@ -224,6 +224,13 @@ def launch_reference(benchmark, project=PROJECT, progress=None):
     if project != PROJECT.resolve(strict=True):
         raise ValueError("Reference --project must match this installed Workbench")
     manifest = _read_json(project / "workspace.json")
+    from .toolchain_profile import is_modern, load_toolchain
+
+    if is_modern(load_toolchain(project, manifest=manifest)):
+        raise ValueError(
+            "Fixed-reference execution is not validated for gem5 26; "
+            "use the configured benchmark mode with independent output checks"
+        )
     raw_engine = Path(manifest.get("engine", {}).get("path", ""))
     if not raw_engine.is_absolute() or raw_engine.is_symlink():
         raise ValueError("Reference engine must be an existing absolute local path")

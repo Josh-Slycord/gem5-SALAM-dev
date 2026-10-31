@@ -37,7 +37,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(ReplacementPolicy, replacement_policy);
 namespace replacement_policy
 {
 
@@ -49,6 +48,8 @@ LRU::LRU(const Params &p)
 void
 LRU::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
 {
+    assert(replacement_data);
+
     // Reset last touch timestamp
     std::static_pointer_cast<LRUReplData>(
         replacement_data)->lastTouchTick = Tick(0);
@@ -57,6 +58,8 @@ LRU::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
 void
 LRU::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
 {
+    assert(replacement_data);
+
     // Update last touch timestamp
     std::static_pointer_cast<LRUReplData>(
         replacement_data)->lastTouchTick = curTick();
@@ -65,6 +68,8 @@ LRU::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
 void
 LRU::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
 {
+    assert(replacement_data);
+
     // Set last touch timestamp
     std::static_pointer_cast<LRUReplData>(
         replacement_data)->lastTouchTick = curTick();

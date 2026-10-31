@@ -1,10 +1,12 @@
-"""Synthetic capability gate tests; they do not prove simulator behavior."""
+"""Synthetic legacy-receipt capability gates; no simulator behavior is claimed."""
 import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from salam_workbench import configurator, toolchain_profile
 from salam_workbench.configurator import compiled_identity
 from salam_workbench.fu_capability import (
     MARKER,
@@ -26,6 +28,15 @@ class FuCapabilityTests(unittest.TestCase):
         self.engine = Path(temp.name) / "engine"
         self.engine.mkdir()
         (self.engine / "SConstruct").write_text("# synthetic source\n")
+        # These synthetic receipts deliberately exercise the retained legacy schema.
+        # Modern receipts require toolchain/Kconfig evidence in test_toolchain_profile.
+        legacy_binding = mock.patch.object(
+            configurator,
+            "load_toolchain",
+            return_value=toolchain_profile.load_toolchain(manifest={}),
+        )
+        legacy_binding.start()
+        self.addCleanup(legacy_binding.stop)
 
     def _capable(self):
         sources = {}

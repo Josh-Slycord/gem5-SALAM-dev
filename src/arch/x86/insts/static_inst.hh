@@ -38,9 +38,12 @@
 #ifndef __ARCH_X86_INSTS_STATICINST_HH__
 #define __ARCH_X86_INSTS_STATICINST_HH__
 
+#include "arch/x86/pcstate.hh"
+#include "arch/x86/regs/int.hh"
 #include "arch/x86/types.hh"
 #include "base/trace.hh"
 #include "cpu/static_inst.hh"
+#include "cpu/thread_context.hh"
 #include "debug/X86.hh"
 
 namespace gem5
@@ -124,7 +127,11 @@ class X86StaticInst : public StaticInst
             Addr pc, const loader::SymbolTable *symtab) const override;
 
     static void divideStep(uint64_t divident, uint64_t divisor,
-            uint64_t &quotient, uint64_t &remainder);
+                           uint64_t &quotient, uint64_t &remainder,
+                           Fault &fault);
+
+    static void addCheckUnsignedOverflow(uint64_t &value, uint64_t addend,
+                                         Fault &fault);
 
     static inline uint64_t
     merge(uint64_t into, RegIndex index, uint64_t val, int size)
@@ -198,17 +205,27 @@ class X86StaticInst : public StaticInst
     }
 
     void
-    advancePC(PCState &pcState) const override
+    advancePC(PCStateBase &pcState) const override
     {
-        pcState.advance();
+        pcState.as<PCState>().advance();
     }
 
-    PCState
-    buildRetPC(const PCState &curPC, const PCState &callPC) const override
+    void
+    advancePC(ThreadContext *tc) const override
     {
-        PCState retPC = callPC;
-        retPC.uEnd();
-        return retPC;
+        PCState pc = tc->pcState().as<PCState>();
+        pc.advance();
+        tc->pcState(pc);
+    }
+
+    std::unique_ptr<PCStateBase>
+    buildRetPC(const PCStateBase &cur_pc,
+            const PCStateBase &call_pc) const override
+    {
+        PCStateBase *ret_pc_ptr = call_pc.clone();
+        ret_pc_ptr->as<PCState>().uEnd();
+        ret_pc_ptr->set(call_pc.instAddr() + size());
+        return std::unique_ptr<PCStateBase>{ret_pc_ptr};
     }
 };
 

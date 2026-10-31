@@ -1,32 +1,66 @@
 Import('*')
 
-if env['TARGET_ISA'] == 'arm':
+if env["CONF"]["USE_ARM_ISA"] and env.get("WITH_SALAM", False):
+
+    # LLVM is a dependency of the retained SALAM implementation only.  Do not
+    # import llvm-config --cxxflags: that output replaces gem5's C++ standard
+    # and exception policy.  Only include paths and final link flags are needed.
+    import shlex
+    import subprocess
+
+    from SCons.Script import ARGUMENTS
+    from gem5_scons import error
+
+    llvm_config = ARGUMENTS.get("LLVM_CONFIG", "llvm-config-14")
+    llvm_config = env.WhereIs(llvm_config) or llvm_config
+
+    def llvm_query(*args):
+        try:
+            return subprocess.check_output(
+                [llvm_config, *args], text=True, stderr=subprocess.STDOUT
+            ).strip()
+        except (OSError, subprocess.CalledProcessError) as exc:
+            error("SALAM requires LLVM 14 development files; set "
+                  "LLVM_CONFIG=/path/to/llvm-config-14. " + str(exc))
+
+    llvm_version = llvm_query("--version")
+    if llvm_version.split(".", 1)[0] != "14":
+        error("The controlled SALAM port requires LLVM 14 typed-pointer IR; "
+              "selected llvm-config reports " + llvm_version)
+    env["SALAM_LLVM_VERSION"] = llvm_version
+    env.AppendUnique(CPPPATH=[llvm_query("--includedir")])
+    # The shared library avoids adding LLVM's own compiler flags globally.
+    env.MergeFlags(shlex.split(llvm_query(
+        "--link-shared", "--ldflags", "--libs", "core", "irreader",
+        "bitreader", "support", "--system-libs"
+    )))
+
 
     #Example
     #SimObject('IOAcc.py')
 
     #CommInterface
-    SimObject('CommInterface.py')
-    SimObject('ScratchpadMemory.py')
-    SimObject('NoncoherentDma.py')
-    SimObject('StreamDma.py')
-    SimObject('AccCluster.py')
-    SimObject('StreamBuffer.py')
-    SimObject('RegisterBank.py')
+    SimObject('CommInterface.py', sim_objects=['CommInterface'])
+    SimObject('ScratchpadMemory.py', sim_objects=['ScratchpadMemory'])
+    SimObject('NoncoherentDma.py', sim_objects=['NoncoherentDma'])
+    SimObject('StreamDma.py', sim_objects=['StreamDma'])
+    SimObject('AccCluster.py', sim_objects=['AccCluster'])
+    SimObject('StreamBuffer.py', sim_objects=['StreamBuffer'])
+    SimObject('RegisterBank.py', sim_objects=['RegisterBank'])
 
     #LLVMInterface
-    SimObject('ComputeUnit.py')
-    SimObject('LLVMInterface.py')
+    SimObject('ComputeUnit.py', sim_objects=['ComputeUnit'])
+    SimObject('LLVMInterface.py', sim_objects=['LLVMInterface'])
     
     #HWInterface
-    SimObject('CycleCounts.py')
-    SimObject('FunctionalUnits.py')
-    SimObject('HWInterface.py')
-    SimObject('HWStatistics.py')
-    SimObject('InstConfig.py')
-    SimObject('InstOpCodes.py')
-    SimObject('SALAMPowerModel.py')
-    SimObject('SimulatorConfig.py')
+    SimObject('CycleCounts.py', sim_objects=['CycleCounts'])
+    SimObject('FunctionalUnits.py', sim_objects=['FunctionalUnits', 'BitRegister', 'BitShifter', 'BitwiseOperations', 'DoubleAdder', 'DoubleDivider', 'DoubleMultiplier', 'FloatAdder', 'FloatDivider', 'FloatMultiplier', 'IntegerAdder', 'IntegerMultiplier'])
+    SimObject('HWInterface.py', sim_objects=['HWInterface'])
+    SimObject('HWStatistics.py', sim_objects=['HWStatistics'])
+    SimObject('InstConfig.py', sim_objects=['InstConfig', 'Add', 'Addrspacecast', 'Alloca', 'AndInst', 'Ashr', 'Bitcast', 'Br', 'Call', 'Fadd', 'Fcmp', 'Fdiv', 'Fence', 'Fmul', 'Fpext', 'Fptosi', 'Fptoui', 'Fptrunc', 'Frem', 'Fsub', 'Gep', 'Icmp', 'Indirectbr', 'Inttoptr', 'Invoke', 'Landingpad', 'Load', 'Lshr', 'Mul', 'OrInst', 'Phi', 'Ptrtoint', 'Resume', 'Ret', 'Sdiv', 'Select', 'Sext', 'Shl', 'Srem', 'Store', 'Sub', 'SwitchInst', 'Trunc', 'Udiv', 'Uitofp', 'Unreachable', 'Urem', 'Vaarg', 'XorInst', 'Zext'])
+    SimObject('InstOpCodes.py', sim_objects=['InstOpCodes'])
+    SimObject('SALAMPowerModel.py', sim_objects=['SALAMPowerModel'])
+    SimObject('SimulatorConfig.py', sim_objects=['SimulatorConfig'])
 
     #Functional Units
     #SimObject('Adder.py')

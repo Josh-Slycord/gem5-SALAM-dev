@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 ARM Limited
+ * Copyright (c) 2020-2021 ARM Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -50,7 +50,9 @@
 #include <iostream>
 #include <set>
 
+#include "base/types.hh"
 #include "sim/clocked_object.hh"
+#include "sim/eventq.hh"
 
 namespace gem5
 {
@@ -61,7 +63,8 @@ namespace ruby
 class Consumer
 {
   public:
-    Consumer(ClockedObject *_em);
+    Consumer(ClockedObject *em,
+             Event::Priority ev_prio = Event::Default_Pri);
 
     virtual
     ~Consumer()
@@ -83,8 +86,8 @@ class Consumer
         return em;
     }
 
-    void scheduleEventAbsolute(Tick timeAbs);
-    void scheduleEvent(Cycles timeDelta);
+    void scheduleEventAbsolute(Tick evt_time);
+    void scheduleEvent(Cycles time_delta);
 
   private:
     std::set<Tick> m_wakeup_ticks;

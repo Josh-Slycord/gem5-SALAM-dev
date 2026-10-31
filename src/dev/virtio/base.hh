@@ -72,7 +72,7 @@ class VirtQueue;
  */
 
 template <typename T>
-inline std::enable_if_t<std::is_same<T, vring_used_elem>::value, T>
+inline std::enable_if_t<std::is_same_v<T, vring_used_elem>, T>
 swap_byte(T v)
 {
     v.id = swap_byte(v.id);
@@ -81,7 +81,7 @@ swap_byte(T v)
 }
 
 template <typename T>
-inline std::enable_if_t<std::is_same<T, vring_desc>::value, T>
+inline std::enable_if_t<std::is_same_v<T, vring_desc>, T>
 swap_byte(T v)
 {
     v.addr = swap_byte(v.addr);
@@ -477,7 +477,7 @@ class VirtQueue : public Serializable
             Index index;
         };
 
-        VirtRing<T>(PortProxy &proxy, ByteOrder bo, uint16_t size) :
+        VirtRing(PortProxy &proxy, ByteOrder bo, uint16_t size) :
             header{0, 0}, ring(size), _proxy(proxy), _base(0), byteOrder(bo)
         {}
 
@@ -522,9 +522,9 @@ class VirtQueue : public Serializable
             readHeader();
 
             /* Read and byte-swap the elements in the ring */
-            T temp[ring.size()];
+            auto temp = std::make_unique<T[]>(ring.size());
             _proxy.readBlob(_base + sizeof(header),
-                            temp, sizeof(T) * ring.size());
+                            temp.get(), sizeof(T) * ring.size());
             for (int i = 0; i < ring.size(); ++i)
                 ring[i] = gtoh(temp[i], byteOrder);
         }
@@ -535,11 +535,11 @@ class VirtQueue : public Serializable
             assert(_base != 0);
             /* Create a byte-swapped copy of the ring and write it to
              * guest memory. */
-            T temp[ring.size()];
+            auto temp = std::make_unique<T[]>(ring.size());
             for (int i = 0; i < ring.size(); ++i)
                 temp[i] = htog(ring[i], byteOrder);
             _proxy.writeBlob(_base + sizeof(header),
-                             temp, sizeof(T) * ring.size());
+                             temp.get(), sizeof(T) * ring.size());
             writeHeader();
         }
 
@@ -550,7 +550,7 @@ class VirtQueue : public Serializable
 
       private:
         // Remove default constructor
-        VirtRing<T>();
+        VirtRing();
 
         /** Guest physical memory proxy */
         PortProxy &_proxy;

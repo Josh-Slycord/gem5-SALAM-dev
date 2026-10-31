@@ -40,56 +40,74 @@
 
 import contextlib
 import os
+import re
 
 import SCons.Script
 import SCons.Util
+from gem5_scons.util import (
+    compareVersions,
+    readCommand,
+)
+
 
 def CheckCxxFlag(context, flag, autoadd=True):
-    context.Message("Checking for compiler %s support... " % flag)
-    last_cxxflags = context.env['CXXFLAGS']
+    context.Message(f"Checking for compiler {flag} support... ")
+    last_cxxflags = context.env["CXXFLAGS"]
     context.env.Append(CXXFLAGS=[flag])
-    ret = context.TryCompile('// CheckCxxFlag DO NOTHING', '.cc')
+    pre_werror = context.env["CXXFLAGS"]
+    context.env.Append(CXXFLAGS=["-Werror"])
+    ret = context.TryCompile("// CheckCxxFlag DO NOTHING", ".cc")
+    context.env["CXXFLAGS"] = pre_werror
     if not (ret and autoadd):
-        context.env['CXXFLAGS'] = last_cxxflags
+        context.env["CXXFLAGS"] = last_cxxflags
     context.Result(ret)
     return ret
 
-def CheckLinkFlag(context, flag, autoadd=True, set_for_shared=True):
-    context.Message("Checking for linker %s support... " % flag)
-    last_linkflags = context.env['LINKFLAGS']
+
+def CheckLinkFlag(context, flag, autoadd=True, set_for_shared=True, code=None):
+    context.Message(f"Checking for linker {flag} support... ")
+    last_linkflags = context.env["LINKFLAGS"]
     context.env.Append(LINKFLAGS=[flag])
-    ret = context.TryLink('int main(int, char *[]) { return 0; }', '.cc')
+    pre_werror = context.env["LINKFLAGS"]
+    context.env.Append(LINKFLAGS=["-Werror"])
+    if not code:
+        code = "int main(int, char *[]) { return 0; }"
+    ret = context.TryLink(code, ".cc")
+    context.env["LINKFLAGS"] = pre_werror
     if not (ret and autoadd):
-        context.env['LINKFLAGS'] = last_linkflags
-    if set_for_shared:
-        assert(autoadd)
+        context.env["LINKFLAGS"] = last_linkflags
+    if ret and set_for_shared:
+        assert autoadd
         context.env.Append(SHLINKFLAGS=[flag])
     context.Result(ret)
     return ret
 
+
 # Add a custom Check function to test for structure members.
 def CheckMember(context, include, decl, member, include_quotes="<>"):
-    context.Message("Checking for member %s in %s..." %
-                    (member, decl))
+    context.Message(f"Checking for member {member} in {decl}...")
     text = """
-#include %(header)s
-int main(){
-  %(decl)s test;
-  (void)test.%(member)s;
+#include {header}
+int main(){{
+  {decl} test;
+  (void)test.{member};
   return 0;
-};
-""" % { "header" : include_quotes[0] + include + include_quotes[1],
-        "decl" : decl,
-        "member" : member,
-        }
+}};
+""".format(
+        header=include_quotes[0] + include + include_quotes[1],
+        decl=decl,
+        member=member,
+    )
 
     ret = context.TryCompile(text, extension=".cc")
     context.Result(ret)
     return ret
 
+
 def CheckPythonLib(context):
-    context.Message('Checking Python version... ')
-    ret = context.TryRun(r"""
+    context.Message("Checking Python version... ")
+    ret = context.TryRun(
+        r"""
 #include <pybind11/embed.h>
 
 int
@@ -101,21 +119,24 @@ main(int argc, char **argv) {
         "sys.stdout.write('%i.%i.%i' % (vi.major, vi.minor, vi.micro));\n");
     return 0;
 }
-    """, extension=".cc")
+    """,
+        extension=".cc",
+    )
     context.Result(ret[1] if ret[0] == 1 else 0)
     if ret[0] == 0:
         return None
     else:
         return tuple(map(int, ret[1].split(".")))
 
+
 def CheckPkgConfig(context, pkgs, *args):
     if not SCons.Util.is_List(pkgs):
         pkgs = [pkgs]
-    assert(pkgs)
+    assert pkgs
 
     for pkg in pkgs:
-        context.Message('Checking for pkg-config package %s... ' % pkg)
-        ret = context.TryAction('pkg-config %s' % pkg)[0]
+        context.Message(f"Checking for pkg-config package {pkg}... ")
+        ret = context.TryAction(f"pkg-config {pkg}")[0]
         if not ret:
             context.Result(ret)
             continue
@@ -123,7 +144,7 @@ def CheckPkgConfig(context, pkgs, *args):
         if len(args) == 0:
             break
 
-        cmd = ' '.join(['pkg-config'] + list(args) + [pkg])
+        cmd = " ".join(["pkg-config"] + list(args) + [pkg])
         try:
             context.env.ParseConfig(cmd)
             ret = 1
@@ -135,20 +156,67 @@ def CheckPkgConfig(context, pkgs, *args):
 
     return ret
 
+
+def CheckZlibVersion(context):
+    context.Message("Checking zlib version... ")
+    ret = context.TryCompile(
+        """
+        #include <zlib.h>
+        #if !defined(ZLIB_VERNUM) || ZLIB_VERNUM < 0x1200
+        #error zlib 1.2 or newer is required
+        #endif
+        """,
+        extension=".cc",
+    )
+    context.Result(ret)
+    return ret
+
+
+def CheckM4Version(context):
+    context.Message("Checking GNU m4 version... ")
+    m4 = context.env.Detect("gm4") or context.env.Detect("m4")
+    if not m4:
+        context.Result(False)
+        return False
+
+    try:
+        version_output = readCommand([m4, "--version"])
+    except Exception:
+        context.Result(False)
+        return False
+
+    version_match = re.search(
+        r"GNU M4\)?\s+(\d+(?:\.\d+)*)", version_output, re.IGNORECASE
+    )
+    if not version_match:
+        context.Result(False)
+        return False
+
+    version = version_match.group(1)
+    context.Result(version)
+    return compareVersions(version, "1.4") >= 0
+
+
 @contextlib.contextmanager
 def Configure(env, *args, **kwargs):
-    kwargs.setdefault('conf_dir',
-            os.path.join(env['BUILDROOT'], '.scons_config'))
-    kwargs.setdefault('log_file',
-            os.path.join(env['BUILDROOT'], 'scons_config.log'))
-    kwargs.setdefault('custom_tests', {})
-    kwargs['custom_tests'].update({
-            'CheckCxxFlag' : CheckCxxFlag,
-            'CheckLinkFlag' : CheckLinkFlag,
-            'CheckMember' : CheckMember,
-            'CheckPkgConfig' : CheckPkgConfig,
-            'CheckPythonLib' : CheckPythonLib,
-    })
+    kwargs.setdefault(
+        "conf_dir", os.path.join(env["GEM5BUILD"], "scons_config")
+    )
+    kwargs.setdefault(
+        "log_file", os.path.join(env["GEM5BUILD"], "scons_config.log")
+    )
+    kwargs.setdefault("custom_tests", {})
+    kwargs["custom_tests"].update(
+        {
+            "CheckCxxFlag": CheckCxxFlag,
+            "CheckLinkFlag": CheckLinkFlag,
+            "CheckM4Version": CheckM4Version,
+            "CheckMember": CheckMember,
+            "CheckPkgConfig": CheckPkgConfig,
+            "CheckPythonLib": CheckPythonLib,
+            "CheckZlibVersion": CheckZlibVersion,
+        }
+    )
     conf = SCons.Script.Configure(env, *args, **kwargs)
 
     # Recent versions of scons substitute a "Null" object for Configure()
@@ -157,14 +225,17 @@ def Configure(env, *args, **kwargs):
     # breaking all our configuration checks.  We replace it with our own
     # more optimistic null object that returns True instead.
     if not conf:
+
         def NullCheck(*args, **kwargs):
             return True
 
         class NullConf:
             def __init__(self, env):
                 self.env = env
+
             def Finish(self):
                 return self.env
+
             def __getattr__(self, mname):
                 return NullCheck
 

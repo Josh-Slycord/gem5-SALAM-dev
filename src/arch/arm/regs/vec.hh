@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011, 2014, 2016-2019 ARM Limited
+ * Copyright (c) 2010-2011, 2014, 2016-2019, 2025-2026 ARM Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -44,6 +44,9 @@
 #include "arch/arm/types.hh"
 #include "arch/generic/vec_pred_reg.hh"
 #include "arch/generic/vec_reg.hh"
+#include "cpu/reg_class.hh"
+#include "debug/VecPredRegs.hh"
+#include "debug/VecRegs.hh"
 
 namespace gem5
 {
@@ -77,7 +80,9 @@ const int NumVecV7ArchRegs  = 16; // Q0-Q15
 const int NumVecV8ArchRegs  = 32; // V0-V31
 const int NumVecSpecialRegs = 8;
 const int NumVecIntrlvRegs = 4;
-const int NumVecRegs = NumVecV8ArchRegs + NumVecSpecialRegs + NumVecIntrlvRegs;
+const int NumLutRegs = 1;
+const int NumVecRegs =
+    NumVecV8ArchRegs + NumVecSpecialRegs + NumVecIntrlvRegs + NumLutRegs;
 const int NumVecPredRegs = 18;  // P0-P15, FFR, UREG0
 
 // Vec, PredVec indices
@@ -89,6 +94,26 @@ const int INTRLVREG3 = INTRLVREG0 + 3;
 const int VECREG_UREG0 = 32;
 const int PREDREG_FFR = 16;
 const int PREDREG_UREG0 = 17;
+// SME LUT register. We place this at the end.
+const int LUT_ZT0 = NumVecV8ArchRegs + NumVecSpecialRegs + NumVecIntrlvRegs;
+
+inline VecElemRegClassOps<RegVal> vecRegElemClassOps(NumVecElemPerVecReg);
+inline TypedRegClassOps<ArmISA::VecRegContainer> vecRegClassOps;
+inline TypedRegClassOps<ArmISA::VecPredRegContainer> vecPredRegClassOps;
+
+inline constexpr RegClass vecRegClass =
+    RegClass(VecRegClass, VecRegClassName, NumVecRegs, debug::VecRegs).
+        ops(vecRegClassOps).
+        regType<VecRegContainer>();
+inline constexpr RegClass vecElemClass =
+    RegClass(VecElemClass, VecElemClassName, NumVecRegs * NumVecElemPerVecReg,
+            debug::VecRegs).
+        ops(vecRegElemClassOps);
+inline constexpr RegClass vecPredRegClass =
+    RegClass(VecPredRegClass, VecPredRegClassName, NumVecPredRegs,
+            debug::VecPredRegs).
+        ops(vecPredRegClassOps).
+        regType<VecPredRegContainer>();
 
 } // namespace ArmISA
 } // namespace gem5

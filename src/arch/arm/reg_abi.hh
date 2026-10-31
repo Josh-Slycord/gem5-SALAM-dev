@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "base/logging.hh"
+#include "sim/pseudo_inst.hh"
 #include "sim/syscall_abi.hh"
 
 namespace gem5
@@ -41,26 +42,25 @@ namespace ArmISA
 
 struct RegABI32 : public GenericSyscallABI32
 {
-    static const std::vector<int> ArgumentRegs;
+    static const std::vector<RegId> ArgumentRegs;
 };
 
 struct RegABI64 : public GenericSyscallABI64
 {
-    static const std::vector<int> ArgumentRegs;
+    static const std::vector<RegId> ArgumentRegs;
 };
 
 } // namespace ArmISA
 
-GEM5_DEPRECATED_NAMESPACE(GuestABI, guest_abi);
 namespace guest_abi
 {
 
 template <typename ABI, typename Arg>
 struct Argument<ABI, Arg,
     typename std::enable_if_t<
-        std::is_base_of<ArmISA::RegABI32, ABI>::value &&
-        std::is_integral<Arg>::value &&
-        ABI::template IsWide<Arg>::value>>
+        std::is_base_of_v<ArmISA::RegABI32, ABI> &&
+        std::is_integral_v<Arg> &&
+        ABI::template IsWideV<Arg>>>
 {
     static Arg
     get(ThreadContext *tc, typename ABI::State &state)
@@ -73,6 +73,21 @@ struct Argument<ABI, Arg,
         auto low = ABI::ArgumentRegs[state++];
         auto high = ABI::ArgumentRegs[state++];
         return (Arg)ABI::mergeRegs(tc, low, high);
+    }
+};
+
+template <>
+struct Argument<ArmISA::RegABI32, pseudo_inst::GuestAddr>
+{
+    using ABI = ArmISA::RegABI32;
+    using Arg = pseudo_inst::GuestAddr;
+
+    static Arg
+    get(ThreadContext *tc, typename ABI::State &state)
+    {
+        panic_if(state + 1 >= ABI::ArgumentRegs.size(),
+                "Ran out of syscall argument registers.");
+        return (Arg)bits(tc->getReg(ABI::ArgumentRegs[state++]), 31, 0);
     }
 };
 

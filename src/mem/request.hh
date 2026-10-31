@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013,2017-2020 ARM Limited
+ * Copyright (c) 2012-2013,2017-2022 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -58,6 +58,7 @@
 
 #include "base/amo.hh"
 #include "base/compiler.hh"
+#include "base/extensible.hh"
 #include "base/flags.hh"
 #include "base/types.hh"
 #include "cpu/inst_seq.hh"
@@ -74,7 +75,6 @@ namespace gem5
  * doesn't cause a problem with stats and is large enough to realistic
  * benchmarks (Linux/Android boot, BBench, etc.)
  */
-GEM5_DEPRECATED_NAMESPACE(ContextSwitchTaskId, context_switch_task_id);
 namespace context_switch_task_id
 {
     enum TaskId
@@ -94,7 +94,7 @@ class ThreadContext;
 typedef std::shared_ptr<Request> RequestPtr;
 typedef uint16_t RequestorID;
 
-class Request
+class Request : public Extensible<Request>
 {
   public:
     typedef uint64_t FlagsType;
@@ -103,6 +103,7 @@ class Request
 
     enum : FlagsType
     {
+        // clang-format off
         /**
          * Architecture specific flags.
          *
@@ -157,6 +158,8 @@ class Request
         /** This request is for a memory swap. */
         MEM_SWAP                    = 0x00400000,
         MEM_SWAP_COND               = 0x00800000,
+        /** This request is a read which will be followed by a write. */
+        READ_MODIFY_WRITE           = 0x0020000000000000,
 
         /** The request is a prefetch. */
         PREFETCH                    = 0x01000000,
@@ -166,6 +169,8 @@ class Request
         EVICT_NEXT                  = 0x04000000,
         /** The request should be marked with ACQUIRE. */
         ACQUIRE                     = 0x00020000,
+        /** The request should be marked with ACQUIRE_PC. */
+        ACQUIRE_PC                  = 0x00002000,
         /** The request should be marked with RELEASE. */
         RELEASE                     = 0x00040000,
 
@@ -235,17 +240,42 @@ class Request
         // This separation is necessary to ensure the disjoint components
         // of the system work correctly together.
 
+        /** The Request is a TLB shootdown */
+        TLBI                        = 0x0000100000000000,
+
+        /** The Request is a TLB shootdown sync */
+        TLBI_SYNC                   = 0x0000200000000000,
+
+        /** The Request tells the CPU model that a
+            remote TLB Sync has been requested */
+        TLBI_EXT_SYNC               = 0x0000400000000000,
+
+        /** The Request tells the interconnect that a
+            remote TLB Sync request has completed */
+        TLBI_EXT_SYNC_COMP          = 0x0000800000000000,
+
+        /** StashOnce request types */
+        STASH_ONCE                  = 0x0001000000000000,
+        STASH_ONCE_UNIQUE           = 0x0002000000000000,
+
         /**
          * These flags are *not* cleared when a Request object is
          * reused (assigned a new address).
          */
-        STICKY_FLAGS = INST_FETCH
+        STICKY_FLAGS = INST_FETCH,
+        /** TLBI_EXT_SYNC_COMP seems to be the largest value
+            of FlagsType, so HAS_NO_ADDR's value is that << 4 */
+        HAS_NO_ADDR                = 0x0008000000000000,
+        // clang-format on
     };
     static const FlagsType STORE_NO_DATA = CACHE_BLOCK_ZERO |
         CLEAN | INVALIDATE;
 
     static const FlagsType HTM_CMD = HTM_START | HTM_COMMIT |
         HTM_CANCEL | HTM_ABORT;
+
+    static const FlagsType TLBI_CMD = TLBI | TLBI_SYNC |
+        TLBI_EXT_SYNC | TLBI_EXT_SYNC_COMP;
 
     /** Requestor Ids that are statically allocated
      * @{*/
@@ -273,8 +303,8 @@ class Request
 
     /**
      * These bits are used to set the coherence policy for the GPU and are
-     * encoded in the GCN3 instructions. The GCN3 ISA defines two cache levels
-     * See the AMD GCN3 ISA Architecture Manual for more details.
+     * encoded in the Vega instructions. The Vega ISA defines two cache levels
+     * See the AMD Vega ISA Architecture Manual for more details.
      *
      * INV_L1: L1 cache invalidation
      * FLUSH_L2: L2 cache flush
@@ -329,6 +359,7 @@ class Request
 
     enum : PrivateFlagsType
     {
+        // clang-format off
         /** Whether or not the size is valid. */
         VALID_SIZE           = 0x00000001,
         /** Whether or not paddr is valid (has been written yet). */
@@ -351,11 +382,16 @@ class Request
         VALID_HTM_ABORT_CAUSE = 0x00000400,
         /** Whether or not the instruction count is valid. */
         VALID_INST_COUNT      = 0x00000800,
+        /** Whether or not the stash NID is valid. */
+        VALID_STASH_NID       = 0x00001000,
+        /** Whether or not the stash LPID is valid. */
+        VALID_STASH_LPID      = 0x00002000,
         /**
          * These flags are *not* cleared when a Request object is reused
          * (assigned a new address).
          */
         STICKY_PRIVATE_FLAGS = VALID_CONTEXT_ID
+        // clang-format on
     };
 
   private:
@@ -417,6 +453,19 @@ class Request
      */
     uint32_t _substreamId = 0;
 
+    /**
+     * For fullsystem GPU simulation, this determines if a requests
+     * destination is system (host) memory or dGPU (device) memory.
+     */
+    bool _systemReq = 0;
+
+    /**
+     * Stash Target ID identifies the target cache to which the stash
+     * operation is directed.
+     */
+    uint16_t _stashNID = 0;
+    uint16_t _stashLPID = 0;
+
     /** The virtual address of the request. */
     Addr _vaddr = MaxAddr;
 
@@ -444,6 +493,8 @@ class Request
 
     /** The cause for HTM transaction abort */
     HtmFailureFaultCause _htmAbortCause = HtmFailureFaultCause::INVALID;
+
+    bool _isGPUFuncAccess = false;
 
   public:
 
@@ -476,26 +527,56 @@ class Request
         _byteEnable = std::vector<bool>(size, true);
     }
 
-    Request(const Request& other)
-        : _paddr(other._paddr), _size(other._size),
+    Request(const Request &other)
+        : Extensible<Request>(other),
+          _paddr(other._paddr),
+          _size(other._size),
           _byteEnable(other._byteEnable),
           _requestorId(other._requestorId),
           _flags(other._flags),
           _cacheCoherenceFlags(other._cacheCoherenceFlags),
           privateFlags(other.privateFlags),
           _time(other._time),
-          _taskId(other._taskId), _vaddr(other._vaddr),
-          _extraData(other._extraData), _contextId(other._contextId),
-          _pc(other._pc), _reqInstSeqNum(other._reqInstSeqNum),
+          _taskId(other._taskId),
+          _streamId(other._streamId),
+          _substreamId(other._substreamId),
+          _systemReq(other._systemReq),
+          _stashNID(other._stashNID),
+          _stashLPID(other._stashLPID),
+          _vaddr(other._vaddr),
+          _extraData(other._extraData),
+          _contextId(other._contextId),
+          _pc(other._pc),
+          _reqInstSeqNum(other._reqInstSeqNum),
           _localAccessor(other._localAccessor),
+          _instCount(other._instCount),
+          _htmAbortCause(other._htmAbortCause),
+          _isGPUFuncAccess(other._isGPUFuncAccess),
           translateDelta(other.translateDelta),
-          accessDelta(other.accessDelta), depth(other.depth)
+          accessDelta(other.accessDelta),
+          depth(other.depth)
     {
         atomicOpFunctor.reset(other.atomicOpFunctor ?
                                 other.atomicOpFunctor->clone() : nullptr);
     }
 
     ~Request() {}
+
+    /**
+     * Factory method for creating memory management requests, with
+     * unspecified addr and size.
+     */
+    static RequestPtr
+    createMemManagement(Flags flags, RequestorID id)
+    {
+        auto mgmt_req = std::make_shared<Request>();
+        mgmt_req->_flags.set(flags);
+        mgmt_req->_requestorId = id;
+        mgmt_req->_time = curTick();
+
+        assert(mgmt_req->isMemMgmt());
+        return mgmt_req;
+    }
 
     /**
      * Set up Context numbers.
@@ -715,6 +796,13 @@ class Request
         return atomicOpFunctor.get();
     }
 
+    void
+    setAtomicOpFunctor(AtomicOpFunctorPtr amo_op)
+    {
+        atomicOpFunctor = std::move(amo_op);
+    }
+
+
     /**
      * Accessor for hardware transactional memory abort cause.
      */
@@ -759,11 +847,26 @@ class Request
     }
 
     void
+    clearFlags(Flags flags)
+    {
+        assert(hasPaddr() || hasVaddr());
+        _flags.clear(flags);
+    }
+
+    void
     setCacheCoherenceFlags(CacheCoherenceFlags extraFlags)
     {
         // TODO: do mem_sync_op requests have valid paddr/vaddr?
         assert(hasPaddr() || hasVaddr());
         _cacheCoherenceFlags.set(extraFlags);
+    }
+
+    void
+    clearCacheCoherenceFlags(CacheCoherenceFlags extraFlags)
+    {
+        // TODO: do mem_sync_op requests have valid paddr/vaddr?
+        assert(hasPaddr() || hasVaddr());
+        _cacheCoherenceFlags.clear(extraFlags);
     }
 
     /** Accessor function for vaddr.*/
@@ -785,6 +888,12 @@ class Request
     requestorId() const
     {
         return _requestorId;
+    }
+
+    void
+    requestorId(RequestorID rid)
+    {
+        _requestorId = rid;
     }
 
     uint32_t
@@ -842,6 +951,10 @@ class Request
         assert(hasContextId());
         return _contextId;
     }
+
+    /* For GPU fullsystem mark this request is not to device memory. */
+    void setSystemReq(bool sysReq) { _systemReq = sysReq; }
+    bool systemReq() const { return _systemReq; }
 
     bool
     hasStreamId() const
@@ -939,14 +1052,23 @@ class Request
     bool isUncacheable() const { return _flags.isSet(UNCACHEABLE); }
     bool isStrictlyOrdered() const { return _flags.isSet(STRICT_ORDER); }
     bool isInstFetch() const { return _flags.isSet(INST_FETCH); }
-    bool isPrefetch() const { return (_flags.isSet(PREFETCH) ||
-                                      _flags.isSet(PF_EXCLUSIVE)); }
+    bool hasNoAddr() const { return _flags.isSet(HAS_NO_ADDR); }
+    bool
+    isPrefetch() const
+    {
+        return (_flags.isSet(PREFETCH | PF_EXCLUSIVE));
+    }
     bool isPrefetchEx() const { return _flags.isSet(PF_EXCLUSIVE); }
     bool isLLSC() const { return _flags.isSet(LLSC); }
     bool isPriv() const { return _flags.isSet(PRIVILEGED); }
     bool isLockedRMW() const { return _flags.isSet(LOCKED_RMW); }
-    bool isSwap() const { return _flags.isSet(MEM_SWAP|MEM_SWAP_COND); }
+    bool isSwap() const { return _flags.isSet(MEM_SWAP | MEM_SWAP_COND); }
     bool isCondSwap() const { return _flags.isSet(MEM_SWAP_COND); }
+    bool
+    isReadModifyWrite() const
+    {
+        return _flags.isSet(LOCKED_RMW | READ_MODIFY_WRITE);
+    }
     bool isSecure() const { return _flags.isSet(SECURE); }
     bool isPTWalk() const { return _flags.isSet(PT_WALK); }
     bool isRelease() const { return _flags.isSet(RELEASE); }
@@ -963,6 +1085,35 @@ class Request
     {
         return (isHTMStart() || isHTMCommit() ||
                 isHTMCancel() || isHTMAbort());
+    }
+
+    bool isTlbi() const { return _flags.isSet(TLBI); }
+    bool isTlbiSync() const { return _flags.isSet(TLBI_SYNC); }
+    bool isTlbiExtSync() const { return _flags.isSet(TLBI_EXT_SYNC); }
+    bool isTlbiExtSyncComp() const { return _flags.isSet(TLBI_EXT_SYNC_COMP); }
+    bool
+    isTlbiCmd() const
+    {
+        return (isTlbi() || isTlbiSync() ||
+                isTlbiExtSync() || isTlbiExtSyncComp());
+    }
+    bool isMemMgmt() const { return isTlbiCmd() || isHTMCmd(); }
+
+    /** Accessor functions for stashOnce flags */
+    bool
+    isStashOnce() const
+    {
+        return _flags.isSet(STASH_ONCE) || _flags.isSet(STASH_ONCE_UNIQUE);
+    }
+    bool
+    isStashOnceUnique() const
+    {
+        return _flags.isSet(STASH_ONCE_UNIQUE);
+    }
+    bool
+    isStashOnceShared() const
+    {
+        return isStashOnce() && !isStashOnceUnique();
     }
 
     bool
@@ -984,6 +1135,21 @@ class Request
     Flags getDest() const { return _flags & DST_BITS; }
 
     bool isAcquire() const { return _cacheCoherenceFlags.isSet(ACQUIRE); }
+    bool
+    isAcquirePC() const
+    {
+        return _cacheCoherenceFlags.isSet(ACQUIRE_PC);
+    }
+
+    /**
+     * Accessor functions for the cache bypass flags. The cache bypass
+     * can specify which levels in the hierarchy to bypass. If GLC_BIT
+     * is set, the requests are globally coherent and bypass TCP.
+     * If SLC_BIT is set, then the requests are system level coherent
+     * and bypass both TCP and TCC.
+     */
+    bool isGLCSet() const {return _cacheCoherenceFlags.isSet(GLC_BIT); }
+    bool isSLCSet() const {return _cacheCoherenceFlags.isSet(SLC_BIT); }
 
     /**
      * Accessor functions for the memory space configuration flags and used by
@@ -991,11 +1157,49 @@ class Request
      * setting extraFlags should be done via setCacheCoherenceFlags().
      */
     bool isInvL1() const { return _cacheCoherenceFlags.isSet(INV_L1); }
+    bool isInvL2() const { return _cacheCoherenceFlags.isSet(GL2_CACHE_INV); }
 
     bool
     isGL2CacheFlush() const
     {
         return _cacheCoherenceFlags.isSet(FLUSH_L2);
+    }
+
+    /**
+     * Accessor functions for stash target ID fields
+     */
+    uint16_t
+    StashNID() const
+    {
+        return _stashNID;
+    }
+    bool
+    hasStashNID() const
+    {
+        return privateFlags.isSet(VALID_STASH_NID);
+    }
+    uint16_t
+    StashLPID() const
+    {
+        return _stashLPID;
+    }
+    bool
+    hasStashLPID() const
+    {
+        return privateFlags.isSet(VALID_STASH_LPID);
+    }
+
+    void
+    setStashNID(uint16_t nid)
+    {
+        _stashNID = nid;
+        privateFlags.set(VALID_STASH_NID);
+    }
+    void
+    setStashLPID(uint16_t lpid)
+    {
+        _stashLPID = lpid;
+        privateFlags.set(VALID_STASH_LPID);
     }
 
     /**
@@ -1014,6 +1218,17 @@ class Request
     bool isCacheInvalidate() const { return _flags.isSet(INVALIDATE); }
     bool isCacheMaintenance() const { return _flags.isSet(CLEAN|INVALIDATE); }
     /** @} */
+
+    void
+    setGPUFuncAccess(bool flag) {
+        _isGPUFuncAccess = flag;
+    }
+
+    bool
+    getGPUFuncAccess()
+    {
+        return _isGPUFuncAccess;
+    }
 };
 
 } // namespace gem5

@@ -32,34 +32,44 @@
 
 #include "arch/generic/decode_cache.hh"
 #include "arch/generic/decoder.hh"
+#include "arch/riscv/insts/vector.hh"
 #include "arch/riscv/types.hh"
 #include "base/logging.hh"
 #include "base/types.hh"
 #include "cpu/static_inst.hh"
 #include "debug/Decode.hh"
+#include "params/RiscvDecoder.hh"
 
 namespace gem5
 {
 
+class BaseISA;
+
 namespace RiscvISA
 {
 
-class ISA;
 class Decoder : public InstDecoder
 {
   private:
     decode_cache::InstMap<ExtMachInst> instMap;
     bool aligned;
     bool mid;
-    bool more;
 
   protected:
     //The extended machine instruction being generated
     ExtMachInst emi;
     uint32_t machInst;
-    bool instDone;
 
-    StaticInstPtr decodeInst(ExtMachInst mach_inst);
+    uint32_t vlen;
+    uint32_t elen;
+    bool _hasZcd;
+    Addr jvtEntry;
+
+    VTYPE vtype = (1ULL << 63); // vtype.vill = 1 at initial;
+    uint32_t vl = 0;
+    bool squashed = false;
+
+    virtual StaticInstPtr decodeInst(ExtMachInst mach_inst);
 
     /// Decode a machine instruction.
     /// @param mach_inst The binary instruction to decode.
@@ -67,22 +77,17 @@ class Decoder : public InstDecoder
     StaticInstPtr decode(ExtMachInst mach_inst, Addr addr);
 
   public:
-    Decoder(ISA* isa=nullptr) : InstDecoder(&machInst) { reset(); }
+    Decoder(const RiscvDecoderParams &p);
 
-    void process() {}
-    void reset();
+    void reset() override;
 
-    inline bool compressed(ExtMachInst inst) { return (inst & 0x3) < 0x3; }
+    inline bool compressed(ExtMachInst inst) { return inst.quadRant < 0x3; }
 
     //Use this to give data to the decoder. This should be used
     //when there is control flow.
-    void moreBytes(const PCState &pc, Addr fetchPC);
+    void moreBytes(const PCStateBase &pc, Addr fetchPC) override;
 
-    bool needMoreBytes() { return more; }
-    bool instReady() { return instDone; }
-    void takeOverFrom(Decoder *old) {}
-
-    StaticInstPtr decode(RiscvISA::PCState &nextPC);
+    StaticInstPtr decode(PCStateBase &nextPC) override;
 };
 
 } // namespace RiscvISA

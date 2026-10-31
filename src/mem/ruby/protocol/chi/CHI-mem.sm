@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 ARM Limited
+ * Copyright (c) 2021-2023, 2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -42,9 +42,12 @@ machine(MachineType:Memory, "Memory controller interface") :
   // cycle to the response enqueue latency as default
   Cycles response_latency := 2;
   Cycles data_latency := 1;
+  Cycles request_latency := 1; // Not used, but required by CHI_config.py
+  Cycles snoop_latency := 1; // Not used, but required by CHI_config.py
   Cycles to_memory_controller_latency := 1;
 
   int data_channel_size;
+  BackpressureGen * cbusy_generator, default="NULL";
 
   // Interface to the network
   // Note vnet_type is used by Garnet only. "response" type is assumed to
@@ -119,6 +122,7 @@ machine(MachineType:Memory, "Memory controller interface") :
     Trigger_ReceiveDone, desc="";
     Trigger_SendRetry, desc="";
     Trigger_SendPCrdGrant, desc="";
+    Trigger_SendMemoryRead, desc="";
   }
 
 
@@ -156,13 +160,14 @@ machine(MachineType:Memory, "Memory controller interface") :
   ////////////////////////////////////////////////////////////////////////////
 
   // Cache block size
-  int blockSize, default="RubySystem::getBlockSizeBytes()";
+  int blockSize, default="m_ruby_system->getBlockSizeBytes()";
 
   // TBE fields
   structure(TBE, desc="...") {
     int storSlot,   desc="Slot in the storage tracker occupied by this entry";
     Addr addr,      desc="Line address for this TBE";
     Addr accAddr,   desc="Original access address. Set only for Write*Ptl";
+    Addr txnId,     desc="Transaction ID";
     int  accSize,   desc="Access size. Set only for Write*Ptl";
     State state,    desc="Current line state";
     DataBlock dataBlk, desc="Transaction data";
@@ -194,7 +199,7 @@ machine(MachineType:Memory, "Memory controller interface") :
   }
 
   TBETable TBEs, template="<Memory_TBE>", constructor="m_number_of_TBEs";
-  TBEStorage storTBEs, constructor="this, m_number_of_TBEs";
+  TBEStorage storTBEs, constructor='this, m_number_of_TBEs, "TBEs"';
 
   // Tracks all pending MemoryAcks (debug purposes only)
   int pendingWrites, default="0";
@@ -290,6 +295,7 @@ machine(MachineType:Memory, "Memory controller interface") :
       //TODO additional handling of partial data ??
       if (is_valid(tbe)) {
         WriteMask read_mask;
+        read_mask.setBlockSize(mask.getBlockSize());
         read_mask.setMask(addressOffset(tbe.accAddr, tbe.addr), tbe.accSize);
         read_mask.andMask(tbe.dataBlkValid);
         if (read_mask.isEmpty() == false) {
@@ -322,6 +328,30 @@ machine(MachineType:Memory, "Memory controller interface") :
   ////////////////////////////////////////////////////////////////////////////
   // Helper functions
   ////////////////////////////////////////////////////////////////////////////
+
+  public int tbeSize() {
+    return storTBEs.size();
+  }
+
+  public int tbeReserved() {
+    return storTBEs.reserved();
+  }
+
+  public int tbeCapacity() {
+    return storTBEs.capacity();
+  }
+
+  public bool hasRetryQueueEntries() {
+    return !retryQueue.empty();
+  }
+
+  int getCurrCBusy(CHIResponseMsg message) {
+    return cbusy_generator.generate(this, message);
+  }
+
+  int getCurrCBusy(CHIDataMsg message) {
+    return cbusy_generator.generate(this, message);
+  }
 
   void printResources() {
     DPRINTF(RubySlicc, "Resources(avail/max): TBEs=%d/%d\n",
@@ -502,6 +532,7 @@ machine(MachineType:Memory, "Memory controller interface") :
       }
       tbe.accAddr := in_msg.accAddr;
       tbe.accSize := in_msg.accSize;
+      tbe.txnId := in_msg.txnId;
     }
   }
 
@@ -536,6 +567,7 @@ machine(MachineType:Memory, "Memory controller interface") :
       out_msg.type := CHIResponseType:ReadReceipt;
       out_msg.responder := machineID;
       out_msg.Destination.add(tbe.requestor);
+      out_msg.cbusy := getCurrCBusy(out_msg);
     }
     // also send different type of data when ready
     tbe.useDataSepResp := true;
@@ -548,6 +580,15 @@ machine(MachineType:Memory, "Memory controller interface") :
       out_msg.type := CHIResponseType:CompDBIDResp;
       out_msg.responder := machineID;
       out_msg.Destination.add(tbe.requestor);
+      out_msg.cbusy := getCurrCBusy(out_msg);
+    }
+  }
+
+  action(triggerSendMemoryRead, "tsmr", desc="Trigger sendMemoryRead") {
+    assert(is_valid(tbe));
+    enqueue(triggerOutPort, TriggerMsg, 0) {
+      out_msg.addr := address;
+      out_msg.event := Event:Trigger_SendMemoryRead;
     }
   }
 
@@ -599,6 +640,7 @@ machine(MachineType:Memory, "Memory controller interface") :
     assert(tbe.rxtxBytes < blockSize);
     enqueue(datOutPort, CHIDataMsg, data_latency) {
       out_msg.addr := tbe.addr;
+      out_msg.txnId := tbe.txnId;
       if (tbe.useDataSepResp) {
         out_msg.type := CHIDataType:DataSepResp_UC;
       } else {
@@ -607,7 +649,10 @@ machine(MachineType:Memory, "Memory controller interface") :
       out_msg.dataBlk := tbe.dataBlk;
       // Called in order for the whole block so use rxtxBytes as offset
       out_msg.bitMask.setMask(tbe.rxtxBytes, data_channel_size);
+
+      out_msg.responder := machineID;
       out_msg.Destination.add(tbe.destination);
+      out_msg.cbusy := getCurrCBusy(out_msg);
     }
 
     //DPRINTF(RubySlicc, "rxtxBytes=%d\n", tbe.rxtxBytes);
@@ -654,7 +699,7 @@ machine(MachineType:Memory, "Memory controller interface") :
   }
 
   action(popMemoryQueue, "pmem", desc="Pop memory queue.") {
-    memQueue_in.dequeue(clockEdge());
+    dequeueMemRespQueue();
   }
 
   // Stall/wake-up only used for requests that arrive when we are on the
@@ -676,6 +721,7 @@ machine(MachineType:Memory, "Memory controller interface") :
         out_msg.type := CHIResponseType:RetryAck;
         out_msg.responder := machineID;
         out_msg.Destination.add(in_msg.retryDest);
+        out_msg.cbusy := getCurrCBusy(out_msg);
       }
     }
   }
@@ -687,6 +733,7 @@ machine(MachineType:Memory, "Memory controller interface") :
         out_msg.type := CHIResponseType:PCrdGrant;
         out_msg.responder := machineID;
         out_msg.Destination.add(in_msg.retryDest);
+        out_msg.cbusy := getCurrCBusy(out_msg);
       }
     }
   }
@@ -698,16 +745,21 @@ machine(MachineType:Memory, "Memory controller interface") :
   transition(READY, ReadNoSnp, READING_MEM) {
     allocateTBE;
     initializeFromReqTBE;
-    sendMemoryRead;
+    triggerSendMemoryRead;
     popReqInQueue;
   }
 
   transition(READY, ReadNoSnpSep, READING_MEM) {
     allocateTBE;
     initializeFromReqTBE;
-    sendMemoryRead;
+    triggerSendMemoryRead;
     sendReadReceipt;
     popReqInQueue;
+  }
+
+  transition(READING_MEM, Trigger_SendMemoryRead) {
+    sendMemoryRead;
+    popTriggerQueue;
   }
 
   transition(READING_MEM, MemoryData, SENDING_NET_DATA) {
@@ -763,7 +815,7 @@ machine(MachineType:Memory, "Memory controller interface") :
 
   // Notice we only use this here and call wakeUp when leaving this state
   transition({READING_MEM,WAITING_NET_DATA,SENDING_NET_DATA},
-             {ReadNoSnp, ReadNoSnpSep, WriteNoSnpPtl}) {
+             {ReadNoSnp, ReadNoSnpSep, WriteNoSnpPtl, WriteNoSnp}) {
     stallRequestQueue;
   }
 

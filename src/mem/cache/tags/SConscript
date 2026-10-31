@@ -26,17 +26,30 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+Import("*")
 
-SimObject('Tags.py')
+SimObject(
+    "Tags.py",
+    sim_objects=[
+        "BaseTags",
+        "BaseSetAssoc",
+        "SectorTags",
+        "CompressedTags",
+        "FALRU",
+        "TaggedIndexingPolicy",
+        "TaggedSetAssociative",
+    ],
+)
 
-Source('base.cc')
-Source('base_set_assoc.cc')
-Source('compressed_tags.cc')
-Source('dueling.cc')
-Source('fa_lru.cc')
-Source('sector_blk.cc')
-Source('sector_tags.cc')
-Source('super_blk.cc')
+Source("base.cc")
+Source("base_set_assoc.cc")
+Source("compressed_tags.cc")
+Source("dueling.cc")
+Source("fa_lru.cc")
+Source("sector_blk.cc")
+Source("sector_tags.cc")
+Source("super_blk.cc")
 
-GTest('dueling.test', 'dueling.test.cc', 'dueling.cc')
+GTest("dueling.test", "dueling.test.cc", "dueling.cc")
+GTest("sector_blk.test", "sector_blk.test.cc", "sector_blk.cc",
+      with_tag('gem5 simobject'))

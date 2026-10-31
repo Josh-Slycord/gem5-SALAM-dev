@@ -46,6 +46,8 @@
 #include "base/compiler.hh"
 #include "base/types.hh"
 #include "debug/ACPI.hh"
+#include "params/X86ACPIDSDT.hh"
+#include "params/X86ACPIFADT.hh"
 #include "params/X86ACPIMadt.hh"
 #include "params/X86ACPIMadtIOAPIC.hh"
 #include "params/X86ACPIMadtIntSourceOverride.hh"
@@ -107,7 +109,7 @@ class RSDP : public SimObject
         uint8_t revision = 0;
         uint32_t rsdtAddress = 0;
     };
-    static_assert(std::is_trivially_copyable<MemR0>::value,
+    static_assert(std::is_trivially_copyable_v<MemR0>,
             "Type not suitable for memcpy.");
 
     struct GEM5_PACKED Mem : public MemR0
@@ -118,7 +120,7 @@ class RSDP : public SimObject
         uint8_t extendedChecksum = 0;
         uint8_t _reserved[3] = {};
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy,");
 
     RSDT* rsdt;
@@ -128,6 +130,23 @@ class RSDP : public SimObject
     RSDP(const Params &p);
 
     Addr write(PortProxy& phys_proxy, Allocator& alloc) const;
+};
+
+// The Differentiated System Description Table. Its body is a block of AML
+// bytecode interpreted by the guest OS (gem5 never interprets AML). The blob
+// is a complete, self-contained ACPI table (header + AML) embedded at build
+// time from src/arch/x86/bios/dsdt.aml, so it is written out verbatim rather
+// than going through the SysDescTable header-generation path. It is reached by
+// the guest only via the FADT, never from the RSDT/XSDT entry list.
+class DSDT : public SimObject
+{
+  protected:
+    PARAMS(X86ACPIDSDT);
+
+  public:
+    DSDT(const Params &p);
+
+    Addr write(PortProxy &phys_proxy, Allocator &alloc) const;
 };
 
 class SysDescTable : public SimObject
@@ -148,7 +167,7 @@ class SysDescTable : public SimObject
         uint32_t creatorID = 0;
         uint32_t creatorRevision = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     virtual Addr writeBuf(PortProxy& phys_proxy, Allocator& alloc,
@@ -203,6 +222,97 @@ class XSDT : public RXSDT<uint64_t>
     XSDT(const Params &p);
 };
 
+// ACPI Generic Address Structure (GAS), used by several FADT fields.
+struct GEM5_PACKED GenericAddress
+{
+    uint8_t spaceId = 0;
+    uint8_t bitWidth = 0;
+    uint8_t bitOffset = 0;
+    uint8_t accessSize = 0;
+    uint64_t address = 0;
+};
+static_assert(sizeof(GenericAddress) == 12, "Unexpected GAS size.");
+
+// Fixed ACPI Description Table. gem5 writes this so the simulate OS finds
+// the DSDT which is required to make sure it does not disable ACPI.
+class FADT : public SysDescTable
+{
+  protected:
+    PARAMS(X86ACPIFADT);
+
+    // Replica of FADT table from Linux kernel:
+    // https://elixir.bootlin.com/linux/v7.1/source/include/acpi/actbl.h#L199
+    struct GEM5_PACKED Mem : public SysDescTable::Mem
+    {
+        uint32_t firmwareCtrl = 0;
+        uint32_t dsdt = 0;
+        uint8_t _reserved0 = 0;
+        uint8_t preferredPmProfile = 0;
+        uint16_t sciInt = 0;
+        uint32_t smiCmd = 0;
+        uint8_t acpiEnable = 0;
+        uint8_t acpiDisable = 0;
+        uint8_t s4BiosReq = 0;
+        uint8_t pstateCnt = 0;
+        uint32_t pm1aEvtBlk = 0;
+        uint32_t pm1bEvtBlk = 0;
+        uint32_t pm1aCntBlk = 0;
+        uint32_t pm1bCntBlk = 0;
+        uint32_t pm2CntBlk = 0;
+        uint32_t pmTmrBlk = 0;
+        uint32_t gpe0Blk = 0;
+        uint32_t gpe1Blk = 0;
+        uint8_t pm1EvtLen = 0;
+        uint8_t pm1CntLen = 0;
+        uint8_t pm2CntLen = 0;
+        uint8_t pmTmrLen = 0;
+        uint8_t gpe0BlkLen = 0;
+        uint8_t gpe1BlkLen = 0;
+        uint8_t gpe1Base = 0;
+        uint8_t cstCnt = 0;
+        uint16_t pLvl2Lat = 0;
+        uint16_t pLvl3Lat = 0;
+        uint16_t flushSize = 0;
+        uint16_t flushStride = 0;
+        uint8_t dutyOffset = 0;
+        uint8_t dutyWidth = 0;
+        uint8_t dayAlrm = 0;
+        uint8_t monAlrm = 0;
+        uint8_t century = 0;
+        uint16_t iapcBootArch = 0;
+        uint8_t _reserved1 = 0;
+        uint32_t flags = 0;
+        GenericAddress resetReg;
+        uint8_t resetValue = 0;
+        uint16_t armBootArch = 0;
+        uint8_t minorRevision = 0;
+        uint64_t xFirmwareCtrl = 0;
+        uint64_t xDsdt = 0;
+        GenericAddress xPm1aEvtBlk;
+        GenericAddress xPm1bEvtBlk;
+        GenericAddress xPm1aCntBlk;
+        GenericAddress xPm1bCntBlk;
+        GenericAddress xPm2CntBlk;
+        GenericAddress xPmTmrBlk;
+        GenericAddress xGpe0Blk;
+        GenericAddress xGpe1Blk;
+        GenericAddress sleepControlReg;
+        GenericAddress sleepStatusReg;
+        uint64_t hypervisorVendorId = 0;
+    };
+    static_assert(std::is_trivially_copyable_v<Mem>,
+                  "Type not suitable for memcpy.");
+
+    DSDT *dsdt;
+    bool hwReduced;
+
+    Addr writeBuf(PortProxy &phys_proxy, Allocator &alloc,
+                  std::vector<uint8_t> &mem) const override;
+
+  public:
+    FADT(const Params &p);
+};
+
 namespace MADT
 {
 class Record : public SimObject
@@ -215,7 +325,7 @@ class Record : public SimObject
         uint8_t type = 0;
         uint8_t length = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     uint8_t type;
@@ -245,7 +355,7 @@ class LAPIC : public Record
         uint8_t apicId = 0;
         uint32_t flags = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     void prepareBuf(std::vector<uint8_t>& mem) const override;
@@ -266,7 +376,7 @@ class IOAPIC : public Record
         uint32_t ioApicAddress = 0;
         uint32_t intBase = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     void prepareBuf(std::vector<uint8_t>& mem) const override;
@@ -287,7 +397,7 @@ class IntSourceOverride : public Record
         uint32_t globalSystemInterrupt = 0;
         uint16_t flags = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     void prepareBuf(std::vector<uint8_t>& mem) const override;
@@ -307,7 +417,7 @@ class NMI : public Record
         uint16_t flags = 0;
         uint8_t lintNo = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     void prepareBuf(std::vector<uint8_t>& mem) const override;
@@ -326,7 +436,7 @@ class LAPICOverride : public Record
         uint16_t _reserved = 0;
         uint64_t localAPICAddress = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     void prepareBuf(std::vector<uint8_t>& mem) const override;
@@ -345,7 +455,7 @@ class MADT : public SysDescTable
         uint32_t localAPICAddress = 0;
         uint32_t flags = 0;
     };
-    static_assert(std::is_trivially_copyable<Mem>::value,
+    static_assert(std::is_trivially_copyable_v<Mem>,
             "Type not suitable for memcpy.");
 
     std::vector<Record *> records;

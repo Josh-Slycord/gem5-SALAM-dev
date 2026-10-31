@@ -34,6 +34,7 @@ from .gui_editor import (
     render_document,
     source_hash,
 )
+from .toolchain_profile import load_toolchain
 
 WORKBENCH_HOST = Path(__file__).resolve().parents[1]
 MODEL_FIELDS = MODEL_FLOAT_FIELDS + MODEL_INT_FIELDS
@@ -843,9 +844,10 @@ def install_editor(dialog_class):
     def _backend_command(self, request):
         if self._backend_command_provider is not None:
             return self._backend_command_provider(request)
+        selected_python = load_toolchain(WORKBENCH_HOST)["python"]
         if os.name != "nt":
             return (
-                "/usr/bin/python3.8",
+                selected_python,
                 [
                     "-B",
                     "-m",
@@ -862,7 +864,7 @@ def install_editor(dialog_class):
                 "--cd",
                 workbench_wsl,
                 "--exec",
-                "/usr/bin/python3.8",
+                selected_python,
                 "-B",
                 "-m",
                 "salam_workbench.gui_execution",

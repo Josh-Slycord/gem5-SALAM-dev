@@ -60,7 +60,7 @@ MipsProcess::MipsProcess(const ProcessParams &params,
     // user address space. MIPS stack grows down from here
     Addr stack_base = 0x7FFFFFFF;
 
-    Addr max_stack_size = 8 * 1024 * 1024;
+    Addr max_stack_size = params.maxStackSize;
 
     // Set pointer for next thread stack.  Reserve 8M for main stack.
     Addr next_thread_stack_base = stack_base - max_stack_size;
@@ -200,9 +200,9 @@ MipsProcess::argsInit(int pageSize)
 
     ThreadContext *tc = system->threads[contextIds[0]];
 
-    tc->setIntReg(FirstArgumentReg, argc);
-    tc->setIntReg(FirstArgumentReg + 1, argv_array_base);
-    tc->setIntReg(StackPointerReg, memState->getStackMin());
+    tc->setReg(int_reg::A0, argc);
+    tc->setReg(int_reg::A1, argv_array_base);
+    tc->setReg(int_reg::Sp, memState->getStackMin());
 
     tc->pcState(getStartPC());
 }

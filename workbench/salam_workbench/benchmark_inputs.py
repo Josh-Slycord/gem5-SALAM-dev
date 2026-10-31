@@ -184,8 +184,84 @@ def render_input_header(fixture, *, inject_mismatch=False, force_guest_pass=Fals
     return "\n".join(lines)
 
 
+LEGACY_WRITEFILE_ABI = "gem5_21_semipseudo_arm32_u64_slots_v1"
+MODERN_WRITEFILE_ABI = "gem5_26_semipseudo_arm32_u32_slots_v1"
+LEGACY_RESULT_HEADER_SHA256 = (
+    "31e407229f8d837774bdb501deea2fc3b49df8dc76232820e89d4a4af26bb744"
+)
+_MODERN_WRITEFILE_BODY = """// Transport ABI: gem5_26_semipseudo_arm32_u32_slots_v1.
+static bool salam_pack_gem5_26_write_arguments(uint32_t arguments[5],
+        uint64_t buffer, uint64_t length, uint64_t offset, uint64_t filename) {
+    const uint64_t max_word = static_cast<uint64_t>(0xffffffffu);
+    if (buffer > max_word || length > max_word || offset > max_word || filename > max_word)
+        return false;
+    arguments[0] = 0x4f00u;
+    arguments[1] = static_cast<uint32_t>(buffer);
+    arguments[2] = static_cast<uint32_t>(length);
+    arguments[3] = static_cast<uint32_t>(offset);
+    arguments[4] = static_cast<uint32_t>(filename);
+    return true;
+}
+
+static uint64_t salam_write_result_file(const char *buffer, uint32_t length) {
+#if defined(SALAM_HOST_TEST_WRITEFILE)
+    // Explicit test callback only; production ARM guests use the selected ABI.
+    return SALAM_HOST_TEST_WRITEFILE(buffer, length, "salam-results.txt");
+#elif defined(__arm__) && !defined(__thumb__)
+    static_assert(sizeof(uintptr_t) == 4, "Transport requires ARM32 pointers");
+    // gem5 26 Abi32 uses packed 32-bit slots and skips exactly one op slot.
+    alignas(4) uint32_t arguments[5];
+    static_assert(sizeof(arguments) == 20, "Expected five packed 32-bit slots");
+    if (!salam_pack_gem5_26_write_arguments(arguments,
+            static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buffer)),
+            static_cast<uint64_t>(length), 0,
+            static_cast<uint64_t>(reinterpret_cast<uintptr_t>("salam-results.txt"))))
+        return ~static_cast<uint64_t>(0);
+    register uint32_t operation __asm__("r0") = 0x100;
+    register uint32_t parameter_block __asm__("r1") =
+        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(arguments));
+    // DSB publishes the complete buffer and block before the native pseudo-op.
+    __asm__ __volatile__(".inst 0xf57ff04f; svc #0x5d57"
+                         : "+r"(operation), "+r"(parameter_block)
+                         : : "memory", "cc");
+    return operation;
+#else
+#error "Result transport requires ARM32 ARM-state or an explicit host test callback"
+#endif
+}
+
+"""
+
+
+def render_result_header(template, output_abi=LEGACY_WRITEFILE_ABI):
+    """Legacy is byte-preserving; the modern writer is an explicit checked port."""
+    if output_abi == LEGACY_WRITEFILE_ABI:
+        return template
+    if output_abi != MODERN_WRITEFILE_ABI:
+        raise ValueError("Unsupported result transport ABI")
+    if (
+        hashlib.sha256(template.encode("utf-8")).hexdigest()
+        != LEGACY_RESULT_HEADER_SHA256
+    ):
+        raise ValueError(
+            "Legacy result template differs from the source-bound ABI port"
+        )
+    start = "static uint64_t salam_write_result_file("
+    end = "static void salam_result_begin()"
+    if template.count(start) != 1 or template.count(end) != 1:
+        raise ValueError("Result transport function anchors are ambiguous")
+    first, last = template.index(start), template.index(end)
+    return template[:first] + _MODERN_WRITEFILE_BODY + "\n" + template[last:]
+
+
 def stage_benchmark_inputs(
-    workspace, benchmark, fixture, *, inject_mismatch=False, force_guest_pass=False
+    workspace,
+    benchmark,
+    fixture,
+    *,
+    inject_mismatch=False,
+    force_guest_pass=False,
+    output_abi=LEGACY_WRITEFILE_ABI,
 ):
     """Apply a reproducible guest-only overlay to one staged benchmark.
 
@@ -193,6 +269,8 @@ def stage_benchmark_inputs(
     compiling guest/IR. ``benchmark`` accepts a name or its canonical relative
     benchmark path. The caller owns enforcing isolation from preserved engines.
     """
+    if output_abi not in (LEGACY_WRITEFILE_ABI, MODERN_WRITEFILE_ABI):
+        raise ValueError("Unsupported result transport ABI")
     workspace = Path(workspace).resolve(strict=True)
     if not workspace.is_dir() or workspace.is_symlink():
         raise ValueError("A regular staged workspace is required")
@@ -263,7 +341,12 @@ def stage_benchmark_inputs(
         (main, source),
         (syscalls, syscall_source),
         (m5ops, m5ops_source),
-        (common_header, common_template.read_text(encoding="utf-8")),
+        (
+            common_header,
+            render_result_header(
+                common_template.read_text(encoding="utf-8"), output_abi
+            ),
+        ),
     ]
     changed = [path for path, _ in planned]
     templates = [template, common_template]
@@ -301,6 +384,9 @@ def stage_benchmark_inputs(
         "kernel_preserved": True,
         "protocol": "salam_result_hex_v1",
         "output_transport": "gem5_semihosting_writefile_text_v1",
+        "output_transport_abi": output_abi,
+        "output_transport_header": _record(common_header, workspace),
+        "output_transport_template_sha256": _hash(common_template),
         "output_relative": "simulator/salam-results.txt",
         "uart_write_contract": "newlib_length_delimited_bytes",
         "m5_exit_contract": "arm32_zero_delay_r0_r1_with_register_memory_clobbers",

@@ -219,6 +219,9 @@ CfiMemory::CfiMemory(const CfiMemoryParams &p)
         static_cast<uint8_t>(bits(blocks.number(), 15, 8)),
         static_cast<uint8_t>(bits(blocks.size(), 7, 0)),
         static_cast<uint8_t>(bits(blocks.size(), 15, 8)),
+        0x00,0x00,0x00,0x00,//empty Block region 2 info
+        0x00,0x00,0x00,0x00,//empty Block region 3 info
+        0x00,0x00,0x00,0x00//empty Block region 4 info
     }
 {}
 
@@ -270,6 +273,14 @@ CfiMemory::recvFunctional(PacketPtr pkt)
     }
 
     pkt->popLabel();
+}
+
+void
+CfiMemory::recvMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &_backdoor)
+{
+    if (backdoor.ptr())
+        _backdoor = &backdoor;
 }
 
 bool
@@ -395,7 +406,7 @@ Tick
 CfiMemory::getLatency() const
 {
     return latency +
-        (latency_var ? random_mt.random<Tick>(0, latency_var) : 0);
+        (latency_var ? rng->random<Tick>(0, latency_var) : 0);
 }
 
 void
@@ -453,7 +464,7 @@ CfiMemory::unserialize(CheckpointIn &cp)
 
 CfiMemory::MemoryPort::MemoryPort(const std::string& _name,
                                      CfiMemory& _memory)
-    : ResponsePort(_name, &_memory), mem(_memory)
+    : ResponsePort(_name), mem(_memory)
 { }
 
 AddrRangeList
@@ -481,6 +492,13 @@ void
 CfiMemory::MemoryPort::recvFunctional(PacketPtr pkt)
 {
     mem.recvFunctional(pkt);
+}
+
+void
+CfiMemory::MemoryPort::recvMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &_backdoor)
+{
+    mem.recvMemBackdoorReq(req, _backdoor);
 }
 
 bool
@@ -708,6 +726,11 @@ CfiMemory::handleCommand(CfiCommand new_cmd)
         DPRINTF(CFI, "CFI Command: Buffered Program Setup\n");
         writeState = CfiCommand::BUFFERED_PROGRAM_SETUP;
         readState = CfiCommand::READ_STATUS_REG;
+        break;
+      case CfiCommand::AMD_RESET:
+        //because of how u-boot works and reset the flash
+        //we have to ignore the AMD RESET explicitly
+        // (see the function __flash_cmd_reset in drivers/mtd/cfi_flash.c)
         break;
       default:
         panic("Don't know what to do with %#x\n",

@@ -1,0 +1,642 @@
+{
+  "schema_version": 1,
+  "captured_utc": "2026-10-31T01:34:26.478155+00:00",
+  "draft": true,
+  "records": [
+    {
+      "id": "upstream-pr",
+      "scope": "PR #2429 snapshot; open/unmerged at capture",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/upstream-pr-2429-current.json",
+      "present": true,
+      "bytes": 432,
+      "sha256": "5d31921321e2c1d5b3df80430f30195b209c86f53b224ec48e55ce4ac7e7fd12"
+    },
+    {
+      "id": "legacy-before",
+      "scope": "Preserved legacy baseline",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/baseline/baseline.json",
+      "present": true,
+      "bytes": 779,
+      "sha256": "48730c902af650cfdeeb7ea28e4953153c95367a7541392bad0a26db0fd855df"
+    },
+    {
+      "id": "legacy-after",
+      "scope": "Post-port preserved baseline integrity",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/baseline/integrity-after-port.json",
+      "present": true,
+      "bytes": 873,
+      "sha256": "072a0bf9abd204786b1865481d855ac15acdfcffe7ece0e15c5836360e580cda"
+    },
+    {
+      "id": "outer-inventory",
+      "scope": "Exact proper outer tier discovery/selection inventory",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/outer-checks-unfused-frontend-20261031-v1/STRICT_INVENTORY.json",
+      "present": true,
+      "bytes": 136318,
+      "sha256": "52554a6e18b1783f154eb2d9ca0686e09fa9ffe3c831b0158ee05211d88f7793"
+    },
+    {
+      "id": "outer-fast",
+      "scope": "Proper fast tier: 310 tests",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/outer-checks-unfused-frontend-20261031-v1/fast/check.json",
+      "present": true,
+      "bytes": 119880,
+      "sha256": "ba7a1dda396e16604e8715d81bb7c936c5691d3bec35a92b9dd5b9ea494b76bb"
+    },
+    {
+      "id": "outer-config",
+      "scope": "Proper config tier: 289 tests",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/outer-checks-unfused-frontend-20261031-v1/config/check.json",
+      "present": true,
+      "bytes": 113181,
+      "sha256": "5467d3da2cfb79ec485d2cb66754ff5f9c72a0c47c2dbdf04b18be7cdd9a2472"
+    },
+    {
+      "id": "outer-gui",
+      "scope": "Proper GUI tier: 62 tests",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/outer-checks-unfused-frontend-20261031-v1/gui/check.json",
+      "present": true,
+      "bytes": 70315,
+      "sha256": "f13e64bae23f36ae0dc5d87e5219519ef6841eff99bf84d3a79493096ffec0ef"
+    },
+    {
+      "id": "base-build",
+      "scope": "Genuine sealed base engine build receipt",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-configured-build-20261030-v1/build.json",
+      "present": true,
+      "bytes": 11234,
+      "sha256": "8a48c006cece1944b11561c0412373e4a3e7f23e8b4eaaeb40173b8ca300e5e4"
+    },
+    {
+      "id": "native-pystats",
+      "scope": "Actual ordinary embedded native PyStats suite: 18 tests",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-native-pystats-repair-20261030-v1/final-embedded-suite.log",
+      "present": true,
+      "bytes": 2713,
+      "sha256": "09153eebe0797f25d3b1f6e9afeb05af88391d7e25cc93e13c8a8bdf0c647de3"
+    },
+    {
+      "id": "cpp-synthetic",
+      "scope": "Two standalone retained-code C++ executables; not upstream GTest",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/independent-validation-20261030-v1/cpp-cxx20/validation.json",
+      "present": true,
+      "bytes": 3774,
+      "sha256": "5809d96aabd0c7c9cd9923db9e0b68cd15df8233ba529976f8e7169a794c54d6"
+    },
+    {
+      "id": "ordinary-baseline",
+      "scope": "Ordinary embedded GEMM numerical baseline",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/configured-gemm-embedded-v1/baseline.json",
+      "present": true,
+      "bytes": 14784,
+      "sha256": "c1876e145f9fa3adcb302bfd27d5f29b580213eff70e592e0b3cfb76b8a3be75"
+    },
+    {
+      "id": "gemm17",
+      "scope": "Current frontend GUI GEMM seed 17 acceptance",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-gemm-seed17-current-v2/acceptance.json",
+      "present": true,
+      "bytes": 1406415,
+      "sha256": "5c0dfb0fad4cbc9c76cca48b4d3660d407ab3f70f770c688dd3a2e27f81c85ce"
+    },
+    {
+      "id": "gemm23",
+      "scope": "Current frontend GUI GEMM seed 23 acceptance",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-gemm-seed23-current-v2/acceptance.json",
+      "present": true,
+      "bytes": 1406415,
+      "sha256": "581959228c2d8bc202999bfe78e627c08c51c4304d756971c18607c65c7026de"
+    },
+    {
+      "id": "gemm-replay17",
+      "scope": "Independent replay of current GUI GEMM seed 17",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-gemm17/audit.json",
+      "present": true,
+      "bytes": 8315,
+      "sha256": "c69639a993ac47642268471cc5342907ffecd202a0a8fcb0f86054557f88f453"
+    },
+    {
+      "id": "gemm-replay23",
+      "scope": "Independent replay of current GUI GEMM seed 23",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-gemm23/audit.json",
+      "present": true,
+      "bytes": 8315,
+      "sha256": "91743b4ef67f9144c130dac5a9aae8f3741547d1c5ba4d7b5a465b63decccba0"
+    },
+    {
+      "id": "fft17",
+      "scope": "Fresh rebuilt FFT GUI pipeline seed 17",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/gui-apply-20261031T001533-db2e9a8c/pipeline/configuration.json",
+      "present": true,
+      "bytes": 744511,
+      "sha256": "c4523e03566fac634184b3e8162c9df5e0d8d3c35849a6ff3353ea8d53f84009"
+    },
+    {
+      "id": "fft23",
+      "scope": "Cached rebuilt FFT GUI pipeline seed 23",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/gui-apply-20261031T003357-9953f0cb/pipeline/configuration.json",
+      "present": true,
+      "bytes": 744509,
+      "sha256": "a9fe0639c213db198eebad670df2f113070e8f43f93c8ce71c94e0d9dedcef74"
+    },
+    {
+      "id": "forced-controls-v1",
+      "scope": "GEMM and stencil forced-guest-pass controls; old FFT timed out",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/forced-guest-pass-controls-v1/controls.json",
+      "present": true,
+      "bytes": 66284,
+      "sha256": "5914b37fe00408d1499e47f843cd93bc7475adb7602989e6efaf36e9f09cd1f9"
+    },
+    {
+      "id": "forced-gemm",
+      "scope": "64 actual outputs; exactly one intended mismatch",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/forced-guest-pass-controls-v1/gemm/control.json",
+      "present": true,
+      "bytes": 13083,
+      "sha256": "99ca15331ba8275e914f1886e353f69926200094b176958bc7cf364bc1747cf8"
+    },
+    {
+      "id": "forced-stencil",
+      "scope": "16,384 actual outputs; exactly one intended mismatch",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/forced-guest-pass-controls-v1/stencil3d/control.json",
+      "present": true,
+      "bytes": 13310,
+      "sha256": "0e5386e8475cd69b9815fa3955a21a1cba72836fe733dc5b06764cd65fce2b08"
+    },
+    {
+      "id": "forced-fft-v2",
+      "scope": "Corrected unfused FFT ordinary embedded control",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/forced-guest-pass-controls-fft-unfused-v2/controls.json",
+      "present": true,
+      "bytes": 44174,
+      "sha256": "60d7fdfa0910c77bf73ffae70109876e7eab7a1bc4b83142bd5117cb9719d265"
+    },
+    {
+      "id": "forced-fft-detail",
+      "scope": "1,024 complex outputs; exactly one intended mismatch",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/forced-guest-pass-controls-fft-unfused-v2/fft/control.json",
+      "present": true,
+      "bytes": 13506,
+      "sha256": "75ee92b63fadd95eb3e3d643a493346590ea917a7fe81b713736f0d126c1cb58"
+    },
+    {
+      "id": "native-scope",
+      "scope": "Actual native imports, build features, MMIO and graph audit",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/audit.json",
+      "present": true,
+      "bytes": 761,
+      "sha256": "a2e969bc75f8c13e5ec16deacde8b98443fc9d9bfe32bff24966793e5a20a7ff"
+    },
+    {
+      "id": "native-imports",
+      "scope": "Embedded system Python module origins; override disabled",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/native-dependencies.json",
+      "present": true,
+      "bytes": 3765,
+      "sha256": "5f30f3ce643bb423db0398e085fc4289994b7a3ea15eadf1264bc503e6c35568"
+    },
+    {
+      "id": "native-features",
+      "scope": "Actual generated feature header values",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/actual-build-feature-headers.json",
+      "present": true,
+      "bytes": 4542,
+      "sha256": "2c219ab055e5755e7226ff2ba5699f2a96335ac5534bc7b71afd8f1df75d0f50"
+    },
+    {
+      "id": "toolchain",
+      "scope": "Current exact compiler/linker versions and hashes",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/current-build-tools.json",
+      "present": true,
+      "bytes": 7875,
+      "sha256": "0b89c99ee9883221763e133c8c01669da79ff6f6bea2774951c487bf0b643248"
+    },
+    {
+      "id": "mmio",
+      "scope": "Actual leaf PIO map and optional SCMI absence",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/gemm-leaf-mmio-proof.json",
+      "present": true,
+      "bytes": 17184,
+      "sha256": "c73444085116b0f9c05a632e9d1dd5e2cdbf5c3a244d6c17fa1144a75c28c086"
+    },
+    {
+      "id": "graphs",
+      "scope": "Actual config.dot and SVG artifact metadata",
+      "path": "/home/jslycord/projects/gem5-26-upgrade-20261030/sealed-runtime-audit-v1/gui-native-graph-artifacts.json",
+      "present": true,
+      "bytes": 3085,
+      "sha256": "840cc66915388d8821b8ddaf48206e0c267d11f949b32ecf52af8d8fe8d659fb"
+    },
+    {
+      "id": "unfused-ir",
+      "scope": "Real staged clang14 FFT adapter before/after proof",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/actual-unfused-fft-adapter-proof-20261031T001614/proof.json",
+      "present": true,
+      "bytes": 7700,
+      "sha256": "faa6982e295f0718df9c4c879af9549f062fbdbc4a2df52fc329f5f152c80c9f"
+    },
+    {
+      "id": "initial-ice",
+      "scope": "Unchanged exact target succeeds with a serial retry; cause unproven",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/ICEprobe-20261030-v1/probe.json",
+      "present": true,
+      "bytes": 14286,
+      "sha256": "aeb04261134d26c53ae51aed49d55efbecbbc6221eb7c16743f578b339cd61cf"
+    },
+    {
+      "id": "workflow-audit",
+      "scope": "Local workflow source/actionlint checks; no hosted CI execution",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/independent-validation-20261030-v1/workflow-audit/validation.json",
+      "present": true,
+      "bytes": 4072,
+      "sha256": "867588c57a44db889400ff404e8b6336fc32e0e8b8a7ff07497103cd0c9fbce4"
+    },
+    {
+      "id": "current-fft-pair",
+      "scope": "Latest independent pair replay record; review state before promoting claims",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/fft-pair.json",
+      "present": true,
+      "bytes": 13304,
+      "sha256": "53fec2569d46cc8908ac3bc35da2290c8c37221a79982d5234b104b6a206180f"
+    },
+    {
+      "id": "gui-copied-output-negative",
+      "scope": "Actual Qt widget rejection of one copied GEMM output word; no simulation rerun",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-gemm-output-rejection-20261031-v1/READOUT.json",
+      "present": true,
+      "bytes": 2712,
+      "sha256": "9952fc3475f02e085fcbc197db48ff606ed75c4cf62bf32ce152be0584342b69"
+    },
+    {
+      "id": "gui-copied-output-controls",
+      "scope": "Complete copied-output negative control with original evidence preservation",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-gemm-output-rejection-20261031-v1/completed-control/controls.json",
+      "present": true,
+      "bytes": 84931,
+      "sha256": "45c7541cdab29eb141e91039b612e7252e90a2779ead0e77163cc39df242360a"
+    },
+    {
+      "id": "stencil-serial-recovery",
+      "scope": "Genuine -j1 production build passed; six original failed artifacts and source unchanged; not GUI numerical acceptance",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/recovery-build.json",
+      "present": true,
+      "bytes": 20140,
+      "sha256": "aa9177227ea0f7f4713a1e6d6be174913a743cb61a996029eb78cf02a2d9dd62"
+    },
+    {
+      "id": "stencil-recovery-build-receipt",
+      "scope": "Actual recovered simulator build receipt; binary 31509767..., compiled source b6720d1f...",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/build/build.json",
+      "present": true,
+      "bytes": 17396,
+      "sha256": "168cea12052de1718a4f5f4965c95700b6f983c17c1245a37a91c33d645a8d9c"
+    },
+    {
+      "id": "stencil-publish-attempt-1",
+      "scope": "Preserved failed strict publish source-binding rejection; marker not published by this attempt",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/publish-attempt-1-tool-output.json",
+      "present": true,
+      "bytes": 1575,
+      "sha256": "c9e451accb706945ead5403913c80a46c7593ed466497b6f78cdcf5d55541e10"
+    },
+    {
+      "id": "recovery-independent-rechecks",
+      "scope": "Two source stability rounds and later passing production checks; earlier rejection causes unresolved",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/independent-source-rechecks/summary.json",
+      "present": true,
+      "bytes": 3554,
+      "sha256": "0eb76c03b68e6c66af9f6c99e14d5f1581634a362d9fcfc9ceaae413221782f4"
+    },
+    {
+      "id": "stencil-strict-recovery-seal",
+      "scope": "Unchanged strict sealer passed all normal gates: 130 generated, 15 input, 130 before-image checks; no fresh GUI rebuild claim",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/recovery-seal.json",
+      "present": true,
+      "bytes": 2385,
+      "sha256": "f73f6b23d74ad553e1e824901b52edeae67f6999363fda32c4c785a368d9855c"
+    },
+    {
+      "id": "stencil-recovery-marker",
+      "scope": "Atomic publication of the verified serial recovery marker after ordinary production verification",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/marker-published.json",
+      "present": true,
+      "bytes": 1150,
+      "sha256": "031e87ae86ba3470a29a74f31ae66463d742b0334e735e909eaeaf1beae86483"
+    },
+    {
+      "id": "stencil-recovery-variant",
+      "scope": "Published recovered variant receipt, preserving actual serial-build lineage",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/variant.json",
+      "present": true,
+      "bytes": 11384,
+      "sha256": "88528e3967c1defe890eca1f715f526d2ab4483ad292428a0efb7240a7c91646"
+    },
+    {
+      "id": "stencil-seal-attempt-2-stdout",
+      "scope": "Successful unchanged strict publication attempt output; original failed attempt remains retained",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/seal-attempt-2.stdout",
+      "present": true,
+      "bytes": 329,
+      "sha256": "cefc9be9c569e60fdc9c12d4cc9ab8a0ce23784747d39d523617e2f0b4713051"
+    },
+    {
+      "id": "stencil-seal-attempt-2-stderr",
+      "scope": "Successful strict attempt native stderr is empty",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil-serial-recovery-20261031-v1/seal-attempt-2.stderr",
+      "present": true,
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "stencil17-gui",
+      "scope": "Actual Qt seed17 pass: 16,384 complete values and trace checks; recovered-profile reuse; later independent replay passed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-stencil-seed17-serial-recovered-v3/acceptance.json",
+      "present": true,
+      "bytes": 1434660,
+      "sha256": "74d40c1fed9ff098a9457ceb0aa89e9fab93909e43d0c2ab678c9fe9c4799ed1"
+    },
+    {
+      "id": "stencil17-pipeline",
+      "scope": "Full production configuration and numerical/trace evidence for recovered stencil17",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/gui-apply-20261031T010628-e3d551cf/pipeline/configuration.json",
+      "present": true,
+      "bytes": 747125,
+      "sha256": "61b722af83c224747847eb21c5a3c568614ca1d9d45cb78e2039982010505a0a"
+    },
+    {
+      "id": "legacy-before-publication",
+      "scope": "Fresh Ubuntu20 main/workspace/binary and actual configured-engine receipt preservation recheck passed",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/baseline/integrity-before-branch-publication.json",
+      "present": true,
+      "bytes": 873,
+      "sha256": "072a0bf9abd204786b1865481d855ac15acdfcffe7ece0e15c5836360e580cda"
+    },
+    {
+      "id": "stencil17-independent",
+      "scope": "Independent full 16,384-value NumPy and source/artifact/profile/FU replay passed; recovered-profile lineage verified",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-stencil3d17/audit.json",
+      "present": true,
+      "bytes": 30589,
+      "sha256": "9f6ef8625c621a686cc2a847383bfb7b4f8ca280dd8e7b28e2ce6dfa9a06fcb2"
+    },
+    {
+      "id": "stencil23-gui",
+      "scope": "Actual Qt seed23 pass: 16,384 complete values and trace checks; recovered-profile reuse; later explicit bounded composite passed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-stencil-seed23-serial-recovered-v3/acceptance.json",
+      "present": true,
+      "bytes": 1434661,
+      "sha256": "3a8b52a29c2f6c5d73659b152977d0a0c73ed5ea32a9db561d0432e18152d5fd"
+    },
+    {
+      "id": "stencil23-pipeline",
+      "scope": "Complete current production pipeline record for recovered seed23; full output and traces passed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/gui-apply-20261031T011224-ced7c56c/pipeline/configuration.json",
+      "present": true,
+      "bytes": 747125,
+      "sha256": "e1819994813165bba47b614622f25b75f596d700ddcd6401b489ac80b428dd8b"
+    },
+    {
+      "id": "fft-stencil-qt-negatives",
+      "scope": "Exact maintained Qt rejects one copied value for FFT/stencil; NumPy baseline pass/corrupt fail; 633 originals unchanged; no sim rerun",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-fft-stencil-output-rejection-20261031-v1/READOUT.json",
+      "present": true,
+      "bytes": 9686,
+      "sha256": "96f23fd3d1df5197f47d2fb29905cb63d918c45801cb7e6c014db68191cf02df"
+    },
+    {
+      "id": "fft-stencil-qt-control-details",
+      "scope": "Maintained production reader and actual widget copied-output control details",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-gui-fft-stencil-output-rejection-20261031-v1/qt-controls/controls.json",
+      "present": true,
+      "bytes": 14750,
+      "sha256": "43795767a7e3effadeae4137ab902a522fdab50d55c398b4e935e46411f8cfc4"
+    },
+    {
+      "id": "final-sixcase",
+      "scope": "Final scoped independent six-GUI aggregate passed: 34,944 outputs, zero mismatch, 12 complete FU invocations; S23 explicitly composite",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/final-sixcase.json",
+      "present": true,
+      "bytes": 14297,
+      "sha256": "e80d0e58af89ef95e2fa57149c9ae8ac724adb546519de8d92f4fb4494248c45"
+    },
+    {
+      "id": "final-gemm-pair",
+      "scope": "Distinct seed17/23 gemm pair identities and complete output/FU qualification",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/gemm-pair.json",
+      "present": true,
+      "bytes": 8466,
+      "sha256": "66db268427fac02639bfb845d3472a1bb7c0e7f9df51a8d93bf3265e9d6fe777"
+    },
+    {
+      "id": "final-stencil3d-pair",
+      "scope": "Distinct seed17/23 stencil3d pair identities and complete output/FU qualification",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil3d-pair.json",
+      "present": true,
+      "bytes": 23796,
+      "sha256": "b2277a62ecec85912274a5f54dad1e860dd1ac1d695466681bc88cef7eba3cc6"
+    },
+    {
+      "id": "final-fft17-audit",
+      "scope": "Independent fft seed17: 1024 outputs, zero mismatch; completed_monolithic_replay_process",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-fft17/audit.json",
+      "present": true,
+      "bytes": 19666,
+      "sha256": "b5c53ab11d4cdd8fefb9196857f367c89c1f57398f317ec573f7262a28690a28"
+    },
+    {
+      "id": "final-fft23-audit",
+      "scope": "Independent fft seed23: 1024 outputs, zero mismatch; completed_monolithic_replay_process",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-fft23/audit.json",
+      "present": true,
+      "bytes": 19640,
+      "sha256": "3979d37e79866621b37b9a4e414b696c09635aafe20bb618aee06db12472c23d"
+    },
+    {
+      "id": "final-stencil3d23-audit",
+      "scope": "Independent stencil3d seed23: 16384 outputs, zero mismatch; fresh_bounded_ordinary_process_composite",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1-stencil3d23-composite/audit.json",
+      "present": true,
+      "bytes": 40778,
+      "sha256": "08a6cbefb570ac990591cc3730d7d6e6f01bec4781f788b23bc204bce8e09bec"
+    },
+    {
+      "id": "fft17_final_outer_source_closure",
+      "scope": "Individual FFT17 source closure; failed original combined batch remains failed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/fft17-outer-closure.json",
+      "present": true,
+      "bytes": 1140,
+      "sha256": "8292c0e9629df71604ad4913383e6ccaf21750b36c21a8245daf40363949c0cb"
+    },
+    {
+      "id": "stencil23_independent_audit_native_abort",
+      "scope": "Failed monolithic native audit attempt1; failure retained, not counted as passed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil23-audit-attempt1-native-abort.json",
+      "present": true,
+      "bytes": 3424,
+      "sha256": "7c4c6f8e95f216f2f784ea46871e7c0161616a14808324a2e2af673d0d8907da"
+    },
+    {
+      "id": "stencil23_independent_audit_second_native_abort",
+      "scope": "Failed monolithic native audit attempt2; failure retained, not counted as passed",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil23-audit-attempt2-native-abort.json",
+      "present": true,
+      "bytes": 3879,
+      "sha256": "62384a388c0fe735c751fd75e5a29936bb054a9edb345a4fb58eb505c2f5b134"
+    },
+    {
+      "id": "stencil23_bounded_process_composite",
+      "scope": "Actual normal-return bounded composite assembler; no single-process full-audit claim",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil23-bounded-composite-process.json",
+      "present": true,
+      "bytes": 664,
+      "sha256": "324a7a4b2e136be2b6f91f9bbaef3a529e0f51d6cf22abdde570d51877726322"
+    },
+    {
+      "id": "s23-phase-direct-target-process",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/direct-target-process.json",
+      "present": true,
+      "bytes": 1178,
+      "sha256": "771ef96e879da3beb317ce315320bad8daf45ca005a0f525b40a9e814b269987"
+    },
+    {
+      "id": "s23-phase-direct-target",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/direct-target.json",
+      "present": true,
+      "bytes": 2058,
+      "sha256": "b0c9634ecd4df38b807b56543af61c57901d5dc5d605058be8c354d3d81a3a85"
+    },
+    {
+      "id": "s23-phase-direct-top-process",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/direct-top-process.json",
+      "present": true,
+      "bytes": 1160,
+      "sha256": "1cd917625f53dd39f19f3dbc0070dd9a80659baa689b7473907973501da4a1eb"
+    },
+    {
+      "id": "s23-phase-direct-top",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/direct-top.json",
+      "present": true,
+      "bytes": 1977,
+      "sha256": "2cfa5f14a942107b39b684bd49f45e76c316f273178e0e5e30532ff81923de0e"
+    },
+    {
+      "id": "s23-phase-inspect-target-process",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/inspect-target-process.json",
+      "present": true,
+      "bytes": 1184,
+      "sha256": "8feab0a67a9516d6f7f0e602d5aff395ecfc7aa6a40a8bfc9fd24d9e9d9cea02"
+    },
+    {
+      "id": "s23-phase-inspect-target",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/inspect-target.json",
+      "present": true,
+      "bytes": 5161,
+      "sha256": "d0c7fa0ede022e4f1317b5637e858b12253407d8e62d26d9172ae7189140ef57"
+    },
+    {
+      "id": "s23-phase-inspect-top-process",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/inspect-top-process.json",
+      "present": true,
+      "bytes": 1166,
+      "sha256": "70329da9611a805dc248d6082d346d1b8bf074d4f8eaec86ae0708c0c8fb9351"
+    },
+    {
+      "id": "s23-phase-inspect-top",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/inspect-top.json",
+      "present": true,
+      "bytes": 5082,
+      "sha256": "b760c24d2e22fb91aa17f9ab1daec13489c0612fcb8198f31b90e7943a66bc54"
+    },
+    {
+      "id": "s23-phase-raw-process",
+      "scope": "Bounded fresh ordinary stencil23 phase receipt/process; inspect its actual state and exit code",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-stencil23/raw-process.json",
+      "present": true,
+      "bytes": 1319,
+      "sha256": "16c580ec16bf7082758dbef4fa78363ee8ffc8f268863042d9fbfc1cc43c082f"
+    },
+    {
+      "id": "s23-bounded-phase-derivation",
+      "scope": "Source-bound phase derivation or standalone full-shape numerical process/receipt",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/bounded-phase-derivation.json",
+      "present": true,
+      "bytes": 6812,
+      "sha256": "906ad8a6e0fede488d7eb187566e351e81179d5c18eef9a020f305a584a8ce04"
+    },
+    {
+      "id": "s23-stencil23-standalone-numpy-process",
+      "scope": "Source-bound phase derivation or standalone full-shape numerical process/receipt",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil23-standalone-numpy-process.json",
+      "present": true,
+      "bytes": 1105,
+      "sha256": "90b1fe007acbfed5099f48f8a60f81c4748dc50ef736e69843e6371ecc60fc87"
+    },
+    {
+      "id": "s23-stencil23-standalone-numpy",
+      "scope": "Source-bound phase derivation or standalone full-shape numerical process/receipt",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-independent-final-sixcase-20261031-v1/stencil23-standalone-numpy.json",
+      "present": true,
+      "bytes": 2360,
+      "sha256": "3a92a6d590127497cccccc58e49aee05895b7a027f7899abab5c08425e601d9c"
+    },
+    {
+      "id": "stencil23-production-completion",
+      "scope": "Unmodified production completion adapter in isolated normal-return process; no allocator flags or forced exit",
+      "path": "/home/jslycord/projects/gem5-salam-26/workbench/evidence/upgrade-26-stencil23-completion-isolated-20261031-v1/outer-exit-receipt.json",
+      "present": true,
+      "bytes": 1535,
+      "sha256": "aafc100e977a3ccc5433a61b65cb56cf64a80e40eebfd2f9188ae065f9f46107"
+    },
+    {
+      "id": "environment-READOUT",
+      "scope": "Bounded WHEA/kernel query evidence; no matching entries does not exclude faults or assign a cause",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/native-failure-environment-audit-20261031-v1/READOUT.md",
+      "present": true,
+      "bytes": 1103,
+      "sha256": "b32e893d44080f687db285842e8db808a8db656a2f4b996c00720cb15117bb1d"
+    },
+    {
+      "id": "environment-manifest",
+      "scope": "Bounded WHEA/kernel query evidence; no matching entries does not exclude faults or assign a cause",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/native-failure-environment-audit-20261031-v1/manifest.json",
+      "present": true,
+      "bytes": 2180,
+      "sha256": "e6577c7174b2e88f67a01a183ab313e01ff735315ff63a2dbf31650702ec6bd5"
+    },
+    {
+      "id": "environment-windows-whea-result",
+      "scope": "Bounded WHEA/kernel query evidence; no matching entries does not exclude faults or assign a cause",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/native-failure-environment-audit-20261031-v1/windows-whea-result.json",
+      "present": true,
+      "bytes": 1056,
+      "sha256": "3cd1225741a5be7b65e540c65e46d99cb5dd6e2a2cc281f745331e29798ebcd7"
+    },
+    {
+      "id": "environment-ubuntu-kernel-query",
+      "scope": "Bounded WHEA/kernel query evidence; no matching entries does not exclude faults or assign a cause",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/native-failure-environment-audit-20261031-v1/ubuntu-kernel-query.json",
+      "present": true,
+      "bytes": 1240,
+      "sha256": "bcc82369893bc534596260ef9abbe712e94cd15e7112afe9e432abe8558e5bef"
+    },
+    {
+      "id": "environment-ubuntu-kernel-v2-query",
+      "scope": "Bounded WHEA/kernel query evidence; no matching entries does not exclude faults or assign a cause",
+      "path": "/mnt/d/kb_local_chatGPT/salam/gem5-26-upgrade-20261030/native-failure-environment-audit-20261031-v1/ubuntu-kernel-v2-query.json",
+      "present": true,
+      "bytes": 1397,
+      "sha256": "2c78f99d9573682e3001337f1279a9f25675e5adbeb57b73b27a378021328f67"
+    }
+  ],
+  "source_qualification": "complete_for_scoped_configured_gemm_fft_stencil_cases",
+  "unresolved_stability_failures": true,
+  "aggregate_sha256": "e80d0e58af89ef95e2fa57149c9ae8ac724adb546519de8d92f4fb4494248c45"
+}

@@ -204,6 +204,25 @@ Kvm::capXSave() const
 #endif
 }
 
+bool
+Kvm::capIRQLineLayout2() const
+{
+#if defined(KVM_CAP_ARM_IRQ_LINE_LAYOUT_2)
+    return checkExtension(KVM_CAP_ARM_IRQ_LINE_LAYOUT_2) != 0;
+#else
+    return false;
+#endif
+}
+
+bool
+Kvm::capMPState() const
+{
+#if defined(KVM_CAP_MP_STATE)
+    return checkExtension(KVM_CAP_MP_STATE) != 0;
+#else
+    return false;
+#endif
+}
 
 #if defined(__i386__) || defined(__x86_64__)
 bool
@@ -222,7 +241,8 @@ const Kvm::CPUIDVector &
 Kvm::getSupportedCPUID() const
 {
     if (supportedCPUIDCache.empty()) {
-        std::unique_ptr<struct kvm_cpuid2> cpuid;
+        std::unique_ptr<struct kvm_cpuid2, void(*)(void *p)>
+            cpuid(nullptr, [](void *p) { operator delete(p); });
         int i(1);
         do {
             cpuid.reset((struct kvm_cpuid2 *)operator new(
@@ -254,7 +274,8 @@ const Kvm::MSRIndexVector &
 Kvm::getSupportedMSRs() const
 {
     if (supportedMSRCache.empty()) {
-        std::unique_ptr<struct kvm_msr_list> msrs;
+        std::unique_ptr<struct kvm_msr_list, void(*)(void *p)>
+            msrs(nullptr, [](void *p) { operator delete(p); });
         int i(0);
         do {
             msrs.reset((struct kvm_msr_list *)operator new(
@@ -304,12 +325,13 @@ Kvm::createVM()
 
 KvmVM::KvmVM(const KvmVMParams &params)
     : SimObject(params),
-      kvm(new Kvm()), system(nullptr),
+      kvm(new Kvm()), system(params.system),
       vmFD(kvm->createVM()),
       started(false),
       _hasKernelIRQChip(false),
       nextVCPUID(0)
 {
+    system->setKvmVM(this);
     maxMemorySlot = kvm->capNumMemSlots();
     /* If we couldn't determine how memory slots there are, guess 32. */
     if (!maxMemorySlot)
@@ -355,7 +377,6 @@ KvmVM::cpuStartup()
 void
 KvmVM::delayedStartup()
 {
-    assert(system); // set by the system during its construction
     const std::vector<memory::BackingStoreEntry> &memories(
         system->getPhysMem().getBackingStore());
 
@@ -431,6 +452,7 @@ KvmVM::disableMemSlot(const KvmVM::MemSlot num)
     if (slot.active)
         setUserMemoryRegion(num.num, NULL, 0, 0, 0);
     slot.active = false;
+    _slotPad.erase(num.num);
 }
 
 void
@@ -446,23 +468,62 @@ KvmVM::setUserMemoryRegion(uint32_t slot,
                            void *host_addr, Addr guest_addr,
                            uint64_t len, uint32_t flags)
 {
-    struct kvm_userspace_memory_region m;
+    const long page_sysconf = sysconf(_SC_PAGESIZE);
 
-    memset(&m, 0, sizeof(m));
+    warn_if(page_sysconf <= 0,
+            "Defaulting to 4 KiB page size for KVM alignment");
+
+    // 4096 is the most common page size
+    const size_t page_size = (page_sysconf > 0) ? (size_t)page_sysconf : 4096;
+    const uint64_t remainder = len % page_size;
+
+    void *padded_host = nullptr;
+    uint64_t mapped_len = len;
+
+    if (remainder != 0) {
+        const uint64_t new_len = len + (page_size - remainder);
+
+        int ret_code = posix_memalign(&padded_host, page_size, new_len);
+        if (ret_code != 0 || !padded_host) {
+            panic("KVM: Failed to allocate padded buffer of size 0x%llx\n",
+                  (unsigned long long)new_len);
+        }
+
+        if (host_addr) {
+            std::memcpy(padded_host, host_addr, len);
+        }
+
+        std::memset(static_cast<char *>(padded_host) + len, 0, new_len - len);
+
+        host_addr = padded_host;
+        mapped_len = new_len;
+
+        _slotPad[slot].reset(padded_host);
+
+        DPRINTF(Kvm,
+                "Padding memslot %u from 0x%llx to 0x%llx bytes "
+                "(host page 0x%zx)\n",
+                slot, (unsigned long long)len, (unsigned long long)mapped_len,
+                page_size);
+    }
+
+    struct kvm_userspace_memory_region m;
+    std::memset(&m, 0, sizeof(m));
     m.slot = slot;
     m.flags = flags;
     m.guest_phys_addr = (uint64_t)guest_addr;
-    m.memory_size = len;
+    m.memory_size = mapped_len;
     m.userspace_addr = (__u64)host_addr;
 
     if (ioctl(KVM_SET_USER_MEMORY_REGION, (void *)&m) == -1) {
         panic("Failed to setup KVM memory region:\n"
-              "\tHost Address: 0x%p\n"
-              "\tGuest Address: 0x%llx\n",
-              "\tSize: %ll\n",
-              "\tFlags: 0x%x\n",
-              m.userspace_addr, m.guest_phys_addr,
-              m.memory_size, m.flags);
+              "\tHost Address: 0x%llx\n"
+              "\tGuest Address: 0x%llx\n"
+              "\tSize:        0x%llx\n"
+              "\tFlags:       0x%x\n",
+              (unsigned long long)m.userspace_addr,
+              (unsigned long long)m.guest_phys_addr,
+              (unsigned long long)m.memory_size, m.flags);
     }
 }
 
@@ -540,18 +601,20 @@ KvmVM::createDevice(uint32_t type, uint32_t flags)
 #endif
 }
 
-void
-KvmVM::setSystem(System *s)
+bool
+KvmVM::validEnvironment() const
 {
-    panic_if(system != nullptr, "setSystem() can only be called once");
-    panic_if(s == nullptr, "setSystem() called with null System*");
-    system = s;
+    for (auto *tc: system->threads) {
+        if (!dynamic_cast<BaseKvmCPU *>(tc->getCpuPtr()))
+            return false;
+    }
+
+    return true;
 }
 
 long
 KvmVM::contextIdToVCpuId(ContextID ctx) const
 {
-    assert(system != nullptr);
     return dynamic_cast<BaseKvmCPU*>
         (system->threads[ctx]->getCpuPtr())->getVCpuID();
 }

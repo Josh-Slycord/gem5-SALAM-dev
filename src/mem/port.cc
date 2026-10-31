@@ -45,6 +45,8 @@
 #include "mem/port.hh"
 
 #include "base/trace.hh"
+#include "debug/PortTrace.hh"
+#include "debug/ResponsePort.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
@@ -63,7 +65,7 @@ class DefaultRequestPort : public RequestPort
     }
 
   public:
-    DefaultRequestPort() : RequestPort("default_request_port", nullptr) {}
+    DefaultRequestPort() : RequestPort("default_request_port") {}
 
     // Atomic protocol.
     Tick recvAtomicSnoop(PacketPtr) override { blowUp(); }
@@ -88,7 +90,7 @@ class DefaultResponsePort : public ResponsePort
     }
 
   public:
-    DefaultResponsePort() : ResponsePort("default_response_port", nullptr) {}
+    DefaultResponsePort() : ResponsePort("default_response_port") {}
 
     // Atomic protocol.
     Tick recvAtomic(PacketPtr) override { blowUp(); }
@@ -101,6 +103,11 @@ class DefaultResponsePort : public ResponsePort
 
     // Functional protocol.
     void recvFunctional(PacketPtr) override { blowUp(); }
+    void
+    recvMemBackdoorReq(const MemBackdoorReq &, MemBackdoorPtr &) override
+    {
+        blowUp();
+    }
 
     // General.
     AddrRangeList getAddrRanges() const override { return AddrRangeList(); }
@@ -111,12 +118,8 @@ DefaultResponsePort defaultResponsePort;
 
 } // anonymous namespace
 
-/**
- * Request port
- */
-RequestPort::RequestPort(const std::string& name, SimObject* _owner,
-    PortID _id) : Port(name, _id), _responsePort(&defaultResponsePort),
-    owner(*_owner)
+RequestPort::RequestPort(const std::string &name, PortID _id)
+    : Port(name, _id), _responsePort(&defaultResponsePort)
 {
 }
 
@@ -166,12 +169,37 @@ RequestPort::printAddr(Addr a)
     sendFunctional(&pkt);
 }
 
+void
+RequestPort::addTrace(PacketPtr pkt) const
+{
+    if (!gem5::debug::PortTrace || !pkt)
+        return;
+    auto ext = pkt->getExtension<TracingExtension>();
+    if (!ext) {
+        ext = std::make_shared<TracingExtension>();
+        pkt->setExtension(ext);
+    }
+    ext->add(name(), _responsePort->name(), pkt->getAddr());
+}
+
+void
+RequestPort::removeTrace(PacketPtr pkt) const
+{
+    if (!gem5::debug::PortTrace || !pkt)
+        return;
+    auto ext = pkt->getExtension<TracingExtension>();
+    panic_if(!ext, "There is no TracingExtension in the packet.");
+    ext->remove();
+}
+
 /**
  * Response port
  */
-ResponsePort::ResponsePort(const std::string& name, SimObject* _owner,
-    PortID id) : Port(name, id), _requestPort(&defaultRequestPort),
-    defaultBackdoorWarned(false), owner(*_owner)
+
+ResponsePort::ResponsePort(const std::string &name, PortID id)
+    : Port(name, id),
+      _requestPort(&defaultRequestPort),
+      defaultBackdoorWarned(false)
 {
 }
 
@@ -197,10 +225,22 @@ Tick
 ResponsePort::recvAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &backdoor)
 {
     if (!defaultBackdoorWarned) {
-        warn("Port %s doesn't support requesting a back door.", name());
+        DPRINTF(ResponsePort,
+                "Port %s doesn't support requesting a back door.", name());
         defaultBackdoorWarned = true;
     }
     return recvAtomic(pkt);
+}
+
+void
+ResponsePort::recvMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &backdoor)
+{
+    if (!defaultBackdoorWarned) {
+        DPRINTF(ResponsePort,
+                "Port %s doesn't support requesting a back door.", name());
+        defaultBackdoorWarned = true;
+    }
 }
 
 } // namespace gem5

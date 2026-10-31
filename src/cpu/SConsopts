@@ -1,4 +1,14 @@
-# Copyright 2020 Google, Inc.
+# Copyright (c) 2023 Arm Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -25,29 +35,26 @@
 
 Import('*')
 
-class CpuModel(object):
-    '''The CpuModel class encapsulates everything the ISA parser needs to
-    know about a particular CPU model.'''
+from gem5_scons import warning
 
-    # Dict of available CPU model objects.  Accessible as CpuModel.dict.
-    dict = {}
+import gem5_scons
 
-    # Constructor.  Automatically adds models to CpuModel.dict.
-    def __init__(self, name, default=False):
-        self.name = name           # name of model
+with gem5_scons.Configure(main) as conf:
+    # Check for <capstone.h>
+    conf.env['CONF']['HAVE_CAPSTONE'] = conf.CheckHeader('capstone/capstone.h', '<>')
+    if conf.env['CONF']['HAVE_CAPSTONE']:
+        conf.env['CONF']['HAVE_CAPSTONE'] = conf.TryCompile(
+            """
+            #include <capstone/capstone.h>
+            #if !defined(CS_API_MAJOR) || CS_API_MAJOR < 4
+            #error Capstone 4.0 or newer is required
+            #endif
+            """,
+            extension=".cc",
+        )
 
-        # This cpu is enabled by default
-        self.default = default
-
-        # Add self to dict
-        if name in CpuModel.dict:
-            raise AttributeError("CpuModel '%s' already registered" % name)
-        CpuModel.dict[name] = self
-
-Export('CpuModel')
-
-def add_cpu_models_var():
-    sticky_vars.Add(ListVariable('CPU_MODELS', 'CPU models',
-                sorted(n for n,m in CpuModel.dict.items() if m.default),
-                sorted(CpuModel.dict.keys())))
-AfterSConsopts(add_cpu_models_var)
+    if conf.env['CONF']['HAVE_CAPSTONE']:
+        conf.env.TagImplies('capstone', 'gem5 lib')
+    else:
+        warning("Capstone 4.0 or newer was not found.\n"
+                "Disabling Capstone disassembly support.")

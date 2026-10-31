@@ -28,6 +28,8 @@
  */
 
 #include "arch/riscv/decoder.hh"
+#include "arch/riscv/insts/zcmt.hh"
+#include "arch/riscv/isa.hh"
 #include "arch/riscv/types.hh"
 #include "base/bitfield.hh"
 #include "debug/Decode.hh"
@@ -38,17 +40,28 @@ namespace gem5
 namespace RiscvISA
 {
 
+Decoder::Decoder(const RiscvDecoderParams &p) : InstDecoder(p, &machInst)
+{
+    ISA *isa = dynamic_cast<ISA*>(p.isa);
+    vlen = isa->getVecLenInBits();
+    elen = isa->getVecElemLenInBits();
+    _hasZcd = isa->reportsExtension("Zcd");
+    reset();
+}
+
 void Decoder::reset()
 {
+    InstDecoder::reset();
     aligned = true;
     mid = false;
-    more = true;
+    machInst = 0;
     emi = 0;
-    instDone = false;
+    jvtEntry = 0;
+    squashed = true;
 }
 
 void
-Decoder::moreBytes(const PCState &pc, Addr fetchPC)
+Decoder::moreBytes(const PCStateBase &pc, Addr fetchPC)
 {
     // The MSB of the upper and lower halves of a machine instruction.
     constexpr size_t max_bit = sizeof(machInst) * 8 - 1;
@@ -58,24 +71,45 @@ Decoder::moreBytes(const PCState &pc, Addr fetchPC)
     DPRINTF(Decode, "Requesting bytes 0x%08x from address %#x\n", inst,
             fetchPC);
 
-    bool aligned = pc.pc() % sizeof(machInst) == 0;
+    PCState pc_state = pc.as<PCState>();
+
+    if (GEM5_UNLIKELY(pc_state.zcmtSecondFetch())) {
+        if (mid) {
+            replaceBits(jvtEntry, sizeof(jvtEntry) * 8 - 1, max_bit + 1, inst);
+            mid = false;
+            instDone = true;
+            outOfBytes = true;
+        } else {
+            replaceBits(jvtEntry, max_bit, 0, inst);
+            mid = (pc_state.rvType() != RV32);
+            instDone = (pc_state.rvType() == RV32);
+            outOfBytes = true;
+        }
+
+        if (instDone && pc_state.rvType() == RV32) {
+            jvtEntry = sext<32>(jvtEntry);
+        }
+        return;
+    }
+
+    bool aligned = pc.instAddr() % sizeof(machInst) == 0;
     if (aligned) {
-        emi = inst;
-        if (compressed(emi))
-            emi = bits(emi, mid_bit, 0);
-        more = !compressed(emi);
+        emi.instBits = inst;
+        if (compressed(inst))
+            emi.instBits = bits(inst, mid_bit, 0);
+        outOfBytes = !compressed(emi);
         instDone = true;
     } else {
         if (mid) {
-            assert(bits(emi, max_bit, mid_bit + 1) == 0);
-            replaceBits(emi, max_bit, mid_bit + 1, inst);
+            assert(bits(emi.instBits, max_bit, mid_bit + 1) == 0);
+            replaceBits(emi.instBits, max_bit, mid_bit + 1, inst);
             mid = false;
-            more = false;
+            outOfBytes = false;
             instDone = true;
         } else {
-            emi = bits(inst, max_bit, mid_bit + 1);
+            emi.instBits = bits(inst, max_bit, mid_bit + 1);
             mid = !compressed(emi);
-            more = true;
+            outOfBytes = true;
             instDone = compressed(emi);
         }
     }
@@ -85,11 +119,13 @@ StaticInstPtr
 Decoder::decode(ExtMachInst mach_inst, Addr addr)
 {
     DPRINTF(Decode, "Decoding instruction 0x%08x at address %#x\n",
-            mach_inst, addr);
+            mach_inst.instBits, addr);
 
     StaticInstPtr &si = instMap[mach_inst];
     if (!si)
         si = decodeInst(mach_inst);
+
+    si->size(compressed(mach_inst) ? 2 : 4);
 
     DPRINTF(Decode, "Decode: Decoded %s instruction: %#x\n",
             si->getName(), mach_inst);
@@ -97,19 +133,43 @@ Decoder::decode(ExtMachInst mach_inst, Addr addr)
 }
 
 StaticInstPtr
-Decoder::decode(RiscvISA::PCState &nextPC)
+Decoder::decode(PCStateBase &_next_pc)
 {
     if (!instDone)
         return nullptr;
     instDone = false;
 
-    if (compressed(emi)) {
-        nextPC.npc(nextPC.instAddr() + sizeof(machInst) / 2);
-    } else {
-        nextPC.npc(nextPC.instAddr() + sizeof(machInst));
+    auto &next_pc = _next_pc.as<PCState>();
+
+    if (GEM5_UNLIKELY(next_pc.zcmtSecondFetch())) {
+        return new ZcmtSecondFetchInst(emi, jvtEntry);
     }
 
-    return decode(emi, nextPC.instAddr());
+    if (compressed(emi)) {
+        next_pc.npc(next_pc.instAddr() + sizeof(machInst) / 2);
+        next_pc.compressed(true);
+    } else {
+        next_pc.npc(next_pc.instAddr() + sizeof(machInst));
+        next_pc.compressed(false);
+    }
+
+    if (GEM5_UNLIKELY(squashed || next_pc.new_vconf())) {
+        squashed = false;
+        next_pc.new_vconf(false);
+        vl = next_pc.vl();
+        vtype = next_pc.vtype();
+    } else {
+        next_pc.vl(vl);
+        next_pc.vtype(vtype);
+    }
+
+    emi.vl      = vl;
+    emi.vtype8  = vtype & 0xff;
+    emi.vill    = vtype.vill;
+    emi.rv_type = static_cast<int>(next_pc.rvType());
+    emi.has_zcd = _hasZcd;
+
+    return decode(emi, next_pc.instAddr());
 }
 
 } // namespace RiscvISA

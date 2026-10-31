@@ -59,7 +59,7 @@
 namespace gem5
 {
 
-struct O3CPUParams;
+struct BaseO3CPUParams;
 
 namespace o3
 {
@@ -109,6 +109,7 @@ class Commit
         TrapPending,
         FetchTrapPending,
         SquashAfterPending, //< Committing instructions before a squash.
+        ThreadStatusMax
     };
 
   private:
@@ -132,7 +133,7 @@ class Commit
 
   public:
     /** Construct a Commit with the given parameters. */
-    Commit(CPU *_cpu, const O3CPUParams &params);
+    Commit(CPU *_cpu, const BaseO3CPUParams &params);
 
     /** Returns the name of the Commit. */
     std::string name() const;
@@ -167,7 +168,7 @@ class Commit
     void setActiveThreads(std::list<ThreadID> *at_ptr);
 
     /** Sets pointer to the commited state rename map. */
-    void setRenameMap(UnifiedRenameMap rm_ptr[MaxThreads]);
+    void setRenameMap(UnifiedRenameMap::PerThreadUnifiedRenameMap& rm_ptr);
 
     /** Sets pointer to the ROB. */
     void setROB(ROB *rob_ptr);
@@ -306,20 +307,10 @@ class Commit
 
   public:
     /** Reads the PC of a specific thread. */
-    TheISA::PCState pcState(ThreadID tid) { return pc[tid]; }
+    const PCStateBase &pcState(ThreadID tid) { return *pc[tid]; }
 
     /** Sets the PC of a specific thread. */
-    void pcState(const TheISA::PCState &val, ThreadID tid)
-    { pc[tid] = val; }
-
-    /** Returns the PC of a specific thread. */
-    Addr instAddr(ThreadID tid) { return pc[tid].instAddr(); }
-
-    /** Returns the next PC of a specific thread. */
-    Addr nextInstAddr(ThreadID tid) { return pc[tid].nextInstAddr(); }
-
-    /** Reads the micro PC of a specific thread. */
-    Addr microPC(ThreadID tid) { return pc[tid].microPC(); }
+    void pcState(const PCStateBase &val, ThreadID tid) { set(pc[tid], val); }
 
   private:
     /** Time buffer interface. */
@@ -431,7 +422,7 @@ class Commit
     /** The commit PC state of each thread.  Refers to the instruction that
      * is currently being processed/committed.
      */
-    TheISA::PCState pc[MaxThreads];
+    std::unique_ptr<PCStateBase> pc[MaxThreads];
 
     /** The sequence number of the youngest valid instruction in the ROB. */
     InstSeqNum youngestSeqNum[MaxThreads];
@@ -473,10 +464,16 @@ class Commit
 
     struct CommitStats : public statistics::Group
     {
+        static std::string statusStrings[ThreadStatusMax];
+        static std::string statusDefinitions[ThreadStatusMax];
+
         CommitStats(CPU *cpu, Commit *commit);
         /** Stat for the total number of squashed instructions discarded by
          * commit.
          */
+        /** Stat for total number of cycles spent in each commit state */
+        statistics::Vector status;
+
         statistics::Scalar commitSquashedInsts;
         /** Stat for the total number of times commit has had to stall due
          * to a non-speculative instruction reaching the head of the ROB.
@@ -489,28 +486,10 @@ class Commit
         /** Distribution of the number of committed instructions each cycle. */
         statistics::Distribution numCommittedDist;
 
-        /** Total number of instructions committed. */
-        statistics::Vector instsCommitted;
-        /** Total number of ops (including micro ops) committed. */
-        statistics::Vector opsCommitted;
-        /** Stat for the total number of committed memory references. */
-        statistics::Vector memRefs;
-        /** Stat for the total number of committed loads. */
-        statistics::Vector loads;
         /** Stat for the total number of committed atomics. */
         statistics::Vector amos;
         /** Total number of committed memory barriers. */
         statistics::Vector membars;
-        /** Total number of committed branches. */
-        statistics::Vector branches;
-        /** Total number of vector instructions */
-        statistics::Vector vectorInstructions;
-        /** Total number of floating point instructions */
-        statistics::Vector floating;
-        /** Total number of integer instructions */
-        statistics::Vector integer;
-        /** Total number of function calls */
-        statistics::Vector functionCalls;
         /** Committed instructions by instruction type (OpClass) */
         statistics::Vector2d committedInstType;
 

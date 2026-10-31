@@ -40,6 +40,7 @@ namespace X86ISA
 enum MediaFlag
 {
     MediaMultHiOp = 1,
+    MediaPartHiOp = 32,
     MediaSignedOp = 64,
     MediaScalarOp = 128
 };
@@ -78,13 +79,20 @@ class MediaOpBase : public X86MicroopBase
     }
 
     bool
+    partHi() const
+    {
+        return ext & MediaPartHiOp;
+    }
+
+    bool
     signedOp() const
     {
         return ext & MediaSignedOp;
     }
 
   public:
-    static constexpr uint8_t dataSize = 0;
+    uint8_t getSrcSize() const { return srcSize; }
+    uint8_t getDestSize() const { return destSize; }
 };
 
 } // namespace X86ISA

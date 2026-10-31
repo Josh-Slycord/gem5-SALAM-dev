@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -39,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/random.hh"
 #include "base/types.hh"
 #include "sim/eventq.hh"
 
@@ -237,6 +236,8 @@ class AddressManager
         typedef std::unordered_set<Value> ExpectedValueSet;
         ExpectedValueSet expectedValues;
 
+        Random::RandomPtr rng = Random::genRandom();
+
         // swap two locations in locArray
         void swap(LocProperty& prop_1, LocProperty& prop_2);
 
@@ -272,6 +273,8 @@ class AddressManager
     // internal log table
     typedef std::vector<LastWriter*> LogTable;
     LogTable logTable;
+
+    Random::RandomPtr rng = Random::genRandom();
 };
 
 } // namespace gem5

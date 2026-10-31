@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014,2018 ARM Limited
+ * Copyright (c) 2012-2014,2018, 2021 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -42,8 +42,10 @@
 
 #include "arch/arm/isa.hh"
 #include "arch/arm/utility.hh"
+#include "base/cast.hh"
 #include "base/trace.hh"
 #include "debug/Decoder.hh"
+#include "params/ArmDecoder.hh"
 #include "sim/full_system.hh"
 
 namespace gem5
@@ -52,26 +54,37 @@ namespace gem5
 namespace ArmISA
 {
 
-GenericISA::BasicDecodeCache<Decoder, ExtMachInst> Decoder::defaultCache;
-
-Decoder::Decoder(ISA* isa)
-    : InstDecoder(&data), data(0), fpscrLen(0), fpscrStride(0),
-      decoderFlavor(isa->decoderFlavor())
+Decoder::Decoder(const ArmDecoderParams &params)
+    : InstDecoder(params, &data),
+      dvmEnabled(params.dvm_enabled),
+      data(0), fpscrLen(0), fpscrStride(0),
+      decoderFlavor(safe_cast<ISA *>(params.isa)->decoderFlavor())
 {
     reset();
 
     // Initialize SVE vector length
-    sveLen = (isa->getCurSveVecLenInBitsAtReset() >> 7) - 1;
+    sveLen = (safe_cast<ISA *>(params.isa)->
+            getCurSveVecLenInBitsAtReset() >> 7) - 1;
+
+    // Initialize SME vector length
+    smeLen = (safe_cast<ISA *>(params.isa)
+            ->getCurSmeVecLenInBitsAtReset() >> 7) - 1;
+
+    if (dvmEnabled) {
+        warn_once(
+            "DVM Ops instructions are micro-architecturally "
+            "modelled as loads. This will tamper the effective "
+            "number of loads stat\n");
+    }
 }
 
 void
 Decoder::reset()
 {
+    InstDecoder::reset();
     bigThumb = false;
     offset = 0;
     emi = 0;
-    instDone = false;
-    outOfBytes = true;
     foundIt = false;
 }
 
@@ -152,8 +165,9 @@ Decoder::consumeBytes(int numBytes)
 }
 
 void
-Decoder::moreBytes(const PCState &pc, Addr fetchPC)
+Decoder::moreBytes(const PCStateBase &_pc, Addr fetchPC)
 {
+    auto &pc = _pc.as<PCState>();
     data = letoh(data);
     offset = (fetchPC >= pc.instAddr()) ? 0 : pc.instAddr() - fetchPC;
     emi.thumb = pc.thumb();
@@ -171,10 +185,12 @@ Decoder::moreBytes(const PCState &pc, Addr fetchPC)
 }
 
 StaticInstPtr
-Decoder::decode(ArmISA::PCState &pc)
+Decoder::decode(PCStateBase &_pc)
 {
     if (!instDone)
         return NULL;
+
+    auto &pc = _pc.as<PCState>();
 
     const int inst_size((!emi.thumb || emi.bigThumb) ? 4 : 2);
     ExtMachInst this_emi(emi);

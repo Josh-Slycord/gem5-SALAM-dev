@@ -2,8 +2,6 @@
  * Copyright (c) 2011-2015 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -37,6 +35,7 @@
 #include <functional>
 #include <string>
 
+#include "arch/gpu_isa.hh"
 #include "base/statistics.hh"
 #include "base/stats/group.hh"
 #include "base/types.hh"
@@ -45,9 +44,9 @@
 #include "cpu/simple_thread.hh"
 #include "cpu/thread_context.hh"
 #include "cpu/thread_state.hh"
+#include "dev/amdgpu/system_hub.hh"
 #include "gpu-compute/compute_unit.hh"
 #include "gpu-compute/gpu_dyn_inst.hh"
-#include "gpu-compute/gpu_tlb.hh"
 #include "gpu-compute/hsa_queue_entry.hh"
 #include "gpu-compute/lds_state.hh"
 #include "mem/page_table.hh"
@@ -89,43 +88,88 @@ class Shader : public ClockedObject
     ApertureRegister _scratchApe;
     Addr shHiddenPrivateBaseVmid;
 
+    // Hardware regs accessed by getreg/setreg instructions, set by queues
+    std::unordered_map<int, uint32_t> hwRegs;
+
     // Number of active Cus attached to this shader
     int _activeCus;
 
     // Last tick that all CUs attached to this shader were inactive
     Tick _lastInactiveTick;
 
+    // If a kernel-based exit event was requested, wait for all CUs in the
+    // shader to complete before actually exiting so that stats are updated.
+    bool kernelExitRequested = false;
+
+    // Set to true by the dispatcher if the current kernel is a blit kernel
+    bool blitKernel = false;
+
+    // Number of pending non-instruction invalidates outstanding. The shader
+    // should wait for these to be done to ensure correctness.
+    int num_outstanding_invl2s = 0;
+    std::vector<std::tuple<void *, uint32_t, Addr>> deferred_dispatches;
+
   public:
     typedef ShaderParams Params;
-    enum hsail_mode_e {SIMT,VECTOR_SCALAR};
+    enum hsail_mode_e
+    {
+        SIMT,
+        VECTOR_SCALAR
+    };
 
     GPUDispatcher &dispatcher();
     void sampleLoad(const Tick accessTime);
     void sampleStore(const Tick accessTime);
     void sampleInstRoundTrip(std::vector<Tick> roundTripTime);
-    void sampleLineRoundTrip(const std::map<Addr,
-        std::vector<Tick>> &roundTripTime);
+    void sampleLineRoundTrip(
+        const std::map<Addr, std::vector<Tick>> &roundTripTime);
 
     SimpleThread *cpuThread;
     ThreadContext *gpuTc;
     BaseCPU *cpuPointer;
 
-    const ApertureRegister&
+    void
+    setHwReg(int regIdx, uint32_t val)
+    {
+        hwRegs[regIdx] = val;
+    }
+
+    uint32_t
+    getHwReg(int regIdx)
+    {
+        return hwRegs[regIdx];
+    }
+
+    const ApertureRegister &
     gpuVmApe() const
     {
         return _gpuVmApe;
     }
 
-    const ApertureRegister&
+    const ApertureRegister &
     ldsApe() const
     {
         return _ldsApe;
     }
 
-    const ApertureRegister&
+    void
+    setLdsApe(Addr base, Addr limit)
+    {
+        _ldsApe.base = base;
+        _ldsApe.limit = limit;
+    }
+
+    const ApertureRegister &
     scratchApe() const
     {
         return _scratchApe;
+    }
+
+    void
+    setScratchApe(Addr base, Addr limit)
+    {
+        _scratchApe.base = base;
+        _scratchApe.limit = limit;
     }
 
     bool
@@ -147,8 +191,8 @@ class Shader : public ClockedObject
     bool
     isScratchApe(Addr addr) const
     {
-        bool is_scratch
-            = addr >= _scratchApe.base && addr <= _scratchApe.limit;
+        bool is_scratch =
+            addr >= _scratchApe.base && addr <= _scratchApe.limit;
 
         return is_scratch;
     }
@@ -185,6 +229,9 @@ class Shader : public ClockedObject
         shHiddenPrivateBaseVmid = sh_hidden_base_new;
     }
 
+    RequestorID vramRequestorId();
+    GfxVersion getGfxVersion() const;
+
     EventFunctionWrapper tickEvent;
 
     // is this simulation going to be timing mode in the memory?
@@ -203,6 +250,8 @@ class Shader : public ClockedObject
     int n_cu;
     // Number of wavefront slots per SIMD per CU
     int n_wf;
+    // Number of cu units per sqc in the shader
+    int n_cu_per_sqc;
 
     // The size of global memory
     int globalMemSize;
@@ -214,20 +263,29 @@ class Shader : public ClockedObject
     uint32_t sa_n;
 
     // Pointer to value to be increments
-    std::vector<int*> sa_val;
+    std::vector<int *> sa_val;
     // When to do the increment
     std::vector<uint64_t> sa_when;
     // Amount to increment by
     std::vector<int32_t> sa_x;
 
     // List of Compute Units (CU's)
-    std::vector<ComputeUnit*> cuList;
+    std::vector<ComputeUnit *> cuList;
 
     GPUCommandProcessor &gpuCmdProc;
     GPUDispatcher &_dispatcher;
+    AMDGPUSystemHub *systemHub;
 
     int64_t max_valu_insts;
     int64_t total_valu_insts;
+
+    // Member and methods related to printing of GPU progress
+    const Tick progressInterval;
+    Tick
+    getProgressInterval() const
+    {
+        return progressInterval;
+    }
 
     Shader(const Params &p);
     ~Shader();
@@ -282,6 +340,28 @@ class Shader : public ClockedObject
     {
         stats.vectorInstDstOperand[num_operands]++;
     }
+
+    void
+    requestKernelExitEvent(bool is_blit_kernel)
+    {
+        kernelExitRequested = true;
+        blitKernel = is_blit_kernel;
+    }
+
+    void decNumOutstandingInvL2s();
+    void
+    incNumOutstandingInvL2s()
+    {
+        num_outstanding_invl2s++;
+    };
+    int
+    getNumOutstandingInvL2s() const
+    {
+        return num_outstanding_invl2s;
+    };
+
+    void addDeferredDispatch(void *raw_pkt, uint32_t queue_id,
+                             Addr host_pkt_addr);
 
   protected:
     struct ShaderStats : public statistics::Group

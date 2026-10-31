@@ -1,5 +1,5 @@
 Import('*')
-if env['TARGET_ISA'] == 'arm':
+if env["CONF"]["USE_ARM_ISA"] and env.get("WITH_SALAM", False):
 
     Source('bit_register.cc')
     Source('bit_shifter.cc')

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016, 2019, 2021 Arm Limited
+ * Copyright (c) 2010-2016, 2019, 2021-2025 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -41,49 +41,56 @@
 #include <list>
 
 #include "arch/arm/faults.hh"
+#include "arch/arm/mmu.hh"
 #include "arch/arm/regs/misc.hh"
 #include "arch/arm/system.hh"
 #include "arch/arm/tlb.hh"
 #include "arch/arm/types.hh"
 #include "arch/generic/mmu.hh"
+#include "enums/ArmLookupLevel.hh"
 #include "mem/packet_queue.hh"
 #include "mem/qport.hh"
 #include "mem/request.hh"
-#include "params/ArmTableWalker.hh"
 #include "sim/clocked_object.hh"
 #include "sim/eventq.hh"
 
 namespace gem5
 {
 
+struct ArmTableWalkerParams;
+struct ArmWalkUnitParams;
+
 class ThreadContext;
 
 namespace ArmISA {
+class WalkUnit;
 class Translation;
 class TLB;
-class MMU;
 
 class TableWalker : public ClockedObject
 {
   public:
-    class WalkerState;
+    using LookupLevel = enums::ArmLookupLevel;
 
+    class WalkerState;
     class DescriptorBase
     {
       public:
-        DescriptorBase() : lookupLevel(L0) {}
+        DescriptorBase() : lookupLevel(LookupLevel::L0) {}
+        virtual ~DescriptorBase() = default;
 
         /** Current lookup level for this descriptor */
         LookupLevel lookupLevel;
 
         virtual Addr pfn() const = 0;
-        virtual TlbEntry::DomainType domain() const = 0;
+        virtual DomainType domain() const = 0;
         virtual bool xn() const = 0;
         virtual uint8_t ap() const = 0;
         virtual bool global(WalkerState *currState) const = 0;
         virtual uint8_t offsetBits() const = 0;
         virtual bool secure(bool have_security, WalkerState *currState) const = 0;
         virtual std::string dbgHeader() const = 0;
+        virtual uint8_t* getRawPtr() = 0;
         virtual uint64_t getRawData() const = 0;
         virtual uint8_t texcb() const
         {
@@ -117,53 +124,68 @@ class TableWalker : public ClockedObject
         /** Default ctor */
         L1Descriptor() : data(0), _dirty(false)
         {
-            lookupLevel = L1;
+            lookupLevel = LookupLevel::L1;
+        }
+        virtual ~L1Descriptor() = default;
+
+        uint8_t*
+        getRawPtr() override
+        {
+            return reinterpret_cast<uint8_t*>(&data);
         }
 
-        virtual uint64_t getRawData() const
+        uint64_t
+        getRawData() const override
         {
             return (data);
         }
 
-        virtual std::string dbgHeader() const
+        std::string
+        dbgHeader() const override
         {
             return "Inserting Section Descriptor into TLB\n";
         }
 
-        virtual uint8_t offsetBits() const
+        uint8_t
+        offsetBits() const override
         {
             return 20;
         }
 
-        EntryType type() const
+        EntryType
+        type() const
         {
             return (EntryType)(data & 0x3);
         }
 
         /** Is the page a Supersection (16 MiB)?*/
-        bool supersection() const
+        bool
+        supersection() const
         {
             return bits(data, 18);
         }
 
         /** Return the physcal address of the entry, bits in position*/
-        Addr paddr() const
+        Addr
+        paddr() const
         {
             if (supersection())
                 panic("Super sections not implemented\n");
             return mbits(data, 31, 20);
         }
+
         /** Return the physcal address of the entry, bits in position*/
-        Addr paddr(Addr va) const
+        Addr
+        paddr(Addr va) const
         {
             if (supersection())
                 panic("Super sections not implemented\n");
             return mbits(data, 31, 20) | mbits(va, 19, 0);
         }
 
-
         /** Return the physical frame, bits shifted right */
-        Addr pfn() const
+        Addr
+        pfn() const override
         {
             if (supersection())
                 panic("Super sections not implemented\n");
@@ -171,31 +193,36 @@ class TableWalker : public ClockedObject
         }
 
         /** Is the translation global (no asid used)? */
-        bool global(WalkerState *currState) const
+        bool
+        global(WalkerState *currState) const override
         {
             return !bits(data, 17);
         }
 
         /** Is the translation not allow execution? */
-        bool xn() const
+        bool
+        xn() const override
         {
             return bits(data, 4);
         }
 
         /** Three bit access protection flags */
-        uint8_t ap() const
+        uint8_t
+        ap() const override
         {
             return (bits(data, 15) << 2) | bits(data, 11, 10);
         }
 
         /** Domain Client/Manager: ARM DDI 0406B: B3-31 */
-        TlbEntry::DomainType domain() const
+        DomainType
+        domain() const override
         {
-            return static_cast<TlbEntry::DomainType>(bits(data, 8, 5));
+            return static_cast<DomainType>(bits(data, 8, 5));
         }
 
         /** Address of L2 descriptor if it exists */
-        Addr l2Addr() const
+        Addr
+        l2Addr() const
         {
             return mbits(data, 31, 10);
         }
@@ -205,13 +232,15 @@ class TableWalker : public ClockedObject
          * provide the illusion that the memory system cares about
          * anything but cachable vs. uncachable.
          */
-        uint8_t texcb() const
+        uint8_t
+        texcb() const override
         {
             return bits(data, 2) | bits(data, 3) << 1 | bits(data, 14, 12) << 2;
         }
 
         /** If the section is shareable. See texcb() comment. */
-        bool shareable() const
+        bool
+        shareable() const override
         {
             return bits(data, 16);
         }
@@ -219,14 +248,16 @@ class TableWalker : public ClockedObject
         /** Set access flag that this entry has been touched. Mark
          * the entry as requiring a writeback, in the future.
          */
-        void setAp0()
+        void
+        setAp0()
         {
             data |= 1 << 10;
             _dirty = true;
         }
 
         /** This entry needs to be written back to memory */
-        bool dirty() const
+        bool
+        dirty() const
         {
             return _dirty;
         }
@@ -235,7 +266,8 @@ class TableWalker : public ClockedObject
          * Returns true if this entry targets the secure physical address
          * map.
          */
-        bool secure(bool have_security, WalkerState *currState) const
+        bool
+        secure(bool have_security, WalkerState *currState) const override
         {
             if (have_security && currState->secureLookup) {
                 if (type() == PageTable)
@@ -262,72 +294,91 @@ class TableWalker : public ClockedObject
         /** Default ctor */
         L2Descriptor() : data(0), l1Parent(nullptr), _dirty(false)
         {
-            lookupLevel = L2;
+            lookupLevel = LookupLevel::L2;
         }
 
         L2Descriptor(L1Descriptor &parent) : data(0), l1Parent(&parent),
                                              _dirty(false)
         {
-            lookupLevel = L2;
+            lookupLevel = LookupLevel::L2;
         }
 
-        virtual uint64_t getRawData() const
+        virtual ~L2Descriptor() = default;
+
+        uint8_t*
+        getRawPtr() override
+        {
+            return reinterpret_cast<uint8_t*>(&data);
+        }
+
+        uint64_t
+        getRawData() const override
         {
             return (data);
         }
 
-        virtual std::string dbgHeader() const
+        std::string
+        dbgHeader() const override
         {
             return "Inserting L2 Descriptor into TLB\n";
         }
 
-        virtual TlbEntry::DomainType domain() const
+        DomainType
+        domain() const override
         {
             return l1Parent->domain();
         }
 
-        bool secure(bool have_security, WalkerState *currState) const
+        bool
+        secure(bool have_security, WalkerState *currState) const override
         {
             return l1Parent->secure(have_security, currState);
         }
 
-        virtual uint8_t offsetBits() const
+        uint8_t
+        offsetBits() const override
         {
             return large() ? 16 : 12;
         }
 
         /** Is the entry invalid */
-        bool invalid() const
+        bool
+        invalid() const
         {
             return bits(data, 1, 0) == 0;
         }
 
         /** What is the size of the mapping? */
-        bool large() const
+        bool
+        large() const
         {
             return bits(data, 1) == 0;
         }
 
         /** Is execution allowed on this mapping? */
-        bool xn() const
+        bool
+        xn() const override
         {
             return large() ? bits(data, 15) : bits(data, 0);
         }
 
         /** Is the translation global (no asid used)? */
-        bool global(WalkerState *currState) const
+        bool
+        global(WalkerState *currState) const override
         {
             return !bits(data, 11);
         }
 
         /** Three bit access protection flags */
-        uint8_t ap() const
+        uint8_t
+        ap() const override
         {
            return bits(data, 5, 4) | (bits(data, 9) << 2);
         }
 
         /** Memory region attributes: ARM DDI 0406B: B3-32 */
-        uint8_t texcb() const
+        uint8_t
+        texcb() const override
         {
             return large() ?
                 (bits(data, 2) | (bits(data, 3) << 1) | (bits(data, 14, 12) << 2)) :
@@ -335,13 +386,15 @@ class TableWalker : public ClockedObject
         }
 
         /** Return the physical frame, bits shifted right */
-        Addr pfn() const
+        Addr
+        pfn() const override
         {
             return large() ? bits(data, 31, 16) : bits(data, 31, 12);
         }
 
         /** Return complete physical address given a VA */
-        Addr paddr(Addr va) const
+        Addr
+        paddr(Addr va) const
         {
             if (large())
                 return mbits(data, 31, 16) | mbits(va, 15, 0);
@@ -350,7 +403,8 @@ class TableWalker : public ClockedObject
         }
 
         /** If the section is shareable. See texcb() comment. */
-        bool shareable() const
+        bool
+        shareable() const override
         {
             return bits(data, 10);
         }
@@ -358,27 +412,20 @@ class TableWalker : public ClockedObject
         /** Set access flag that this entry has been touched. Mark
          * the entry as requiring a writeback, in the future.
          */
-        void setAp0()
+        void
+        setAp0()
         {
             data |= 1 << 4;
             _dirty = true;
         }
 
         /** This entry needs to be written back to memory */
-        bool dirty() const
+        bool
+        dirty() const
         {
             return _dirty;
         }
 
-    };
-
-    // Granule sizes for AArch64 long descriptors
-    enum GrainSize
-    {
-        Grain4KB  = 12,
-        Grain16KB = 14,
-        Grain64KB = 16,
-        ReservedGrain = 0
     };
 
     /** Long-descriptor format (LPAE) */
@@ -396,7 +443,7 @@ class TableWalker : public ClockedObject
 
         LongDescriptor()
           : data(0), _dirty(false), aarch64(false), grainSize(Grain4KB),
-            physAddrRange(0)
+            physAddrRange(0), isStage2(false)
         {}
 
         /** The raw bits of the entry */
@@ -414,20 +461,34 @@ class TableWalker : public ClockedObject
 
         uint8_t physAddrRange;
 
+        bool isStage2;
 
-        virtual uint64_t getRawData() const
+        uint8_t*
+        getRawPtr() override
+        {
+            return reinterpret_cast<uint8_t*>(&data);
+        }
+
+        uint64_t
+        getRawData() const override
         {
             return (data);
         }
 
-        virtual std::string dbgHeader() const
+        std::string
+        dbgHeader() const override
         {
-            if (type() == LongDescriptor::Page) {
-                assert(lookupLevel == L3);
+            switch (type()) {
+              case LongDescriptor::Page:
+                assert(lookupLevel == LookupLevel::L3);
                 return "Inserting Page descriptor into TLB\n";
-            } else {
-                assert(lookupLevel < L3);
+              case LongDescriptor::Block:
+                assert(lookupLevel < LookupLevel::L3);
                 return "Inserting Block descriptor into TLB\n";
+              case LongDescriptor::Table:
+                return "Inserting Table descriptor into TLB\n";
+              default:
+                panic("Trying to insert and invalid descriptor\n");
             }
         }
 
@@ -435,14 +496,25 @@ class TableWalker : public ClockedObject
          * Returns true if this entry targets the secure physical address
          * map.
          */
-        bool secure(bool have_security, WalkerState *currState) const
+        bool
+        secure(bool have_security, WalkerState *currState) const override
         {
-            assert(type() == Block || type() == Page);
-            return have_security && (currState->secureLookup && !bits(data, 5));
+            if (type() == Block || type() == Page) {
+                if (isStage2) {
+                    return have_security && currState->secureLookup &&
+                        !currState->vtcr.nsa;
+                } else {
+                    return have_security &&
+                        (currState->secureLookup && !bits(data, 5));
+                }
+            } else {
+                return have_security && currState->secureLookup;
+            }
         }
 
         /** Return the descriptor type */
-        EntryType type() const
+        EntryType
+        type() const
         {
             switch (bits(data, 1, 0)) {
               case 0x1:
@@ -450,13 +522,14 @@ class TableWalker : public ClockedObject
                 // 4 KiB granule and at L1 for 16/64 KiB granules
                 switch (grainSize) {
                   case Grain4KB:
-                    if (lookupLevel == L0 || lookupLevel == L3)
+                    if (lookupLevel == LookupLevel::L0 ||
+                        lookupLevel == LookupLevel::L3)
                         return Invalid;
                     else
                         return Block;
 
                   case Grain16KB:
-                    if (lookupLevel == L2)
+                    if (lookupLevel == LookupLevel::L2)
                         return Block;
                     else
                         return Invalid;
@@ -464,8 +537,8 @@ class TableWalker : public ClockedObject
                   case Grain64KB:
                     // With Armv8.2-LPA (52bit PA) L1 Block descriptors
                     // are allowed for 64KiB granule
-                    if ((lookupLevel == L1 && physAddrRange == 52) ||
-                        lookupLevel == L2)
+                    if ((lookupLevel == LookupLevel::L1 && physAddrRange == 52) ||
+                        lookupLevel == LookupLevel::L2)
                         return Block;
                     else
                         return Invalid;
@@ -474,25 +547,26 @@ class TableWalker : public ClockedObject
                     return Invalid;
                 }
               case 0x3:
-                return lookupLevel == L3 ? Page : Table;
+                return lookupLevel == LookupLevel::L3 ? Page : Table;
               default:
                 return Invalid;
             }
         }
 
         /** Return the bit width of the page/block offset */
-        uint8_t offsetBits() const
+        uint8_t
+        offsetBits() const override
         {
             if (type() == Block) {
                 switch (grainSize) {
                     case Grain4KB:
-                        return lookupLevel == L1 ? 30 /* 1 GiB */
-                                                 : 21 /* 2 MiB */;
+                        return lookupLevel == LookupLevel::L1 ?
+                            30 /* 1 GiB */ : 21 /* 2 MiB */;
                     case Grain16KB:
                         return 25  /* 32 MiB */;
                     case Grain64KB:
-                        return lookupLevel == L1 ? 42 /* 4 TiB */
-                                                 : 29 /* 512 MiB */;
+                        return lookupLevel == LookupLevel::L1 ?
+                            42 /* 4 TiB */ : 29 /* 512 MiB */;
                     default:
                         panic("Invalid AArch64 VM granule size\n");
                 }
@@ -505,19 +579,23 @@ class TableWalker : public ClockedObject
                     default:
                         panic("Invalid AArch64 VM granule size\n");
                 }
-            } else {
-                panic("AArch64 page table entry must be block or page\n");
+            } else if (type() == Table) {
+                const auto* ptops = getPageTableOps(grainSize);
+                return ptops->walkBits(lookupLevel);
             }
+            panic("AArch64 page table entry must be block or page\n");
         }
 
         /** Return the physical frame, bits shifted right */
-        Addr pfn() const
+        Addr
+        pfn() const override
         {
             return paddr() >> offsetBits();
         }
 
         /** Return the physical address of the entry */
-        Addr paddr() const
+        Addr
+        paddr() const
         {
             Addr addr = 0;
             if (aarch64) {
@@ -532,7 +610,8 @@ class TableWalker : public ClockedObject
         }
 
         /** Return the address of the next page table */
-        Addr nextTableAddr() const
+        Addr
+        nextTableAddr() const
         {
             assert(type() == Table);
             Addr table_address = 0;
@@ -549,7 +628,8 @@ class TableWalker : public ClockedObject
         }
 
         /** Return the address of the next descriptor */
-        Addr nextDescAddr(Addr va) const
+        Addr
+        nextDescAddr(Addr va) const
         {
             assert(type() == Table);
             Addr pa = 0;
@@ -559,7 +639,7 @@ class TableWalker : public ClockedObject
                 int va_hi = va_lo + stride - 1;
                 pa = nextTableAddr() | (bits(va, va_hi, va_lo) << 3);
             } else {
-                if (lookupLevel == L1)
+                if (lookupLevel == LookupLevel::L1)
                     pa = nextTableAddr() | (bits(va, 29, 21) << 3);
                 else  // lookupLevel == L2
                     pa = nextTableAddr() | (bits(va, 20, 12) << 3);
@@ -568,75 +648,106 @@ class TableWalker : public ClockedObject
         }
 
         /** Is execution allowed on this mapping? */
-        bool xn() const
+        bool
+        xn() const override
         {
             assert(type() == Block || type() == Page);
             return bits(data, 54);
         }
 
         /** Is privileged execution allowed on this mapping? (LPAE only) */
-        bool pxn() const
+        bool
+        pxn() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 53);
         }
 
         /** Contiguous hint bit. */
-        bool contiguousHint() const
+        bool
+        contiguousHint() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 52);
         }
 
         /** Is the translation global (no asid used)? */
-        bool global(WalkerState *currState) const
+        bool
+        global(WalkerState *currState) const override
         {
             assert(currState && (type() == Block || type() == Page));
-            if (!currState->aarch64 && (currState->isSecure &&
-                                        !currState->secureLookup)) {
+            const bool secure_state = currState->ss == SecurityState::Secure;
+            if (!currState->aarch64 && secure_state &&
+                !currState->secureLookup) {
                 return false;  // ARM ARM issue C B3.6.3
             } else if (currState->aarch64) {
-                if (currState->el == EL2 || currState->el == EL3) {
-                    return true;  // By default translations are treated as global
-                                  // in AArch64 EL2 and EL3
-                } else if (currState->isSecure && !currState->secureLookup) {
+                if (!MMU::hasUnprivRegime(currState->regime)) {
+                    // By default translations are treated as global
+                    // in AArch64 for regimes without an unpriviledged
+                    // component
+                    return true;
+                } else if (secure_state && !currState->secureLookup) {
                     return false;
                 }
             }
             return !bits(data, 11);
         }
 
+        /** FNXS for FEAT_XS only */
+        bool
+        fnxs() const
+        {
+            assert((type() == Block || type() == Page));
+            return bits(data, 11);
+        }
+
         /** Returns true if the access flag (AF) is set. */
-        bool af() const
+        bool
+        af() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 10);
         }
 
         /** 2-bit shareability field */
-        uint8_t sh() const
+        uint8_t
+        sh() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 9, 8);
         }
 
         /** 2-bit access protection flags */
-        uint8_t ap() const
+        uint8_t
+        ap() const override
         {
             assert(type() == Block || type() == Page);
             // Long descriptors only support the AP[2:1] scheme
             return bits(data, 7, 6);
         }
 
+        /** Stage 1 Indirect permissions  */
+        uint8_t
+        piindex() const
+        {
+            assert(type() == Block || type() == Page);
+            return (bits(data, 54) << 3) +
+                (bits(data, 53) << 2) +
+                (bits(data, 51) << 1) +
+                bits(data, 6);
+        }
+
         /** Read/write access protection flag */
-        bool rw() const
+        bool
+        rw() const
         {
             assert(type() == Block || type() == Page);
             return !bits(data, 7);
         }
 
         /** User/privileged level access protection flag */
-        bool user() const
+        bool
+        user() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 6);
@@ -645,27 +756,30 @@ class TableWalker : public ClockedObject
         /** Return the AP bits as compatible with the AP[2:0] format.  Utility
          * function used to simplify the code in the TLB for performing
          * permission checks. */
-        static uint8_t ap(bool rw, bool user)
+        static uint8_t
+        ap(bool rw, bool user)
         {
             return ((!rw) << 2) | (user << 1);
         }
 
-        TlbEntry::DomainType domain() const
+        DomainType
+        domain() const override
         {
             // Long-desc. format only supports Client domain
-            assert(type() == Block || type() == Page);
-            return TlbEntry::DomainType::Client;
+            return DomainType::Client;
         }
 
         /** Attribute index */
-        uint8_t attrIndx() const
+        uint8_t
+        attrIndx() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 4, 2);
         }
 
         /** Memory attributes, only used by stage 2 translations */
-        uint8_t memAttr() const
+        uint8_t
+        memAttr() const
         {
             assert(type() == Block || type() == Page);
             return bits(data, 5, 2);
@@ -673,34 +787,39 @@ class TableWalker : public ClockedObject
 
         /** Set access flag that this entry has been touched.  Mark the entry as
          * requiring a writeback, in the future. */
-        void setAf()
+        void
+        setAf()
         {
             data |= 1 << 10;
             _dirty = true;
         }
 
         /** This entry needs to be written back to memory */
-        bool dirty() const
+        bool
+        dirty() const
         {
             return _dirty;
         }
 
         /** Whether the subsequent levels of lookup are secure */
-        bool secureTable() const
+        bool
+        secureTable() const
         {
             assert(type() == Table);
             return !bits(data, 63);
         }
 
         /** Two bit access protection flags for subsequent levels of lookup */
-        uint8_t apTable() const
+        uint8_t
+        apTable() const
         {
             assert(type() == Table);
             return bits(data, 62, 61);
         }
 
         /** R/W protection flag for subsequent levels of lookup */
-        uint8_t rwTable() const
+        uint8_t
+        rwTable() const
         {
             assert(type() == Table);
             return !bits(data, 62);
@@ -708,25 +827,35 @@ class TableWalker : public ClockedObject
 
         /** User/privileged mode protection flag for subsequent levels of
          * lookup */
-        uint8_t userTable() const
+        uint8_t
+        userTable() const
         {
             assert(type() == Table);
             return !bits(data, 61);
         }
 
         /** Is execution allowed on subsequent lookup levels? */
-        bool xnTable() const
+        bool
+        xnTable() const
         {
             assert(type() == Table);
             return bits(data, 60);
         }
 
         /** Is privileged execution allowed on subsequent lookup levels? */
-        bool pxnTable() const
+        bool
+        pxnTable() const
         {
             assert(type() == Table);
             return bits(data, 59);
         }
+    };
+
+    class TableWalkerState : public Packet::SenderState
+    {
+      public:
+        Tick delay = 0;
+        Event *event = nullptr;
     };
 
     class WalkerState
@@ -741,16 +870,21 @@ class TableWalker : public ClockedObject
         /** Current exception level */
         ExceptionLevel el;
 
+        /** Current translation regime */
+        TranslationRegime regime;
+
         /** Current physical address range in bits */
         int physAddrRange;
 
         /** Request that is currently being serviced */
         RequestPtr req;
 
+        /** Initial walk entry allowing to skip lookup levels */
+        TlbEntry walkEntry;
+
         /** ASID that we're servicing the request under */
         uint16_t asid;
         vmid_t vmid;
-        bool    isHyp;
 
         /** Translation state for delayed requests */
         BaseMMU::Translation *transState;
@@ -795,25 +929,44 @@ class TableWalker : public ClockedObject
         /** If the access is a fetch (for execution, and no-exec) must be checked?*/
         bool isFetch;
 
-        /** If the access comes from the secure state. */
-        bool isSecure;
+        /** Security State of the access */
+        SecurityState ss;
+        /** Whether lookups should be treated as using the secure state.
+         * This is usually the same as isSecure, but can be set to false by the
+         * long descriptor table attributes. */
+        bool secureLookup = false;
+
+        /** IPA space (Secure vs NonSecure); stage2 only.
+         * This depends on whether the stage1 translation targeted
+         * a secure or non-secure IPA space */
+        PASpace ipaSpace;
 
         /** True if table walks are uncacheable (for table descriptors) */
         bool isUncacheable;
 
         /** Helper variables used to implement hierarchical access permissions
-         * when the long-desc. format is used (LPAE only) */
-        bool secureLookup;
-        bool rwTable;
-        bool userTable;
-        bool xnTable;
-        bool pxnTable;
+         * when the long-desc. format is used. */
+        struct LongDescData
+        {
+            bool rwTable = false;
+            bool userTable = false;
+            bool xnTable = false;
+            bool pxnTable = false;
+        };
+        std::optional<LongDescData> longDescData;
 
         /** Hierarchical access permission disable */
         bool hpd;
 
+        uint8_t sh;
+        uint8_t irgn;
+        uint8_t orgn;
+
         /** Flag indicating if a second stage of lookup is required */
         bool stage2Req;
+
+        /** Is the access is a stage2 access */
+        bool isStage2;
 
         /** A pointer to the stage 2 translation that's in progress */
         BaseMMU::Translation *stage2Tran;
@@ -828,7 +981,7 @@ class TableWalker : public ClockedObject
         BaseMMU::Mode mode;
 
         /** The translation type that has been requested */
-        TLB::ArmTranslationType tranType;
+        MMU::ArmTranslationType tranType;
 
         /** Short-format descriptors */
         L1Descriptor l1Desc;
@@ -859,38 +1012,35 @@ class TableWalker : public ClockedObject
         std::string name() const { return tableWalker->name(); }
     };
 
-    class TableWalkerState : public Packet::SenderState
-    {
-      public:
-        Tick delay = 0;
-        Event *event = nullptr;
-    };
-
     class Port : public QueuedRequestPort
     {
       public:
-        Port(TableWalker* _walker, RequestorID id);
+        Port(TableWalker &_walker, RequestorID id);
 
-        void sendFunctionalReq(Addr desc_addr, int size,
-            uint8_t *data, Request::Flags flag);
-        void sendAtomicReq(Addr desc_addr, int size,
-            uint8_t *data, Request::Flags flag, Tick delay);
-        void sendTimingReq(Addr desc_addr, int size,
-            uint8_t *data, Request::Flags flag, Tick delay,
+        void sendFunctionalReq(const RequestPtr &req, uint8_t *data);
+        void sendAtomicReq(const RequestPtr &req, uint8_t *data, Tick delay);
+        void sendTimingReq(const RequestPtr &req, uint8_t *data, Tick delay,
             Event *event);
 
         bool recvTimingResp(PacketPtr pkt) override;
+
+        RequestorID
+        requestorId() const
+        {
+            return _requestorId;
+        }
 
       private:
         void handleRespPacket(PacketPtr pkt, Tick delay=0);
         void handleResp(TableWalkerState *state, Addr addr,
                         Addr size, Tick delay=0);
 
-        PacketPtr createPacket(Addr desc_addr, int size,
-                               uint8_t *data, Request::Flags flag,
+        PacketPtr createPacket(const RequestPtr &req, uint8_t *data,
                                Tick delay, Event *event);
 
       private:
+        TableWalker &owner;
+
         /** Packet queue used to store outgoing requests. */
         ReqPacketQueue reqQueue;
 
@@ -898,8 +1048,139 @@ class TableWalker : public ClockedObject
         SnoopRespPacketQueue snoopRespQueue;
 
         /** Cached requestorId of the table walker */
-        RequestorID requestorId;
+        RequestorID _requestorId;
     };
+
+    PARAMS(ArmTableWalker);
+    TableWalker(const Params &p);
+
+    gem5::Port &getPort(const std::string &if_name,
+                        PortID idx = InvalidPortID) override;
+
+    void setMmu(MMU *_mmu);
+    void setTestInterface(TlbTestInterface *ti);
+
+    WalkUnit *getAvailableWalk(BaseMMU::Mode mode, bool stage2,
+                               bool functional) const;
+
+    WalkUnit *busyOnSamePage(Addr iaddr, BaseMMU::Mode mode,
+                             bool stage2) const;
+
+    Port &getTableWalkerPort();
+
+    Fault walk(const RequestPtr &req, ThreadContext *tc, uint16_t asid,
+               vmid_t vmid, MMU::Mode mode, MMU::Translation *trans,
+               bool timing, bool functional, SecurityState ss,
+               PASpace ipaspace, MMU::ArmTranslationType tran_type,
+               bool stage2_req, bool stage2, const TlbEntry *walk_entry);
+
+    /**
+     * A walk has finished. Schedule a look in
+     * the pending queue to see if there is a pending walk awaiting
+     * to be executed next
+     *
+     * @param wu WalkUnit calling the method. With this param the walk unit
+     *           signals the Table Walker it is ready to accept a new walk
+     *           request
+     */
+    void nextWalk(WalkUnit *wu);
+
+    /**
+     * Squash the walk passed as first argument. This would happen
+     * in two cases
+     * 1) The instruction generating the memory ref has been squashed
+     * 2) No need to walk as the translation is now available in the TLB
+     */
+    void squashWalk(WalkerState *curr_state);
+
+    void completeDrain();
+    DrainState drain() override;
+
+  public:
+    TypeTLB modeToType(BaseMMU::Mode mode) const;
+
+    bool
+    haveLargeAsid64() const
+    {
+        return _haveLargeAsid64;
+    }
+    uint8_t
+    physAddrRange() const
+    {
+        return _physAddrRange;
+    }
+
+  private:
+    MMU *mmu;
+
+    /** Pool of walking units */
+    std::vector<WalkUnit *> walkUnits;
+
+    /** walking unit for functional walks*/
+    WalkUnit *walkUnitFunctionalS1;
+    WalkUnit *walkUnitFunctionalS2;
+
+    /** Requestor id assigned by the MMU. */
+    RequestorID requestorId;
+
+    /** Table Walker port */
+    Port *port;
+
+    /** Cached copies of system-level properties */
+    const ArmRelease *release;
+    uint8_t _physAddrRange;
+    bool _haveLargeAsid64;
+
+  private:
+    /** Statistics */
+    void pendingChange();
+
+  public:
+    /** Statistics */
+    static const unsigned REQUESTED = 0;
+    static const unsigned COMPLETED = 1;
+
+    mutable unsigned pendingReqs;
+    mutable Tick pendingChangeTick;
+
+    struct TableWalkerStats : public statistics::Group
+    {
+        TableWalkerStats(statistics::Group *parent);
+        statistics::Scalar instructionWalksS1;
+        statistics::Scalar instructionWalksS2;
+        statistics::Scalar dataWalksS1;
+        statistics::Scalar dataWalksS2;
+        statistics::Scalar walksShortDescriptor;
+        statistics::Scalar walksLongDescriptor;
+        statistics::Vector walksShortTerminatedAtLevel;
+        statistics::Vector walksLongTerminatedAtLevel;
+        statistics::Scalar squashedBefore;
+        statistics::Scalar squashedAfter;
+        statistics::Histogram walkWaitTime;
+        statistics::Histogram walkServiceTime;
+        // Essentially "L" of queueing theory
+        statistics::Histogram pendingWalks;
+        statistics::Vector pageSizes;
+        statistics::Vector2d requestOrigin;
+
+        statistics::Formula walks;
+    } stats;
+
+    /** Queue of requests that have passed are waiting because the walker is
+     * currently busy. */
+    std::list<WalkerState *> pendingQueue;
+    std::vector<WalkerState *> inCompletionWalks;
+};
+
+class WalkUnit : public ClockedObject
+{
+  public:
+    using LookupLevel = enums::ArmLookupLevel;
+    using WalkerState = TableWalker::WalkerState;
+    using DescriptorBase = TableWalker::DescriptorBase;
+    using L1Descriptor = TableWalker::L1Descriptor;
+    using L2Descriptor = TableWalker::L2Descriptor;
+    using LongDescriptor = TableWalker::LongDescriptor;
 
     /** This translation class is used to trigger the data fetch once a timing
         translation returns the translated physical address */
@@ -910,14 +1191,20 @@ class TableWalker : public ClockedObject
         int          numBytes;
         RequestPtr   req;
         Event        *event;
-        TableWalker  &parent;
+        WalkUnit &parent;
         Addr         oVAddr;
+        BaseMMU::Mode mode;
+        MMU::ArmTranslationType tranType;
+
+        TableWalker::Port *port;
 
       public:
         Fault fault;
 
-        Stage2Walk(TableWalker &_parent, uint8_t *_data, Event *_event,
-                   Addr vaddr);
+        Stage2Walk(WalkUnit &_parent, uint8_t *_data, Event *_event,
+                   Addr vaddr, BaseMMU::Mode mode,
+                   MMU::ArmTranslationType tran_type,
+                   TableWalker::Port *_port);
 
         void markDelayed() {}
 
@@ -937,28 +1224,28 @@ class TableWalker : public ClockedObject
 
     Fault readDataUntimed(ThreadContext *tc, Addr vaddr, Addr desc_addr,
                           uint8_t *data, int num_bytes, Request::Flags flags,
+                          BaseMMU::Mode mode, MMU::ArmTranslationType tran_type,
                           bool functional);
     void readDataTimed(ThreadContext *tc, Addr desc_addr,
                        Stage2Walk *translation, int num_bytes,
                        Request::Flags flags);
 
+    /** Timing mode: saves the currState into the stateQueues */
+    void stashCurrState(WalkerState *state, int queue_idx);
+    bool busyOnSamePage(Addr iaddr) const;
+
   protected:
 
     /** Queues of requests for all the different lookup levels */
-    std::list<WalkerState *> stateQueues[MAX_LOOKUP_LEVELS];
-
-    /** Queue of requests that have passed are waiting because the walker is
-     * currently busy. */
-    std::list<WalkerState *> pendingQueue;
+    std::list<WalkerState *> stateQueues[LookupLevel::Num_ArmLookupLevel];
 
     /** The MMU to forward second stage look upts to */
     MMU *mmu;
 
-    /** Requestor id assigned by the MMU. */
-    RequestorID requestorId;
+    /** Pointer to the parent table walker */
+    TableWalker *parent;
 
-    /** Port shared by the two table walkers. */
-    Port* port;
+    TableWalker::Port *port;
 
     /** Indicates whether this table walker is part of the stage 2 mmu */
     const bool isStage2;
@@ -966,99 +1253,119 @@ class TableWalker : public ClockedObject
     /** TLB that is initiating these table walks */
     TLB *tlb;
 
-    /** Cached copy of the sctlr as it existed when translation began */
-    SCTLR sctlr;
+    /** Walk type */
+    const TypeTLB walkType;
 
-    WalkerState *currState;
+    /** Functional */
+    const bool isFunctional;
 
-    /** If a timing translation is currently in progress */
-    bool pending;
-
-    /** The number of walks belonging to squashed instructions that can be
-     * removed from the pendingQueue per cycle. */
-    unsigned numSquashable;
-
-    /** Cached copies of system-level properties */
-    bool haveSecurity;
-    bool _haveLPAE;
-    bool _haveVirtualization;
-    uint8_t _physAddrRange;
-    bool _haveLargeAsid64;
-
-    /** Statistics */
-    struct TableWalkerStats : public statistics::Group
-    {
-        TableWalkerStats(statistics::Group *parent);
-        statistics::Scalar walks;
-        statistics::Scalar walksShortDescriptor;
-        statistics::Scalar walksLongDescriptor;
-        statistics::Vector walksShortTerminatedAtLevel;
-        statistics::Vector walksLongTerminatedAtLevel;
-        statistics::Scalar squashedBefore;
-        statistics::Scalar squashedAfter;
-        statistics::Histogram walkWaitTime;
-        statistics::Histogram walkServiceTime;
-        // Essentially "L" of queueing theory
-        statistics::Histogram pendingWalks;
-        statistics::Vector pageSizes;
-        statistics::Vector2d requestOrigin;
-    } stats;
-
-    mutable unsigned pendingReqs;
-    mutable Tick pendingChangeTick;
-
-    static const unsigned REQUESTED = 0;
-    static const unsigned COMPLETED = 1;
+    /** Is the walk unit free? */
+    bool available;
 
   public:
-    PARAMS(ArmTableWalker);
-    TableWalker(const Params &p);
-    virtual ~TableWalker();
+    PARAMS(ArmWalkUnit);
+    WalkUnit(const Params &p);
+    virtual ~WalkUnit();
 
-    bool haveLPAE() const { return _haveLPAE; }
-    bool haveVirtualization() const { return _haveVirtualization; }
-    bool haveLargeAsid64() const { return _haveLargeAsid64; }
-    uint8_t physAddrRange() const { return _physAddrRange; }
+    TypeTLB
+    type() const
+    {
+        return walkType;
+    }
+
+    bool
+    stage2() const
+    {
+        return isStage2;
+    }
+
+    bool
+    functional() const
+    {
+        return isFunctional;
+    }
+
+    bool
+    isAvailable() const
+    {
+        return available;
+    }
+    void
+    isAvailable(bool _available)
+    {
+        available = _available;
+    }
+
     /** Checks if all state is cleared and if so, completes drain */
-    void completeDrain();
+    bool completeDrain();
     DrainState drain() override;
-    void drainResume() override;
 
-    gem5::Port &getPort(const std::string &if_name,
-                    PortID idx=InvalidPortID) override;
+    Fault walk(WalkerState *state);
 
-    Port &getTableWalkerPort();
+    void scheduleWalk(WalkerState *next_walk, Tick when);
 
-    Fault walk(const RequestPtr &req, ThreadContext *tc,
-               uint16_t asid, vmid_t _vmid,
-               bool _isHyp, BaseMMU::Mode mode, BaseMMU::Translation *_trans,
-               bool timing, bool functional, bool secure,
-               TLB::ArmTranslationType tranType, bool _stage2Req);
+    void setMmu(MMU *_mmu);
+    void
+    setPort(TableWalker::Port *_port)
+    {
+        port = _port;
+    }
+    TableWalker::Port &
+    getTableWalkerPort() const
+    {
+        return *port;
+    }
+    void
+    setTableWalker(TableWalker *_parent)
+    {
+        parent = _parent;
+    }
 
-    void setMmu(MMU *_mmu) { mmu = _mmu; }
-    void setTlb(TLB *_tlb) { tlb = _tlb; }
-    void setPort(Port *_port) { port = _port; }
-    TLB* getTlb() { return tlb; }
-    void memAttrs(ThreadContext *tc, TlbEntry &te, SCTLR sctlr,
-                  uint8_t texcb, bool s);
-    void memAttrsLPAE(ThreadContext *tc, TlbEntry &te,
+    void memAttrs(WalkerState *state, TlbEntry &te, uint8_t texcb, bool s);
+    void memAttrsLPAE(WalkerState *state, TlbEntry &te,
                       LongDescriptor &lDescriptor);
-    void memAttrsAArch64(ThreadContext *tc, TlbEntry &te,
+    void memAttrsAArch64(WalkerState *state, TlbEntry &te,
                          LongDescriptor &lDescriptor);
+    void memAttrsWalkAArch64(WalkerState *state, TlbEntry &te);
+    bool uncacheableFromAttrs(uint8_t attrs);
 
     static LookupLevel toLookupLevel(uint8_t lookup_level_as_int);
 
   private:
+    class WalkEvent : public Event, public Named
+    {
+      public:
+        WalkEvent(WalkUnit *_parent, const std::string &_name)
+            : Event(), Named(_name), parent(_parent)
+        {}
 
-    void doL1Descriptor();
+        void
+        process() override
+        {
+            parent->processWalkWrapper(state);
+        }
+
+        void
+        setState(WalkerState *next_state)
+        {
+            state = next_state;
+        }
+
+      private:
+        WalkUnit *parent;
+        WalkerState *state;
+    } doProcessEvent;
+    void processWalkWrapper(WalkerState *state);
+
+    void doL1Descriptor(WalkerState *state);
     void doL1DescriptorWrapper();
     EventFunctionWrapper doL1DescEvent;
 
-    void doL2Descriptor();
+    void doL2Descriptor(WalkerState *state);
     void doL2DescriptorWrapper();
     EventFunctionWrapper doL2DescEvent;
 
-    void doLongDescriptor();
+    void doLongDescriptor(WalkerState *state);
 
     void doL0LongDescriptorWrapper();
     EventFunctionWrapper doL0LongDescEvent;
@@ -1072,36 +1379,55 @@ class TableWalker : public ClockedObject
     void doLongDescriptorWrapper(LookupLevel curr_lookup_level);
     Event* LongDescEventByLevel[4];
 
-    bool fetchDescriptor(Addr descAddr, uint8_t *data, int numBytes,
-        Request::Flags flags, int queueIndex, Event *event,
-        void (TableWalker::*doDescriptor)());
+    void fetchDescriptor(Addr desc_addr, DescriptorBase &descriptor,
+                         int num_bytes, Request::Flags flags,
+                         LookupLevel lookup_lvl, Event *event,
+                         void (WalkUnit::*doDescriptor)(WalkerState *state),
+                         WalkerState *state);
 
-    Fault generateLongDescFault(ArmFault::FaultSource src);
+    Fault generateLongDescFault(WalkerState *state, ArmFault::FaultSource src);
 
-    void insertTableEntry(DescriptorBase &descriptor, bool longDescriptor);
+    void insertTableEntry(WalkerState *state, DescriptorBase &descriptor,
+                          bool long_descriptor);
+    void insertPartialTableEntry(WalkerState *state);
 
-    Fault processWalk();
-    Fault processWalkLPAE();
+    /** Returns a tuple made of:
+     * 1) The address of the first page table
+     * 2) The address of the first descriptor within the table
+     * 3) The page table level
+     */
+    std::tuple<Addr, Addr, LookupLevel> walkAddresses(WalkerState *state,
+                                                      Addr ttbr, GrainSize tg,
+                                                      int tsz, int pa_range);
 
-    bool checkVAddrSizeFaultAArch64(Addr addr, int top_bit,
-        GrainSize granule, int tsz, bool low_range);
+    Fault processWalk(WalkerState *state);
+    Fault processWalkLPAE(WalkerState *state);
+    Fault processWalkAArch64(WalkerState *state);
+
+    Addr maxTxSz(WalkerState *state, GrainSize tg) const;
+    Addr s1MinTxSz(WalkerState *state, GrainSize tg) const;
+    bool s1TxSzFault(WalkerState *state, GrainSize tg, int tsz) const;
+    bool checkVAOutOfRange(WalkerState *state, int top_bit, int tsz,
+                           bool low_range);
 
     /// Returns true if the address exceeds the range permitted by the
     /// system-wide setting or by the TCR_ELx IPS/PS setting
     bool checkAddrSizeFaultAArch64(Addr addr, int pa_range);
 
-    Fault processWalkAArch64();
-    void processWalkWrapper();
-    EventFunctionWrapper doProcessEvent;
-
-    void nextWalk(ThreadContext *tc);
-
-    void pendingChange();
+    /// Returns true if the table walk should be uncacheable
+    bool uncacheableWalk(WalkerState *state) const;
 
     static uint8_t pageSizeNtoStatBin(uint8_t N);
 
-    Fault testWalk(Addr pa, Addr size, TlbEntry::DomainType domain,
-                   LookupLevel lookup_level);
+    void mpamTagTableWalk(WalkerState *state, RequestPtr &req) const;
+
+  public: /* Testing */
+    TlbTestInterface *test;
+
+    void setTestInterface(TlbTestInterface *ti);
+
+    Fault testWalk(WalkerState *state, const RequestPtr &walk_req,
+                   DomainType domain, LookupLevel lookup_level);
 };
 
 } // namespace ArmISA

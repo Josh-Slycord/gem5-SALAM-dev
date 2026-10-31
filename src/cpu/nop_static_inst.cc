@@ -28,6 +28,7 @@
 
 #include "cpu/nop_static_inst.hh"
 
+#include "arch/generic/pcstate.hh"
 #include "cpu/static_inst.hh"
 
 namespace gem5
@@ -42,15 +43,15 @@ class NopStaticInst : public StaticInst
     NopStaticInst() : StaticInst("gem5 nop", No_OpClass) {}
 
     Fault
-    execute(ExecContext *xc, Trace::InstRecord *traceData) const override
+    execute(ExecContext *xc, trace::InstRecord *traceData) const override
     {
         return NoFault;
     }
 
     void
-    advancePC(TheISA::PCState &pcState) const override
+    advancePC(PCStateBase &pc) const override
     {
-        pcState.advance();
+        pc.advance();
     }
 
     std::string

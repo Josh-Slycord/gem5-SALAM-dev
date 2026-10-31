@@ -42,7 +42,7 @@
 def template MicroRegOpExecute {{
     Fault
     %(class_name)s::execute(ExecContext *xc,
-            Trace::InstRecord *traceData) const
+            trace::InstRecord *traceData) const
     {
         Fault fault = NoFault;
 
@@ -50,7 +50,7 @@ def template MicroRegOpExecute {{
         %(op_decl)s;
         %(op_rd)s;
 
-        GEM5_VAR_USED RegVal result;
+        [[maybe_unused]] RegVal result;
 
         if (%(cond_check)s) {
             %(code)s;
@@ -84,9 +84,17 @@ def template MicroRegOpDeclare {{
             %(set_reg_idx_arr)s;
             %(constructor)s;
             %(cond_control_flag_init)s;
+
+            // In some cases, we need to invalidate some source registers
+            // to eliminate unnecessary input dependencies (e.g., for a
+            // 32-bit or 64-bit 'mov' micro-op) on the prior value of the
+            // destination register. (Such dependencies are required for
+            // 8-bit or 16-bit moves, however, since they don't completely
+            // overwrite the destination register.)
+            %(invalidate_srcs)s;
         }
 
-        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        Fault execute(ExecContext *, trace::InstRecord *) const override;
     };
 }};
 
@@ -109,10 +117,10 @@ def template MicroRegOpBranchDeclare {{
             %(cond_control_flag_init)s;
         }
 
-        Fault execute(ExecContext *, Trace::InstRecord *) const override;
+        Fault execute(ExecContext *, trace::InstRecord *) const override;
 
-        X86ISA::PCState branchTarget(
-                const X86ISA::PCState &branchPC) const override;
+        std::unique_ptr<PCStateBase> branchTarget(
+                const PCStateBase &branchPC) const override;
 
         /// Explicitly import the otherwise hidden branchTarget
         using StaticInst::branchTarget;
@@ -120,15 +128,16 @@ def template MicroRegOpBranchDeclare {{
 }};
 
 def template MicroRegOpBranchTarget {{
-    X86ISA::PCState
-    %(class_name)s::branchTarget(const X86ISA::PCState &branchPC) const
+    std::unique_ptr<PCStateBase>
+    %(class_name)s::branchTarget(const PCStateBase &branch_pc) const
     {
-        X86ISA::PCState pcs = branchPC;
+        PCStateBase *pcs = branch_pc.clone();
         DPRINTF(X86, "branchTarget PC info: %s, Immediate (imm8): %lx\n",
-                pcs, (int8_t)imm8);
-        pcs.npc(pcs.npc() + (int8_t)imm8);
-        pcs.uEnd();
-        return pcs;
+                *pcs, (int8_t)imm8);
+        auto &xpc = pcs->as<PCState>();
+        xpc.npc(xpc.npc() + (int8_t)imm8);
+        xpc.uEnd();
+        return std::unique_ptr<PCStateBase>{pcs};
     }
 }};
 
@@ -181,7 +190,7 @@ let {{
     class RegOpMeta(type):
         def buildCppClasses(self, name, Name, suffix, code, big_code, \
                 flag_code, cond_check, else_code, cond_control_flag_init,
-                op_class, operand_types):
+                invalidate_srcs, op_class, operand_types):
 
             # Globals to stick the output in
             global header_output
@@ -190,9 +199,9 @@ let {{
 
             # Stick all the code together so it can be searched at once
             allCode = "|".join((code, flag_code, cond_check, else_code,
-                                cond_control_flag_init))
+                                cond_control_flag_init, invalidate_srcs))
             allBigCode = "|".join((big_code, flag_code, cond_check, else_code,
-                                   cond_control_flag_init))
+                                   cond_control_flag_init, invalidate_srcs))
 
             # If op2 is used anywhere, make register and immediate versions
             # of this code.
@@ -218,8 +227,9 @@ let {{
                         matcher.sub(src2_name, cond_check),
                         matcher.sub(src2_name, else_code),
                         matcher.sub(src2_name, cond_control_flag_init),
+                        matcher.sub(src2_name, invalidate_srcs),
                         op_class, operand_types)
-                imm_name = '(int8_t)imm8' if match.group("prefix") else 'imm8'
+                imm_name = '(int64_t)imm64' if match.group("prefix") else 'imm64'
                 self.buildCppClasses(name + "i", Name, suffix + "Imm",
                         matcher.sub(imm_name, code),
                         matcher.sub(imm_name, big_code),
@@ -227,6 +237,7 @@ let {{
                         matcher.sub(imm_name, cond_check),
                         matcher.sub(imm_name, else_code),
                         matcher.sub(imm_name, cond_control_flag_init),
+                        matcher.sub(imm_name, invalidate_srcs),
                         op_class, imm_operand_types)
                 return
 
@@ -235,8 +246,8 @@ let {{
             if flag_code != "" or cond_check != "true":
                 self.buildCppClasses(name, Name, suffix,
                         code, big_code, "", "true", else_code,
-                        "flags[IsUncondControl] = flags[IsControl];", op_class,
-                        operand_types)
+                        "flags[IsUncondControl] = flags[IsControl];",
+                        invalidate_srcs, op_class, operand_types)
                 suffix = "Flags" + suffix
 
             cxx_classes = list([op.cxx_class() for op in operand_types])
@@ -254,6 +265,7 @@ let {{
                      "cond_check" : cond_check,
                      "else_code" : else_code,
                      "cond_control_flag_init" : cond_control_flag_init,
+                     "invalidate_srcs": invalidate_srcs,
                      "op_class" : op_class})]
             if big_code != "":
                 iops += [InstObjParams(name, Name + suffix + "Big", base,
@@ -262,6 +274,7 @@ let {{
                           "cond_check" : cond_check,
                           "else_code" : else_code,
                           "cond_control_flag_init" : cond_control_flag_init,
+                          "invalidate_srcs": invalidate_srcs,
                           "op_class" : op_class})]
 
             # Generate the actual code (finally!)
@@ -279,7 +292,7 @@ let {{
                 abstract = dict['abstract']
                 del dict['abstract']
 
-            cls = super(RegOpMeta, mcls).__new__(mcls, Name, bases, dict)
+            cls = super().__new__(mcls, Name, bases, dict)
             if abstract:
                 return cls
 
@@ -291,20 +304,22 @@ let {{
             cond_check = cls.cond_check
             else_code = cls.else_code
             cond_control_flag_init = cls.cond_control_flag_init
+            invalidate_srcs = cls.invalidate_srcs
             op_class = cls.op_class
             operand_types = cls.operand_types
 
             # Set up the C++ classes
             mcls.buildCppClasses(cls, name, Name, "", code, big_code,
                     flag_code, cond_check, else_code,
-                    cond_control_flag_init, op_class, operand_types)
+                    cond_control_flag_init, invalidate_srcs, op_class,
+                    operand_types)
 
             # Hook into the microassembler dict
             global microopClasses
             microopClasses[name] = cls
 
             allCode = "|".join((code, flag_code, cond_check, else_code,
-                                cond_control_flag_init))
+                                cond_control_flag_init, invalidate_srcs))
 
             # If op2 is used anywhere, make register and immediate versions
             # of this code.
@@ -325,6 +340,7 @@ let {{
         cond_check = "true"
         else_code = ";"
         cond_control_flag_init = ""
+        invalidate_srcs = ""
         op_class = "IntAluOp"
 
         def __init__(self, *ops, flags=None, dataSize="env.dataSize"):
@@ -392,22 +408,21 @@ let {{
 
         def __init__(self, dest, src1, src2, flags=None,
                 dataSize="env.dataSize"):
-            super(BasicRegOp, self).__init__(dest, src1, src2, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, src2, flags=flags, dataSize=dataSize)
 
     class LogicRegOp(BasicRegOp):
         abstract = True
         flag_code = '''
-            //Don't have genFlags handle the OF or CF bits
-            uint64_t mask = CFBit | ECFBit | OFBit;
+            //Don't have genFlags handle the OF, CF, or AF bits
+            uint64_t mask = CFBit | ECFBit | OFBit | AFBit;
             uint64_t newFlags = genFlags(PredccFlagBits | PreddfBit |
                     PredezfBit, ext & ~mask, result, PSrcReg1, op2);
             PredezfBit = newFlags & EZFBit;
             PreddfBit = newFlags & DFBit;
-            PredccFlagBits = newFlags & ccFlagMask;
+            PredccFlagBits = newFlags & CcFlagMask;
 
             //If a logic microop wants to set these, it wants to set them to 0.
-            PredcfofBits = PredcfofBits & ~((CFBit | OFBit) & ext);
+            PredcfofBits = PredcfofBits & ~((CFBit | OFBit | AFBit) & ext);
             PredecfBit = PredecfBit & ~(ECFBit & ext);
         '''
 
@@ -418,11 +433,11 @@ let {{
                                     PreddfBit | PredecfBit | PredezfBit,
                                     ext, result, PSrcReg1, op2);
 
-            PredcfofBits = newFlags & cfofMask;
+            PredcfofBits = newFlags & CfofMask;
             PredecfBit = newFlags & ECFBit;
             PredezfBit = newFlags & EZFBit;
             PreddfBit = newFlags & DFBit;
-            PredccFlagBits = newFlags & ccFlagMask;
+            PredccFlagBits = newFlags & CcFlagMask;
         '''
 
     class SubRegOp(BasicRegOp):
@@ -432,11 +447,11 @@ let {{
                                          PreddfBit | PredecfBit | PredezfBit,
                                          ext, result, PSrcReg1, ~op2, true);
 
-            PredcfofBits = newFlags & cfofMask;
+            PredcfofBits = newFlags & CfofMask;
             PredecfBit = newFlags & ECFBit;
             PredezfBit = newFlags & EZFBit;
             PreddfBit = newFlags & DFBit;
-            PredccFlagBits = newFlags & ccFlagMask;
+            PredccFlagBits = newFlags & CcFlagMask;
         '''
 
     class CondRegOp(RegOp):
@@ -451,15 +466,14 @@ let {{
         def __init__(self, dest, src1=None, dataSize="env.dataSize"):
             if not src1:
                 src1 = dest
-            super(RdRegOp, self).__init__(dest, src1, dataSize=dataSize)
+            super().__init__(dest, src1, dataSize=dataSize)
 
     class WrRegOp(RegOp):
         operand_types = (FoldedSrc1Op, Op2)
 
         abstract = True
         def __init__(self, src1, src2, flags=None, dataSize="env.dataSize"):
-            super(WrRegOp, self).__init__(
-                    src1, src2, flags=flags, dataSize=dataSize)
+            super().__init__(src1, src2, flags=flags, dataSize=dataSize)
 
     class Add(FlagRegOp):
         code = '''
@@ -597,7 +611,7 @@ let {{
                 dataSize="env.dataSize"):
             if not src1:
                 src1 = dest
-            super(RdRegOp, self).__init__(dest, src1, dataSize=dataSize)
+            super().__init__(dest, src1, dataSize=dataSize)
         code = 'DestReg = merge(SrcReg1, dest, ProdHi, dataSize);'
         big_code = 'DestReg = ProdHi & mask(dataSize * 8);'
 
@@ -619,7 +633,7 @@ let {{
             if (divisor == 0) {
                 fault = std::make_shared<DivideError>();
             } else {
-                divideStep(dividend, divisor, quotient, remainder);
+                divideStep(dividend, divisor, quotient, remainder, fault);
                 //Record the final results.
                 Remainder = remainder;
                 Quotient = quotient;
@@ -646,7 +660,7 @@ let {{
                     while (remaining && !(dividend & (1ULL << 63))) {
                         dividend = (dividend << 1) |
                             bits(SrcReg1, remaining - 1);
-                        quotient <<= 1;
+                        addCheckUnsignedOverflow(quotient, quotient, fault);
                         remaining--;
                     }
                     if (dividend & (1ULL << 63)) {
@@ -655,11 +669,12 @@ let {{
                             highBit = true;
                             dividend = (dividend << 1) |
                                 bits(SrcReg1, remaining - 1);
-                            quotient <<= 1;
+                            addCheckUnsignedOverflow(quotient, quotient,
+                                                     fault);
                             remaining--;
                         }
                         if (highBit || divisor <= dividend) {
-                            quotient++;
+                            addCheckUnsignedOverflow(quotient, 1, fault);
                             dividend -= divisor;
                         }
                     }
@@ -669,12 +684,12 @@ let {{
                     while (dividend < divisor && remaining) {
                         dividend = (dividend << 1) |
                             bits(SrcReg1, remaining - 1);
-                        quotient <<= 1;
+                        addCheckUnsignedOverflow(quotient, quotient, fault);
                         remaining--;
                     }
                     remainder = dividend;
                     //Do the division.
-                    divideStep(dividend, divisor, quotient, remainder);
+                    divideStep(dividend, divisor, quotient, remainder, fault);
                 }
             }
             //Keep track of how many bits there are still to pull in.
@@ -693,7 +708,13 @@ let {{
         '''
 
     class Divq(RdRegOp):
-        code = 'DestReg = merge(SrcReg1, dest, Quotient, dataSize);'
+        code = '''
+            if (Quotient != signedPick(Quotient, 0, dataSize)) {
+                fault = std::make_shared<DivideError>();
+            } else {
+                DestReg = merge(SrcReg1, dest, Quotient, dataSize);
+            }
+        '''
         big_code = 'DestReg = Quotient & mask(dataSize * 8);'
 
     class Divr(RdRegOp):
@@ -703,6 +724,21 @@ let {{
     class Mov(BasicRegOp, CondRegOp):
         code = 'DestReg = merge(SrcReg1, dest, op2, dataSize)'
         else_code = 'DestReg = DestReg;'
+        invalidate_srcs = '''
+            // 4-byte and 8-byte register moves completely overwrites
+            // the destination register. Therefore, we can safely
+            // eliminate the destination register's original contents
+            // as a source dependency.
+            // Note: Source index 1 is actual architectural source register.
+            // Note: Because there are other variants of the 'mov' micro-op,
+            // we need to check the number of source registers to ensure
+            // we're operating on the register-register version, not the
+            // register-immediate version, 'movi', say.
+            if (numSrcRegs() == 3 && (dataSize == 4 || dataSize == 8)) {
+                setSrcRegIdx(0, RegId());
+                setSrcRegIdx(2, RegId());
+            }
+        '''
 
     # Shift instructions
 
@@ -749,7 +785,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -795,7 +831,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -841,7 +877,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -885,7 +921,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -899,8 +935,9 @@ let {{
                 uint64_t top = flags.cf << (dataSize * 8 - realShiftAmt);
                 if (realShiftAmt > 1)
                     top |= PSrcReg1 << (dataSize * 8 - realShiftAmt + 1);
-                uint64_t bottom =
-                    bits(PSrcReg1, dataSize * 8 - 1, realShiftAmt);
+                uint64_t bottom = 0;
+                if (realShiftAmt != dataSize * 8)
+                    bottom = bits(PSrcReg1, dataSize * 8 - 1, realShiftAmt);
                 DestReg = merge(DestReg, dest, top | bottom, dataSize);
             } else
                 DestReg = merge(DestReg, dest, DestReg, dataSize);
@@ -934,7 +971,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -979,7 +1016,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -992,7 +1029,7 @@ let {{
                 CCFlagBits flags = cfofBits;
                 uint64_t top = PSrcReg1 << realShiftAmt;
                 uint64_t bottom = flags.cf << (realShiftAmt - 1);
-                if(shiftAmt > 1) {
+                if(realShiftAmt > 1) {
                     bottom |= bits(PSrcReg1, dataSize * 8 - 1,
                             dataSize * 8 - realShiftAmt + 1);
                 }
@@ -1029,7 +1066,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -1089,7 +1126,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -1155,7 +1192,7 @@ let {{
 
                 PredezfBit = newFlags & EZFBit;
                 PreddfBit = newFlags & DFBit;
-                PredccFlagBits = newFlags & ccFlagMask;
+                PredccFlagBits = newFlags & CcFlagMask;
             }
         '''
 
@@ -1163,33 +1200,36 @@ let {{
         code = 'DoubleBits = PSrcReg1 ^ op2;'
 
     class Wrip(WrRegOp, CondRegOp):
-        code = 'NRIP = PSrcReg1 + sop2 + CSBase;'
+        code = 'NRIP = ((SrcReg1 + sop2) & mask(dataSize * 8)) + CSBase;'
         else_code = "NRIP = NRIP;"
 
     class Wruflags(WrRegOp):
         code = '''
             uint64_t newFlags = PSrcReg1 ^ op2;
-            cfofBits = newFlags & cfofMask;
+            cfofBits = newFlags & CfofMask;
             ecfBit = newFlags & ECFBit;
             ezfBit = newFlags & EZFBit;
             dfBit = newFlags & DFBit;
-            ccFlagBits = newFlags & ccFlagMask;
+            ccFlagBits = newFlags & CcFlagMask;
         '''
 
     class Wrflags(WrRegOp):
         code = '''
-            RegVal newFlags = PSrcReg1 ^ op2;
-            RegVal userFlagMask = 0xDD5;
+            const RegVal new_flags = PSrcReg1 ^ op2;
 
             // Get only the user flags
-            ccFlagBits = newFlags & ccFlagMask;
-            dfBit = newFlags & DFBit;
-            cfofBits = newFlags & cfofMask;
+            ccFlagBits = new_flags & CcFlagMask;
+            dfBit = new_flags & DFBit;
+            cfofBits = new_flags & CfofMask;
             ecfBit = 0;
             ezfBit = 0;
 
             // Get everything else
-            nccFlagBits = newFlags & ~userFlagMask;
+            const RegVal IOPLMask = mask(2) << 12;
+            const RegVal SysFlagMask =
+                TFBit | IFBit | IOPLMask | NTBit | RFBit | VMBit |
+                ACBit | VIFBit | VIPBit | IDBit;
+            nccFlagBits = new_flags & SysFlagMask;
         '''
 
     class Rdip(RdRegOp):
@@ -1201,7 +1241,7 @@ let {{
     class Rflags(RdRegOp):
         code = '''
             DestReg = ccFlagBits | cfofBits | dfBit |
-                      ecfBit | ezfBit | nccFlagBits;
+                      ecfBit | ezfBit | nccFlagBits | (1 << 1);
             '''
 
     class Ruflag(RegOp):
@@ -1222,8 +1262,7 @@ let {{
         operand_types = (FoldedDestOp, Imm8Op)
 
         def __init__(self, dest, imm, flags=None, dataSize="env.dataSize"):
-            super(Ruflag, self).__init__(dest, imm, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, imm, flags=flags, dataSize=dataSize)
 
     class Rflag(RegOp):
         code = '''
@@ -1248,8 +1287,7 @@ let {{
 
         operand_types = (FoldedDestOp, Imm8Op)
         def __init__(self, dest, imm, flags=None, dataSize="env.dataSize"):
-            super(Rflag, self).__init__(dest, imm, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, imm, flags=flags, dataSize=dataSize)
 
     class Sext(BasicRegOp):
         code = '''
@@ -1295,8 +1333,7 @@ let {{
     class Rddr(RegOp):
         operand_types = (FoldedDestOp, DbgSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Rddr, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         rdrCode = '''
             CR4 cr4 = CR4Op;
             DR7 dr7 = DR7Op;
@@ -1314,8 +1351,7 @@ let {{
     class Wrdr(RegOp):
         operand_types = (DbgDestOp, FoldedSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Wrdr, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         code = '''
             CR4 cr4 = CR4Op;
             DR7 dr7 = DR7Op;
@@ -1334,8 +1370,7 @@ let {{
     class Rdcr(RegOp):
         operand_types = (FoldedDestOp, CrSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Rdcr, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         rdcrCode = '''
             if (src1 == 1 || (src1 > 4 && src1 < 8) || (src1 > 8)) {
                 fault = std::make_shared<InvalidOpcode>();
@@ -1350,8 +1385,7 @@ let {{
     class Wrcr(RegOp):
         operand_types = (CrDestOp, FoldedSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Wrcr, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         code = '''
             if (dest == 1 || (dest > 4 && dest < 8) || (dest > 8)) {
                 fault = std::make_shared<InvalidOpcode>();
@@ -1379,8 +1413,10 @@ let {{
                   case 4:
                     {
                         CR4 cr4 = newVal;
+                        // Fault if any unknown bits are set. Also,
                         // PAE can't be disabled in long mode.
-                        if (bits(newVal, 63, 11) ||
+                        if (bits(newVal, 63, 17) ||
+                            bits(newVal, 15, 11) ||
                                 (machInst.mode.mode == LongMode && !cr4.pae))
                             fault = std::make_shared<GeneralProtection>(0);
                     }
@@ -1400,12 +1436,11 @@ let {{
             '''
 
     # Microops for manipulating segmentation registers
-    class SegOp(CondRegOp):
+    class SegOp(RegOp):
         abstract = True
         operand_types = (SegDestOp, FoldedSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(SegOp, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
 
     class WrSegOp(SegOp):
         abstract = True
@@ -1454,8 +1489,7 @@ let {{
     class Rdval(RegOp):
         operand_types = (FoldedDestOp, MiscSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Rdval, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         code = '''
             DestReg = MiscRegSrc1;
         '''
@@ -1463,8 +1497,7 @@ let {{
     class Wrval(RegOp):
         operand_types = (MiscDestOp, FoldedSrc1Op)
         def __init__(self, dest, src1, flags=None, dataSize="env.dataSize"):
-            super(Wrval, self).__init__(dest, src1, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(dest, src1, flags=flags, dataSize=dataSize)
         code = '''
             MiscRegDest = SrcReg1;
         '''
@@ -1473,8 +1506,7 @@ let {{
         operand_types = (FoldedSrc1Op, FoldedSrc2Op, Imm8Op)
         def __init__(self, src1, src2, imm=0, flags=None,
                 dataSize="env.dataSize"):
-            super(Chks, self).__init__(src1, src2, imm, flags=flags,
-                    dataSize=dataSize)
+            super().__init__(src1, src2, imm, flags=flags, dataSize=dataSize)
         code = '''
             // The selector is in source 1 and can be at most 16 bits.
             SegSelector selector = SrcReg1;
@@ -1504,7 +1536,7 @@ let {{
                     fault = std::make_shared<GeneralProtection>(selector);
                     break;
                 }
-                GEM5_FALLTHROUGH;
+                [[fallthrough]];
               case SegIntGateCheck:
                 // Make sure the gate's the right type.
                 if ((m5reg.mode == LongMode && (desc.type & 0xe) != 0xe) ||
@@ -1541,14 +1573,12 @@ let {{
                     break;
                 }
               case SegIntCSCheck:
-                if (m5reg.mode == LongMode) {
+                if (desc.type.codeOrData != 1) {
+                    fault = std::make_shared<GeneralProtection>(selector);
+                } else if (m5reg.mode == LongMode) {
                     if (desc.l != 1 || desc.d != 0) {
                         fault = std::make_shared<GeneralProtection>(selector);
                     }
-                } else {
-                    fault = std::make_shared<GenericISA::M5PanicFault>(
-                            "Interrupt CS "
-                            "checks not implemented in legacy mode.\\n");
                 }
                 break;
               case SegTRCheck:
@@ -1680,9 +1710,15 @@ let {{
                     SegLimitDest = desc.limit;
                     SegAttrDest = attr;
                 } else {
+                    HandyM5Reg m5reg = M5Reg;
+
                     SegBaseDest = SegBaseDest;
                     SegLimitDest = SegLimitDest;
-                    SegAttrDest = SegAttrDest;
+
+                    SegAttr attr = SegAttrDest;
+                    if (m5reg != LongMode)
+                        attr.unusable = 1;
+                    SegAttrDest = attr;
                 }
                 break;
             }
@@ -1691,7 +1727,7 @@ let {{
     class Wrxftw(RegOp):
         operand_types = (FoldedSrc1Op,)
         def __init__(self, src1, flags=None, dataSize="env.dataSize"):
-            super(Wrxftw, self).__init__(src1, flags=None, dataSize=dataSize)
+            super().__init__(src1, flags=None, dataSize=dataSize)
 
         code = '''
             FTW = X86ISA::convX87XTagsToTags(SrcReg1);

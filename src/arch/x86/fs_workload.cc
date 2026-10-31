@@ -43,9 +43,13 @@
 #include "arch/x86/bios/smbios.hh"
 #include "arch/x86/faults.hh"
 #include "base/loader/object_file.hh"
+#include "base/trace.hh"
+#include "cpu/pc_event.hh"
 #include "cpu/thread_context.hh"
 #include "debug/ACPI.hh"
+#include "kern/linux/events.hh"
 #include "params/X86FsWorkload.hh"
+#include "sim/sim_exit.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -58,17 +62,15 @@ FsWorkload::FsWorkload(const Params &p) : KernelWorkload(p),
     smbiosTable(p.smbios_table),
     mpFloatingPointer(p.intel_mp_pointer),
     mpConfigTable(p.intel_mp_table),
-    rsdp(p.acpi_description_table_pointer)
+    rsdp(p.acpi_description_table_pointer),
+    enable_osxsave(p.enable_osxsave)
 {}
 
 void
-installSegDesc(ThreadContext *tc, SegmentRegIndex seg,
-               SegDescriptor desc, bool longmode)
+installSegDesc(ThreadContext *tc, int seg, SegDescriptor desc, bool longmode)
 {
-    bool honorBase = !longmode || seg == SEGMENT_REG_FS ||
-                                  seg == SEGMENT_REG_GS ||
-                                  seg == SEGMENT_REG_TSL ||
-                                  seg == SYS_SEGMENT_REG_TR;
+    bool honorBase = !longmode || seg == segment_idx::Fs ||
+                                  seg == segment_idx::Gs;
 
     SegAttr attr = 0;
 
@@ -99,11 +101,58 @@ installSegDesc(ThreadContext *tc, SegmentRegIndex seg,
         attr.expandDown = 0;
     }
 
-    tc->setMiscReg(MISCREG_SEG_BASE(seg), desc.base);
-    tc->setMiscReg(MISCREG_SEG_EFF_BASE(seg), honorBase ? desc.base : 0);
-    tc->setMiscReg(MISCREG_SEG_LIMIT(seg), desc.limit);
-    tc->setMiscReg(MISCREG_SEG_ATTR(seg), (RegVal)attr);
+    tc->setMiscReg(misc_reg::segBase(seg), desc.base);
+    tc->setMiscReg(misc_reg::segEffBase(seg), honorBase ? desc.base : 0);
+    tc->setMiscReg(misc_reg::segLimit(seg), desc.limit);
+    tc->setMiscReg(misc_reg::segAttr(seg), (RegVal)attr);
 }
+
+void
+FsWorkload::startup()
+{
+    KernelWorkload::startup();
+    addExitOnKernelPanicEvent();
+    addExitOnKernelOopsEvent();
+}
+
+void
+FsWorkload::addExitOnKernelPanicEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    if (params().exit_on_kernel_panic) {
+        // This was taken from the RISCV implementation. Some kernels may not
+        // have kernel symbols, causing `kernelSymtab` to be empty.
+        // In that case, addKernelFuncEvent tries to access the "panic" symbol
+        // in the symbol table but can't, so the event won't be added and the
+        // simulation will hang upon kernel panic.
+        kernelPanicPcEvent = addKernelFuncEvent<linux::PanicOrOopsEvent>(
+            "panic", "Kernel panic in simulated system.",
+            dmesg_output, params().on_panic
+        );
+        warn_if(!kernelPanicPcEvent, "Failed to find kernel symbol 'panic'");
+    }
+}
+
+void
+FsWorkload::addExitOnKernelOopsEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    // This was taken from the RISCV implementation. Some kernels may not
+    // have kernel symbols, causing `kernelSymtab` to be empty.
+    // In that case, addKernelFuncEvent tries to access the "oops_exit" symbol
+    // in the symbol table but can't, so the event won't be added and the
+    // simulation will continue upon kernel oops.
+    if (params().exit_on_kernel_oops) {
+        kernelOopsPcEvent = addKernelFuncEvent<linux::PanicOrOopsEvent>(
+            "oops_exit", "Kernel oops in simulated system.",
+            dmesg_output, params().on_oops
+        );
+        warn_if(!kernelOopsPcEvent,
+                "Failed to find kernel symbol 'oops_exit'");
+    }
+
+}
+
 
 void
 FsWorkload::initState()
@@ -136,7 +185,7 @@ FsWorkload::initState()
     // won't actually set up real mode or legacy protected mode descriptor
     // tables because we aren't executing any code that would require
     // them. We do, however toggle the control bits in the correct order
-    // while allowing consistency checks and the underlying mechansims
+    // while allowing consistency checks and the underlying mechanisms
     // just to be safe.
 
     const int NumPDTs = 4;
@@ -189,7 +238,7 @@ FsWorkload::initState()
     SegSelector cs = 0;
     cs.si = numGDTEntries - 1;
 
-    tc->setMiscReg(MISCREG_CS, (RegVal)cs);
+    tc->setMiscReg(misc_reg::Cs, (RegVal)cs);
 
     // 32 bit data segment
     SegDescriptor dsDesc = initDesc;
@@ -207,18 +256,18 @@ FsWorkload::initState()
     SegSelector ds = 0;
     ds.si = numGDTEntries - 1;
 
-    tc->setMiscReg(MISCREG_DS, (RegVal)ds);
-    tc->setMiscReg(MISCREG_ES, (RegVal)ds);
-    tc->setMiscReg(MISCREG_FS, (RegVal)ds);
-    tc->setMiscReg(MISCREG_GS, (RegVal)ds);
-    tc->setMiscReg(MISCREG_SS, (RegVal)ds);
+    tc->setMiscReg(misc_reg::Ds, (RegVal)ds);
+    tc->setMiscReg(misc_reg::Es, (RegVal)ds);
+    tc->setMiscReg(misc_reg::Fs, (RegVal)ds);
+    tc->setMiscReg(misc_reg::Gs, (RegVal)ds);
+    tc->setMiscReg(misc_reg::Ss, (RegVal)ds);
 
-    tc->setMiscReg(MISCREG_TSL, 0);
+    tc->setMiscReg(misc_reg::Tsl, 0);
     SegAttr ldtAttr = 0;
     ldtAttr.unusable = 1;
-    tc->setMiscReg(MISCREG_TSL_ATTR, ldtAttr);
-    tc->setMiscReg(MISCREG_TSG_BASE, GDTBase);
-    tc->setMiscReg(MISCREG_TSG_LIMIT, 8 * numGDTEntries - 1);
+    tc->setMiscReg(misc_reg::TslAttr, ldtAttr);
+    tc->setMiscReg(misc_reg::TsgBase, GDTBase);
+    tc->setMiscReg(misc_reg::TsgLimit, 8 * numGDTEntries - 1);
 
     SegDescriptor tssDesc = initDesc;
     tssDesc.type = 0xB;
@@ -232,8 +281,8 @@ FsWorkload::initState()
     SegSelector tss = 0;
     tss.si = numGDTEntries - 1;
 
-    tc->setMiscReg(MISCREG_TR, (RegVal)tss);
-    installSegDesc(tc, SYS_SEGMENT_REG_TR, tssDesc, true);
+    tc->setMiscReg(misc_reg::Tr, (RegVal)tss);
+    installSegDesc(tc, segment_idx::Tr, tssDesc, true);
 
     /*
      * Identity map the first 4GB of memory. In order to map this region
@@ -287,38 +336,44 @@ FsWorkload::initState()
     /*
      * Transition from real mode all the way up to Long mode
      */
-    CR0 cr0 = tc->readMiscRegNoEffect(MISCREG_CR0);
+    CR0 cr0 = tc->readMiscRegNoEffect(misc_reg::Cr0);
     // Turn off paging.
     cr0.pg = 0;
-    tc->setMiscReg(MISCREG_CR0, cr0);
+    tc->setMiscReg(misc_reg::Cr0, cr0);
     // Turn on protected mode.
     cr0.pe = 1;
-    tc->setMiscReg(MISCREG_CR0, cr0);
+    tc->setMiscReg(misc_reg::Cr0, cr0);
 
-    CR4 cr4 = tc->readMiscRegNoEffect(MISCREG_CR4);
+    CR4 cr4 = tc->readMiscRegNoEffect(misc_reg::Cr4);
     // Turn on pae.
     cr4.pae = 1;
-    tc->setMiscReg(MISCREG_CR4, cr4);
+    cr4.osxsave = enable_osxsave;
+    tc->setMiscReg(misc_reg::Cr4, cr4);
 
     // Point to the page tables.
-    tc->setMiscReg(MISCREG_CR3, PageMapLevel4);
+    tc->setMiscReg(misc_reg::Cr3, PageMapLevel4);
 
-    Efer efer = tc->readMiscRegNoEffect(MISCREG_EFER);
+    // Only used if cr4.osxsave is set
+    XCR0 xcr0 = tc->readMiscRegNoEffect(misc_reg::Xcr0);
+    xcr0.x87 = 1; // Must be 1 according to x86 specification
+    tc->setMiscReg(misc_reg::Xcr0, xcr0);
+
+    Efer efer = tc->readMiscRegNoEffect(misc_reg::Efer);
     // Enable long mode.
     efer.lme = 1;
-    tc->setMiscReg(MISCREG_EFER, efer);
+    tc->setMiscReg(misc_reg::Efer, efer);
 
     // Start using longmode segments.
-    installSegDesc(tc, SEGMENT_REG_CS, csDesc, true);
-    installSegDesc(tc, SEGMENT_REG_DS, dsDesc, true);
-    installSegDesc(tc, SEGMENT_REG_ES, dsDesc, true);
-    installSegDesc(tc, SEGMENT_REG_FS, dsDesc, true);
-    installSegDesc(tc, SEGMENT_REG_GS, dsDesc, true);
-    installSegDesc(tc, SEGMENT_REG_SS, dsDesc, true);
+    installSegDesc(tc, segment_idx::Cs, csDesc, true);
+    installSegDesc(tc, segment_idx::Ds, dsDesc, true);
+    installSegDesc(tc, segment_idx::Es, dsDesc, true);
+    installSegDesc(tc, segment_idx::Fs, dsDesc, true);
+    installSegDesc(tc, segment_idx::Gs, dsDesc, true);
+    installSegDesc(tc, segment_idx::Ss, dsDesc, true);
 
     // Activate long mode.
     cr0.pg = 1;
-    tc->setMiscReg(MISCREG_CR0, cr0);
+    tc->setMiscReg(misc_reg::Cr0, cr0);
 
     tc->pcState(kernelObj->entryPoint());
 

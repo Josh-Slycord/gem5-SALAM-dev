@@ -30,15 +30,13 @@ from salam_workbench.workbench_window import WorkbenchWindow
 
 PROJECT = Path(__file__).resolve().parents[1]
 WORKSPACE = PROJECT / "workspace.json"
-ENGINE = (
-    Path(
-        json.loads(WORKSPACE.read_text(encoding="utf-8-sig"))["configuration_engine"][
-            "path"
-        ]
-    )
+CONFIGURATION = (
+    json.loads(WORKSPACE.read_text(encoding="utf-8-sig"))["configuration_engine"]
     if WORKSPACE.is_file()
-    else PROJECT / "unbound-engine"
+    else {}
 )
+ENGINE = Path(CONFIGURATION.get("path", PROJECT / "unbound-engine"))
+DISTRIBUTION = CONFIGURATION.get("distribution", "Ubuntu-20.04")
 GUI_SOURCE = ENGINE / "gem5-SALAM-gui/src"
 
 
@@ -505,7 +503,7 @@ class WorkbenchWindowRealEditorTests(unittest.TestCase):
         self.window = WorkbenchWindow(
             PROJECT,
             ENGINE,
-            "Ubuntu-20.04",
+            DISTRIBUTION,
             self.dialog_class,
             settings=self.settings,
             auto_discover=False,

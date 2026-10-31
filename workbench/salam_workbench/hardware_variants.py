@@ -14,20 +14,13 @@ from pathlib import Path
 from . import hardware_codegen
 from .configurator import (
     PROJECT,
-    PYTHON,
     build_engine,
     compiled_identity,
     install_hardware_overlay,
     verify_engine,
 )
+from .toolchain_profile import load_toolchain, record_toolchain
 
-_TOOLCHAIN = (
-    PYTHON,
-    "/usr/bin/scons",
-    "/usr/bin/g++",
-    "/usr/bin/python3.8-config",
-    "/usr/bin/ld",
-)
 _SKIP_COPY = {
     ".git",
     "__pycache__",
@@ -53,22 +46,30 @@ def _save(path, record):
 
 
 def _toolchain_hashes():
-    paths = [Path(p).resolve(strict=True) for p in _TOOLCHAIN]
+    profile = load_toolchain(PROJECT)
+    selection = record_toolchain(profile)
+    selected_files = list(selection["tools"].values()) + selection.get(
+        "llvm_shared_libraries", {}
+    ).get("libraries", [])
+    paths = [Path(item["path"]).resolve(strict=True) for item in selected_files]
     paths.extend(
         (
             PROJECT / "evidence/toolchain.json",
             Path(hardware_codegen.__file__).resolve(strict=True),
             PROJECT / "salam_workbench/regression.py",
             PROJECT / "salam_workbench/runner.py",
+            PROJECT / "salam_workbench/toolchain_profile.py",
         )
     )
     result = {str(path): _sha(path) for path in paths}
+    result["selected_toolchain_profile"] = selection["profile_sha256"]
     source_path = PROJECT / "salam_workbench/configurator.py"
     source = source_path.read_text(encoding="utf-8")
     names = {
         "_record",
         "compiled_identity",
         "build_engine",
+        "_modern_build_configuration",
         "_safe_generated_debug_object",
         "_debug_label_recovery_objects",
         "_archive_debug_label_objects",
@@ -324,6 +325,7 @@ def ensure_hardware_variant(
             period=period,
             profile=profile,
             profile_overrides=overrides,
+            python_executable=load_toolchain(PROJECT)["python"],
         )
         record["generation_receipt"] = str(
             evidence / "generation/hardware-codegen.json"

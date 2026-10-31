@@ -41,9 +41,8 @@
 
 #include "cpu/simple/atomic.hh"
 
-#include "arch/locked_mem.hh"
+#include "arch/generic/decoder.hh"
 #include "base/output.hh"
-#include "config/the_isa.hh"
 #include "cpu/exetrace.hh"
 #include "cpu/utils.hh"
 #include "debug/Drain.hh"
@@ -52,7 +51,7 @@
 #include "mem/packet.hh"
 #include "mem/packet_access.hh"
 #include "mem/physical.hh"
-#include "params/AtomicSimpleCPU.hh"
+#include "params/BaseAtomicSimpleCPU.hh"
 #include "sim/faults.hh"
 #include "sim/full_system.hh"
 #include "sim/system.hh"
@@ -72,14 +71,14 @@ AtomicSimpleCPU::init()
     data_amo_req->setContext(cid);
 }
 
-AtomicSimpleCPU::AtomicSimpleCPU(const AtomicSimpleCPUParams &p)
+AtomicSimpleCPU::AtomicSimpleCPU(const BaseAtomicSimpleCPUParams &p)
     : BaseSimpleCPU(p),
       tickEvent([this]{ tick(); }, "AtomicSimpleCPU tick",
                 false, Event::CPU_Tick_Pri),
       width(p.width), locked(false),
       simulate_data_stalls(p.simulate_data_stalls),
       simulate_inst_stalls(p.simulate_inst_stalls),
-      icachePort(name() + ".icache_port", this),
+      icachePort(name() + ".icache_port"),
       dcachePort(name() + ".dcache_port", this),
       dcache_access(false), dcache_latency(0),
       ppCommit(nullptr)
@@ -133,8 +132,8 @@ AtomicSimpleCPU::threadSnoop(PacketPtr pkt, ThreadID sender)
                 wakeup(tid);
             }
 
-            TheISA::handleLockedSnoop(threadInfo[tid]->thread,
-                                      pkt, dcachePort.cacheBlockMask);
+            threadInfo[tid]->thread->getIsaPtr()->handleLockedSnoop(pkt,
+                    dcachePort.cacheBlockMask);
         }
     }
 }
@@ -282,8 +281,6 @@ AtomicSimpleCPU::AtomicCPUDPort::recvAtomicSnoop(PacketPtr pkt)
             __func__, pkt->getAddr(), pkt->cmdString());
 
     // X86 ISA: Snooping an invalidation for monitor/mwait
-    AtomicSimpleCPU *cpu = (AtomicSimpleCPU *)(&owner);
-
     for (ThreadID tid = 0; tid < cpu->numThreads; tid++) {
         if (cpu->getCpuAddrMonitor(tid)->doMonitor(pkt)) {
             cpu->wakeup(tid);
@@ -298,7 +295,8 @@ AtomicSimpleCPU::AtomicCPUDPort::recvAtomicSnoop(PacketPtr pkt)
         DPRINTF(SimpleCPU, "received invalidation for addr:%#x\n",
                 pkt->getAddr());
         for (auto &t_info : cpu->threadInfo) {
-            TheISA::handleLockedSnoop(t_info->thread, pkt, cacheBlockMask);
+            t_info->thread->getIsaPtr()->handleLockedSnoop(pkt,
+                    cacheBlockMask);
         }
     }
 
@@ -312,7 +310,6 @@ AtomicSimpleCPU::AtomicCPUDPort::recvFunctionalSnoop(PacketPtr pkt)
             __func__, pkt->getAddr(), pkt->cmdString());
 
     // X86 ISA: Snooping an invalidation for monitor/mwait
-    AtomicSimpleCPU *cpu = (AtomicSimpleCPU *)(&owner);
     for (ThreadID tid = 0; tid < cpu->numThreads; tid++) {
         if (cpu->getCpuAddrMonitor(tid)->doMonitor(pkt)) {
             cpu->wakeup(tid);
@@ -324,7 +321,8 @@ AtomicSimpleCPU::AtomicCPUDPort::recvFunctionalSnoop(PacketPtr pkt)
         DPRINTF(SimpleCPU, "received invalidation for addr:%#x\n",
                 pkt->getAddr());
         for (auto &t_info : cpu->threadInfo) {
-            TheISA::handleLockedSnoop(t_info->thread, pkt, cacheBlockMask);
+            t_info->thread->getIsaPtr()->handleLockedSnoop(pkt,
+                    cacheBlockMask);
         }
     }
 }
@@ -404,10 +402,11 @@ AtomicSimpleCPU::readMem(Addr addr, uint8_t *data, unsigned size,
             }
             dcache_access = true;
 
-            assert(!pkt.isError());
+            panic_if(pkt.isError(), "Data fetch (%s) failed: %s",
+                    pkt.getAddrRange().to_string(), pkt.print());
 
             if (req->isLLSC()) {
-                TheISA::handleLockedRead(thread, req);
+                thread->getIsaPtr()->handleLockedRead(req);
             }
         }
 
@@ -463,7 +462,7 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
     Addr frag_addr = addr;
     int frag_size = 0;
     int size_left = size;
-    int curr_frag_id = 0;
+    [[maybe_unused]] int curr_frag_id = 0;
     bool predicate;
     Fault fault = NoFault;
 
@@ -482,9 +481,8 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
 
             if (req->isLLSC()) {
                 assert(curr_frag_id == 0);
-                do_access =
-                    TheISA::handleLockedWrite(thread, req,
-                                              dcachePort.cacheBlockMask);
+                do_access = thread->getIsaPtr()->handleLockedWrite(req,
+                        dcachePort.cacheBlockMask);
             } else if (req->isSwap()) {
                 assert(curr_frag_id == 0);
                 if (req->isCondSwap()) {
@@ -507,8 +505,8 @@ AtomicSimpleCPU::writeMem(uint8_t *data, unsigned size, Addr addr,
                     threadSnoop(&pkt, curThread);
                 }
                 dcache_access = true;
-                assert(!pkt.isError());
-
+                panic_if(pkt.isError(), "Data write (%s) failed: %s",
+                        pkt.getAddrRange().to_string(), pkt.print());
                 if (req->isSwap()) {
                     assert(res && curr_frag_id == 0);
                     memcpy(res, pkt.getConstPtr<uint8_t>(), size);
@@ -596,7 +594,8 @@ AtomicSimpleCPU::amoMem(Addr addr, uint8_t* data, unsigned size,
 
         dcache_access = true;
 
-        assert(!pkt.isError());
+        panic_if(pkt.isError(), "Atomic access (%s) failed: %s",
+                pkt.getAddrRange().to_string(), pkt.print());
         assert(!req->isLLSC());
     }
 
@@ -650,10 +649,9 @@ AtomicSimpleCPU::tick()
 
         Fault fault = NoFault;
 
-        TheISA::PCState pcState = thread->pcState();
+        const PCStateBase &pc = thread->pcState();
 
-        bool needToFetch = !isRomMicroPC(pcState.microPC()) &&
-                           !curMacroStaticInst;
+        bool needToFetch = !isRomMicroPC(pc.microPC()) && !curMacroStaticInst;
         if (needToFetch) {
             ifetch_req->taskId(taskId());
             setupFetchRequest(ifetch_req);
@@ -687,6 +685,7 @@ AtomicSimpleCPU::tick()
 
                 // keep an instruction count
                 if (fault == NoFault) {
+                    postExecute();
                     countInst();
                     ppCommit->notify(std::make_pair(thread, curStaticInst));
                 } else if (traceData) {
@@ -700,8 +699,6 @@ AtomicSimpleCPU::tick()
                     // caused the retry are unlikely to change every tick.
                     stall_ticks += clockEdge(syscallRetryLatency) - curTick();
                 }
-
-                postExecute();
             }
 
             // @todo remove me after debugging with legion done
@@ -749,10 +746,11 @@ AtomicSimpleCPU::fetchInstMem()
 
     // ifetch_req is initialized to read the instruction
     // directly into the CPU object's inst field.
-    pkt.dataStatic(decoder.moreBytesPtr());
+    pkt.dataStatic(decoder->moreBytesPtr());
 
     Tick latency = sendPacket(icachePort, &pkt);
-    assert(!pkt.isError());
+    panic_if(pkt.isError(), "Instruction fetch (%s) failed: %s",
+            pkt.getAddrRange().to_string(), pkt.print());
 
     return latency;
 }

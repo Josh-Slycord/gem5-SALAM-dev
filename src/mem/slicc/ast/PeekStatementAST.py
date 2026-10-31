@@ -29,9 +29,10 @@
 from slicc.ast.StatementAST import StatementAST
 from slicc.symbols import Var
 
+
 class PeekStatementAST(StatementAST):
     def __init__(self, slicc, queue_name, type_ast, pairs, statements, method):
-        super(PeekStatementAST, self).__init__(slicc, pairs)
+        super().__init__(slicc, pairs)
 
         self.queue_name = queue_name
         self.type_ast = type_ast
@@ -39,8 +40,14 @@ class PeekStatementAST(StatementAST):
         self.method = method
 
     def __repr__(self):
-        return "[PeekStatementAST: %r queue_name: %r type: %r %r]" % \
-               (self.method, self.queue_name, self.type_ast, self.statements)
+        return (
+            "[PeekStatementAST: {!r} queue_name: {!r} type: {!r} {!r}]".format(
+                self.method,
+                self.queue_name,
+                self.type_ast,
+                self.statements,
+            )
+        )
 
     def generate(self, code, return_type, **kwargs):
         self.symtab.pushFrame()
@@ -48,8 +55,14 @@ class PeekStatementAST(StatementAST):
         msg_type = self.type_ast.type
 
         # Add new local var to symbol table
-        var = Var(self.symtab, "in_msg", self.location, msg_type, "(*in_msg_ptr)",
-                  self.pairs)
+        var = Var(
+            self.symtab,
+            "in_msg",
+            self.location,
+            msg_type,
+            "(*in_msg_ptr)",
+            self.pairs,
+        )
         self.symtab.newSymbol(var)
 
         # Check the queue type
@@ -58,10 +71,10 @@ class PeekStatementAST(StatementAST):
         # Declare the new "in_msg_ptr" variable
         mtid = msg_type.c_ident
         qcode = self.queue_name.var.code
-        code('''
+        code("""
 {
     // Declare message
-    GEM5_VAR_USED const $mtid* in_msg_ptr;
+    [[maybe_unused]] const $mtid* in_msg_ptr;
     in_msg_ptr = dynamic_cast<const $mtid *>(($qcode).${{self.method}}());
     if (in_msg_ptr == NULL) {
         // If the cast fails, this is the wrong inport (wrong message type).
@@ -69,26 +82,27 @@ class PeekStatementAST(StatementAST):
         // different inport or punt.
         throw RejectException();
     }
-''')
+""")
 
         if "block_on" in self.pairs:
-            address_field = self.pairs['block_on']
-            code('''
+            address_field = self.pairs["block_on"]
+            code("""
     if (m_is_blocking &&
         (m_block_map.count(in_msg_ptr->m_$address_field) == 1) &&
         (m_block_map[in_msg_ptr->m_$address_field] != &$qcode)) {
-            $qcode.delayHead(clockEdge(), cyclesToTicks(Cycles(1)));
+            $qcode.delayHead(clockEdge(), cyclesToTicks(Cycles(1)),
+            m_ruby_system->getRandomization(), m_ruby_system->getWarmupEnabled());
             continue;
     }
-            ''')
+            """)
 
         if "wake_up" in self.pairs:
-            address_field = self.pairs['wake_up']
-            code('''
+            address_field = self.pairs["wake_up"]
+            code("""
     if (m_waiting_buffers.count(in_msg_ptr->m_$address_field) > 0) {
         wakeUpBuffers(in_msg_ptr->m_$address_field);
     }
-            ''')
+            """)
 
         # The other statements
         self.statements.generate(code, return_type, **kwargs)

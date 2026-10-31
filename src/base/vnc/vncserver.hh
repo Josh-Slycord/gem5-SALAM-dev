@@ -180,9 +180,9 @@ class VncServer : public VncInput
     int number;
     int dataFd; // data stream file describer
 
-    ListenSocket listener;
+    ListenSocketPtr listener;
 
-    void listen(int port);
+    void listen();
     void accept();
     void data();
     void detach();
@@ -315,6 +315,24 @@ class VncServer : public VncInput
     static const PixelConverter pixelConverter;
 
   public:
+    /**
+     * @return true if a listener socket is configured for this VNC server.
+     */
+    bool
+    hasListener() const
+    { return listener != nullptr && listener->islistening(); }
+
+    /**
+     * Returns the actual bound address of the listener.
+     *
+     * This method provides a snapshot of the current listening endpoint
+     * (e.g., a TCP port number or a UNIX socket path).
+     *
+     * @return A string representation of the listening endpoint, or an
+     * empty string if no listener is attached or configured.
+     */
+    std::string getListenerOutput() const;
+
     void setDirty() override;
     void frameBufferResized() override;
 };

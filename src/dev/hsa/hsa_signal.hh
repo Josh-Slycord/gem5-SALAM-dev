@@ -2,8 +2,6 @@
  * Copyright (c) 2016-2019 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -42,34 +40,40 @@ namespace gem5
 typedef int64_t amd_signal_kind64_t;
 enum amd_signal_kind_t
 {
-  AMD_SIGNAL_KIND_INVALID = 0,
-  AMD_SIGNAL_KIND_USER = 1,
-  AMD_SIGNAL_KIND_DOORBELL = -1,
-  AMD_SIGNAL_KIND_LEGACY_DOORBELL = -2
+    AMD_SIGNAL_KIND_INVALID = 0,
+    AMD_SIGNAL_KIND_USER = 1,
+    AMD_SIGNAL_KIND_DOORBELL = -1,
+    AMD_SIGNAL_KIND_LEGACY_DOORBELL = -2
 };
 
 // AMD Signal.
 typedef struct amd_signal_s
 {
-  amd_signal_kind64_t kind;
-  union
-  {
-    volatile int64_t value;
-    volatile uint32_t* legacy_hardware_doorbell_ptr;
-    volatile uint64_t* hardware_doorbell_ptr;
-  };
-  uint64_t event_mailbox_ptr;
-  uint32_t event_id;
-  uint32_t reserved1;
-  uint64_t start_ts;
-  uint64_t end_ts;
-  union
-  {
-    uint64_t queue_ptr;
-    uint64_t reserved2;
-  };
-  uint32_t reserved3[2];
+    amd_signal_kind64_t kind;
+    union
+    {
+        volatile int64_t value;
+        volatile uint32_t *legacy_hardware_doorbell_ptr;
+        volatile uint64_t *hardware_doorbell_ptr;
+    };
+    uint64_t event_mailbox_ptr;
+    uint32_t event_id;
+    uint32_t reserved1;
+    uint64_t start_ts;
+    uint64_t end_ts;
+    union
+    {
+        uint64_t queue_ptr;
+        uint64_t reserved2;
+    };
+    uint32_t reserved3[2];
 } amd_signal_t;
+
+typedef struct
+{
+    uint64_t start_ts;
+    uint64_t end_ts;
+} amd_event_t;
 
 } // namespace gem5
 

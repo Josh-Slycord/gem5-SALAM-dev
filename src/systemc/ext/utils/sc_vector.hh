@@ -49,6 +49,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <exception>
 #include <iterator>
 #include <vector>
@@ -259,10 +260,7 @@ class sc_member_access
 
 template <typename Element,
           typename AccessPolicy=sc_direct_access<Element> >
-class sc_vector_iter :
-        public std::iterator<std::random_access_iterator_tag,
-                             typename AccessPolicy::Type>,
-        private AccessPolicy
+class sc_vector_iter : private AccessPolicy
 {
   private:
     typedef Element ElementType;
@@ -282,8 +280,6 @@ class sc_vector_iter :
     template <typename, typename>
     friend class sc_vector_iter;
 
-    typedef std::iterator<std::random_access_iterator_tag, AccessType>
-        BaseType;
     typedef sc_vector_iter ThisType;
     typedef sc_vector<PlainType> VectorType;
     typedef std::vector<void *> StorageType;
@@ -315,9 +311,11 @@ class sc_vector_iter :
     // Conforms to Random Access Iterator category.
     // See ISO/IEC 14882:2003(E), 24.1 [lib.iterator.requirements]
 
-    typedef typename BaseType::difference_type difference_type;
-    typedef typename BaseType::reference reference;
-    typedef typename BaseType::pointer pointer;
+    using difference_type = std::ptrdiff_t;
+    using value_type = typename AccessPolicy::Type;
+    using reference = typename AccessPolicy::Type &;
+    using pointer = typename AccessPolicy::Type *;
+    using iterator_category = std::random_access_iterator_tag;
 
     sc_vector_iter() : Policy(), it_() {}
 
@@ -484,6 +482,23 @@ class sc_vector : public sc_vector_base
         } catch (...) {
             unforceParent();
             clear();
+            throw;
+        }
+        unforceParent();
+    }
+
+    // SystemC IEEE 1666-2023 standard
+    template <typename... Args>
+    void
+    emplace_back(Args &&...args)
+    {
+        forceParent();
+        try {
+            const char *unique_name = sc_gen_unique_name(this->basename());
+            T *p = new T(unique_name, std::forward<Args>(args)...);
+            objs.push_back(p);
+        } catch (...) {
+            unforceParent();
             throw;
         }
         unforceParent();

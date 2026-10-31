@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2020 ARM Limited
+ * Copyright (c) 2010-2025 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -41,21 +41,36 @@
 #ifndef __ARCH_ARM_REGS_MISC_HH__
 #define __ARCH_ARM_REGS_MISC_HH__
 
-#include <bitset>
+#include <optional>
 #include <tuple>
 
 #include "arch/arm/regs/misc_types.hh"
+#include "arch/arm/types.hh"
 #include "base/compiler.hh"
 #include "dev/arm/generic_timer_miscregs_types.hh"
+
+#define TLBI_VARIANTS(TLBI) \
+    TLBI, \
+    TLBI##NXS
+
+#define TLBI_CASE_VARIANTS(TLBI) \
+    case TLBI: \
+    case TLBI##NXS:
+
+#define TLBI_STR_VARIANTS(TLBI) \
+    #TLBI, \
+    #TLBI"nxs"
 
 namespace gem5
 {
 
+class ArmSystem;
 class ThreadContext;
-
+class MiscRegOp64;
 
 namespace ArmISA
 {
+// clang-format off
     enum MiscRegIndex
     {
         MISCREG_CPSR = 0,
@@ -88,10 +103,10 @@ namespace ArmISA
         MISCREG_NMRR_MAIR1_NS,
         MISCREG_NMRR_MAIR1_S,
         MISCREG_PMXEVTYPER_PMCCFILTR,
-        MISCREG_SCTLR_RST,
         MISCREG_SEV_MAILBOX,
+        MISCREG_TLBINEEDSYNC,
 
-        // AArch32 CP14 registers (debug/trace/ThumbEE/Jazelle control)
+        // AArch32 CP14 registers (debug/trace control)
         MISCREG_DBGDIDR,
         MISCREG_DBGDSCRint,
         MISCREG_DBGDCCINT,
@@ -358,6 +373,18 @@ namespace ArmISA
         MISCREG_PMCEID1,
         MISCREG_PMCCNTR,
         MISCREG_PMXEVTYPER,
+        MISCREG_PMEVCNTR0,
+        MISCREG_PMEVCNTR1,
+        MISCREG_PMEVCNTR2,
+        MISCREG_PMEVCNTR3,
+        MISCREG_PMEVCNTR4,
+        MISCREG_PMEVCNTR5,
+        MISCREG_PMEVTYPER0,
+        MISCREG_PMEVTYPER1,
+        MISCREG_PMEVTYPER2,
+        MISCREG_PMEVTYPER3,
+        MISCREG_PMEVTYPER4,
+        MISCREG_PMEVTYPER5,
         MISCREG_PMCCFILTR,
         MISCREG_PMXEVCNTR,
         MISCREG_PMUSERENR,
@@ -566,6 +593,7 @@ namespace ArmISA
         MISCREG_ID_AA64AFR1_EL1,
         MISCREG_ID_AA64ISAR0_EL1,
         MISCREG_ID_AA64ISAR1_EL1,
+        MISCREG_ID_AA64ISAR2_EL1,
         MISCREG_ID_AA64MMFR0_EL1,
         MISCREG_ID_AA64MMFR1_EL1,
         MISCREG_CCSIDR_EL1,
@@ -578,17 +606,22 @@ namespace ArmISA
         MISCREG_VMPIDR_EL2,
         MISCREG_SCTLR_EL1,
         MISCREG_SCTLR_EL12,
+        MISCREG_SCTLR2_EL1,
+        MISCREG_SCTLR2_EL12,
         MISCREG_ACTLR_EL1,
         MISCREG_CPACR_EL1,
         MISCREG_CPACR_EL12,
         MISCREG_SCTLR_EL2,
+        MISCREG_SCTLR2_EL2,
         MISCREG_ACTLR_EL2,
         MISCREG_HCR_EL2,
+        MISCREG_HCRX_EL2,
         MISCREG_MDCR_EL2,
         MISCREG_CPTR_EL2,
         MISCREG_HSTR_EL2,
         MISCREG_HACR_EL2,
         MISCREG_SCTLR_EL3,
+        MISCREG_SCTLR2_EL3,
         MISCREG_ACTLR_EL3,
         MISCREG_SCR_EL3,
         MISCREG_SDER32_EL3,
@@ -600,8 +633,11 @@ namespace ArmISA
         MISCREG_TTBR1_EL12,
         MISCREG_TCR_EL1,
         MISCREG_TCR_EL12,
+        MISCREG_TCR2_EL1,
+        MISCREG_TCR2_EL12,
         MISCREG_TTBR0_EL2,
         MISCREG_TCR_EL2,
+        MISCREG_TCR2_EL2,
         MISCREG_VTTBR_EL2,
         MISCREG_VTCR_EL2,
         MISCREG_VSTTBR_EL2,
@@ -675,38 +711,84 @@ namespace ArmISA
         MISCREG_AT_S12E0W_Xt,
         MISCREG_AT_S1E3R_Xt,
         MISCREG_AT_S1E3W_Xt,
-        MISCREG_TLBI_VMALLE1IS,
-        MISCREG_TLBI_VAE1IS_Xt,
-        MISCREG_TLBI_ASIDE1IS_Xt,
-        MISCREG_TLBI_VAAE1IS_Xt,
-        MISCREG_TLBI_VALE1IS_Xt,
-        MISCREG_TLBI_VAALE1IS_Xt,
-        MISCREG_TLBI_VMALLE1,
-        MISCREG_TLBI_VAE1_Xt,
-        MISCREG_TLBI_ASIDE1_Xt,
-        MISCREG_TLBI_VAAE1_Xt,
-        MISCREG_TLBI_VALE1_Xt,
-        MISCREG_TLBI_VAALE1_Xt,
-        MISCREG_TLBI_IPAS2E1IS_Xt,
-        MISCREG_TLBI_IPAS2LE1IS_Xt,
-        MISCREG_TLBI_ALLE2IS,
-        MISCREG_TLBI_VAE2IS_Xt,
-        MISCREG_TLBI_ALLE1IS,
-        MISCREG_TLBI_VALE2IS_Xt,
-        MISCREG_TLBI_VMALLS12E1IS,
-        MISCREG_TLBI_IPAS2E1_Xt,
-        MISCREG_TLBI_IPAS2LE1_Xt,
-        MISCREG_TLBI_ALLE2,
-        MISCREG_TLBI_VAE2_Xt,
-        MISCREG_TLBI_ALLE1,
-        MISCREG_TLBI_VALE2_Xt,
-        MISCREG_TLBI_VMALLS12E1,
-        MISCREG_TLBI_ALLE3IS,
-        MISCREG_TLBI_VAE3IS_Xt,
-        MISCREG_TLBI_VALE3IS_Xt,
-        MISCREG_TLBI_ALLE3,
-        MISCREG_TLBI_VAE3_Xt,
-        MISCREG_TLBI_VALE3_Xt,
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_ASIDE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_ASIDE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAAE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAAE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAALE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAALE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLE1),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE1),
+        TLBI_VARIANTS(MISCREG_TLBI_ASIDE1),
+        TLBI_VARIANTS(MISCREG_TLBI_VAAE1),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE1),
+        TLBI_VARIANTS(MISCREG_TLBI_VAALE1),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2E1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2E1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2LE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2LE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE2IS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE2OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE2IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE2OS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE2IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE2OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLS12E1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLS12E1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2E1),
+        TLBI_VARIANTS(MISCREG_TLBI_IPAS2LE1),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE2),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE2),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE1),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE2),
+        TLBI_VARIANTS(MISCREG_TLBI_VMALLS12E1),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE3IS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE3OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE3IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE3OS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE3IS),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE3OS),
+        TLBI_VARIANTS(MISCREG_TLBI_ALLE3),
+        TLBI_VARIANTS(MISCREG_TLBI_VAE3),
+        TLBI_VARIANTS(MISCREG_TLBI_VALE3),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE1),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAAE1),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE1),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAALE1),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2E1),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2LE1),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE2),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE2),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE3),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE3),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAAE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAALE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2E1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2LE1IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE2IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE2IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE3IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE3IS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAAE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAALE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2E1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RIPAS2LE1OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE2OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE2OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVAE3OS),
+        TLBI_VARIANTS(MISCREG_TLBI_RVALE3OS),
         MISCREG_PMINTENSET_EL1,
         MISCREG_PMINTENCLR_EL1,
         MISCREG_PMCR_EL0,
@@ -820,6 +902,7 @@ namespace ArmISA
         MISCREG_TTBR1_EL2,
 
         MISCREG_ID_AA64MMFR2_EL1,
+        MISCREG_ID_AA64MMFR3_EL1,
 
         //PAuth Key Regsiters
         MISCREG_APDAKeyHi_EL1,
@@ -1057,9 +1140,61 @@ namespace ArmISA
         MISCREG_ZCR_EL12,
         MISCREG_ZCR_EL1,
 
+        // SME
+        MISCREG_ID_AA64SMFR0_EL1,
+        MISCREG_SVCR,
+        MISCREG_SMIDR_EL1,
+        MISCREG_SMPRI_EL1,
+        MISCREG_SMPRIMAP_EL2,
+        MISCREG_SMCR_EL3,
+        MISCREG_SMCR_EL2,
+        MISCREG_SMCR_EL12,
+        MISCREG_SMCR_EL1,
+        MISCREG_TPIDR2_EL0,
+        MISCREG_MPAMSM_EL1,
+
+        // FEAT_RNG
+        MISCREG_RNDR,
+        MISCREG_RNDRRS,
+
+        // FEAT_FGT
+        MISCREG_HFGITR_EL2,
+        MISCREG_HFGRTR_EL2,
+        MISCREG_HFGWTR_EL2,
+        MISCREG_HDFGRTR_EL2,
+        MISCREG_HDFGWTR_EL2,
+        MISCREG_HAFGRTR_EL2,
+
+        // FEAT_MPAM
+        MISCREG_MPAMIDR_EL1,
+        MISCREG_MPAM0_EL1,
+        MISCREG_MPAM1_EL1,
+        MISCREG_MPAM2_EL2,
+        MISCREG_MPAM3_EL3,
+        MISCREG_MPAM1_EL12,
+        MISCREG_MPAMHCR_EL2,
+        MISCREG_MPAMVPMV_EL2,
+        MISCREG_MPAMVPM0_EL2,
+        MISCREG_MPAMVPM1_EL2,
+        MISCREG_MPAMVPM2_EL2,
+        MISCREG_MPAMVPM3_EL2,
+        MISCREG_MPAMVPM4_EL2,
+        MISCREG_MPAMVPM5_EL2,
+        MISCREG_MPAMVPM6_EL2,
+        MISCREG_MPAMVPM7_EL2,
+
+        // S1PIE
+        MISCREG_PIRE0_EL1,
+        MISCREG_PIRE0_EL2,
+        MISCREG_PIRE0_EL12,
+        MISCREG_PIR_EL1,
+        MISCREG_PIR_EL2,
+        MISCREG_PIR_EL3,
+        MISCREG_PIR_EL12,
+
         // NUM_PHYS_MISCREGS specifies the number of actual physical
         // registers, not considering the following pseudo-registers
-        // (dummy registers), like UNKNOWN, CP15_UNIMPL, MISCREG_IMPDEF_UNIMPL.
+        // (dummy registers), like MISCREG_UNKNOWN, MISCREG_IMPDEF_UNIMPL.
         // Checkpointing should use this physical index when
         // saving/restoring register values.
         NUM_PHYS_MISCREGS,
@@ -1067,8 +1202,6 @@ namespace ArmISA
         // Dummy registers
         MISCREG_NOP,
         MISCREG_RAZ,
-        MISCREG_CP14_UNIMPL,
-        MISCREG_CP15_UNIMPL,
         MISCREG_UNKNOWN,
 
         // Implementation defined register: this represent
@@ -1091,66 +1224,105 @@ namespace ArmISA
 
         // PSTATE
         MISCREG_PAN,
+        MISCREG_UAO,
 
         // Total number of Misc Registers: Physical + Dummy
         NUM_MISCREGS
     };
+// clang-format on
 
-    enum MiscRegInfo
+struct MiscRegNum32
+{
+    MiscRegNum32(unsigned _coproc, unsigned _opc1, unsigned _crn,
+                 unsigned _crm, unsigned _opc2)
+        : reg64(0),
+          coproc(_coproc),
+          opc1(_opc1),
+          crn(_crn),
+          crm(_crm),
+          opc2(_opc2)
     {
-        MISCREG_IMPLEMENTED,
-        MISCREG_UNVERIFIABLE,   // Does the value change on every read (e.g. a
-                                // arch generic counter)
-        MISCREG_WARN_NOT_FAIL,  // If MISCREG_IMPLEMENTED is deasserted, it
-                                // tells whether the instruction should raise a
-                                // warning or fail
-        MISCREG_MUTEX,  // True if the register corresponds to a pair of
-                        // mutually exclusive registers
-        MISCREG_BANKED,  // True if the register is banked between the two
-                         // security states, and this is the parent node of the
-                         // two banked registers
-        MISCREG_BANKED64, // True if the register is banked between the two
-                          // security states, and this is the parent node of
-                          // the two banked registers. Used in AA64 only.
-        MISCREG_BANKED_CHILD, // The entry is one of the child registers that
-                              // forms a banked set of regs (along with the
-                              // other child regs)
+        // MCR/MRC CP14 or CP15 register
+        assert(coproc == 0b1110 || coproc == 0b1111);
+        assert(opc1 < 8 && crn < 16 && crm < 16 && opc2 < 8);
+    }
 
-        // Access permissions
-        // User mode
-        MISCREG_USR_NS_RD,
-        MISCREG_USR_NS_WR,
-        MISCREG_USR_S_RD,
-        MISCREG_USR_S_WR,
-        // Privileged modes other than hypervisor or monitor
-        MISCREG_PRI_NS_RD,
-        MISCREG_PRI_NS_WR,
-        MISCREG_PRI_S_RD,
-        MISCREG_PRI_S_WR,
-        // Hypervisor mode
-        MISCREG_HYP_NS_RD,
-        MISCREG_HYP_NS_WR,
-        MISCREG_HYP_S_RD,
-        MISCREG_HYP_S_WR,
-        // Hypervisor mode, HCR_EL2.E2H == 1
-        MISCREG_HYP_E2H_NS_RD,
-        MISCREG_HYP_E2H_NS_WR,
-        MISCREG_HYP_E2H_S_RD,
-        MISCREG_HYP_E2H_S_WR,
-        // Monitor mode, SCR.NS == 0
-        MISCREG_MON_NS0_RD,
-        MISCREG_MON_NS0_WR,
-        // Monitor mode, SCR.NS == 1
-        MISCREG_MON_NS1_RD,
-        MISCREG_MON_NS1_WR,
-        // Monitor mode, HCR_EL2.E2H == 1
-        MISCREG_MON_E2H_RD,
-        MISCREG_MON_E2H_WR,
+    MiscRegNum32(unsigned _coproc, unsigned _opc1, unsigned _crm)
+        : reg64(1), coproc(_coproc), opc1(_opc1), crn(0), crm(_crm), opc2(0)
+    {
+        // MCRR/MRRC CP14 or CP15 register
+        assert(coproc == 0b1110 || coproc == 0b1111);
+        assert(opc1 < 16 && crm < 16);
+    }
 
-        NUM_MISCREG_INFOS
+    MiscRegNum32(const MiscRegNum32 &rhs) = default;
+
+    bool
+    operator==(const MiscRegNum32 &other) const
+    {
+        return reg64 == other.reg64 && coproc == other.coproc &&
+               opc1 == other.opc1 && crn == other.crn && crm == other.crm &&
+               opc2 == other.opc2;
+    }
+
+    uint32_t
+    packed() const
+    {
+        return reg64 << 19 | coproc << 15 | opc1 << 11 | crn << 7 | crm << 3 |
+               opc2;
+    }
+
+    // 1 if the register is 64bit wide (accessed through MCRR/MRCC)
+    // 0 otherwise. We need this when generating the hash as there
+    // might be collisions between 32 and 64 bit registers
+    const unsigned reg64;
+
+    unsigned coproc;
+    unsigned opc1;
+    unsigned crn;
+    unsigned crm;
+    unsigned opc2;
+};
+
+    struct MiscRegNum64
+    {
+        MiscRegNum64(unsigned _op0, unsigned _op1,
+                     unsigned _crn, unsigned _crm,
+                     unsigned _op2)
+          : op0(_op0), op1(_op1), crn(_crn),
+            crm(_crm), op2(_op2)
+        {
+            assert(op0 < 4 && op1 < 8 && crn < 16 && crm < 16 && op2 < 8);
+        }
+
+        MiscRegNum64(const MiscRegNum64& rhs) = default;
+
+        bool
+        operator==(const MiscRegNum64 &other) const
+        {
+            return op0 == other.op0 &&
+                op1 == other.op1 &&
+                crn == other.crn &&
+                crm == other.crm &&
+                op2 == other.op2;
+        }
+
+        uint32_t
+        packed() const
+        {
+            return op0 << 14 |
+                   op1 << 11 |
+                   crn << 7  |
+                   crm << 3  |
+                   op2;
+        }
+
+        unsigned op0;
+        unsigned op1;
+        unsigned crn;
+        unsigned crm;
+        unsigned op2;
     };
-
-    extern std::bitset<NUM_MISCREG_INFOS> miscRegInfo[NUM_MISCREGS];
 
     // Decodes 32-bit CP14 registers accessible through MCR/MRC instructions
     MiscRegIndex decodeCP14Reg(unsigned crn, unsigned opc1,
@@ -1158,6 +1330,9 @@ namespace ArmISA
     MiscRegIndex decodeAArch64SysReg(unsigned op0, unsigned op1,
                                      unsigned crn, unsigned crm,
                                      unsigned op2);
+    MiscRegIndex decodeAArch64SysReg(const MiscRegNum64 &misc_reg);
+    std::optional<MiscRegNum64> encodeAArch64SysReg(MiscRegIndex misc_reg);
+
     // Whether a particular AArch64 system register is -always- read only.
     bool aarch64SysRegReadOnly(MiscRegIndex miscReg);
 
@@ -1168,8 +1343,17 @@ namespace ArmISA
     // Decodes 64-bit CP15 registers accessible through MCRR/MRRC instructions
     MiscRegIndex decodeCP15Reg64(unsigned crm, unsigned opc1);
 
+    // Decodes the register index to access based on the fields used in a MSR
+    // or MRS instruction
+    bool decodeMrsMsrBankedReg(uint8_t sysM, bool r, bool &isIntReg,
+                               int &regIdx, CPSR cpsr, SCR scr, NSACR nsacr,
+                               bool checkSecurity = true);
 
-    const char * const miscRegName[] = {
+    // This wrapper function is used to turn the register index into a source
+    // parameter for the instruction. See Operands.isa
+    int decodeMrsMsrBankedIntRegIndex(uint8_t sysM, bool r);
+
+    const char *const miscRegName[] = {
         "cpsr",
         "spsr",
         "spsr_fiq",
@@ -1200,8 +1384,8 @@ namespace ArmISA
         "nmrr_mair1_ns",
         "nmrr_mair1_s",
         "pmxevtyper_pmccfiltr",
-        "sctlr_rst",
         "sev_mailbox",
+        "tlbi_needsync",
 
         // AArch32 CP14 registers
         "dbgdidr",
@@ -1351,7 +1535,7 @@ namespace ArmISA
         "actlr_ns",
         "actlr_s",
         "cpacr",
-        "sdrc",
+        "sdcr",
         "scr",
         "sder",
         "nsacr",
@@ -1470,6 +1654,18 @@ namespace ArmISA
         "pmceid1",
         "pmccntr",
         "pmxevtyper",
+        "pmevcntr0",
+        "pmevcntr1",
+        "pmevcntr2",
+        "pmevcntr3",
+        "pmevcntr4",
+        "pmevcntr5",
+        "pmevtyper0",
+        "pmevtyper1",
+        "pmevtyper2",
+        "pmevtyper3",
+        "pmevtyper4",
+        "pmevtyper5",
         "pmccfiltr",
         "pmxevcntr",
         "pmuserenr",
@@ -1676,6 +1872,7 @@ namespace ArmISA
         "id_aa64afr1_el1",
         "id_aa64isar0_el1",
         "id_aa64isar1_el1",
+        "id_aa64isar2_el1",
         "id_aa64mmfr0_el1",
         "id_aa64mmfr1_el1",
         "ccsidr_el1",
@@ -1688,17 +1885,22 @@ namespace ArmISA
         "vmpidr_el2",
         "sctlr_el1",
         "sctlr_el12",
+        "sctlr2_el1",
+        "sctlr2_el12",
         "actlr_el1",
         "cpacr_el1",
         "cpacr_el12",
         "sctlr_el2",
+        "sctlr2_el2",
         "actlr_el2",
         "hcr_el2",
+        "hcrx_el2",
         "mdcr_el2",
         "cptr_el2",
         "hstr_el2",
         "hacr_el2",
         "sctlr_el3",
+        "sctlr2_el3",
         "actlr_el3",
         "scr_el3",
         "sder32_el3",
@@ -1710,8 +1912,11 @@ namespace ArmISA
         "ttbr1_el12",
         "tcr_el1",
         "tcr_el12",
+        "tcr2_el1",
+        "tcr2_el12",
         "ttbr0_el2",
         "tcr_el2",
+        "tcr2_el2",
         "vttbr_el2",
         "vtcr_el2",
         "vsttbr_el2",
@@ -1785,38 +1990,84 @@ namespace ArmISA
         "at_s12e0w_xt",
         "at_s1e3r_xt",
         "at_s1e3w_xt",
-        "tlbi_vmalle1is",
-        "tlbi_vae1is_xt",
-        "tlbi_aside1is_xt",
-        "tlbi_vaae1is_xt",
-        "tlbi_vale1is_xt",
-        "tlbi_vaale1is_xt",
-        "tlbi_vmalle1",
-        "tlbi_vae1_xt",
-        "tlbi_aside1_xt",
-        "tlbi_vaae1_xt",
-        "tlbi_vale1_xt",
-        "tlbi_vaale1_xt",
-        "tlbi_ipas2e1is_xt",
-        "tlbi_ipas2le1is_xt",
-        "tlbi_alle2is",
-        "tlbi_vae2is_xt",
-        "tlbi_alle1is",
-        "tlbi_vale2is_xt",
-        "tlbi_vmalls12e1is",
-        "tlbi_ipas2e1_xt",
-        "tlbi_ipas2le1_xt",
-        "tlbi_alle2",
-        "tlbi_vae2_xt",
-        "tlbi_alle1",
-        "tlbi_vale2_xt",
-        "tlbi_vmalls12e1",
-        "tlbi_alle3is",
-        "tlbi_vae3is_xt",
-        "tlbi_vale3is_xt",
-        "tlbi_alle3",
-        "tlbi_vae3_xt",
-        "tlbi_vale3_xt",
+        TLBI_STR_VARIANTS(tlbi_vmalle1is),
+        TLBI_STR_VARIANTS(tlbi_vmalle1os),
+        TLBI_STR_VARIANTS(tlbi_vae1is),
+        TLBI_STR_VARIANTS(tlbi_vae1os),
+        TLBI_STR_VARIANTS(lbi_aside1is_xt),
+        TLBI_STR_VARIANTS(tlbi_aside1os),
+        TLBI_STR_VARIANTS(tlbi_vaae1is),
+        TLBI_STR_VARIANTS(tlbi_vaae1os),
+        TLBI_STR_VARIANTS(tlbi_vale1is),
+        TLBI_STR_VARIANTS(tlbi_vale1os),
+        TLBI_STR_VARIANTS(tlbi_vaale1is),
+        TLBI_STR_VARIANTS(tlbi_vaale1os),
+        TLBI_STR_VARIANTS(tlbi_vmalle1),
+        TLBI_STR_VARIANTS(tlbi_vae1),
+        TLBI_STR_VARIANTS(tlbi_aside1),
+        TLBI_STR_VARIANTS(tlbi_vaae1),
+        TLBI_STR_VARIANTS(tlbi_vale1),
+        TLBI_STR_VARIANTS(tlbi_vaale1),
+        TLBI_STR_VARIANTS(tlbi_ipas2e1is),
+        TLBI_STR_VARIANTS(tlbi_ipas2e1os),
+        TLBI_STR_VARIANTS(tlbi_ipas2le1is),
+        TLBI_STR_VARIANTS(tlbi_ipas2le1os),
+        TLBI_STR_VARIANTS(tlbi_alle2is),
+        TLBI_STR_VARIANTS(tlbi_alle2os),
+        TLBI_STR_VARIANTS(tlbi_vae2is),
+        TLBI_STR_VARIANTS(tlbi_vae2os),
+        TLBI_STR_VARIANTS(tlbi_alle1is),
+        TLBI_STR_VARIANTS(tlbi_alle1os),
+        TLBI_STR_VARIANTS(tlbi_vale2is),
+        TLBI_STR_VARIANTS(tlbi_vale2os),
+        TLBI_STR_VARIANTS(tlbi_vmalls12e1is),
+        TLBI_STR_VARIANTS(tlbi_vmalls12e1os),
+        TLBI_STR_VARIANTS(tlbi_ipas2e1),
+        TLBI_STR_VARIANTS(tlbi_ipas2le1),
+        TLBI_STR_VARIANTS(tlbi_alle2),
+        TLBI_STR_VARIANTS(tlbi_vae2),
+        TLBI_STR_VARIANTS(tlbi_alle1),
+        TLBI_STR_VARIANTS(tlbi_vale2),
+        TLBI_STR_VARIANTS(tlbi_vmalls12e1),
+        TLBI_STR_VARIANTS(tlbi_alle3is),
+        TLBI_STR_VARIANTS(tlbi_alle3os),
+        TLBI_STR_VARIANTS(tlbi_vae3is),
+        TLBI_STR_VARIANTS(tlbi_vae3os),
+        TLBI_STR_VARIANTS(tlbi_vale3is),
+        TLBI_STR_VARIANTS(tlbi_vale3os),
+        TLBI_STR_VARIANTS(tlbi_alle3),
+        TLBI_STR_VARIANTS(tlbi_vae3),
+        TLBI_STR_VARIANTS(tlbi_vale3),
+        TLBI_STR_VARIANTS(tlbi_rvae1),
+        TLBI_STR_VARIANTS(tlbi_rvaae1),
+        TLBI_STR_VARIANTS(tlbi_rvale1),
+        TLBI_STR_VARIANTS(tlbi_rvaale1),
+        TLBI_STR_VARIANTS(tlbi_ripas2e1),
+        TLBI_STR_VARIANTS(tlbi_ripas2le1),
+        TLBI_STR_VARIANTS(tlbi_rvae2),
+        TLBI_STR_VARIANTS(tlbi_rvale2),
+        TLBI_STR_VARIANTS(tlbi_rvae3),
+        TLBI_STR_VARIANTS(tlbi_rvale3),
+        TLBI_STR_VARIANTS(tlbi_rvae1is),
+        TLBI_STR_VARIANTS(tlbi_rvaae1is),
+        TLBI_STR_VARIANTS(tlbi_rvale1is),
+        TLBI_STR_VARIANTS(tlbi_rvaale1is),
+        TLBI_STR_VARIANTS(tlbi_ripas2e1is),
+        TLBI_STR_VARIANTS(tlbi_ripas2le1is),
+        TLBI_STR_VARIANTS(tlbi_rvae2is),
+        TLBI_STR_VARIANTS(tlbi_rvale2is),
+        TLBI_STR_VARIANTS(tlbi_rvae3is),
+        TLBI_STR_VARIANTS(tlbi_rvale3is),
+        TLBI_STR_VARIANTS(tlbi_rvae1os),
+        TLBI_STR_VARIANTS(tlbi_rvaae1os),
+        TLBI_STR_VARIANTS(tlbi_rvale1os),
+        TLBI_STR_VARIANTS(tlbi_rvaale1os),
+        TLBI_STR_VARIANTS(tlbi_ripas2e1os),
+        TLBI_STR_VARIANTS(tlbi_ripas2le1os),
+        TLBI_STR_VARIANTS(tlbi_rvae2os),
+        TLBI_STR_VARIANTS(tlbi_rvale2os),
+        TLBI_STR_VARIANTS(tlbi_rvae3os),
+        TLBI_STR_VARIANTS(tlbi_rvale3os),
         "pmintenset_el1",
         "pmintenclr_el1",
         "pmcr_el0",
@@ -1924,6 +2175,7 @@ namespace ArmISA
 
         "ttbr1_el2",
         "id_aa64mmfr2_el1",
+        "id_aa64mmfr3_el1",
 
         "apdakeyhi_el1",
         "apdakeylo_el1",
@@ -2158,13 +2410,59 @@ namespace ArmISA
         "zcr_el12",
         "zcr_el1",
 
+        "id_aa64smfr0_el1",
+        "svcr",
+        "smidr_el1",
+        "smpri_el1",
+        "smprimap_el2",
+        "smcr_el3",
+        "smcr_el2",
+        "smcr_el12",
+        "smcr_el1",
+        "tpidr2_el0",
+        "mpamsm_el1",
+
+        "rndr",
+        "rndrrs",
+
+        "hfgitr_el2",
+        "hfgrtr_el2",
+        "hfgwtr_el2",
+        "hdfgrtr_el2",
+        "hdfgwtr_el2",
+        "hafgrtr_el2",
+
+        // FEAT_MPAM
+        "mpamidr_el1",
+        "mpam0_el1",
+        "mpam1_el1",
+        "mpam2_el2",
+        "mpam3_el3",
+        "mpam1_el12",
+        "mpamhcr_el2",
+        "mpamvpmv_el2",
+        "mpamvpm0_el2",
+        "mpamvpm1_el2",
+        "mpamvpm2_el2",
+        "mpamvpm3_el2",
+        "mpamvpm4_el2",
+        "mpamvpm5_el2",
+        "mpamvpm6_el2",
+        "mpamvpm7_el2",
+
+        "pire0_el1",
+        "pire0_el2",
+        "pire0_el12",
+        "pir_el1",
+        "pir_el2",
+        "pir_el3",
+        "pir_el12",
+
         "num_phys_regs",
 
         // Dummy registers
         "nop",
         "raz",
-        "cp14_unimpl",
-        "cp15_unimpl",
         "unknown",
         "impl_defined",
         "erridr_el1",
@@ -2181,6 +2479,7 @@ namespace ArmISA
 
         // PSTATE
         "pan",
+        "uao",
     };
 
     static_assert(sizeof(miscRegName) / sizeof(*miscRegName) == NUM_MISCREGS,
@@ -2211,6 +2510,10 @@ namespace ArmISA
     static const uint32_t FpscrAhpMask = 0x04000000;
     // This mask selects the cumulative FP exception flags of the FPSCR.
     static const uint32_t FpscrExcMask = 0x0000009F;
+    // This mask selects FPCR bits from FPSCR.
+    static const uint32_t FpscrFpcrMask = 0x07FF9F00;
+    // This mask selects FPSR bits from FPSCR.
+    static const uint32_t FpscrFpsrMask = 0xF800009F;
 
     /**
      * Check for permission to read coprocessor registers.
@@ -2250,13 +2553,65 @@ namespace ArmISA
     // Generic Timer system registers
     bool AArch32isUndefinedGenericTimer(MiscRegIndex reg, ThreadContext *tc);
 
-    // Checks read access permissions to AArch64 system registers
-    bool canReadAArch64SysReg(MiscRegIndex reg, HCR hcr, SCR scr, CPSR cpsr,
-                              ThreadContext *tc);
+    // Checks access permissions to AArch64 system registers
+    Fault checkFaultAccessAArch64SysReg(MiscRegIndex reg, CPSR cpsr,
+            ThreadContext *tc, const MiscRegOp64 &inst);
 
-    // Checks write access permissions to AArch64 system registers
-    bool canWriteAArch64SysReg(MiscRegIndex reg, HCR hcr, SCR scr, CPSR cpsr,
-                               ThreadContext *tc);
+    Fault mcrMrc15Trap(const MiscRegIndex miscReg, ExtMachInst machInst,
+                       ThreadContext *tc, uint32_t imm);
+    bool mcrMrc15TrapToHyp(const MiscRegIndex miscReg, ThreadContext *tc,
+                           uint32_t iss, ExceptionClass *ec = nullptr);
+
+    bool mcrMrc14TrapToHyp(const MiscRegIndex miscReg, ThreadContext *tc,
+                           uint32_t iss);
+
+    Fault mcrrMrrc15Trap(const MiscRegIndex miscReg, ExtMachInst machInst,
+                         ThreadContext *tc, uint32_t imm);
+    bool mcrrMrrc15TrapToHyp(const MiscRegIndex miscReg, ThreadContext *tc,
+                             uint32_t iss, ExceptionClass *ec = nullptr);
+
+    Fault AArch64AArch32SystemAccessTrap(const MiscRegIndex miscReg,
+                                         ExtMachInst machInst,
+                                         ThreadContext *tc, uint32_t imm,
+                                         ExceptionClass ec);
+    bool isAArch64AArch32SystemAccessTrapEL1(const MiscRegIndex miscReg,
+                                             ThreadContext *tc);
+    bool isAArch64AArch32SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                             ThreadContext *tc);
+    bool isGenericTimerHypTrap(const MiscRegIndex miscReg, ThreadContext *tc,
+                               ExceptionClass *ec);
+    bool condGenericTimerPhysHypTrap(const MiscRegIndex miscReg,
+                                     ThreadContext *tc);
+    bool isGenericTimerCommonEL0HypTrap(const MiscRegIndex miscReg,
+                                        ThreadContext *tc, ExceptionClass *ec);
+    bool isGenericTimerPhysHypTrap(const MiscRegIndex miscReg,
+                                   ThreadContext *tc, ExceptionClass *ec);
+    bool condGenericTimerPhysHypTrap(const MiscRegIndex miscReg,
+                                     ThreadContext *tc);
+    bool isGenericTimerSystemAccessTrapEL1(const MiscRegIndex miscReg,
+                                           ThreadContext *tc);
+    bool condGenericTimerSystemAccessTrapEL1(const MiscRegIndex miscReg,
+                                             ThreadContext *tc);
+    bool isGenericTimerSystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                           ThreadContext *tc);
+    bool isGenericTimerCommonEL0SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                    ThreadContext *tc);
+    bool isGenericTimerPhysEL0SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                  ThreadContext *tc);
+    bool isGenericTimerPhysEL1SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                  ThreadContext *tc);
+    bool isGenericTimerVirtSystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                               ThreadContext *tc);
+    bool
+    condGenericTimerCommonEL0SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                 ThreadContext *tc);
+    bool
+    condGenericTimerCommonEL1SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                 ThreadContext *tc);
+    bool condGenericTimerPhysEL1SystemAccessTrapEL2(const MiscRegIndex miscReg,
+                                                    ThreadContext *tc);
+    bool isGenericTimerSystemAccessTrapEL3(const MiscRegIndex miscReg,
+                                           ThreadContext *tc);
 
     // Uses just the scr.ns bit to pre flatten the misc regs. This is useful
     // for MCR/MRC instructions
@@ -2281,7 +2636,33 @@ namespace ArmISA
     int
     unflattenMiscReg(int reg);
 
+    // Converting from the MISCREG_SP notation to the int_reg::Sp one
+    RegIndex spMapping(MiscRegIndex sp_idx);
+
 } // namespace ArmISA
 } // namespace gem5
+
+namespace std
+{
+template<>
+struct hash<gem5::ArmISA::MiscRegNum32>
+{
+    size_t
+    operator()(const gem5::ArmISA::MiscRegNum32& reg) const
+    {
+        return reg.packed();
+    }
+};
+
+template<>
+struct hash<gem5::ArmISA::MiscRegNum64>
+{
+    size_t
+    operator()(const gem5::ArmISA::MiscRegNum64& reg) const
+    {
+        return reg.packed();
+    }
+};
+} // namespace std
 
 #endif // __ARCH_ARM_REGS_MISC_HH__

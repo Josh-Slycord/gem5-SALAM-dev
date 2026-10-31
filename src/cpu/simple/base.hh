@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012,2015,2018,2020 ARM Limited
+ * Copyright (c) 2011-2012,2015,2018,2020-2021 ARM Limited
  * Copyright (c) 2013 Advanced Micro Devices, Inc.
  * All rights reserved
  *
@@ -42,6 +42,9 @@
 #ifndef __CPU_SIMPLE_BASE_HH__
 #define __CPU_SIMPLE_BASE_HH__
 
+#include <memory>
+
+#include "arch/generic/pcstate.hh"
 #include "base/statistics.hh"
 #include "cpu/base.hh"
 #include "cpu/checker/cpu.hh"
@@ -65,7 +68,7 @@ class Process;
 class Processor;
 class ThreadContext;
 
-namespace Trace
+namespace trace
 {
     class InstRecord;
 }
@@ -83,8 +86,6 @@ class BaseSimpleCPU : public BaseCPU
     ThreadID curThread;
     branch_prediction::BPredUnit *branchPred;
 
-    const RegIndex zeroReg;
-
     void checkPcEventQueue();
     void swapActiveThread();
 
@@ -92,9 +93,8 @@ class BaseSimpleCPU : public BaseCPU
     BaseSimpleCPU(const BaseSimpleCPUParams &params);
     virtual ~BaseSimpleCPU();
     void wakeup(ThreadID tid) override;
-    void init() override;
   public:
-    Trace::InstRecord *traceData;
+    trace::InstRecord *traceData;
     CheckerCPU *checker;
 
     std::vector<SimpleExecContext*> threadInfo;
@@ -129,6 +129,8 @@ class BaseSimpleCPU : public BaseCPU
      * the record as coming from a faulting instruction.
      */
     void traceFault();
+
+    std::unique_ptr<PCStateBase> preExecuteTempPC;
 
   public:
     void checkForInterrupts();
@@ -180,27 +182,23 @@ class BaseSimpleCPU : public BaseCPU
     }
 
     void countInst();
+    void countFetchInst();
+    void countCommitInst();
     Counter totalInsts() const override;
     Counter totalOps() const override;
 
     void serializeThread(CheckpointOut &cp, ThreadID tid) const override;
     void unserializeThread(CheckpointIn &cp, ThreadID tid) override;
 
-    /** Hardware transactional memory commands (HtmCmds), e.g. start a
-     * transaction and commit a transaction, are memory operations but are
-     * neither really (true) loads nor stores. For this reason the interface
-     * is extended and initiateHtmCmd() is used to instigate the command. */
-    virtual Fault initiateHtmCmd(Request::Flags flags) = 0;
+    /**
+     * Memory management commands such as hardware transactional memory
+     * commands or TLB invalidation commands are memory operations but are
+     * neither really (true) loads nor stores.
+     * For this reason the interface is extended,
+     * and initiateMemMgmtCmd() is used to instigate the command.
+     */
+    virtual Fault initiateMemMgmtCmd(Request::Flags flags) = 0;
 
-    /** This function is used to instruct the memory subsystem that a
-     * transaction should be aborted and the speculative state should be
-     * thrown away.  This is called in the transaction's very last breath in
-     * the core.  Afterwards, the core throws away its speculative state and
-     * resumes execution at the point the transaction started, i.e. reverses
-     * time.  When instruction execution resumes, the core expects the
-     * memory subsystem to be in a stable, i.e. pre-speculative, state as
-     * well. */
-    virtual void htmSendAbortSignal(HtmFailureFaultCause cause) = 0;
 };
 
 } // namespace gem5

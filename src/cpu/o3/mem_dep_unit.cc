@@ -32,13 +32,20 @@
 #include <memory>
 #include <vector>
 
-#include "base/compiler.hh"
-#include "base/debug.hh"
+#include "base/cprintf.hh"
+#include "base/logging.hh"
+#include "base/stats/group.hh"
+#include "base/stats/units.hh"
+#include "base/trace.hh"
+#include "base/types.hh"
+#include "cpu/inst_seq.hh"
+#include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
+#include "cpu/o3/dyn_inst_ptr.hh"
 #include "cpu/o3/inst_queue.hh"
 #include "cpu/o3/limits.hh"
 #include "debug/MemDepUnit.hh"
-#include "params/O3CPU.hh"
+#include "params/BaseO3CPU.hh"
 
 namespace gem5
 {
@@ -46,7 +53,7 @@ namespace gem5
 namespace o3
 {
 
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
 int MemDepUnit::MemDepEntry::memdep_count = 0;
 int MemDepUnit::MemDepEntry::memdep_insert = 0;
 int MemDepUnit::MemDepEntry::memdep_erase = 0;
@@ -54,10 +61,11 @@ int MemDepUnit::MemDepEntry::memdep_erase = 0;
 
 MemDepUnit::MemDepUnit() : iqPtr(NULL), stats(nullptr) {}
 
-MemDepUnit::MemDepUnit(const O3CPUParams &params)
+MemDepUnit::MemDepUnit(const BaseO3CPUParams &params)
     : _name(params.name + ".memdepunit"),
-      depPred(params.store_set_clear_period, params.SSITSize,
-              params.LFSTSize),
+      depPred(_name + ".storesets", params.store_set_clear_period,
+              params.SSITSize, params.SSITAssoc, params.SSITReplPolicy,
+              params.SSITIndexingPolicy, params.LFSTSize),
       iqPtr(NULL),
       stats(nullptr)
 {
@@ -83,21 +91,23 @@ MemDepUnit::~MemDepUnit()
         }
     }
 
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     assert(MemDepEntry::memdep_count == 0);
 #endif
 }
 
 void
-MemDepUnit::init(const O3CPUParams &params, ThreadID tid, CPU *cpu)
+MemDepUnit::init(const BaseO3CPUParams &params, ThreadID tid, CPU *cpu)
 {
+    _name = csprintf("%s.memDep%d", params.name, tid);
+
     DPRINTF(MemDepUnit, "Creating MemDepUnit %i object.\n",tid);
 
-    _name = csprintf("%s.memDep%d", params.name, tid);
     id = tid;
 
-    depPred.init(params.store_set_clear_period, params.SSITSize,
-            params.LFSTSize);
+    depPred.init(params.store_set_clear_period,
+                 params.SSITSize, params.SSITAssoc, params.SSITReplPolicy,
+                 params.SSITIndexingPolicy, params.LFSTSize);
 
     std::string stats_group_name = csprintf("MemDepUnit__%i", tid);
     cpu->addStatGroup(stats_group_name.c_str(), &stats);
@@ -196,7 +206,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
     // Add the MemDepEntry to the hash.
     memDepHash.insert(
         std::pair<InstSeqNum, MemDepEntryPtr>(inst->seqNum, inst_entry));
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     MemDepEntry::memdep_insert++;
 #endif
 
@@ -220,7 +230,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
                                 std::begin(storeBarrierSNs),
                                 std::end(storeBarrierSNs));
     } else {
-        InstSeqNum dep = depPred.checkInst(inst->instAddr());
+        InstSeqNum dep = depPred.checkInst(inst->pcState().instAddr());
         if (dep != 0)
             producing_stores.push_back(dep);
     }
@@ -255,7 +265,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
     } else {
         // Otherwise make the instruction dependent on the store/barrier.
         DPRINTF(MemDepUnit, "Adding to dependency list\n");
-        for (GEM5_VAR_USED auto producing_store : producing_stores)
+        for ([[maybe_unused]] auto producing_store : producing_stores)
             DPRINTF(MemDepUnit, "\tinst PC %s is dependent on [sn:%lli].\n",
                 inst->pcState(), producing_store);
 
@@ -286,7 +296,7 @@ MemDepUnit::insert(const DynInstPtr &inst)
         DPRINTF(MemDepUnit, "Inserting store/atomic PC %s [sn:%lli].\n",
                 inst->pcState(), inst->seqNum);
 
-        depPred.insertStore(inst->instAddr(), inst->seqNum,
+        depPred.insertStore(inst->pcState().instAddr(), inst->seqNum,
                 inst->threadNumber);
 
         ++stats.insertedStores;
@@ -308,7 +318,7 @@ MemDepUnit::insertNonSpec(const DynInstPtr &inst)
         DPRINTF(MemDepUnit, "Inserting store/atomic PC %s [sn:%lli].\n",
                 inst->pcState(), inst->seqNum);
 
-        depPred.insertStore(inst->instAddr(), inst->seqNum,
+        depPred.insertStore(inst->pcState().instAddr(), inst->seqNum,
                 inst->threadNumber);
 
         ++stats.insertedStores;
@@ -329,7 +339,7 @@ MemDepUnit::insertBarrier(const DynInstPtr &barr_inst)
     // Add the MemDepEntry to the hash.
     memDepHash.insert(
         std::pair<InstSeqNum, MemDepEntryPtr>(barr_inst->seqNum, inst_entry));
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     MemDepEntry::memdep_insert++;
 #endif
 
@@ -419,7 +429,7 @@ MemDepUnit::completed(const DynInstPtr &inst)
     (*hash_it).second = NULL;
 
     memDepHash.erase(hash_it);
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     MemDepEntry::memdep_erase++;
 #endif
 }
@@ -494,7 +504,7 @@ MemDepUnit::wakeDependents(const DynInstPtr &inst)
 MemDepUnit::MemDepEntry::MemDepEntry(const DynInstPtr &new_inst) :
     inst(new_inst)
 {
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     ++memdep_count;
 
     DPRINTF(MemDepUnit,
@@ -508,7 +518,7 @@ MemDepUnit::MemDepEntry::~MemDepEntry()
     for (int i = 0; i < dependInsts.size(); ++i) {
         dependInsts[i] = NULL;
     }
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     --memdep_count;
 
     DPRINTF(MemDepUnit,
@@ -556,7 +566,7 @@ MemDepUnit::squash(const InstSeqNum &squashed_num, ThreadID tid)
         (*hash_it).second = NULL;
 
         memDepHash.erase(hash_it);
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
         MemDepEntry::memdep_erase++;
 #endif
 
@@ -572,19 +582,20 @@ MemDepUnit::violation(const DynInstPtr &store_inst,
         const DynInstPtr &violating_load)
 {
     DPRINTF(MemDepUnit, "Passing violating PCs to store sets,"
-            " load: %#x, store: %#x\n", violating_load->instAddr(),
-            store_inst->instAddr());
+            " load: %#x, store: %#x\n", violating_load->pcState().instAddr(),
+            store_inst->pcState().instAddr());
     // Tell the memory dependence unit of the violation.
-    depPred.violation(store_inst->instAddr(), violating_load->instAddr());
+    depPred.violation(store_inst->pcState().instAddr(),
+            violating_load->pcState().instAddr());
 }
 
 void
 MemDepUnit::issue(const DynInstPtr &inst)
 {
     DPRINTF(MemDepUnit, "Issuing instruction PC %#x [sn:%lli].\n",
-            inst->instAddr(), inst->seqNum);
+            inst->pcState().instAddr(), inst->seqNum);
 
-    depPred.issued(inst->instAddr(), inst->seqNum, inst->isStore());
+    depPred.issued(inst->pcState().instAddr(), inst->seqNum, inst->isStore());
 }
 
 MemDepUnit::MemDepEntryPtr &
@@ -634,7 +645,7 @@ MemDepUnit::dumpLists()
 
     cprintf("Memory dependence hash size: %i\n", memDepHash.size());
 
-#ifdef DEBUG
+#ifdef GEM5_DEBUG
     cprintf("Memory dependence entries: %i\n", MemDepEntry::memdep_count);
 #endif
 }

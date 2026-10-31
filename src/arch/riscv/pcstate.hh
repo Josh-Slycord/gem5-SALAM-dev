@@ -42,38 +42,145 @@
 #ifndef __ARCH_RISCV_PCSTATE_HH__
 #define __ARCH_RISCV_PCSTATE_HH__
 
-#include "arch/generic/types.hh"
+#include "arch/generic/pcstate.hh"
+#include "arch/riscv/regs/vector.hh"
+#include "enums/PrivilegeModeSet.hh"
+#include "enums/RiscvType.hh"
 
 namespace gem5
 {
-
 namespace RiscvISA
 {
 
+using RiscvType = enums::RiscvType;
+constexpr enums::RiscvType RV32 = enums::RV32;
+constexpr enums::RiscvType RV64 = enums::RV64;
+
+using PrivilegeModeSet = enums::PrivilegeModeSet;
+
 class PCState : public GenericISA::UPCState<4>
 {
-  private:
-    bool _compressed;
-    bool _rv32;
+  protected:
+    typedef GenericISA::UPCState<4> Base;
+
+    bool _compressed = false;
+    RiscvType _rvType = RV64;
+    bool _new_vconf = false;
+    VTYPE _vtype = (1ULL << 63); // vtype.vill = 1 at initial;
+    uint32_t _vl = 0;
+    bool _zcmtSecondFetch = false;
+    Addr _zcmtPc = 0;
 
   public:
-    PCState() : UPCState() { _compressed = false; _rv32 = false; }
-    PCState(Addr val) : UPCState(val) { _compressed = false; _rv32 = false; }
+    PCState(const PCState &other) : Base(other),
+        _compressed(other._compressed),
+        _rvType(other._rvType), _new_vconf(other._new_vconf), _vtype(other._vtype),
+        _vl(other._vl), _zcmtSecondFetch(other._zcmtSecondFetch), _zcmtPc(other._zcmtPc)
+    {}
+    PCState &operator=(const PCState &other) = default;
+    PCState() = default;
+    explicit PCState(Addr addr) { set(addr); }
+    explicit PCState(Addr addr, RiscvType rvType)
+    {
+        set(addr);
+        _rvType = rvType;
+    }
+
+    PCStateBase *clone() const override { return new PCState(*this); }
+
+    void
+    update(const PCStateBase &other) override
+    {
+        Base::update(other);
+        auto &pcstate = other.as<PCState>();
+        _compressed = pcstate._compressed;
+        _rvType = pcstate._rvType;
+        _new_vconf = pcstate._new_vconf;
+        _vtype = pcstate._vtype;
+        _vl = pcstate._vl;
+        _zcmtSecondFetch = pcstate._zcmtSecondFetch;
+        _zcmtPc = pcstate._zcmtPc;
+    }
 
     void compressed(bool c) { _compressed = c; }
-    bool compressed() { return _compressed; }
+    bool compressed() const { return _compressed; }
 
-    void rv32(bool val) { _rv32 = val; }
-    bool rv32() const { return _rv32; }
+    void rvType(RiscvType rvType) { _rvType = rvType; }
+    RiscvType rvType() const { return _rvType; }
+
+    void new_vconf(bool v) { _new_vconf = v; }
+    bool new_vconf() const { return _new_vconf; }
+
+    void vtype(VTYPE v) { _vtype = v; }
+    VTYPE vtype() const { return _vtype; }
+
+    void vl(uint32_t v) { _vl = v; }
+    uint32_t vl() const { return _vl; }
+
+    void zcmtSecondFetch(bool z) { _zcmtSecondFetch = z; }
+    bool zcmtSecondFetch() const { return _zcmtSecondFetch; }
+
+    void zcmtPc(Addr a) { _zcmtPc = a; }
+    Addr zcmtPc() const { return _zcmtPc; }
+
+    uint64_t size() const { return _compressed ? 2 : 4; }
 
     bool
-    branching() const
+    branching() const override
     {
-        if (_compressed) {
-            return npc() != pc() + 2 || nupc() != upc() + 1;
-        } else {
-            return npc() != pc() + 4 || nupc() != upc() + 1;
-        }
+        return npc() != pc() + size() || nupc() != upc() + 1;
+    }
+
+    bool
+    equals(const PCStateBase &other) const override
+    {
+        auto &opc = other.as<PCState>();
+        // Skip vl/vtype unless this PC carries a new vset (#1709): otherwise
+        // every later control inst looks mispredicted on O3.
+        return Base::equals(other) &&
+            (_new_vconf == opc._new_vconf) &&
+            (!_new_vconf || (_vtype == opc._vtype && _vl == opc._vl)) &&
+            _zcmtSecondFetch == opc._zcmtSecondFetch &&
+            _zcmtPc == opc._zcmtPc;
+    }
+
+    bool
+    fullEquals(const PCStateBase &other) const override
+    {
+        auto &opc = other.as<PCState>();
+        // Always compare vl/vtype. Used by Minor to recover the decoder
+        // when a predicted loop branch cloned a stale vector config (#2742).
+        return Base::equals(other) &&
+            (_new_vconf == opc._new_vconf) &&
+            (_vtype == opc._vtype && _vl == opc._vl) &&
+            _zcmtSecondFetch == opc._zcmtSecondFetch &&
+            _zcmtPc == opc._zcmtPc;
+    }
+
+    void
+    serialize(CheckpointOut &cp) const override
+    {
+        Base::serialize(cp);
+        SERIALIZE_SCALAR(_rvType);
+        SERIALIZE_SCALAR(_new_vconf);
+        SERIALIZE_SCALAR(_vtype);
+        SERIALIZE_SCALAR(_vl);
+        SERIALIZE_SCALAR(_compressed);
+        SERIALIZE_SCALAR(_zcmtSecondFetch);
+        SERIALIZE_SCALAR(_zcmtPc);
+    }
+
+    void
+    unserialize(CheckpointIn &cp) override
+    {
+        Base::unserialize(cp);
+        UNSERIALIZE_SCALAR(_rvType);
+        UNSERIALIZE_SCALAR(_new_vconf);
+        UNSERIALIZE_SCALAR(_vtype);
+        UNSERIALIZE_SCALAR(_vl);
+        UNSERIALIZE_SCALAR(_compressed);
+        UNSERIALIZE_SCALAR(_zcmtSecondFetch);
+        UNSERIALIZE_SCALAR(_zcmtPc);
     }
 };
 

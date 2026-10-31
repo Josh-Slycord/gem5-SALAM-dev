@@ -43,7 +43,7 @@
 
 #include <vector>
 
-#include "arch/vecregs.hh"
+#include "cpu/o3/dyn_inst.hh"
 #include "cpu/reg_class.hh"
 #include "debug/Rename.hh"
 
@@ -53,22 +53,19 @@ namespace gem5
 namespace o3
 {
 
-SimpleRenameMap::SimpleRenameMap()
-    : freeList(NULL), zeroReg(IntRegClass, 0)
+SimpleRenameMap::SimpleRenameMap() : freeList(NULL)
 {
 }
 
 
 void
-SimpleRenameMap::init(const RegClassInfo &reg_class_info,
-        SimpleFreeList *_freeList)
+SimpleRenameMap::init(const RegClass &reg_class, SimpleFreeList *_freeList)
 {
     assert(freeList == NULL);
     assert(map.empty());
 
-    map.resize(reg_class_info.size());
+    map.resize(reg_class.numRegs());
     freeList = _freeList;
-    zeroReg = RegId(IntRegClass, reg_class_info.zeroReg());
 }
 
 SimpleRenameMap::RenameInfo
@@ -77,10 +74,10 @@ SimpleRenameMap::rename(const RegId& arch_reg)
     PhysRegIdPtr renamed_reg;
     // Record the current physical register that is renamed to the
     // requested architected register.
-    PhysRegIdPtr prev_reg = map[arch_reg.flatIndex()];
+    PhysRegIdPtr prev_reg = map[arch_reg.index()];
 
-    if (arch_reg == zeroReg) {
-        assert(prev_reg->index() == zeroReg.index());
+    if (arch_reg.is(InvalidRegClass)) {
+        assert(prev_reg->is(InvalidRegClass));
         renamed_reg = prev_reg;
     } else if (prev_reg->getNumPinnedWrites() > 0) {
         // Do not rename if the register is pinned
@@ -92,7 +89,7 @@ SimpleRenameMap::rename(const RegId& arch_reg)
         renamed_reg->decrNumPinnedWrites();
     } else {
         renamed_reg = freeList->getReg();
-        map[arch_reg.flatIndex()] = renamed_reg;
+        map[arch_reg.index()] = renamed_reg;
         renamed_reg->setNumPinnedWrites(arch_reg.getNumPinnedWrites());
         renamed_reg->setNumPinnedWritesToComplete(
             arch_reg.getNumPinnedWrites() + 1);
@@ -111,112 +108,24 @@ SimpleRenameMap::rename(const RegId& arch_reg)
 
 void
 UnifiedRenameMap::init(const BaseISA::RegClasses &regClasses,
-        PhysRegFile *_regFile, UnifiedFreeList *freeList, VecMode _mode)
+        PhysRegFile *_regFile, UnifiedFreeList *freeList)
 {
     regFile = _regFile;
-    vecMode = _mode;
 
-    intMap.init(regClasses.at(IntRegClass), &(freeList->intList));
-    floatMap.init(regClasses.at(FloatRegClass), &(freeList->floatList));
-    vecMap.init(regClasses.at(VecRegClass), &(freeList->vecList));
-    vecElemMap.init(regClasses.at(VecElemClass), &(freeList->vecElemList));
-    predMap.init(regClasses.at(VecPredRegClass), &(freeList->predList));
-    ccMap.init(regClasses.at(CCRegClass), &(freeList->ccList));
-
+    for (int i = 0; i < renameMaps.size(); i++)
+        renameMaps[i].init(*regClasses.at(i), &(freeList->freeLists[i]));
 }
 
-void
-UnifiedRenameMap::switchFreeList(UnifiedFreeList* freeList)
+bool
+UnifiedRenameMap::canRename(DynInstPtr inst) const
 {
-    if (vecMode == enums::Elem) {
-
-        /* The free list should currently be tracking full registers. */
-        panic_if(freeList->hasFreeVecElems(),
-                "The free list is already tracking Vec elems");
-        panic_if(freeList->numFreeVecRegs() !=
-                regFile->numVecPhysRegs() - vecMap.numArchRegs(),
-                "The free list has lost vector registers");
-
-        /* Split the free regs. */
-        while (freeList->hasFreeVecRegs()) {
-            auto vr = freeList->getVecReg();
-            auto range = this->regFile->getRegElemIds(vr);
-            freeList->addRegs(range.first, range.second);
+    for (int i = 0; i < renameMaps.size(); i++) {
+        if (inst->numDestRegs((RegClassType)i) >
+                renameMaps[i].numFreeEntries()) {
+            return false;
         }
-
-    } else if (vecMode == enums::Full) {
-
-        /* The free list should currently be tracking register elems. */
-        panic_if(freeList->hasFreeVecRegs(),
-                "The free list is already tracking full Vec");
-        panic_if(freeList->numFreeVecElems() !=
-                 regFile->numVecElemPhysRegs() - vecElemMap.numArchRegs(),
-                 "The free list has lost vector register elements");
-
-        auto range = regFile->getRegIds(VecRegClass);
-        freeList->addRegs(range.first + vecMap.numArchRegs(), range.second);
-
-        /* We remove the elems from the free list. */
-        while (freeList->hasFreeVecElems())
-            freeList->getVecElem();
     }
-}
-
-void
-UnifiedRenameMap::switchMode(VecMode newVecMode)
-{
-    if (newVecMode == enums::Elem && vecMode == enums::Full) {
-
-        /* Switch to vector element rename mode. */
-        vecMode = enums::Elem;
-
-        /* Split the mapping of each arch reg. */
-        int vec_idx = 0;
-        for (auto &vec: vecMap) {
-            PhysRegFile::IdRange range = this->regFile->getRegElemIds(vec);
-            auto idx = 0;
-            for (auto phys_elem = range.first;
-                 phys_elem < range.second; idx++, phys_elem++) {
-
-                setEntry(RegId(VecElemClass, vec_idx, idx), &(*phys_elem));
-            }
-            vec_idx++;
-        }
-
-    } else if (newVecMode == enums::Full && vecMode == enums::Elem) {
-
-        /* Switch to full vector register rename mode. */
-        vecMode = enums::Full;
-
-        /* To rebuild the arch regs we take the easy road:
-         *  1.- Stitch the elems together into vectors.
-         *  2.- Replace the contents of the register file with the vectors
-         *  3.- Set the remaining registers as free
-         */
-        TheISA::VecRegContainer new_RF[vecMap.numArchRegs()];
-        const size_t numVecs = vecMap.numArchRegs();
-        const size_t numElems = vecElemMap.numArchRegs();
-        const size_t elemsPerVec = numElems / numVecs;
-        for (uint32_t i = 0; i < numVecs; i++) {
-            TheISA::VecElem *dst = new_RF[i].as<TheISA::VecElem>();
-            for (uint32_t l = 0; l < elemsPerVec; l++) {
-                RegId s_rid(VecElemClass, i, l);
-                PhysRegIdPtr s_prid = vecElemMap.lookup(s_rid);
-                dst[l] = regFile->readVecElem(s_prid);
-            }
-        }
-
-        for (uint32_t i = 0; i < numVecs; i++) {
-            PhysRegId pregId(VecRegClass, i, 0);
-            regFile->setVecReg(regFile->getTrueId(&pregId), new_RF[i]);
-        }
-
-        auto range = regFile->getRegIds(VecRegClass);
-        for (uint32_t i = 0; i < numVecs; i++) {
-            setEntry(RegId(VecRegClass, i), &(*(range.first + i)));
-        }
-
-    }
+    return true;
 }
 
 } // namespace o3

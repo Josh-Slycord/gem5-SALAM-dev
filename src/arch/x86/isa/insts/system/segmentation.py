@@ -34,7 +34,98 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
+def macroop SGDT_M
+{
+    .adjust_env maxOsz
+
+    # Store the limit followed by the base.
+    rdlimit t1, tsg, dataSize=2
+    rdbase t2, tsg
+    st t1, seg, sib, disp, dataSize=2
+    st t2, seg, sib, 'adjustedDisp + 2'
+};
+
+def macroop SGDT_P
+{
+    .adjust_env maxOsz
+
+    rdip t7
+    rdlimit t1, tsg, dataSize=2
+    rdbase t2, tsg
+    st t1, seg, riprel, disp, dataSize=2
+    st t2, seg, riprel, 'adjustedDisp + 2'
+};
+
+def macroop SGDT_16_M
+{
+    .adjust_env maxOsz
+
+    # The base field is 32 bits, with bits 31:24 stored as zero.
+    rdlimit t1, tsg, dataSize=2
+    rdbase t2, tsg
+    zexti t2, t2, 23, dataSize=8
+    st t1, seg, sib, disp, dataSize=2
+    st t2, seg, sib, 'adjustedDisp + 2', dataSize=4
+};
+
+def macroop SGDT_16_P
+{
+    .adjust_env maxOsz
+
+    rdip t7
+    rdlimit t1, tsg, dataSize=2
+    rdbase t2, tsg
+    zexti t2, t2, 23, dataSize=8
+    st t1, seg, riprel, disp, dataSize=2
+    st t2, seg, riprel, 'adjustedDisp + 2', dataSize=4
+};
+
+def macroop SIDT_M
+{
+    .adjust_env maxOsz
+
+    rdlimit t1, idtr, dataSize=2
+    rdbase t2, idtr
+    st t1, seg, sib, disp, dataSize=2
+    st t2, seg, sib, 'adjustedDisp + 2'
+};
+
+def macroop SIDT_P
+{
+    .adjust_env maxOsz
+
+    rdip t7
+    rdlimit t1, idtr, dataSize=2
+    rdbase t2, idtr
+    st t1, seg, riprel, disp, dataSize=2
+    st t2, seg, riprel, 'adjustedDisp + 2'
+};
+
+def macroop SIDT_16_M
+{
+    .adjust_env maxOsz
+
+    # The base field is 32 bits, with bits 31:24 stored as zero.
+    rdlimit t1, idtr, dataSize=2
+    rdbase t2, idtr
+    zexti t2, t2, 23, dataSize=8
+    st t1, seg, sib, disp, dataSize=2
+    st t2, seg, sib, 'adjustedDisp + 2', dataSize=4
+};
+
+def macroop SIDT_16_P
+{
+    .adjust_env maxOsz
+
+    rdip t7
+    rdlimit t1, idtr, dataSize=2
+    rdbase t2, idtr
+    zexti t2, t2, 23, dataSize=8
+    st t1, seg, riprel, disp, dataSize=2
+    st t2, seg, riprel, 'adjustedDisp + 2', dataSize=4
+};
+
 def macroop LGDT_M
 {
     .serialize_after
@@ -157,7 +248,7 @@ def macroop LIDT_16_P
     wrlimit idtr, t1
 };
 
-def macroop LTR_R
+def macroop LTR_64_R
 {
     .serialize_after
     chks reg, t0, TRCheck
@@ -174,7 +265,7 @@ def macroop LTR_R
     st t1, tsg, [8, t4, t0], dataSize=8
 };
 
-def macroop LTR_M
+def macroop LTR_64_M
 {
     .serialize_after
     ld t5, seg, sib, disp, dataSize=2
@@ -192,7 +283,7 @@ def macroop LTR_M
     st t1, tsg, [8, t4, t0], dataSize=8
 };
 
-def macroop LTR_P
+def macroop LTR_64_P
 {
     .serialize_after
     rdip t7
@@ -211,6 +302,94 @@ def macroop LTR_P
     st t1, tsg, [8, t4, t0], dataSize=8
 };
 
+def macroop LTR_R
+{
+    .serialize_after
+    chks reg, t0, TRCheck
+    limm t4, 0, dataSize=8
+    srli t4, reg, 3, dataSize=2
+    ldst t1, tsg, [8, t4, t0], dataSize=8
+    chks reg, t1, TSSCheck
+    wrdl tr, t1, reg
+    limm t5, (1 << 9)
+    or t1, t1, t5
+    st t1, tsg, [8, t4, t0], dataSize=8
+};
+
+def macroop LTR_M
+{
+    .serialize_after
+    ld t5, seg, sib, disp, dataSize=2
+    chks t5, t0, TRCheck
+    limm t4, 0, dataSize=8
+    srli t4, t5, 3, dataSize=2
+    ldst t1, tsg, [8, t4, t0], dataSize=8
+    chks t5, t1, TSSCheck
+    wrdl tr, t1, t5
+    limm t5, (1 << 9)
+    or t1, t1, t5
+    st t1, tsg, [8, t4, t0], dataSize=8
+};
+
+def macroop LTR_P
+{
+    panic "LTR in non-64 bit mode doesn't support RIP addressing."
+};
+
+def macroop LLDT_64_R
+{
+    .serialize_after
+    chks reg, t0, InGDTCheck, flags=(EZF,)
+    br label("end"), flags=(CEZF,)
+    limm t4, 0, dataSize=8
+    srli t4, reg, 3, dataSize=2
+    ld t1, tsg, [8, t4, t0], dataSize=8
+    ld t2, tsg, [8, t4, t0], 8, dataSize=8
+    chks reg, t1, LDTCheck
+    wrdh t3, t1, t2
+    wrdl tsl, t1, reg
+    wrbase tsl, t3, dataSize=8
+end:
+    fault "NoFault"
+};
+
+def macroop LLDT_64_M
+{
+    .serialize_after
+    ld t5, seg, sib, disp, dataSize=2
+    chks t5, t0, InGDTCheck, flags=(EZF,)
+    br label("end"), flags=(CEZF,)
+    limm t4, 0, dataSize=8
+    srli t4, t5, 3, dataSize=2
+    ld t1, tsg, [8, t4, t0], dataSize=8
+    ld t2, tsg, [8, t4, t0], 8, dataSize=8
+    chks t5, t1, LDTCheck
+    wrdh t3, t1, t2
+    wrdl tsl, t1, t5
+    wrbase tsl, t3, dataSize=8
+end:
+    fault "NoFault"
+};
+
+def macroop LLDT_64_P
+{
+    .serialize_after
+    rdip t7
+    ld t5, seg, riprel, disp, dataSize=2
+    chks t5, t0, InGDTCheck, flags=(EZF,)
+    br label("end"), flags=(CEZF,)
+    limm t4, 0, dataSize=8
+    srli t4, t5, 3, dataSize=2
+    ld t1, tsg, [8, t4, t0], dataSize=8
+    ld t2, tsg, [8, t4, t0], 8, dataSize=8
+    chks t5, t1, LDTCheck
+    wrdh t3, t1, t2
+    wrdl tsl, t1, t5
+    wrbase tsl, t3, dataSize=8
+end:
+    fault "NoFault"
+};
+
 def macroop LLDT_R
 {
     .serialize_after
@@ -218,12 +397,9 @@ def macroop LLDT_R
     br label("end"), flags=(CEZF,)
     limm t4, 0, dataSize=8
     srli t4, reg, 3, dataSize=2
-    ldst t1, tsg, [8, t4, t0], dataSize=8
-    ld t2, tsg, [8, t4, t0], 8, dataSize=8
+    ld t1, tsg, [8, t4, t0], dataSize=8
     chks reg, t1, LDTCheck
-    wrdh t3, t1, t2
     wrdl tsl, t1, reg
-    wrbase tsl, t3, dataSize=8
 end:
     fault "NoFault"
 };
@@ -236,33 +412,16 @@ def macroop LLDT_M
     br label("end"), flags=(CEZF,)
     limm t4, 0, dataSize=8
     srli t4, t5, 3, dataSize=2
-    ldst t1, tsg, [8, t4, t0], dataSize=8
-    ld t2, tsg, [8, t4, t0], 8, dataSize=8
+    ld t1, tsg, [8, t4, t0], dataSize=8
     chks t5, t1, LDTCheck
-    wrdh t3, t1, t2
     wrdl tsl, t1, t5
-    wrbase tsl, t3, dataSize=8
 end:
     fault "NoFault"
 };
 
 def macroop LLDT_P
 {
-    .serialize_after
-    rdip t7
-    ld t5, seg, riprel, disp, dataSize=2
-    chks t5, t0, InGDTCheck, flags=(EZF,)
-    br label("end"), flags=(CEZF,)
-    limm t4, 0, dataSize=8
-    srli t4, t5, 3, dataSize=2
-    ldst t1, tsg, [8, t4, t0], dataSize=8
-    ld t2, tsg, [8, t4, t0], 8, dataSize=8
-    chks t5, t1, LDTCheck
-    wrdh t3, t1, t2
-    wrdl tsl, t1, t5
-    wrbase tsl, t3, dataSize=8
-end:
-    fault "NoFault"
+    panic "LLDT in non-64 bit mode doesn't support RIP addressing."
 };
 
 def macroop SWAPGS
@@ -272,4 +431,55 @@ def macroop SWAPGS
     wrbase gs, t1, dataSize=8
     wrval kernel_gs_base, t2, dataSize=8
 };
-'''
+
+def macroop RDFSBASE_R
+{
+    # if (CR4.FSGSBASE == 0)
+    #     raise #UD;
+    limm t2, 0x10000, dataSize=8
+    rdcr t1, cr4, dataSize=8
+    and t0, t1, t2, flags=(EZF,), dataSize=8
+    fault "std::make_shared<InvalidOpcode>()", flags=(CEZF,)
+
+    rdbase reg, fs
+};
+
+def macroop RDGSBASE_R
+{
+    # if (CR4.FSGSBASE == 0)
+    #     raise #UD;
+    limm t2, 0x10000, dataSize=8
+    rdcr t1, cr4, dataSize=8
+    and t0, t1, t2, flags=(EZF,), dataSize=8
+    fault "std::make_shared<InvalidOpcode>()", flags=(CEZF,)
+
+    rdbase reg, gs
+};
+
+def macroop WRFSBASE_R
+{
+    # if (CR4.FSGSBASE == 0)
+    #     raise #UD;
+    limm t2, 0x10000, dataSize=8
+    rdcr t1, cr4, dataSize=8
+    and t0, t1, t2, flags=(EZF,), dataSize=8
+    fault "std::make_shared<InvalidOpcode>()", flags=(CEZF,)
+
+    wrbase fs, reg
+    wrval fs_eff_base, reg
+};
+
+def macroop WRGSBASE_R
+{
+    # if (CR4.FSGSBASE == 0)
+    #     raise #UD;
+    limm t2, 0x10000, dataSize=8
+    rdcr t1, cr4, dataSize=8
+    and t0, t1, t2, flags=(EZF,), dataSize=8
+    fault "std::make_shared<InvalidOpcode>()", flags=(CEZF,)
+
+    wrbase gs, reg
+    wrval gs_eff_base, reg
+};
+
+"""

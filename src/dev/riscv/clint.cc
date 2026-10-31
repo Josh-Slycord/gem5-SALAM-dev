@@ -37,6 +37,7 @@
 
 #include "dev/riscv/clint.hh"
 
+#include "arch/riscv/system.hh"
 #include "cpu/base.hh"
 #include "debug/Clint.hh"
 #include "mem/packet.hh"
@@ -52,40 +53,31 @@ using namespace RiscvISA;
 Clint::Clint(const Params &params) :
     BasicPioDevice(params, params.pio_size),
     system(params.system),
-    signal(params.name + ".signal", 0, this),
-    registers(params.name + ".registers", params.pio_addr, this)
+    nThread(params.num_threads),
+    signal(params.name + ".signal", 0, this, INT_RTC),
+    reset(params.name + ".reset"),
+    resetMtimecmp(params.reset_mtimecmp),
+    registers(params.name + ".registers", params.pio_addr, this,
+              params.mtimecmp_reset_value)
 {
+      reset.onChange([this](const bool& new_val){
+          if (new_val) {
+              doReset();
+          }
+      });
 }
 
 void
 Clint::raiseInterruptPin(int id)
 {
-    // Increment mtime
+    // Increment mtime when received RTC signal
     uint64_t& mtime = registers.mtime.get();
-    mtime++;
+    if (id == INT_RTC) {
+        mtime++;
+    }
 
     for (int context_id = 0; context_id < nThread; context_id++) {
-
-        auto tc = system->threads[context_id];
-
-        // Update misc reg file
-        ISA* isa = dynamic_cast<ISA*>(tc->getIsaPtr());
-        isa->setMiscRegNoEffect(MISCREG_TIME, mtime);
-
-        // Post timer interrupt
-        uint64_t mtimecmp = registers.mtimecmp[context_id].get();
-        if (mtime >= mtimecmp) {
-            if (mtime == mtimecmp) {
-                DPRINTF(Clint,
-                    "MTIP posted - thread: %d, mtime: %d, mtimecmp: %d\n",
-                    context_id, mtime, mtimecmp);
-            }
-            tc->getCpuPtr()->postInterrupt(tc->threadId(),
-                    ExceptionCode::INT_TIMER_MACHINE, 0);
-        } else {
-            tc->getCpuPtr()->clearInterrupt(tc->threadId(),
-                    ExceptionCode::INT_TIMER_MACHINE, 0);
-        }
+        updateMTIP(context_id);
     }
 }
 
@@ -94,66 +86,72 @@ Clint::ClintRegisters::init()
 {
     using namespace std::placeholders;
 
+    // Sanity check
+    assert(clint->pioSize >= minBankSize);
+
     // Calculate reserved space size
     const size_t reserved0_size = mtimecmpStart - clint->nThread * 4;
     reserved.emplace_back("reserved0", reserved0_size);
     const size_t reserved1_size = mtimeStart
         - mtimecmpStart - clint->nThread * 8;
     reserved.emplace_back("reserved1", reserved1_size);
-
-    // Sanity check
-    assert((int) clint->pioSize <= maxBankSize);
+    const size_t reserved2_size = clint->pioSize - minBankSize;
+    if (reserved2_size > 0) {
+        reserved.emplace_back("reserved2", reserved2_size);
+    }
 
     // Initialize registers
     for (int i = 0; i < clint->nThread; i++) {
         msip.emplace_back(std::string("msip") + std::to_string(i), 0);
-        mtimecmp.emplace_back(std::string("mtimecmp") + std::to_string(i), 0);
+        mtimecmp.emplace_back(
+            std::string("mtimecmp") + std::to_string(i), mtimecmpResetValue);
     }
 
     // Add registers to bank
     for (int i = 0; i < clint->nThread; i++) {
-        auto read_cb = std::bind(&Clint::readMSIP, clint, _1, i);
-        msip[i].reader(read_cb);
         auto write_cb = std::bind(&Clint::writeMSIP, clint, _1, _2, i);
+        msip[i].writeable(0x1);
         msip[i].writer(write_cb);
         addRegister(msip[i]);
     }
     addRegister(reserved[0]);
     for (int i = 0; i < clint->nThread; i++) {
+        auto write_cb = std::bind(&Clint::writeMTIMECMP, clint, _1, _2, i);
+        mtimecmp[i].writer(write_cb);
         addRegister(mtimecmp[i]);
     }
     addRegister(reserved[1]);
-    mtime.readonly();
+    auto write_cb = std::bind(&Clint::writeMTIME, clint, _1, _2);
+    mtime.writer(write_cb);
     addRegister(mtime);
+    if (reserved2_size > 0) {
+        addRegister(reserved[2]);
+    }
 }
-
-uint32_t
-Clint::readMSIP(Register32& reg, const int thread_id)
-{
-    // To avoid discrepancies if mip is externally set using remote_gdb etc.
-    auto tc = system->threads[thread_id];
-    RegVal mip = tc->readMiscReg(MISCREG_IP);
-    uint32_t msip = bits<uint32_t>(mip, ExceptionCode::INT_SOFTWARE_MACHINE);
-    reg.update(msip);
-    return reg.get();
-};
 
 void
 Clint::writeMSIP(Register32& reg, const uint32_t& data, const int thread_id)
 {
     reg.update(data);
-    assert(data <= 1);
-    auto tc = system->threads[thread_id];
-    if (data > 0) {
-        DPRINTF(Clint, "MSIP posted - thread: %d\n", thread_id);
-        tc->getCpuPtr()->postInterrupt(tc->threadId(),
-            ExceptionCode::INT_SOFTWARE_MACHINE, 0);
-    } else {
-        DPRINTF(Clint, "MSIP cleared - thread: %d\n", thread_id);
-        tc->getCpuPtr()->clearInterrupt(tc->threadId(),
-            ExceptionCode::INT_SOFTWARE_MACHINE, 0);
-    }
+    updateMSIP(thread_id);
 };
+
+void
+Clint::writeMTIMECMP(Register64 &reg, const uint64_t &data,
+                     const int thread_id)
+{
+    reg.update(data);
+    updateMTIP(thread_id);
+}
+
+void
+Clint::writeMTIME(Register64 &reg, const uint64_t &data)
+{
+    reg.update(data);
+    for (int context_id = 0; context_id < nThread; context_id++) {
+        updateMTIP(context_id);
+    }
+}
 
 Tick
 Clint::read(PacketPtr pkt)
@@ -194,9 +192,15 @@ Clint::write(PacketPtr pkt)
 void
 Clint::init()
 {
-    nThread = system->threads.size();
     registers.init();
     BasicPioDevice::init();
+
+    RiscvSystem *rv_sys = dynamic_cast<RiscvSystem *>(system);
+    if (rv_sys != nullptr) {
+        rv_sys->setClint(this);
+    } else {
+        warn("Set Clint to RiscvSystem failed.");
+    }
 }
 
 Port &
@@ -204,6 +208,8 @@ Clint::getPort(const std::string &if_name, PortID idx)
 {
     if (if_name == "int_pin")
         return signal;
+    else if (if_name == "reset")
+        return reset;
     else
         return BasicPioDevice::getPort(if_name, idx);
 }
@@ -230,6 +236,58 @@ Clint::unserialize(CheckpointIn &cp)
         paramIn(cp, reg.name(), reg);
     }
     paramIn(cp, "mtime", registers.mtime);
+}
+
+void
+Clint::updateMSIP(const int thread_id)
+{
+    auto tc = system->threads[thread_id];
+    if (registers.msip[thread_id].get()) {
+        DPRINTF(Clint, "MSIP posted - thread: %d\n", thread_id);
+        tc->getCpuPtr()->postInterrupt(tc->threadId(),
+            ExceptionCode::INT_SOFTWARE_MACHINE, 0);
+    } else {
+        DPRINTF(Clint, "MSIP cleared - thread: %d\n", thread_id);
+        tc->getCpuPtr()->clearInterrupt(tc->threadId(),
+            ExceptionCode::INT_SOFTWARE_MACHINE, 0);
+    }
+}
+
+void
+Clint::updateMTIP(const int context_id)
+{
+    auto tc = system->threads[context_id];
+    auto mtime = registers.mtime.get();
+    uint64_t mtimecmp = registers.mtimecmp[context_id].get();
+    // Post timer interrupt
+    if (mtime >= mtimecmp) {
+        if (mtime == mtimecmp) {
+            DPRINTF(Clint,
+                    "MTIP posted - thread: %d, mtime: %d, mtimecmp: %d\n",
+                    context_id, mtime, mtimecmp);
+        }
+        tc->getCpuPtr()->postInterrupt(tc->threadId(),
+                                       ExceptionCode::INT_TIMER_MACHINE, 0);
+    } else {
+        tc->getCpuPtr()->clearInterrupt(tc->threadId(),
+                                        ExceptionCode::INT_TIMER_MACHINE, 0);
+    }
+}
+
+void
+Clint::doReset() {
+    registers.mtime.reset();
+    for (int i = 0; i < nThread; i++) {
+        // According to the spec, the mtimecmp is in unknown state
+        // Assume we will change the mtimecmp registers to specify value
+        // if the mtimecmp registers accept the reset signal.
+        if (resetMtimecmp) {
+            registers.mtimecmp[i].reset();
+        }
+        updateMTIP(i);
+        registers.msip[i].reset();
+        updateMSIP(i);
+    }
 }
 
 } // namespace gem5

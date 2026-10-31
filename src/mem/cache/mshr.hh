@@ -350,6 +350,22 @@ class MSHR : public QueueEntry, public Printable
         return targets.hasFromCache;
     }
 
+    /**
+     * Replaces the matching packet in the Targets list with a dummy packet to
+     * ensure the MSHR remains allocated until the corresponding locked write
+     * arrives.
+     *
+     * @param pkt The LockedRMWRead packet to be updated
+     */
+    void updateLockedRMWReadTarget(PacketPtr pkt);
+
+    /**
+     * Determine if there are any LockedRMWReads in the Targets list
+     *
+     * @return true if Targets list contains a LockedRMWRead
+     */
+    bool hasLockedRMWReadTarget();
+
   private:
     /**
      * Promotes deferred targets that satisfy a predicate
@@ -465,8 +481,10 @@ class MSHR : public QueueEntry, public Printable
      */
     void popTarget()
     {
-        DPRINTF(MSHR, "Force deallocating MSHR targets: %s\n",
-                targets.front().pkt->print());
+        if (targets.front().pkt) {
+            DPRINTF(MSHR, "Force deallocating MSHR targets: %s\n",
+                    targets.front().pkt->print());
+        }
         targets.pop_front();
     }
 

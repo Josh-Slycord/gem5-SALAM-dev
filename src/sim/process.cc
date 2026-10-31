@@ -63,6 +63,7 @@
 #include "sim/fd_array.hh"
 #include "sim/fd_entry.hh"
 #include "sim/redirect_path.hh"
+#include "sim/se_workload.hh"
 #include "sim/syscall_desc.hh"
 #include "sim/system.hh"
 
@@ -112,9 +113,11 @@ normalize(const std::string& directory)
 Process::Process(const ProcessParams &params, EmulationPageTable *pTable,
                  loader::ObjectFile *obj_file)
     : SimObject(params), system(params.system),
+      seWorkload(dynamic_cast<SEWorkload *>(system->workload)),
       useArchPT(params.useArchPT),
       kvmInSE(params.kvmInSE),
       useForClone(false),
+      zeroPages(params.zeroPages),
       pTable(pTable),
       objFile(obj_file),
       argv(params.cmd), envp(params.env),
@@ -122,6 +125,7 @@ Process::Process(const ProcessParams &params, EmulationPageTable *pTable,
       tgtCwd(normalize(params.cwd)),
       hostCwd(checkPathRedirect(tgtCwd)),
       release(params.release),
+      _secondsSinceEpoch(params.seconds_since_epoch),
       _uid(params.uid), _euid(params.euid),
       _gid(params.gid), _egid(params.egid),
       _pid(params.pid), _ppid(params.ppid),
@@ -132,12 +136,11 @@ Process::Process(const ProcessParams &params, EmulationPageTable *pTable,
       ADD_STAT(numSyscalls, statistics::units::Count::get(),
                "Number of system calls")
 {
-    if (_pid >= System::maxPID)
-        fatal("_pid is too large: %d", _pid);
+    fatal_if(!seWorkload, "Couldn't find appropriate workload object.");
+    fatal_if(_pid >= System::maxPID, "_pid is too large: %d", _pid);
 
     auto ret_pair = system->PIDs.emplace(_pid);
-    if (!ret_pair.second)
-        fatal("_pid %d is already used", _pid);
+    fatal_if(!ret_pair.second, "_pid %d is already used", _pid);
 
     /**
      * Linux bundles together processes into this concept called a thread
@@ -315,6 +318,10 @@ Process::drain()
 void
 Process::allocateMem(Addr vaddr, int64_t size, bool clobber)
 {
+    const auto page_size = pTable->pageSize();
+
+    const Addr page_addr = roundDown(vaddr, page_size);
+
     // Check if the page has been mapped by other cores if not to clobber.
     // When running multithreaded programs in SE-mode with DerivO3CPU model,
     // there are cases where two or more cores have page faults on the same
@@ -323,18 +330,57 @@ Process::allocateMem(Addr vaddr, int64_t size, bool clobber)
     // a physical page frame to map with the virtual page. Other cores can
     // return if the page has been mapped and `!clobber`.
     if (!clobber) {
-        const EmulationPageTable::Entry *pte = pTable->lookup(vaddr);
+        const EmulationPageTable::Entry *pte = pTable->lookup(page_addr);
         if (pte) {
             warn("Process::allocateMem: addr %#x already mapped\n", vaddr);
             return;
         }
     }
 
-    int npages = divCeil(size, pTable->pageSize());
-    Addr paddr = system->allocPhysPages(npages);
-    pTable->map(vaddr, paddr, size,
+    const int npages = divCeil(size, page_size);
+    const Addr paddr = seWorkload->allocPhysPages(npages);
+    const Addr pages_size = npages * page_size;
+    pTable->map(page_addr, paddr, pages_size,
                 clobber ? EmulationPageTable::Clobber :
                           EmulationPageTable::MappingFlags(0));
+}
+
+void
+Process::deallocateMem(Addr vaddr, int64_t size)
+{
+    const auto page_size = pTable->pageSize();
+    const Addr page_vbase = roundDown(vaddr, page_size);
+    const Addr page_vend = roundUp(vaddr + size, page_size);
+    const int npages = (page_vend - page_vbase) / page_size;
+
+    // Free any physical pages that were mapped to by this virtual
+    // address range.
+    for (int i = 0; i < npages; ++i) {
+        const Addr page_vaddr = page_vbase + page_size * i;
+        Addr page_paddr;
+        if (pTable->translate(page_vaddr, page_paddr)) {
+            if (zeroPages) {
+                // Zero out the physical page upon deallocation.
+                // Pages that have never been allocated before are already
+                // zero-filled. Zeroing out deallocated pages ensures that
+                // if they're ever reallocated, they will be zero-filled.
+                // Note that zeroing out pages before allocation would
+                // achieve the same result, but would be more expensive
+                // because it would unnecessarily zero out pages that
+                // were allocated for the first time.
+                // Write through the physical address: a virtual write
+                // would need a thread context of this process, and
+                // system->threads[0] may belong to another process.
+                system->physProxy.memsetBlob(page_paddr, 0, page_size);
+            }
+
+            // Unmap the virtual page.
+            pTable->unmap(page_vaddr, page_size);
+
+            // Deallocate the physical page.
+            seWorkload->deallocPhysPage(page_paddr);
+        }
+    }
 }
 
 void
@@ -342,17 +388,18 @@ Process::replicatePage(Addr vaddr, Addr new_paddr, ThreadContext *old_tc,
                        ThreadContext *new_tc, bool allocate_page)
 {
     if (allocate_page)
-        new_paddr = system->allocPhysPages(1);
+        new_paddr = seWorkload->allocPhysPages(1);
 
     // Read from old physical page.
-    uint8_t buf_p[pTable->pageSize()];
-    old_tc->getVirtProxy().readBlob(vaddr, buf_p, sizeof(buf_p));
+    const size_t buf_size = pTable->pageSize();
+    auto buf_p = std::make_unique<uint8_t[]>(buf_size);
+    SETranslatingPortProxy(old_tc).readBlob(vaddr, buf_p.get(), buf_size);
 
     // Create new mapping in process address space by clobbering existing
     // mapping (if any existed) and then write to the new physical page.
     bool clobber = true;
-    pTable->map(vaddr, new_paddr, sizeof(buf_p), clobber);
-    new_tc->getVirtProxy().writeBlob(vaddr, buf_p, sizeof(buf_p));
+    pTable->map(vaddr, new_paddr, buf_size, clobber);
+    SETranslatingPortProxy(new_tc).writeBlob(vaddr, buf_p.get(), buf_size);
 }
 
 bool
@@ -381,7 +428,8 @@ Process::unserialize(CheckpointIn &cp)
 {
     memState->unserialize(cp);
     pTable->unserialize(cp);
-    fds->unserialize(cp);
+    fds->unserialize(cp, this);
+
     /**
      * Checkpoints for pipes, device drivers or sockets currently
      * do not work. Need to come back and fix them at a later date.
@@ -394,7 +442,7 @@ Process::unserialize(CheckpointIn &cp)
 }
 
 bool
-Process::map(Addr vaddr, Addr paddr, int size, bool cacheable)
+Process::map(Addr vaddr, Addr paddr, int64_t size, bool cacheable)
 {
     pTable->map(vaddr, paddr, size,
                 cacheable ? EmulationPageTable::MappingFlags(0) :
@@ -513,7 +561,7 @@ Process::absolutePath(const std::string &filename, bool host_filesystem)
     }
 
     // Add a trailing '/' if the current working directory did not have one.
-    normalize(path_base);
+    path_base = normalize(path_base);
 
     // Append the filename onto the current working path.
     auto absolute_path = path_base + filename;

@@ -93,7 +93,11 @@ Serializable::generateCheckpointOut(const std::string &cpt_dir,
             fatal("couldn't mkdir %s\n", dir);
 
     std::string cpt_file = dir + CheckpointIn::baseFilename;
-    outstream = std::ofstream(cpt_file.c_str());
+    if (outstream.is_open()) {
+        outstream.close();
+    }
+    outstream.clear();
+    outstream.open(cpt_file);
     time_t t = time(NULL);
     if (!outstream)
         fatal("Unable to open file %s for writing\n", cpt_file.c_str());
@@ -145,8 +149,11 @@ CheckpointIn::setDir(const std::string &name)
     // appears to have a format placeholder in it.
     currentDirectory = (name.find("%") != std::string::npos) ?
         csprintf(name, curTick()) : name;
-    if (currentDirectory[currentDirectory.size() - 1] != '/')
+    auto isEmptyPath = currentDirectory.empty();
+    auto endsWithSlash = !isEmptyPath && currentDirectory.back() == '/';
+    if (!endsWithSlash) {
         currentDirectory += "/";
+    }
     return currentDirectory;
 }
 

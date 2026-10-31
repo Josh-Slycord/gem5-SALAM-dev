@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2012, 2014 ARM Limited
+ * Copyright (c) 2012, 2014, 2025 Arm Limited
+ * Copyright (c) 2022-2023 The University of Edinburgh
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -40,16 +41,24 @@
 
 #include "cpu/o3/decode.hh"
 
-#include "arch/pcstate.hh"
+#include "arch/generic/pcstate.hh"
+#include "base/logging.hh"
+#include "base/stats/group.hh"
+#include "base/stats/info.hh"
+#include "base/stats/units.hh"
 #include "base/trace.hh"
-#include "config/the_isa.hh"
+#include "base/types.hh"
 #include "cpu/inst_seq.hh"
+#include "cpu/o3/comm.hh"
+#include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
+#include "cpu/o3/dyn_inst_ptr.hh"
 #include "cpu/o3/limits.hh"
+#include "cpu/timebuf.hh"
 #include "debug/Activity.hh"
 #include "debug/Decode.hh"
-#include "debug/O3PipeView.hh"
-#include "params/O3CPU.hh"
+#include "params/BaseO3CPU.hh"
+#include "sim/cur_tick.hh"
 #include "sim/full_system.hh"
 
 // clang complains about std::set being overloaded with Packet::set if
@@ -62,7 +71,27 @@ namespace gem5
 namespace o3
 {
 
-Decode::Decode(CPU *_cpu, const O3CPUParams &params)
+// clang-format off
+std::string Decode::DecodeStats::statusStrings[ThreadStatusMax] = {
+    "Running",
+    "Idle",
+    "StartSquash",
+    "Squashing",
+    "Blocked",
+    "Unblocking",
+};
+
+std::string Decode::DecodeStats::statusDefinitions[ThreadStatusMax] = {
+    "Number of cycles decode is running",
+    "Number of cycles decode is idle",
+    "Not Used",
+    "Number of cycles decode is squashing",
+    "Number of cycles decode is blocking",
+    "Number of cycles decode is unblocking",
+};
+// clang-format on
+
+Decode::Decode(CPU *_cpu, const BaseO3CPUParams &params)
     : cpu(_cpu),
       renameToDecodeDelay(params.renameToDecodeDelay),
       iewToDecodeDelay(params.iewToDecodeDelay),
@@ -78,7 +107,7 @@ Decode::Decode(CPU *_cpu, const O3CPUParams &params)
              decodeWidth, static_cast<int>(MaxWidth));
 
     // @todo: Make into a parameter
-    skidBufferMax = (fetchToDecodeDelay + 1) *  params.fetchWidth;
+    skidBufferMax = (fetchToDecodeDelay + 1) *  params.decodeWidth;
     for (int tid = 0; tid < MaxThreads; tid++) {
         stalls[tid] = {false};
         decodeStatus[tid] = Idle;
@@ -99,6 +128,22 @@ Decode::clearStates(ThreadID tid)
 {
     decodeStatus[tid] = Idle;
     stalls[tid].rename = false;
+
+    // Clear out any of this thread's instructions being sent to rename.
+    for (int i = -cpu->decodeQueue.getPast();
+         i <= cpu->decodeQueue.getFuture(); ++i) {
+        DecodeStruct& decode_struct = cpu->decodeQueue[i];
+        removeCommThreadInsts(tid, decode_struct);
+    }
+
+    // Clear out any of this thread's instructions being sent to fetch.
+    for (int i = -cpu->timeBuffer.getPast();
+         i <= cpu->timeBuffer.getFuture(); ++i) {
+        TimeStruct& time_struct = cpu->timeBuffer[i];
+        time_struct.decodeInfo[tid] = {};
+        time_struct.decodeBlock[tid] = false;
+        time_struct.decodeUnblock[tid] = false;
+    }
 }
 
 void
@@ -122,16 +167,8 @@ Decode::name() const
 
 Decode::DecodeStats::DecodeStats(CPU *cpu)
     : statistics::Group(cpu, "decode"),
-      ADD_STAT(idleCycles, statistics::units::Cycle::get(),
+      ADD_STAT(status, statistics::units::Cycle::get(),
                "Number of cycles decode is idle"),
-      ADD_STAT(blockedCycles, statistics::units::Cycle::get(),
-               "Number of cycles decode is blocked"),
-      ADD_STAT(runCycles, statistics::units::Cycle::get(),
-               "Number of cycles decode is running"),
-      ADD_STAT(unblockCycles, statistics::units::Cycle::get(),
-               "Number of cycles decode is unblocking"),
-      ADD_STAT(squashCycles, statistics::units::Cycle::get(),
-               "Number of cycles decode is squashing"),
       ADD_STAT(branchResolved, statistics::units::Count::get(),
                "Number of times decode resolved a branch"),
       ADD_STAT(branchMispred, statistics::units::Count::get(),
@@ -144,11 +181,11 @@ Decode::DecodeStats::DecodeStats(CPU *cpu)
       ADD_STAT(squashedInsts, statistics::units::Count::get(),
                "Number of squashed instructions handled by decode")
 {
-    idleCycles.prereq(idleCycles);
-    blockedCycles.prereq(blockedCycles);
-    runCycles.prereq(runCycles);
-    unblockCycles.prereq(unblockCycles);
-    squashCycles.prereq(squashCycles);
+    status.init(ThreadStatusMax).flags(statistics::pdf | statistics::nozero);
+    for (int i = 0; i < ThreadStatusMax; ++i) {
+        status.subname(i, statusStrings[i]);
+        status.subdesc(i, statusDefinitions[i]);
+    }
     branchResolved.prereq(branchResolved);
     branchMispred.prereq(branchMispred);
     controlMispred.prereq(controlMispred);
@@ -281,18 +318,18 @@ Decode::unblock(ThreadID tid)
 }
 
 void
-Decode::squash(const DynInstPtr &inst, ThreadID tid)
+Decode::squash(const DynInstPtr &inst, bool control_miss, ThreadID tid)
 {
     DPRINTF(Decode, "[tid:%i] [sn:%llu] Squashing due to incorrect branch "
             "prediction detected at decode.\n", tid, inst->seqNum);
 
     // Send back mispredict information.
     toFetch->decodeInfo[tid].branchMispredict = true;
-    toFetch->decodeInfo[tid].predIncorrect = true;
+    toFetch->decodeInfo[tid].controlMispredict = control_miss;
     toFetch->decodeInfo[tid].mispredictInst = inst;
     toFetch->decodeInfo[tid].squash = true;
     toFetch->decodeInfo[tid].doneSeqNum = inst->seqNum;
-    toFetch->decodeInfo[tid].nextPC = inst->branchTarget();
+    set(toFetch->decodeInfo[tid].nextPC, *inst->branchTarget());
 
     // Looking at inst->pcState().branching()
     // may yield unexpected results if the branch
@@ -301,7 +338,7 @@ Decode::squash(const DynInstPtr &inst, ThreadID tid)
     // Using PCState::branching()  will send execution on the
     // fallthrough and this will not be caught at execution (since
     // branch was correctly predicted taken)
-    toFetch->decodeInfo[tid].branchTaken = inst->readPredTaken() |
+    toFetch->decodeInfo[tid].branchTaken = inst->readPredTaken() ||
                                            inst->isUncondCtrl();
 
     toFetch->decodeInfo[tid].squashInst = inst;
@@ -412,11 +449,7 @@ Decode::skidInsert(ThreadID tid)
 bool
 Decode::skidsEmpty()
 {
-    list<ThreadID>::iterator threads = activeThreads->begin();
-    list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
+    for (ThreadID tid : *activeThreads) {
         if (!skidBuffer[tid].empty())
             return false;
     }
@@ -429,12 +462,7 @@ Decode::updateStatus()
 {
     bool any_unblocking = false;
 
-    list<ThreadID>::iterator threads = activeThreads->begin();
-    list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
+    for (ThreadID tid : *activeThreads) {
         if (decodeStatus[tid] == Unblocking) {
             any_unblocking = true;
             break;
@@ -549,15 +577,10 @@ Decode::tick()
 
     toRenameIndex = 0;
 
-    list<ThreadID>::iterator threads = activeThreads->begin();
-    list<ThreadID>::iterator end = activeThreads->end();
-
     sortInsts();
 
     //Check stall and squash signals.
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
+    for (ThreadID tid : *activeThreads) {
         DPRINTF(Decode,"Processing [tid:%i]\n",tid);
         status_change =  checkSignalsAndUpdate(tid) || status_change;
 
@@ -586,9 +609,9 @@ Decode::decode(bool &status_change, ThreadID tid)
     //     check if stall conditions have passed
 
     if (decodeStatus[tid] == Blocked) {
-        ++stats.blockedCycles;
+        ++stats.status[Blocked];
     } else if (decodeStatus[tid] == Squashing) {
-        ++stats.squashCycles;
+        ++stats.status[Squashing];
     }
 
     // Decode should try to decode as many instructions as its bandwidth
@@ -631,14 +654,14 @@ Decode::decodeInsts(ThreadID tid)
         DPRINTF(Decode, "[tid:%i] Nothing to do, breaking out"
                 " early.\n",tid);
         // Should I change the status to idle?
-        ++stats.idleCycles;
+        ++stats.status[Idle];
         return;
     } else if (decodeStatus[tid] == Unblocking) {
         DPRINTF(Decode, "[tid:%i] Unblocking, removing insts from skid "
                 "buffer.\n",tid);
-        ++stats.unblockCycles;
+        ++stats.status[Unblocking];
     } else if (decodeStatus[tid] == Running) {
-        ++stats.runCycles;
+        ++stats.status[Running];
     }
 
     std::queue<DynInstPtr>
@@ -687,11 +710,7 @@ Decode::decodeInsts(ThreadID tid)
         ++stats.decodedInsts;
         --insts_available;
 
-#if TRACING_ON
-        if (debug::O3PipeView) {
-            inst->decodeTick = curTick() - inst->fetchTick;
-        }
-#endif
+        inst->decodeTick = curTick() - inst->fetchTick;
 
         // Ensure that if it was predicted as a branch, it really is a
         // branch.
@@ -702,7 +721,7 @@ Decode::decodeInsts(ThreadID tid)
 
             // Might want to set some sort of boolean and just do
             // a check at the end
-            squash(inst, inst->threadNumber);
+            squash(inst, true, inst->threadNumber);
 
             break;
         }
@@ -715,21 +734,21 @@ Decode::decodeInsts(ThreadID tid)
         {
             ++stats.branchResolved;
 
-            if (!(inst->branchTarget() == inst->readPredTarg())) {
+            std::unique_ptr<PCStateBase> target = inst->branchTarget();
+            if (*target != inst->readPredTarg()) {
                 ++stats.branchMispred;
 
                 // Might want to set some sort of boolean and just do
                 // a check at the end
-                squash(inst, inst->threadNumber);
-                TheISA::PCState target = inst->branchTarget();
+                squash(inst, false, inst->threadNumber);
 
                 DPRINTF(Decode,
                         "[tid:%i] [sn:%llu] "
                         "Updating predictions: Wrong predicted target: %s \
                         PredPC: %s\n",
-                        tid, inst->seqNum, inst->readPredTarg(), target);
+                        tid, inst->seqNum, inst->readPredTarg(), *target);
                 //The micro pc after an instruction level branch should be 0
-                inst->setPredTarg(target);
+                inst->setPredTarg(*target);
                 break;
             }
         }

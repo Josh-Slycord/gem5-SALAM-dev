@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 ARM Limited
+ * Copyright (c) 2019-2021, 2026 Arm Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -71,6 +71,8 @@ namespace gem5
 namespace ruby
 {
 
+class BasicIntLink;
+
 class MessageBuffer : public SimObject
 {
   public:
@@ -86,20 +88,25 @@ class MessageBuffer : public SimObject
     // TRUE if head of queue timestamp <= SystemTime
     bool isReady(Tick current_time) const;
 
+    // earliest tick the head of queue will be ready, or MaxTick if empty
+    Tick readyTime() const;
+
     void
-    delayHead(Tick current_time, Tick delta)
+    delayHead(Tick current_time, Tick delta, bool ruby_is_random,
+              bool ruby_warmup)
     {
         MsgPtr m = m_prio_heap.front();
         std::pop_heap(m_prio_heap.begin(), m_prio_heap.end(),
                       std::greater<MsgPtr>());
         m_prio_heap.pop_back();
-        enqueue(m, current_time, delta);
+        enqueue(m, current_time, delta, ruby_is_random, ruby_warmup);
     }
 
     bool areNSlotsAvailable(unsigned int n, Tick curTime);
     int getPriority() { return m_priority_rank; }
     void setPriority(int rank) { m_priority_rank = rank; }
-    void setConsumer(Consumer* consumer)
+    void
+    setConsumer(Consumer *consumer, bool is_inport = false)
     {
         DPRINTF(RubyQueue, "Setting consumer: %s\n", *consumer);
         if (m_consumer != NULL) {
@@ -108,6 +115,7 @@ class MessageBuffer : public SimObject
                   *consumer, *this, *m_consumer);
         }
         m_consumer = consumer;
+        m_is_inport = is_inport;
     }
 
     Consumer* getConsumer() { return m_consumer; }
@@ -120,7 +128,9 @@ class MessageBuffer : public SimObject
 
     const MsgPtr &peekMsgPtr() const { return m_prio_heap.front(); }
 
-    void enqueue(MsgPtr message, Tick curTime, Tick delta);
+    void enqueue(MsgPtr message, Tick curTime, Tick delta,
+                bool ruby_is_random, bool ruby_warmup,
+                bool bypassStrictFIFO = false);
 
     // Defer enqueueing a message to a later cycle by putting it aside and not
     // enqueueing it in this cycle
@@ -131,7 +141,8 @@ class MessageBuffer : public SimObject
 
     // enqueue all previously deferred messages that are associated with the
     // input address
-    void enqueueDeferredMessages(Addr addr, Tick curTime, Tick delay);
+    void enqueueDeferredMessages(Addr addr, Tick curTime, Tick delay,
+                                 bool ruby_is_random, bool ruby_warmup);
     bool isDeferredMsgMapEmpty(Addr addr) const;
 
     //! Updates the delay cycles of the message at the head of the queue,
@@ -154,6 +165,9 @@ class MessageBuffer : public SimObject
 
     void setIncomingLink(int link_id) { m_input_link_id = link_id; }
     void setVnet(int net) { m_vnet_id = net; }
+
+    int getIncomingLink() const { return m_input_link_id; }
+    int getVnet() const { return m_vnet_id; }
 
     Port &
     getPort(const std::string &, PortID idx=InvalidPortID) override
@@ -182,6 +196,27 @@ class MessageBuffer : public SimObject
     bool functionalRead(Packet *pkt, WriteMask &mask)
     {
         return functionalAccess(pkt, true, &mask) == 1;
+    }
+
+    int routingPriority() const { return m_routing_priority; }
+
+    bool
+    isInport()
+    {
+        return m_is_inport;
+    }
+
+    BasicIntLink *
+    getIntLink()
+    {
+        return m_int_link;
+    }
+
+    void
+    setIntLink(BasicIntLink *int_link)
+    {
+        assert(m_int_link == nullptr);
+        m_int_link = int_link;
     }
 
   private:
@@ -240,6 +275,14 @@ class MessageBuffer : public SimObject
      */
     const unsigned int m_max_size;
 
+    /**
+     * When != 0, isReady returns false once m_max_dequeue_rate
+     * messages have been dequeued in the same cycle.
+     */
+    const unsigned int m_max_dequeue_rate;
+
+    unsigned int m_dequeues_this_cy;
+
     Tick m_time_last_time_size_checked;
     unsigned int m_size_last_time_size_checked;
 
@@ -255,18 +298,29 @@ class MessageBuffer : public SimObject
 
     uint64_t m_msg_counter;
     int m_priority_rank;
+
+    bool m_last_message_strict_fifo_bypassed;
+
     const bool m_strict_fifo;
     const MessageRandomization m_randomization;
     const bool m_allow_zero_latency;
 
+    const int m_routing_priority;
+
+    bool m_is_inport;
+
     int m_input_link_id;
     int m_vnet_id;
 
+    BasicIntLink *m_int_link;
+
     // Count the # of times I didn't have N slots available
     statistics::Scalar m_not_avail_count;
+    statistics::Scalar m_msg_count;
     statistics::Average m_buf_msgs;
-    statistics::Average m_stall_time;
+    statistics::Scalar m_stall_time;
     statistics::Scalar m_stall_count;
+    statistics::Formula m_avg_stall_time;
     statistics::Formula m_occupancy;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2014, 2020 ARM Limited
+ * Copyright (c) 2010-2014, 2020, 2025 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -55,7 +55,7 @@ namespace ArmISA
 {
 
 MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
-                       OpClass __opClass, IntRegIndex rn,
+                       OpClass __opClass, RegIndex rn,
                        bool index, bool up, bool user, bool writeback,
                        bool load, uint32_t reglist) :
     PredMacroOp(mnem, machInst, __opClass)
@@ -98,13 +98,13 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
     // Add 0 to Rn and stick it in ureg0.
     // This is equivalent to a move.
     if (copy_base)
-        *uop++ = new MicroAddiUop(machInst, INTREG_UREG0, rn, 0);
+        *uop++ = new MicroAddiUop(machInst, int_reg::Ureg0, rn, 0);
 
     unsigned reg = 0;
     while (mem_ops != 0) {
         // Do load operations in pairs if possible
         if (load && mem_ops >= 2 &&
-            !(mem_ops == 2 && bits(regs,INTREG_PC) && exception_ret)) {
+            !(mem_ops == 2 && bits(regs, int_reg::Pc) && exception_ret)) {
             // 64-bit memory operation
             // Find 2 set register bits (clear them after finding)
             unsigned reg_idx1;
@@ -113,22 +113,22 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
             // Find the first register
             while (!bits(regs, reg)) reg++;
             replaceBits(regs, reg, 0);
-            reg_idx1 = force_user ? intRegInMode(MODE_USER, reg) : reg;
+            reg_idx1 = force_user ? int_reg::regInMode(MODE_USER, reg) : reg;
 
             // Find the second register
             while (!bits(regs, reg)) reg++;
             replaceBits(regs, reg, 0);
-            reg_idx2 = force_user ? intRegInMode(MODE_USER, reg) : reg;
+            reg_idx2 = force_user ? int_reg::regInMode(MODE_USER, reg) : reg;
 
             // Load into temp reg if necessary
-            if (reg_idx2 == INTREG_PC && pc_temp)
-                reg_idx2 = INTREG_UREG1;
+            if (reg_idx2 == int_reg::Pc && pc_temp)
+                reg_idx2 = int_reg::Ureg1;
 
             // Actually load both registers from memory
             *uop = new MicroLdr2Uop(machInst, reg_idx1, reg_idx2,
-                    copy_base ? INTREG_UREG0 : rn, up, addr);
+                    copy_base ? int_reg::Ureg0 : rn, up, addr);
 
-            if (!writeback && reg_idx2 == INTREG_PC) {
+            if (!writeback && reg_idx2 == int_reg::Pc) {
                 // No writeback if idx==pc, set appropriate flags
                 (*uop)->setFlag(StaticInst::IsControl);
                 (*uop)->setFlag(StaticInst::IsIndirectControl);
@@ -148,27 +148,27 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
             unsigned reg_idx;
             while (!bits(regs, reg)) reg++;
             replaceBits(regs, reg, 0);
-            reg_idx = force_user ? intRegInMode(MODE_USER, reg) : reg;
+            reg_idx = force_user ? int_reg::regInMode(MODE_USER, reg) : reg;
 
             if (load) {
-                if (writeback && reg_idx == INTREG_PC) {
+                if (writeback && reg_idx == int_reg::Pc) {
                     // If this instruction changes the PC and performs a
                     // writeback, ensure the pc load/branch is the last uop.
                     // Load into a temp reg here.
-                    *uop = new MicroLdrUop(machInst, INTREG_UREG1,
-                            copy_base ? INTREG_UREG0 : rn, up, addr);
-                } else if (reg_idx == INTREG_PC && exception_ret) {
+                    *uop = new MicroLdrUop(machInst, int_reg::Ureg1,
+                            copy_base ? int_reg::Ureg0 : rn, up, addr);
+                } else if (reg_idx == int_reg::Pc && exception_ret) {
                     // Special handling for exception return
                     *uop = new MicroLdrRetUop(machInst, reg_idx,
-                            copy_base ? INTREG_UREG0 : rn, up, addr);
+                            copy_base ? int_reg::Ureg0 : rn, up, addr);
                 } else {
                     // standard single load uop
                     *uop = new MicroLdrUop(machInst, reg_idx,
-                            copy_base ? INTREG_UREG0 : rn, up, addr);
+                            copy_base ? int_reg::Ureg0 : rn, up, addr);
                 }
 
                 // Loading pc as last operation?  Set appropriate flags.
-                if (!writeback && reg_idx == INTREG_PC) {
+                if (!writeback && reg_idx == int_reg::Pc) {
                     (*uop)->setFlag(StaticInst::IsControl);
                     (*uop)->setFlag(StaticInst::IsIndirectControl);
 
@@ -200,9 +200,10 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
         // Write PC after address writeback?
         if (pc_temp) {
             if (exception_ret) {
-                *uop = new MicroUopRegMovRet(machInst, 0, INTREG_UREG1);
+                *uop = new MicroUopRegMovRet(machInst, 0, int_reg::Ureg1);
             } else {
-                *uop = new MicroUopRegMov(machInst, INTREG_PC, INTREG_UREG1);
+                *uop = new MicroUopRegMov(
+                        machInst, int_reg::Pc, int_reg::Ureg1);
             }
             (*uop)->setFlag(StaticInst::IsControl);
             (*uop)->setFlag(StaticInst::IsIndirectControl);
@@ -212,7 +213,7 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
             else
                 (*uop)->setFlag(StaticInst::IsUncondControl);
 
-            if (rn == INTREG_SP)
+            if (rn == int_reg::Sp)
                 (*uop)->setFlag(StaticInst::IsReturn);
 
             ++uop;
@@ -241,21 +242,27 @@ MacroMemOp::MacroMemOp(const char *mnem, ExtMachInst machInst,
 }
 
 PairMemOp::PairMemOp(const char *mnem, ExtMachInst machInst, OpClass __opClass,
-                     uint32_t size, bool fp, bool load, bool noAlloc,
-                     bool signExt, bool exclusive, bool acrel,
-                     int64_t imm, AddrMode mode,
-                     IntRegIndex rn, IntRegIndex rt, IntRegIndex rt2) :
-    PredMacroOp(mnem, machInst, __opClass)
+                     int64_t imm, AddrMode mode, RegIndex rn, RegIndex rt,
+                     RegIndex rt2)
+    : PredMacroOp(mnem, machInst, __opClass),
+      mode(mode),
+      rn(rn),
+      rt(rt),
+      rt2(rt2),
+      imm(imm)
+{}
+
+LoadPairOp::LoadPairOp(const char *mnem, ExtMachInst machInst,
+                       OpClass __opClass, uint32_t size, bool fp, bool noAlloc,
+                       bool signExt, bool exclusive, bool acrel, int64_t imm,
+                       AddrMode mode, RegIndex rn, RegIndex rt, RegIndex rt2)
+    : PairMemOp(mnem, machInst, __opClass, imm, mode, rn, rt, rt2)
 {
     bool post = (mode == AddrMd_PostIndex);
     bool writeback = (mode != AddrMd_Offset);
 
-    if (load) {
         // Use integer rounding to round up loads of size 4
-        numMicroops = (post ? 0 : 1) + ((size + 4) / 8) + (writeback ? 1 : 0);
-    } else {
-        numMicroops = (post ? 0 : 1) + (size / 4) + (writeback ? 1 : 0);
-    }
+    numMicroops = (post ? 0 : 1) + ((size + 4) / 8) + (writeback ? 1 : 0);
     microOps = new StaticInstPtr[numMicroops];
 
     StaticInstPtr *uop = microOps;
@@ -263,75 +270,114 @@ PairMemOp::PairMemOp(const char *mnem, ExtMachInst machInst, OpClass __opClass,
     rn = makeSP(rn);
 
     if (!post) {
-        *uop++ = new MicroAddXiSpAlignUop(machInst, INTREG_UREG0, rn,
+        *uop++ = new MicroAddXiSpAlignUop(machInst, int_reg::Ureg0, rn,
                 post ? 0 : imm);
     }
 
     if (fp) {
         if (size == 16) {
-            if (load) {
-                *uop++ = new MicroLdFp16Uop(machInst, rt,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                *uop++ = new MicroLdFp16Uop(machInst, rt2,
-                        post ? rn : INTREG_UREG0, 16, noAlloc, exclusive, acrel);
-            } else {
-                *uop++ = new MicroStrQBFpXImmUop(machInst, rt,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                *uop++ = new MicroStrQTFpXImmUop(machInst, rt,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                *uop++ = new MicroStrQBFpXImmUop(machInst, rt2,
-                        post ? rn : INTREG_UREG0, 16, noAlloc, exclusive, acrel);
-                *uop++ = new MicroStrQTFpXImmUop(machInst, rt2,
-                        post ? rn : INTREG_UREG0, 16, noAlloc, exclusive, acrel);
-            }
+            *uop++ =
+                new MicroLdFp16Uop(machInst, rt, post ? rn : int_reg::Ureg0, 0,
+                                   noAlloc, exclusive, acrel);
+            *uop++ =
+                new MicroLdFp16Uop(machInst, rt2, post ? rn : int_reg::Ureg0,
+                                   16, noAlloc, exclusive, acrel);
         } else if (size == 8) {
-            if (load) {
-                *uop++ = new MicroLdPairFp8Uop(machInst, rt, rt2,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-            } else {
-                *uop++ = new MicroStrFpXImmUop(machInst, rt,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                *uop++ = new MicroStrFpXImmUop(machInst, rt2,
-                        post ? rn : INTREG_UREG0, 8, noAlloc, exclusive, acrel);
-            }
+            *uop++ = new MicroLdPairFp8Uop(machInst, rt, rt2,
+                                           post ? rn : int_reg::Ureg0, 0,
+                                           noAlloc, exclusive, acrel);
         } else if (size == 4) {
-            if (load) {
-                *uop++ = new MicroLdrDFpXImmUop(machInst, rt, rt2,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-            } else {
-                *uop++ = new MicroStrDFpXImmUop(machInst, rt, rt2,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-            }
+            *uop++ = new MicroLdrDFpXImmUop(machInst, rt, rt2,
+                                            post ? rn : int_reg::Ureg0, 0,
+                                            noAlloc, exclusive, acrel);
         }
     } else {
         if (size == 8) {
-            if (load) {
-                *uop++ = new MicroLdPairUop(machInst, rt, rt2,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-            } else {
-                *uop++ = new MicroStrXImmUop(machInst, rt, post ? rn : INTREG_UREG0,
-                        0, noAlloc, exclusive, acrel);
-                *uop++ = new MicroStrXImmUop(machInst, rt2, post ? rn : INTREG_UREG0,
-                        size, noAlloc, exclusive, acrel);
-            }
+            *uop++ = new MicroLdPairUop(machInst, rt, rt2,
+                                        post ? rn : int_reg::Ureg0, 0, noAlloc,
+                                        exclusive, acrel);
         } else if (size == 4) {
-            if (load) {
-                if (signExt) {
-                    *uop++ = new MicroLdrDSXImmUop(machInst, rt, rt2,
-                            post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                } else {
-                    *uop++ = new MicroLdrDUXImmUop(machInst, rt, rt2,
-                            post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
-                }
+            if (signExt) {
+                *uop++ = new MicroLdrDSXImmUop(machInst, rt, rt2,
+                                               post ? rn : int_reg::Ureg0, 0,
+                                               noAlloc, exclusive, acrel);
             } else {
-                *uop++ = new MicroStrDXImmUop(machInst, rt, rt2,
-                        post ? rn : INTREG_UREG0, 0, noAlloc, exclusive, acrel);
+                *uop++ = new MicroLdrDUXImmUop(machInst, rt, rt2,
+                                               post ? rn : int_reg::Ureg0, 0,
+                                               noAlloc, exclusive, acrel);
             }
         }
     }
 
     if (writeback) {
-        *uop++ = new MicroAddXiUop(machInst, rn, post ? rn : INTREG_UREG0,
+        *uop++ = new MicroAddXiUop(machInst, rn, post ? rn : int_reg::Ureg0,
+                                   post ? imm : 0);
+    }
+
+    assert(uop == &microOps[numMicroops]);
+    (*--uop)->setLastMicroop();
+    microOps[0]->setFirstMicroop();
+
+    for (StaticInstPtr *curUop = microOps; !(*curUop)->isLastMicroop();
+         curUop++) {
+        (*curUop)->setDelayedCommit();
+    }
+}
+
+StorePairOp::StorePairOp(const char *mnem, ExtMachInst machInst,
+                         OpClass __opClass, uint32_t size, bool fp,
+                         bool noAlloc, bool signExt, bool exclusive,
+                         bool acrel, int64_t imm, AddrMode mode, RegIndex rn,
+                         RegIndex rt, RegIndex rt2)
+    : PairMemOp(mnem, machInst, __opClass, imm, mode, rn, rt, rt2)
+{
+    bool post = (mode == AddrMd_PostIndex);
+    bool writeback = (mode != AddrMd_Offset);
+
+    numMicroops = (post ? 0 : 1) + 1 + (writeback ? 1 : 0);
+    microOps = new StaticInstPtr[numMicroops];
+
+    StaticInstPtr *uop = microOps;
+
+    rn = makeSP(rn);
+
+    if (!post) {
+        *uop++ = new MicroAddXiSpAlignUop(machInst, int_reg::Ureg0, rn,
+                                          post ? 0 : imm);
+    }
+
+    if (fp) {
+        switch (size) {
+            case 16:
+                *uop++ = new MicroStpFpQUop(machInst, rt, rt2,
+                                            post ? rn : int_reg::Ureg0, 0,
+                                            noAlloc, exclusive, acrel);
+                break;
+            case 8:
+                *uop++ = new MicroStpFpDUop(machInst, rt, rt2,
+                                            post ? rn : int_reg::Ureg0, 0,
+                                            noAlloc, exclusive, acrel);
+                break;
+            case 4:
+                *uop++ = new MicroStpFpSUop(machInst, rt, rt2,
+                                            post ? rn : int_reg::Ureg0, 0,
+                                            noAlloc, exclusive, acrel);
+                break;
+        }
+    } else {
+        if (size == 8) {
+            *uop++ =
+                new MicroStpXUop(machInst, rt, rt2, post ? rn : int_reg::Ureg0,
+                                 0, noAlloc, exclusive, acrel);
+        } else if (size == 4) {
+            *uop++ =
+                new MicroStpWUop(machInst, rt, rt2, post ? rn : int_reg::Ureg0,
+                                 0, noAlloc, exclusive, acrel);
+        }
+    }
+
+    if (writeback) {
+        *uop++ = new MicroAddXiUop(machInst, rn, post ? rn : int_reg::Ureg0,
                                    post ? imm : 0);
     }
 
@@ -346,8 +392,8 @@ PairMemOp::PairMemOp(const char *mnem, ExtMachInst machInst, OpClass __opClass,
 }
 
 BigFpMemImmOp::BigFpMemImmOp(const char *mnem, ExtMachInst machInst,
-                             OpClass __opClass, bool load, IntRegIndex dest,
-                             IntRegIndex base, int64_t imm) :
+                             OpClass __opClass, bool load, RegIndex dest,
+                             RegIndex base, int64_t imm) :
     PredMacroOp(mnem, machInst, __opClass)
 {
     numMicroops = load ? 1 : 2;
@@ -367,8 +413,8 @@ BigFpMemImmOp::BigFpMemImmOp(const char *mnem, ExtMachInst machInst,
 }
 
 BigFpMemPostOp::BigFpMemPostOp(const char *mnem, ExtMachInst machInst,
-                               OpClass __opClass, bool load, IntRegIndex dest,
-                               IntRegIndex base, int64_t imm) :
+                               OpClass __opClass, bool load, RegIndex dest,
+                               RegIndex base, int64_t imm) :
     PredMacroOp(mnem, machInst, __opClass)
 {
     numMicroops = load ? 2 : 3;
@@ -393,8 +439,8 @@ BigFpMemPostOp::BigFpMemPostOp(const char *mnem, ExtMachInst machInst,
 }
 
 BigFpMemPreOp::BigFpMemPreOp(const char *mnem, ExtMachInst machInst,
-                             OpClass __opClass, bool load, IntRegIndex dest,
-                             IntRegIndex base, int64_t imm) :
+                             OpClass __opClass, bool load, RegIndex dest,
+                             RegIndex base, int64_t imm) :
     PredMacroOp(mnem, machInst, __opClass)
 {
     numMicroops = load ? 2 : 3;
@@ -419,8 +465,8 @@ BigFpMemPreOp::BigFpMemPreOp(const char *mnem, ExtMachInst machInst,
 }
 
 BigFpMemRegOp::BigFpMemRegOp(const char *mnem, ExtMachInst machInst,
-                             OpClass __opClass, bool load, IntRegIndex dest,
-                             IntRegIndex base, IntRegIndex offset,
+                             OpClass __opClass, bool load, RegIndex dest,
+                             RegIndex base, RegIndex offset,
                              ArmExtendType type, int64_t imm) :
     PredMacroOp(mnem, machInst, __opClass)
 {
@@ -445,7 +491,7 @@ BigFpMemRegOp::BigFpMemRegOp(const char *mnem, ExtMachInst machInst,
 }
 
 BigFpMemLitOp::BigFpMemLitOp(const char *mnem, ExtMachInst machInst,
-                             OpClass __opClass, IntRegIndex dest,
+                             OpClass __opClass, RegIndex dest,
                              int64_t imm) :
     PredMacroOp(mnem, machInst, __opClass)
 {
@@ -564,7 +610,7 @@ VldSingleOp::VldSingleOp(const char *mnem, ExtMachInst machInst,
 
     unsigned eBytes = (1 << size);
     unsigned loadSize = eBytes * elems;
-    GEM5_VAR_USED unsigned loadRegs =
+    [[maybe_unused]] unsigned loadRegs =
         (loadSize + sizeof(uint32_t) - 1) / sizeof(uint32_t);
 
     assert(loadRegs > 0 && loadRegs <= 4);
@@ -928,7 +974,7 @@ VstSingleOp::VstSingleOp(const char *mnem, ExtMachInst machInst,
 
     unsigned eBytes = (1 << size);
     unsigned storeSize = eBytes * elems;
-    GEM5_VAR_USED unsigned storeRegs =
+    [[maybe_unused]] unsigned storeRegs =
         (storeSize + sizeof(uint32_t) - 1) / sizeof(uint32_t);
 
     assert(storeRegs > 0 && storeRegs <= 4);
@@ -1125,8 +1171,8 @@ VldMultOp64::VldMultOp64(const char *mnem, ExtMachInst machInst,
     PredMacroOp(mnem, machInst, __opClass)
 {
     RegIndex vx = NumVecV8ArchRegs;
-    RegIndex rnsp = (RegIndex) makeSP((IntRegIndex) rn);
-    bool baseIsSP = isSP((IntRegIndex) rnsp);
+    RegIndex rnsp = (RegIndex) makeSP((RegIndex) rn);
+    bool baseIsSP = isSP((RegIndex) rnsp);
 
     numMicroops = wb ? 1 : 0;
 
@@ -1146,7 +1192,7 @@ VldMultOp64::VldMultOp64(const char *mnem, ExtMachInst machInst,
 
     microOps = new StaticInstPtr[numMicroops];
     unsigned uopIdx = 0;
-    uint32_t memaccessFlags = (TLB::ArmFlags)eSize | TLB::AllowUnaligned;
+    uint32_t memaccessFlags = (MMU::ArmFlags)eSize | MMU::AllowUnaligned;
 
     int i = 0;
     for (; i < numMemMicroops - 1; ++i) {
@@ -1162,7 +1208,7 @@ VldMultOp64::VldMultOp64(const char *mnem, ExtMachInst machInst,
     // 64-bit general register OR as '11111' for an immediate value equal to
     // the total number of bytes transferred (i.e. 8, 16, 24, 32, 48 or 64)
     if (wb) {
-        if (rm != ((RegIndex) INTREG_X31)) {
+        if (rm != int_reg::X31) {
             microOps[uopIdx++] = new MicroAddXERegUop(machInst, rnsp, rnsp, rm,
                                                       UXTX, 0);
         } else {
@@ -1210,8 +1256,8 @@ VstMultOp64::VstMultOp64(const char *mnem, ExtMachInst machInst,
     PredMacroOp(mnem, machInst, __opClass)
 {
     RegIndex vx = NumVecV8ArchRegs;
-    RegIndex rnsp = (RegIndex) makeSP((IntRegIndex) rn);
-    bool baseIsSP = isSP((IntRegIndex) rnsp);
+    RegIndex rnsp = (RegIndex) makeSP((RegIndex) rn);
+    bool baseIsSP = isSP((RegIndex) rnsp);
 
     numMicroops = wb ? 1 : 0;
 
@@ -1254,7 +1300,7 @@ VstMultOp64::VstMultOp64(const char *mnem, ExtMachInst machInst,
         }
     }
 
-    uint32_t memaccessFlags = (TLB::ArmFlags)eSize | TLB::AllowUnaligned;
+    uint32_t memaccessFlags = (MMU::ArmFlags)eSize | MMU::AllowUnaligned;
 
     int i = 0;
     for (; i < numMemMicroops - 1; ++i) {
@@ -1270,7 +1316,7 @@ VstMultOp64::VstMultOp64(const char *mnem, ExtMachInst machInst,
     // 64-bit general register OR as '11111' for an immediate value equal to
     // the total number of bytes transferred (i.e. 8, 16, 24, 32, 48 or 64)
     if (wb) {
-        if (rm != ((RegIndex) INTREG_X31)) {
+        if (rm != int_reg::X31) {
             microOps[uopIdx++] = new MicroAddXERegUop(machInst, rnsp, rnsp, rm,
                                                       UXTX, 0);
         } else {
@@ -1299,8 +1345,8 @@ VldSingleOp64::VldSingleOp64(const char *mnem, ExtMachInst machInst,
 
 {
     RegIndex vx = NumVecV8ArchRegs;
-    RegIndex rnsp = (RegIndex) makeSP((IntRegIndex) rn);
-    bool baseIsSP = isSP((IntRegIndex) rnsp);
+    RegIndex rnsp = (RegIndex) makeSP((RegIndex) rn);
+    bool baseIsSP = isSP((RegIndex) rnsp);
 
     numMicroops = wb ? 1 : 0;
 
@@ -1322,7 +1368,7 @@ VldSingleOp64::VldSingleOp64(const char *mnem, ExtMachInst machInst,
     microOps = new StaticInstPtr[numMicroops];
     unsigned uopIdx = 0;
 
-    uint32_t memaccessFlags = (TLB::ArmFlags)eSize | TLB::AllowUnaligned;
+    uint32_t memaccessFlags = (MMU::ArmFlags)eSize | MMU::AllowUnaligned;
 
     int i = 0;
     for (; i < numMemMicroops - 1; ++i) {
@@ -1338,7 +1384,7 @@ VldSingleOp64::VldSingleOp64(const char *mnem, ExtMachInst machInst,
     // 64-bit general register OR as '11111' for an immediate value equal to
     // the total number of bytes transferred (i.e. 8, 16, 24, 32, 48 or 64)
     if (wb) {
-        if (rm != ((RegIndex) INTREG_X31)) {
+        if (rm != int_reg::X31) {
             microOps[uopIdx++] = new MicroAddXERegUop(machInst, rnsp, rnsp, rm,
                                                       UXTX, 0);
         } else {
@@ -1372,8 +1418,8 @@ VstSingleOp64::VstSingleOp64(const char *mnem, ExtMachInst machInst,
     wb(false), replicate(false)
 {
     RegIndex vx = NumVecV8ArchRegs;
-    RegIndex rnsp = (RegIndex) makeSP((IntRegIndex) rn);
-    bool baseIsSP = isSP((IntRegIndex) rnsp);
+    RegIndex rnsp = (RegIndex) makeSP((RegIndex) rn);
+    bool baseIsSP = isSP((RegIndex) rnsp);
 
     numMicroops = wb ? 1 : 0;
 
@@ -1401,7 +1447,7 @@ VstSingleOp64::VstSingleOp64(const char *mnem, ExtMachInst machInst,
             numStructElems, index, i /* step */, replicate);
     }
 
-    uint32_t memaccessFlags = (TLB::ArmFlags)eSize | TLB::AllowUnaligned;
+    uint32_t memaccessFlags = (MMU::ArmFlags)eSize | MMU::AllowUnaligned;
 
     int i = 0;
     for (; i < numMemMicroops - 1; ++i) {
@@ -1417,7 +1463,7 @@ VstSingleOp64::VstSingleOp64(const char *mnem, ExtMachInst machInst,
     // 64-bit general register OR as '11111' for an immediate value equal to
     // the total number of bytes transferred (i.e. 8, 16, 24, 32, 48 or 64)
     if (wb) {
-        if (rm != ((RegIndex) INTREG_X31)) {
+        if (rm != int_reg::X31) {
             microOps[uopIdx++] = new MicroAddXERegUop(machInst, rnsp, rnsp, rm,
                                                       UXTX, 0);
         } else {
@@ -1436,7 +1482,7 @@ VstSingleOp64::VstSingleOp64(const char *mnem, ExtMachInst machInst,
 }
 
 MacroVFPMemOp::MacroVFPMemOp(const char *mnem, ExtMachInst machInst,
-                             OpClass __opClass, IntRegIndex rn,
+                             OpClass __opClass, RegIndex rn,
                              RegIndex vd, bool single, bool up,
                              bool writeback, bool load, uint32_t offset) :
     PredMacroOp(mnem, machInst, __opClass)
@@ -1560,7 +1606,7 @@ MicroIntRegXOp::generateDisassembly(
     printIntReg(ss, ura);
     ccprintf(ss, ", ");
     printIntReg(ss, urb);
-    printExtendOperand(false, ss, (IntRegIndex)urc, type, shiftAmt);
+    printExtendOperand(false, ss, (RegIndex)urc, type, shiftAmt);
     return ss.str();
 }
 
@@ -1622,6 +1668,32 @@ MicroMemPairOp::generateDisassembly(
     ss << ", ";
     ccprintf(ss, "#%d", imm);
     ss << "]";
+    return ss.str();
+}
+
+std::string
+PairMemOp::generateDisassembly(
+        Addr pc, const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    printMnemonic(ss);
+    printIntReg(ss, rt);
+    ss << ", ";
+    printIntReg(ss, rt2);
+    ss << ", [";
+    printIntReg(ss, rn, 64);
+    if (mode == AddrMd_PostIndex) {
+        ss << "]";
+    }
+    if (imm) {
+        ccprintf(ss, ", #%d", imm);
+    }
+    if (mode != AddrMd_PostIndex) {
+        ss << "]";
+    }
+    if (mode == AddrMd_PreIndex) {
+        ss << "!";
+    }
     return ss.str();
 }
 

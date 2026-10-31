@@ -40,7 +40,6 @@
 #include <iomanip>
 #include <sstream>
 
-#include "arch/isa.hh"
 #include "cpu/base.hh"
 #include "cpu/minor/trace.hh"
 #include "cpu/null_static_inst.hh"
@@ -51,7 +50,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
@@ -77,18 +75,13 @@ operator <<(std::ostream &os, const InstId &id)
     return os;
 }
 
-MinorDynInstPtr MinorDynInst::bubbleInst = NULL;
-
-void
-MinorDynInst::init()
-{
-    if (!bubbleInst) {
-        bubbleInst = new MinorDynInst(nullStaticInstPtr);
-        assert(bubbleInst->isBubble());
-        /* Make bubbleInst immortal */
-        bubbleInst->incref();
-    }
-}
+MinorDynInstPtr MinorDynInst::bubbleInst = []() {
+    auto *inst = new MinorDynInst(nullStaticInstPtr);
+    assert(inst->isBubble());
+    // Make bubbleInst immortal.
+    inst->incref();
+    return inst;
+}();
 
 bool
 MinorDynInst::isLastOpInInst() const
@@ -119,8 +112,13 @@ MinorDynInst::reportData(std::ostream &os) const
 std::ostream &
 operator <<(std::ostream &os, const MinorDynInst &inst)
 {
+    if (!inst.pc) {
+        os << inst.id << " pc: 0x???????? (bubble)";
+        return os;
+    }
+
     os << inst.id << " pc: 0x"
-        << std::hex << inst.pc.instAddr() << std::dec << " (";
+        << std::hex << inst.pc->instAddr() << std::dec << " (";
 
     if (inst.isFault())
         os << "fault: \"" << inst.fault->name() << '"';
@@ -139,22 +137,16 @@ operator <<(std::ostream &os, const MinorDynInst &inst)
 /** Print a register in the form r<n>, f<n>, m<n>(<name>) for integer,
  *  float, and misc given an 'architectural register number' */
 static void
-printRegName(std::ostream &os, const RegId& reg,
-        const BaseISA::RegClasses &reg_classes)
+printRegName(std::ostream &os, const RegId& reg)
 {
-    const auto &reg_class = reg_classes.at(reg.classValue());
     switch (reg.classValue()) {
+      case InvalidRegClass:
+        os << 'z';
+        break;
       case MiscRegClass:
         {
             RegIndex misc_reg = reg.index();
-
-        /* This is an ugly test because not all archs. have miscRegName */
-#if THE_ISA == ARM_ISA
-            os << 'm' << misc_reg << '(' << TheISA::miscRegName[misc_reg] <<
-                ')';
-#else
-            os << 'n' << misc_reg;
-#endif
+            os << 'm' << misc_reg << '(' << reg << ')';
         }
         break;
       case FloatRegClass:
@@ -164,14 +156,10 @@ printRegName(std::ostream &os, const RegId& reg,
         os << 'v' << reg.index();
         break;
       case VecElemClass:
-        os << 'v' << reg.index() << '[' << reg.elemIndex() << ']';
+        os << reg;
         break;
       case IntRegClass:
-        if (reg.index() == reg_class.zeroReg()) {
-            os << 'z';
-        } else {
-            os << 'r' << reg.index();
-        }
+        os << 'r' << reg.index();
         break;
       case CCRegClass:
         os << 'c' << reg.index();
@@ -182,12 +170,11 @@ printRegName(std::ostream &os, const RegId& reg,
 }
 
 void
-MinorDynInst::minorTraceInst(const Named &named_object,
-        const BaseISA::RegClasses &reg_classes) const
+MinorDynInst::minorTraceInst(const Named &named_object) const
 {
     if (isFault()) {
         minorInst(named_object, "id=F;%s addr=0x%x fault=\"%s\"\n",
-            id, pc.instAddr(), fault->name());
+            id, pc ? pc->instAddr() : 0, fault->name());
     } else {
         unsigned int num_src_regs = staticInst->numSrcRegs();
         unsigned int num_dest_regs = staticInst->numDestRegs();
@@ -201,8 +188,7 @@ MinorDynInst::minorTraceInst(const Named &named_object,
 
             unsigned int src_reg = 0;
             while (src_reg < num_src_regs) {
-                printRegName(regs_str, staticInst->srcRegIdx(src_reg),
-                        reg_classes);
+                printRegName(regs_str, staticInst->srcRegIdx(src_reg));
 
                 src_reg++;
                 if (src_reg != num_src_regs)
@@ -213,8 +199,7 @@ MinorDynInst::minorTraceInst(const Named &named_object,
 
             unsigned int dest_reg = 0;
             while (dest_reg < num_dest_regs) {
-                printRegName(regs_str, staticInst->destRegIdx(dest_reg),
-                        reg_classes);
+                printRegName(regs_str, staticInst->destRegIdx(dest_reg));
 
                 dest_reg++;
                 if (dest_reg != num_dest_regs)
@@ -229,7 +214,7 @@ MinorDynInst::minorTraceInst(const Named &named_object,
 
         minorInst(named_object, "id=%s addr=0x%x inst=\"%s\" class=%s"
             " flags=\"%s\"%s%s\n",
-            id, pc.instAddr(),
+            id, pc ? pc->instAddr() : 0,
             (staticInst->opClass() == No_OpClass ?
                 "(invalid)" : staticInst->disassemble(0,NULL)),
             enums::OpClassStrings[staticInst->opClass()],
