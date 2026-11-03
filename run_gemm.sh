@@ -33,7 +33,7 @@ echo "=== Step 2: Running gem5 simulation ==="
 # ComputeNode, LLVMRegister, LLVMOp, LLVMParse, LLVMGEP,
 # LLVMRuntime (= ComputeNode + LLVMRegister + LLVMOp + LLVMParse)
 # NoncoherentDma, JDEV
-DEBUG_FLAGS="IOAcc,ClassDetail,CommInterface,ComputeUnit,LLVMInterface,ComputeNode,LLVMRegister,LLVMOp,LLVMParse,LLVMGEP,NoncoherentDma,JDEV"
+DEBUG_FLAGS=SALAM_Debug
 
 ./build/ARM/gem5.opt \
     --debug-flags=$DEBUG_FLAGS \
@@ -57,3 +57,12 @@ echo "=== Simulation complete ==="
 echo "Terminal output: $OUTDIR/system.terminal"
 echo ""
 cat "$OUTDIR/system.terminal"
+
+if [ -f "$OUTDIR/observability/fu-scheduling-system.${BENCH}_clstr.${BENCH}.invocation-1.json" ]; then
+    echo ""
+    echo "=== Generating Execution Visualizer ==="
+    python3 workbench/visualizer/export_salam_visualizer.py \
+        "$OUTDIR/observability/fu-scheduling-system.${BENCH}_clstr.${BENCH}.invocation-1.json" \
+        "$OUTDIR/visualizer.html"
+    echo "Visualizer HTML ready: $OUTDIR/visualizer.html"
+fi
