@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010-2012, 2014 ARM Limited
+ * Copyright (c) 2022-2023 The University of Edinburgh
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -41,12 +42,14 @@
 #ifndef __CPU_O3_FETCH_HH__
 #define __CPU_O3_FETCH_HH__
 
-#include "arch/decoder.hh"
+#include "arch/generic/decoder.hh"
 #include "arch/generic/mmu.hh"
+#include "base/random.hh"
 #include "base/statistics.hh"
-#include "config/the_isa.hh"
+#include "cpu/o3/bac.hh"
 #include "cpu/o3/comm.hh"
 #include "cpu/o3/dyn_inst_ptr.hh"
+#include "cpu/o3/ftq.hh"
 #include "cpu/o3/limits.hh"
 #include "cpu/pc_event.hh"
 #include "cpu/pred/bpred_unit.hh"
@@ -61,7 +64,7 @@
 namespace gem5
 {
 
-struct O3CPUParams;
+struct BaseO3CPUParams;
 
 namespace o3
 {
@@ -180,7 +183,9 @@ class Fetch
         IcacheWaitResponse,
         IcacheWaitRetry,
         IcacheAccessComplete,
-        NoGoodAddr
+        FtqWait,
+        NoGoodAddr,
+        ThreadStatusMax
     };
 
   private:
@@ -201,9 +206,11 @@ class Fetch
     /** To probe when a fetch request is successfully sent. */
     ProbePointArg<RequestPtr> *ppFetchRequestSent;
 
+    Random::RandomPtr rng = Random::genRandom();
+
   public:
     /** Fetch constructor. */
-    Fetch(CPU *_cpu, const O3CPUParams &params);
+    Fetch(CPU *_cpu, const BaseO3CPUParams &params);
 
     /** Returns the name of fetch. */
     std::string name() const;
@@ -220,6 +227,9 @@ class Fetch
 
     /** Sets pointer to time buffer used to communicate to the next stage. */
     void setFetchQueue(TimeBuffer<FetchStruct> *fq_ptr);
+
+    /** Sets pointer to branch address calculation stage and FTQ */
+    void setBACandFTQPtr(BAC *bac_ptr, FTQ *ftq_ptr);
 
     /** Initialize stage. */
     void startupStage();
@@ -276,17 +286,6 @@ class Fetch
     void switchToInactive();
 
     /**
-     * Looks up in the branch predictor to see if the next PC should be
-     * either next PC+=MachInst or a branch target.
-     * @param next_PC Next PC variable passed in by reference.  It is
-     * expected to be set to the current PC; it will be updated with what
-     * the next PC will be.
-     * @param next_NPC Used for ISAs which use delay slots.
-     * @return Whether or not a branch was predicted as taken.
-     */
-    bool lookupAndUpdateNextPC(const DynInstPtr &inst, TheISA::PCState &pc);
-
-    /**
      * Fetches the cache line that contains the fetch PC.  Returns any
      * fault that happened.  Puts the data into the class variable
      * fetchBuffer, which may not hold the entire fetched cache line.
@@ -306,19 +305,25 @@ class Fetch
     bool checkInterrupt(Addr pc) { return interruptPending; }
 
     /** Squashes a specific thread and resets the PC. */
-    void doSquash(const TheISA::PCState &newPC,
-            const DynInstPtr squashInst, ThreadID tid);
+    void doSquash(const PCStateBase &new_pc, const DynInstPtr squashInst,
+            ThreadID tid);
 
     /** Squashes a specific thread and resets the PC. Also tells the CPU to
      * remove any instructions between fetch and decode
      *  that should be sqaushed.
      */
-    void squashFromDecode(const TheISA::PCState &newPC,
+    void squashFromDecode(const PCStateBase &new_pc,
                           const DynInstPtr squashInst,
                           const InstSeqNum seq_num, ThreadID tid);
 
+    /** Signal BAC to redirect. */
+    void bacResteer(const PCStateBase &new_pc, ThreadID tid);
+
     /** Checks if a thread is stalled. */
     bool checkStall(ThreadID tid) const;
+
+    /** Checks if the FTQ is ready. Always true for coupled frontend. */
+    bool ftqReady(ThreadID tid, bool &status_change);
 
     /** Updates overall fetch stage status; to be called at the end of each
      * cycle. */
@@ -329,8 +334,8 @@ class Fetch
      * remove any instructions that are not in the ROB. The source of this
      * squash should be the commit stage.
      */
-    void squash(const TheISA::PCState &newPC, const InstSeqNum seq_num,
-                DynInstPtr squashInst, ThreadID tid);
+    void squashFromCommit(const PCStateBase &new_pc, const InstSeqNum seq_num,
+                          DynInstPtr squashInst, ThreadID tid);
 
     /** Ticks the fetch stage, processing all inputs signals and fetching
      * as many instructions as possible.
@@ -356,14 +361,14 @@ class Fetch
     }
 
     /** The decoder. */
-    TheISA::Decoder *decoder[MaxThreads];
+    InstDecoder *decoder[MaxThreads];
 
     RequestPort &getInstPort() { return icachePort; }
 
   private:
     DynInstPtr buildInst(ThreadID tid, StaticInstPtr staticInst,
-            StaticInstPtr curMacroop, TheISA::PCState thisPC,
-            TheISA::PCState nextPC, bool trace);
+            StaticInstPtr curMacroop, const PCStateBase &this_pc,
+            const PCStateBase &next_pc, bool trace);
 
     /** Returns the appropriate thread to fetch, given the fetch policy. */
     ThreadID getFetchingThread();
@@ -406,14 +411,20 @@ class Fetch
     /** Wire to get commit's information from backwards time buffer. */
     TimeBuffer<TimeStruct>::wire fromCommit;
 
+    /** Wire used to write any information backward to BAC. */
+    TimeBuffer<TimeStruct>::wire toBAC;
+
     //Might be annoying how this name is different than the queue.
     /** Wire used to write any information heading to decode. */
     TimeBuffer<FetchStruct>::wire toDecode;
 
-    /** BPredUnit. */
-    branch_prediction::BPredUnit *branchPred;
+    /** BPredict. */
+    BAC *bac;
 
-    TheISA::PCState pc[MaxThreads];
+    /** Fetch Target Queue */
+    FTQ *ftq;
+
+    std::unique_ptr<PCStateBase> pc[MaxThreads];
 
     Addr fetchOffset[MaxThreads];
 
@@ -443,23 +454,26 @@ class Fetch
     /** Tracks which stages are telling fetch to stall. */
     Stalls stalls[MaxThreads];
 
+    /** Enables the decoupled front-end */
+    const bool decoupledFrontEnd;
+
     /** Decode to fetch delay. */
-    Cycles decodeToFetchDelay;
+    const Cycles decodeToFetchDelay;
 
     /** Rename to fetch delay. */
-    Cycles renameToFetchDelay;
+    const Cycles renameToFetchDelay;
 
     /** IEW to fetch delay. */
-    Cycles iewToFetchDelay;
+    const Cycles iewToFetchDelay;
 
     /** Commit to fetch delay. */
-    Cycles commitToFetchDelay;
+    const Cycles commitToFetchDelay;
 
     /** The width of fetch in instructions. */
-    unsigned fetchWidth;
+    const unsigned fetchWidth;
 
     /** The width of decode in instructions. */
-    unsigned decodeWidth;
+    const unsigned decodeWidth;
 
     /** Is the cache blocked?  If so no threads can access it. */
     bool cacheBlocked;
@@ -471,7 +485,7 @@ class Fetch
     ThreadID retryTid;
 
     /** Cache block size. */
-    unsigned int cacheBlkSize;
+    Addr cacheBlkSize;
 
     /** The size of the fetch buffer in bytes. The fetch buffer
      *  itself may be smaller than a cache line.
@@ -528,47 +542,30 @@ class Fetch
     /** Event used to delay fault generation of translation faults */
     FinishTranslationEvent finishTranslationEvent;
 
+    /*Max number of FT added to the FTQ per Cycle*/
+    const unsigned maxFTPerCycle;
+    const unsigned maxTakenPredPerCycle;
+
   protected:
     struct FetchStatGroup : public statistics::Group
     {
+        static std::string statusStrings[ThreadStatusMax];
+        static std::string statusDefinitions[ThreadStatusMax];
+
         FetchStatGroup(CPU *cpu, Fetch *fetch);
         // @todo: Consider making these
         // vectors and tracking on a per thread basis.
-        /** Stat for total number of cycles stalled due to an icache miss. */
-        statistics::Scalar icacheStallCycles;
-        /** Stat for total number of fetched instructions. */
-        statistics::Scalar insts;
-        /** Total number of fetched branches. */
-        statistics::Scalar branches;
+        /** Stat for total number of cycles spent in each fetch state */
+        statistics::Vector status;
         /** Stat for total number of predicted branches. */
         statistics::Scalar predictedBranches;
-        /** Stat for total number of cycles spent fetching. */
-        statistics::Scalar cycles;
-        /** Stat for total number of cycles spent squashing. */
-        statistics::Scalar squashCycles;
-        /** Stat for total number of cycles spent waiting for translation */
-        statistics::Scalar tlbCycles;
-        /** Stat for total number of cycles
-         *  spent blocked due to other stages in
-         * the pipeline.
-         */
-        statistics::Scalar idleCycles;
-        /** Total number of cycles spent blocked. */
-        statistics::Scalar blockedCycles;
         /** Total number of cycles spent in any other state. */
         statistics::Scalar miscStallCycles;
         /** Total number of cycles spent in waiting for drains. */
         statistics::Scalar pendingDrainCycles;
         /** Total number of stall cycles caused by no active threads to run. */
         statistics::Scalar noActiveThreadStallCycles;
-        /** Total number of stall cycles caused by pending traps. */
-        statistics::Scalar pendingTrapStallCycles;
-        /** Total number of stall cycles
-         *  caused by pending quiesce instructions. */
-        statistics::Scalar pendingQuiesceStallCycles;
-        /** Total number of stall cycles caused by I-cache wait retrys. */
-        statistics::Scalar icacheWaitRetryStallCycles;
-        /** Stat for total number of fetched cache lines. */
+        // /** Stat for total number of fetched cache lines. */
         statistics::Scalar cacheLines;
         /** Total number of outstanding icache accesses that were dropped
          * due to a squash.
@@ -582,10 +579,8 @@ class Fetch
         statistics::Distribution nisnDist;
         /** Rate of how often fetch was idle. */
         statistics::Formula idleRate;
-        /** Number of branch fetches per cycle. */
-        statistics::Formula branchRate;
-        /** Number of instruction fetched per cycle. */
-        statistics::Formula rate;
+        /*Number of fetch target processed per cycle*/
+        statistics::Distribution ftNumber;
     } fetchStats;
 };
 

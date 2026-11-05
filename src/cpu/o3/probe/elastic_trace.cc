@@ -40,6 +40,7 @@
 #include "base/callback.hh"
 #include "base/output.hh"
 #include "base/trace.hh"
+#include "cpu/o3/cpu.hh"
 #include "cpu/o3/dyn_inst.hh"
 #include "cpu/reg_class.hh"
 #include "debug/ElasticTrace.hh"
@@ -65,9 +66,6 @@ ElasticTrace::ElasticTrace(const ElasticTraceParams &params)
        stats(this)
 {
     cpu = dynamic_cast<CPU *>(params.manager);
-    const BaseISA::RegClasses &regClasses =
-        cpu->getContext(0)->getIsaPtr()->regClasses();
-    zeroReg = regClasses.at(IntRegClass).zeroReg();
 
     fatal_if(!cpu, "Manager of %s is not of type O3CPU and thus does not "\
                 "support dependency tracing.\n", name());
@@ -125,28 +123,23 @@ ElasticTrace::regEtraceListeners()
 {
     assert(!allProbesReg);
     inform("@%llu: No. of instructions committed = %llu, registering elastic"
-        " probe listeners", curTick(), cpu->numSimulatedInsts());
+        " probe listeners", curTick(), cpu->totalNumSimulatedInsts());
     // Create new listeners: provide method to be called upon a notify() for
     // each probe point.
-    listeners.push_back(new ProbeListenerArg<ElasticTrace, RequestPtr>(this,
-                        "FetchRequest", &ElasticTrace::fetchReqTrace));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace,
-            DynInstConstPtr>(this, "Execute",
-                &ElasticTrace::recordExecTick));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace,
-            DynInstConstPtr>(this, "ToCommit",
-                &ElasticTrace::recordToCommTick));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace,
-            DynInstConstPtr>(this, "Rename",
-                &ElasticTrace::updateRegDep));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace, SeqNumRegPair>(this,
-                        "SquashInRename", &ElasticTrace::removeRegDepMapEntry));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace,
-            DynInstConstPtr>(this, "Squash",
-                &ElasticTrace::addSquashedInst));
-    listeners.push_back(new ProbeListenerArg<ElasticTrace,
-            DynInstConstPtr>(this, "Commit",
-                &ElasticTrace::addCommittedInst));
+    connectListener<ProbeListenerArg<ElasticTrace, RequestPtr>>(
+        this, "FetchRequest", &ElasticTrace::fetchReqTrace);
+    connectListener<ProbeListenerArg<ElasticTrace, DynInstPtr>>(
+        this, "Execute", &ElasticTrace::recordExecTick);
+    connectListener<ProbeListenerArg<ElasticTrace, DynInstPtr>>(
+        this, "ToCommit", &ElasticTrace::recordToCommTick);
+    connectListener<ProbeListenerArg<ElasticTrace, DynInstPtr>>(
+        this, "Rename", &ElasticTrace::updateRegDep);
+    connectListener<ProbeListenerArg<ElasticTrace, SeqNumRegPair>>(
+        this, "SquashInRename", &ElasticTrace::removeRegDepMapEntry);
+    connectListener<ProbeListenerArg<ElasticTrace, DynInstPtr>>(
+        this, "Squash", &ElasticTrace::addSquashedInst);
+    connectListener<ProbeListenerArg<ElasticTrace, DynInstPtr>>(
+        this, "Commit", &ElasticTrace::addCommittedInst);
     allProbesReg = true;
 }
 
@@ -173,7 +166,7 @@ ElasticTrace::fetchReqTrace(const RequestPtr &req)
 }
 
 void
-ElasticTrace::recordExecTick(const DynInstConstPtr& dyn_inst)
+ElasticTrace::recordExecTick(const DynInstPtr &dyn_inst)
 {
 
     // In a corner case, a retired instruction is propagated backward to the
@@ -210,7 +203,7 @@ ElasticTrace::recordExecTick(const DynInstConstPtr& dyn_inst)
 }
 
 void
-ElasticTrace::recordToCommTick(const DynInstConstPtr& dyn_inst)
+ElasticTrace::recordToCommTick(const DynInstPtr &dyn_inst)
 {
     // If tracing has just been enabled then the instruction at this stage of
     // execution is far enough that we cannot gather info about its past like
@@ -231,7 +224,7 @@ ElasticTrace::recordToCommTick(const DynInstConstPtr& dyn_inst)
 }
 
 void
-ElasticTrace::updateRegDep(const DynInstConstPtr& dyn_inst)
+ElasticTrace::updateRegDep(const DynInstPtr &dyn_inst)
 {
     // Get the sequence number of the instruction
     InstSeqNum seq_num = dyn_inst->seqNum;
@@ -251,10 +244,9 @@ ElasticTrace::updateRegDep(const DynInstConstPtr& dyn_inst)
     for (int src_idx = 0; src_idx < max_regs; src_idx++) {
 
         const RegId& src_reg = dyn_inst->srcRegIdx(src_idx);
-        if (!src_reg.is(MiscRegClass) &&
-                !(src_reg.is(IntRegClass) && src_reg.index() == zeroReg)) {
+        if (!src_reg.is(MiscRegClass) && !src_reg.is(InvalidRegClass)) {
             // Get the physical register index of the i'th source register.
-            PhysRegIdPtr phys_src_reg = dyn_inst->regs.renamedSrcIdx(src_idx);
+            PhysRegIdPtr phys_src_reg = dyn_inst->renamedSrcIdx(src_idx);
             DPRINTFR(ElasticTrace, "[sn:%lli] Check map for src reg"
                      " %i (%s)\n", seq_num,
                      phys_src_reg->flatIndex(), phys_src_reg->className());
@@ -283,12 +275,11 @@ ElasticTrace::updateRegDep(const DynInstConstPtr& dyn_inst)
         // For data dependency tracking the register must be an int, float or
         // CC register and not a Misc register.
         const RegId& dest_reg = dyn_inst->destRegIdx(dest_idx);
-        if (!dest_reg.is(MiscRegClass) &&
-                !(dest_reg.is(IntRegClass) && dest_reg.index() == zeroReg)) {
+        if (!dest_reg.is(MiscRegClass) && !dest_reg.is(InvalidRegClass)) {
             // Get the physical register index of the i'th destination
             // register.
             PhysRegIdPtr phys_dest_reg =
-                dyn_inst->regs.renamedDestIdx(dest_idx);
+                dyn_inst->renamedDestIdx(dest_idx);
             DPRINTFR(ElasticTrace, "[sn:%lli] Update map for dest reg"
                      " %i (%s)\n", seq_num, phys_dest_reg->flatIndex(),
                      dest_reg.className());
@@ -302,15 +293,15 @@ ElasticTrace::updateRegDep(const DynInstConstPtr& dyn_inst)
 void
 ElasticTrace::removeRegDepMapEntry(const SeqNumRegPair &inst_reg_pair)
 {
-    DPRINTFR(ElasticTrace, "Remove Map entry for Reg %i\n",
-            inst_reg_pair.second);
-    auto itr_regdep_map = physRegDepMap.find(inst_reg_pair.second);
+    RegIndex reg_idx = inst_reg_pair.second->index();
+    DPRINTFR(ElasticTrace, "Remove Map entry for Reg %i\n", reg_idx);
+    auto itr_regdep_map = physRegDepMap.find(reg_idx);
     if (itr_regdep_map != physRegDepMap.end())
         physRegDepMap.erase(itr_regdep_map);
 }
 
 void
-ElasticTrace::addSquashedInst(const DynInstConstPtr& head_inst)
+ElasticTrace::addSquashedInst(const DynInstPtr &head_inst)
 {
     // If the squashed instruction was squashed before being processed by
     // execute stage then it will not be in the temporary store. In this case
@@ -338,7 +329,7 @@ ElasticTrace::addSquashedInst(const DynInstConstPtr& head_inst)
 }
 
 void
-ElasticTrace::addCommittedInst(const DynInstConstPtr& head_inst)
+ElasticTrace::addCommittedInst(const DynInstPtr &head_inst)
 {
     DPRINTFR(ElasticTrace, "Attempt to add committed inst [sn:%lli]\n",
                 head_inst->seqNum);
@@ -397,8 +388,8 @@ ElasticTrace::addCommittedInst(const DynInstConstPtr& head_inst)
 }
 
 void
-ElasticTrace::addDepTraceRecord(const DynInstConstPtr& head_inst,
-                                InstExecInfo* exec_info_ptr, bool commit)
+ElasticTrace::addDepTraceRecord(const DynInstPtr &head_inst,
+                                InstExecInfo *exec_info_ptr, bool commit)
 {
     // Create a record to assign dynamic intruction related fields.
     TraceInfo* new_record = new TraceInfo;
@@ -418,7 +409,7 @@ ElasticTrace::addDepTraceRecord(const DynInstConstPtr& head_inst,
     new_record->physAddr = head_inst->physEffAddr;
     // Currently the tracing does not support split requests.
     new_record->size = head_inst->effSize;
-    new_record->pc = head_inst->instAddr();
+    new_record->pc = head_inst->pcState().instAddr();
 
     // Assign the timing information stored in the execution info object
     new_record->executeTick = exec_info_ptr->executeTick;
@@ -659,7 +650,7 @@ ElasticTrace::hasCompCompleted(TraceInfo* past_record,
 }
 
 void
-ElasticTrace::clearTempStoreUntil(const DynInstConstPtr& head_inst)
+ElasticTrace::clearTempStoreUntil(const DynInstPtr &head_inst)
 {
     // Clear from temp store starting with the execution info object
     // corresponding the head_inst and continue clearing by decrementing the

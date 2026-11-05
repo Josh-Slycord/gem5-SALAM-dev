@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 ARM Limited
+ * Copyright (c) 2021,2026 Arm Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -12,6 +12,7 @@
  * modified or unmodified, in source code or in binary form.
  *
  * Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
+ * Copyright (c) 2025 Google
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +46,7 @@
 #include <vector>
 
 #include "mem/ruby/network/Network.hh"
+#include "mem/ruby/network/RouteProfiler.hh"
 #include "params/SimpleNetwork.hh"
 
 namespace gem5
@@ -61,7 +63,8 @@ class Switch;
 class SimpleNetwork : public Network
 {
   public:
-    typedef SimpleNetworkParams Params;
+    PARAMS(SimpleNetwork);
+
     SimpleNetwork(const Params &p);
     ~SimpleNetwork() = default;
 
@@ -69,10 +72,10 @@ class SimpleNetwork : public Network
 
     int getBufferSize() { return m_buffer_size; }
     int getEndpointBandwidth() { return m_endpoint_bandwidth; }
-    bool getAdaptiveRouting() {return m_adaptive_routing; }
 
-    void collateStats();
-    void regStats();
+    void
+    collateStats()
+    {} // SimpleNetwork uses new-style stats
 
     bool isVNetOrdered(int vnet) const { return m_ordered[vnet]; }
 
@@ -102,22 +105,34 @@ class SimpleNetwork : public Network
     SimpleNetwork(const SimpleNetwork& obj);
     SimpleNetwork& operator=(const SimpleNetwork& obj);
 
-    std::vector<Switch*> m_switches;
+    std::unordered_map<int, Switch*> m_switches;
     std::vector<MessageBuffer*> m_int_link_buffers;
-    int m_num_connected_buffers;
     const int m_buffer_size;
     const int m_endpoint_bandwidth;
-    const bool m_adaptive_routing;
 
 
     struct NetworkStats : public statistics::Group
     {
-        NetworkStats(statistics::Group *parent);
+      private:
+        SimpleNetwork *parent;
+
+      public:
+        void regStats() override; // Need to override as switches created late
+        NetworkStats(SimpleNetwork *parent);
 
         //Statistical variables
-        statistics::Formula* m_msg_counts[MessageSizeType_NUM];
-        statistics::Formula* m_msg_bytes[MessageSizeType_NUM];
+        std::vector<statistics::Formula *> m_msg_counts;
+        std::vector<statistics::Formula *> m_msg_bytes;
     } networkStats;
+
+  public:
+    RouteProfiler routeProfiler;
+
+    void
+    dumpRoutes()
+    {
+        routeProfiler.dumpRoutes();
+    }
 };
 
 inline std::ostream&

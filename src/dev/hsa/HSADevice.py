@@ -1,8 +1,6 @@
 # Copyright (c) 2015-2018 Advanced Micro Devices, Inc.
 # All rights reserved.
 #
-# For use for simulation and test purposes only
-#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -29,15 +27,17 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from m5.SimObject import SimObject
+from m5.objects.Device import DmaVirtDevice
+from m5.objects.VegaGPUTLB import VegaPagetableWalker
 from m5.params import *
 from m5.proxy import *
-from m5.objects.Device import DmaDevice
+from m5.SimObject import SimObject
 
-class HSAPacketProcessor(DmaDevice):
-    type = 'HSAPacketProcessor'
-    cxx_header = 'dev/hsa/hsa_packet_processor.hh'
-    cxx_class = 'gem5::HSAPacketProcessor'
+
+class HSAPacketProcessor(DmaVirtDevice):
+    type = "HSAPacketProcessor"
+    cxx_header = "dev/hsa/hsa_packet_processor.hh"
+    cxx_class = "gem5::HSAPacketProcessor"
 
     pioAddr = Param.Addr("doorbell physical address")
     numHWQueues = Param.Int("Number of HW queues")
@@ -50,3 +50,6 @@ class HSAPacketProcessor(DmaDevice):
     # See: https://github.com/RadeonOpenCompute/atmi/tree/master/examples/
     #      runtime/kps
     pktProcessDelay = Param.Tick(4400000, "Packet processing delay")
+    walker = Param.VegaPagetableWalker(
+        VegaPagetableWalker(), "Page table walker"
+    )

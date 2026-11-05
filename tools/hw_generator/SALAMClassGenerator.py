@@ -37,7 +37,7 @@ class FunctionalUnitGenerator():
 
         # warning label
         self.new_header.write("// GENERATED FILE - DO NOT MODIFY\n\n")
-
+        
         # includes
         self.new_header.write("#include \"params/" + self.classname + ".hh\"\n")
         self.new_header.write("#include \"sim/sim_object.hh\"\n")
@@ -57,7 +57,7 @@ class FunctionalUnitGenerator():
         # members
 
         # methods
-
+        
         # define protected members and methods
         self.new_header.write("\tprotected:\n")
         # members
@@ -86,43 +86,18 @@ class FunctionalUnitGenerator():
 
         # Include header file
         self.new_source.write("#include \"" + self.alias + ".hh\"\n\n")
-
+        
         # Warning
         self.new_source.write("//AUTO-GENERATED FILE\n\n")
         self.new_source.write(self.classname + "::" + self.classname + "(const " + self.classname + "Params &params) :\n")
         self.new_source.write("\tSimObject(params),\n")
-        self.new_source.write("\tFunctionalUnitBase( params.alias,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.stages,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.cycles,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.enum_value,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.int_size,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.int_sign,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.int_apmode,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.fp_size,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.fp_sign,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.fp_apmode,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.ptr_size,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.ptr_sign,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.ptr_apmode,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.limit,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.power_units,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.energy_units,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.time_units,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.area_units,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.fu_latency,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.internal_power,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.switch_power,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.dynamic_power,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.dynamic_energy,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.leakage_power,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.area,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.path_delay) { }\n")
+        self.new_source.write("\tFunctionalUnitBase(params) { }\n")
 
     def generate_functional_unit_sconscript(self, fu_list = []):
         self.fu_list = fu_list
         with open(self.scons_dir_fu, 'w+') as self.scons_file:
             self.scons_file.write("Import('*')\n")
-            self.scons_file.write("if env['TARGET_ISA'] == 'arm':\n\n")
+            self.scons_file.write("if env[\"CONF\"][\"USE_ARM_ISA\"] and env.get(\"WITH_SALAM\", False):\n\n")
             for unit in self.fu_list:
                 self.scons_file.write("    Source('" + unit + ".cc')\n")
 
@@ -141,6 +116,7 @@ class FunctionalUnitGenerator():
                 # Add include headers to files
                 self.fu_list_header_file.write("#include \"../generated/functionalunits/" + unit + ".hh\"\n")
 
+            self.fu_list_header_file.write("#include <cstdint>\n")
             self.fu_list_header_file.write("#include <iostream>\n")
             self.fu_list_header_file.write("#include <cstdlib>\n")
             self.fu_list_header_file.write("#include <vector>\n\n")
@@ -155,7 +131,7 @@ class FunctionalUnitGenerator():
             self.fu_list_header_file.write("\tprotected:\n\n")
             self.fu_list_header_file.write("\tpublic:\n")
             self.fu_list_header_file.write("\t\t// GENERATED CLASS MEMBERS - DO NOT MODIFY\n")
-
+            
             for unit in self.fu_list:
                 self.fu_list_header_file.write("\t\t" + ''.join(words.capitalize() for words in unit.split('_')) + "* _" + unit + ";\n")
             #// END OF GENERATED CLASS MEMBERS
@@ -177,11 +153,13 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("#ifndef __HWMODEL_FUNCTIONAL_UNIT_BASE_HH__\n")
             self.base_header_file.write("#define __HWMODEL_FUNCTIONAL_UNIT_BASE_HH__\n\n")
             self.base_header_file.write("#include \"../../src/salam_power_model.hh\"\n\n")
-            self.base_header_file.write("#include <map>\n")
+            self.base_header_file.write("#include <cstdint>\n")
+            self.base_header_file.write("#include <map>\n#include <stdexcept>\n")
             self.base_header_file.write("#include <iostream>\n")
             self.base_header_file.write("#include <cstdlib>\n")
+            self.base_header_file.write("#include <string>\n")
             self.base_header_file.write("#include <vector>\n\n")
-
+ 
             self.base_header_file.write("class FunctionalUnitBase\n")
             self.base_header_file.write("{\n")
 
@@ -191,7 +169,7 @@ class FunctionalUnitGenerator():
             # members
 
             # methods
-
+            
             # define protected members and methods
             self.base_header_file.write("\tprotected:\n")
             # members
@@ -208,7 +186,7 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tstd::string _ptr_size;\n")
             self.base_header_file.write("\t\tstd::string _ptr_sign;\n")
             self.base_header_file.write("\t\tbool _ptr_apmode;\n")
-            self.base_header_file.write("\t\tuint32_t _limit;\n")
+            self.base_header_file.write("\t\tuint32_t _limit = 0;\n")
             self.base_header_file.write("\t\tstd::string _power_units;\n")
             self.base_header_file.write("\t\tstd::string _energy_units;\n")
             self.base_header_file.write("\t\tstd::string _time_units;\n")
@@ -221,8 +199,8 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tdouble _leakage_power;\n")
             self.base_header_file.write("\t\tdouble _area;\n")
             self.base_header_file.write("\t\tdouble _path_delay;\n\n")
-            self.base_header_file.write("\t\tuint64_t _available;\n\n")
-            self.base_header_file.write("\t\tuint64_t _in_use;\n\n")
+            self.base_header_file.write("\t\tuint64_t _available = 0;\n\n")
+            self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")
             # methods
 
             # define public members and methods
@@ -231,7 +209,17 @@ class FunctionalUnitGenerator():
 
             # methods
             # default constructor
-            self.base_header_file.write("\t\tFunctionalUnitBase();\n")
+            self.base_header_file.write("\t\tFunctionalUnitBase() = default;\n")
+            self.base_header_file.write("\t\ttemplate <typename Params>\n")
+            self.base_header_file.write("\t\texplicit FunctionalUnitBase(const Params &params) :\n")
+            self.base_header_file.write("\t\t\tFunctionalUnitBase(params.alias, params.stages, params.cycles, params.enum_value,\n")
+            self.base_header_file.write("\t\t\t\tparams.int_size, params.int_sign, params.int_apmode,\n")
+            self.base_header_file.write("\t\t\t\tparams.fp_size, params.fp_sign, params.fp_apmode,\n")
+            self.base_header_file.write("\t\t\t\tparams.ptr_size, params.ptr_sign, params.ptr_apmode, params.limit,\n")
+            self.base_header_file.write("\t\t\t\tparams.power_units, params.energy_units, params.time_units, params.area_units,\n")
+            self.base_header_file.write("\t\t\t\tparams.fu_latency, params.internal_power, params.switch_power,\n")
+            self.base_header_file.write("\t\t\t\tparams.dynamic_power, params.dynamic_energy, params.leakage_power,\n")
+            self.base_header_file.write("\t\t\t\tparams.area, params.path_delay) { }\n")
             # SimObject Constructor
             self.base_header_file.write("\t\tFunctionalUnitBase( std::string alias,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t stages,\n")
@@ -284,7 +272,7 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\t\t\t\t\t\t_dynamic_energy(dynamic_energy),\n")
             self.base_header_file.write("\t\t\t\t\t\t\t_leakage_power(leakage_power),\n")
             self.base_header_file.write("\t\t\t\t\t\t\t_area(area),\n")
-            self.base_header_file.write("\t\t\t\t\t\t\t_path_delay(path_delay) { }\n")
+            self.base_header_file.write("\t\t\t\t\t\t\t_path_delay(path_delay), _available(limit) { }\n")
 
             # Getters / Setters
             self.base_header_file.write("\t\tstd::string get_alias() { return _alias; }\n")
@@ -313,9 +301,10 @@ class FunctionalUnitGenerator():
             self.base_header_file.write("\t\tdouble get_leakage_power() { return _leakage_power; }\n")
             self.base_header_file.write("\t\tdouble get_area() { return _area; }\n")
             self.base_header_file.write("\t\tdouble get_path_delay() { return _path_delay; }\n")
-            self.base_header_file.write("\t\tbool is_available() { return (_in_use >= _available); }\n")
+            self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")
+            self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")
             self.base_header_file.write("\t\tvoid use_functional_unit() { _in_use++; }\n")
-            self.base_header_file.write("\t\tvoid clear_functional_unit() { _in_use--; }\n")
+            self.base_header_file.write("\t\tvoid clear_functional_unit() { if (!_in_use) throw std::logic_error(\"FU occupancy underflow\"); --_in_use; }\n")
             self.base_header_file.write("\t\tvoid set_functional_unit_limit(uint64_t available) { _available = available; }\n")
             self.base_header_file.write("\t\tvoid inc_functional_unit_limit() { _available++; }\n")
             self.base_header_file.write("\t\tuint64_t get_functional_unit_limit() { return _available; }\n\n")
@@ -331,7 +320,7 @@ class FunctionalUnitGenerator():
     def initialize_simobject_file(self, fu_list = []):
         self.fu_list = fu_list
         with open(self.fu_directory, 'w+') as self.simobject_file:
-            # Warning
+            # Warning 
             self.simobject_file.write("# AUTO-GENERATED FILE\n\n")
             # imports
             self.simobject_file.write("from m5.params import *\n")
@@ -348,6 +337,7 @@ class FunctionalUnitGenerator():
                 self.simobject_file.write("\t" + unit + " = Param." + ''.join(words.capitalize() for words in unit.split('_')))
                 self.simobject_file.write("(Parent.any, \"" + unit + " functional unit SimObject.\")\n")
 
+            # Keep explicit SimObject Params here; only C++ construction is shared.
             self.simobject_file.write("\n#AUTO-GENERATED CLASSES\n")
 
     def simobject_generator(self, hwmodel):
@@ -401,7 +391,7 @@ class FunctionalUnitGenerator():
         self.hwmodel = hwmodel
         self.inst_dict = hwmodel.get_instruction_list()
         with open("src/hwacc/InstConfig.py", 'w+') as self.simobject_file:
-            # Warning
+            # Warning 
             self.simobject_file.write("# AUTO-GENERATED FILE\n\n")
             # imports
             self.simobject_file.write("from m5.params import *\n")
@@ -415,6 +405,7 @@ class FunctionalUnitGenerator():
             self.simobject_file.write("\tcxx_header = \"hwacc/HWModeling/src/instruction_config.hh\"\n\n")
             for inst_name in self.inst_dict['instructions'].keys():
                 self.simobject_file.write("\t" + str(inst_name) + " = Param." + ''.join(words.capitalize() for words in inst_name.split('_')) + "(Parent.any, \"" + str(inst_name) + " instruction SimObject\")\n")
+            # Keep explicit SimObject Params here; only C++ construction is shared.
             self.simobject_file.write("\n#AUTO-GENERATED CLASSES\n")
             for inst_name in self.inst_dict['instructions'].keys():
                 self.simobject_file.write("class " + ''.join(words.capitalize() for words in inst_name.split('_')) + "(SimObject):\n")
@@ -442,6 +433,7 @@ class FunctionalUnitGenerator():
                 # Add include headers to files
                 self.inst_config_header_file.write("#include \"../generated/instructions/" + inst + ".hh\"\n")
 
+            self.inst_config_header_file.write("#include <cstdint>\n")
             self.inst_config_header_file.write("#include <iostream>\n")
             self.inst_config_header_file.write("#include <cstdlib>\n")
             self.inst_config_header_file.write("#include <vector>\n\n")
@@ -456,7 +448,7 @@ class FunctionalUnitGenerator():
             self.inst_config_header_file.write("\tprotected:\n\n")
             self.inst_config_header_file.write("\tpublic:\n")
             self.inst_config_header_file.write("\t\t// GENERATED CLASS MEMBERS - DO NOT MODIFY\n")
-
+            
             for inst in self.inst_list:
                 self.inst_config_header_file.write("\t\t" + ''.join(words.capitalize() for words in inst.split('_')) + "* _" + inst + ";\n")
             #// END OF GENERATED CLASS MEMBERS
@@ -485,7 +477,7 @@ class FunctionalUnitGenerator():
 
         # warning label
         self.new_header.write("// GENERATED FILE - DO NOT MODIFY\n\n")
-
+        
         # includes
         self.new_header.write("#include \"params/" + self.classname + ".hh\"\n")
         self.new_header.write("#include \"sim/sim_object.hh\"\n")
@@ -505,7 +497,7 @@ class FunctionalUnitGenerator():
         # members
 
         # methods
-
+        
         # define protected members and methods
         self.new_header.write("\tprotected:\n")
         # members
@@ -534,15 +526,12 @@ class FunctionalUnitGenerator():
 
         # Include header file
         self.new_source.write("#include \"" + str(inst_params) + ".hh\"\n\n")
-
+        
         # Warning
         self.new_source.write("//AUTO-GENERATED FILE\n\n")
         self.new_source.write(self.classname + "::" + self.classname + "(const " + self.classname + "Params &params) :\n")
         self.new_source.write("\tSimObject(params),\n")
-        self.new_source.write("\tInstConfigBase( params.functional_unit,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.functional_unit_limit,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.opcode_num,\n")
-        self.new_source.write("\t\t\t\t\t\tparams.runtime_cycles) { }\n")
+        self.new_source.write("\tInstConfigBase(params) { }\n")
 
     def initialize_inst_config_base_header_file(self):
         self.base_header = "src/hwacc/HWModeling/generated/instructions/base.hh"
@@ -550,6 +539,7 @@ class FunctionalUnitGenerator():
 
             self.base_header_file.write("#ifndef __HWMODEL_INST_CONFIG_BASE_HH__\n")
             self.base_header_file.write("#define __HWMODEL_INST_CONFIG_BASE_HH__\n\n")
+            self.base_header_file.write("#include <cstdint>\n")
             self.base_header_file.write("#include <map>\n")
             self.base_header_file.write("#include <iostream>\n")
             self.base_header_file.write("#include <cstdlib>\n")
@@ -564,14 +554,14 @@ class FunctionalUnitGenerator():
             # members
 
             # methods
-
+            
             # define protected members and methods
             self.base_header_file.write("\tprotected:\n")
             # members
-            self.base_header_file.write("\t\tuint32_t _functional_unit;\n")
-            self.base_header_file.write("\t\tuint32_t _functional_unit_limit;\n")
-            self.base_header_file.write("\t\tuint32_t _opcode_num;\n")
-            self.base_header_file.write("\t\tuint32_t _runtime_cycles;\n")
+            self.base_header_file.write("\t\tuint32_t _functional_unit = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _functional_unit_limit = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _opcode_num = 0;\n")
+            self.base_header_file.write("\t\tuint32_t _runtime_cycles = 0;\n")
 
             # methods
 
@@ -581,19 +571,23 @@ class FunctionalUnitGenerator():
 
             # methods
             # default constructor
-            self.base_header_file.write("\t\tInstConfigBase();\n")
+            self.base_header_file.write("\t\tInstConfigBase() = default;\n")
+            self.base_header_file.write("\t\ttemplate <typename Params>\n")
+            self.base_header_file.write("\t\texplicit InstConfigBase(const Params &params) :\n")
+            self.base_header_file.write("\t\t\tInstConfigBase(params.functional_unit, params.functional_unit_limit,\n")
+            self.base_header_file.write("\t\t\t\tparams.opcode_num, params.runtime_cycles) { }\n")
             # SimObject Constructor
             self.base_header_file.write("\t\tInstConfigBase( uint32_t functional_unit,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t functional_unit_limit,\n")
             self.base_header_file.write("\t\t\t\t\t\t\tuint32_t opcode_num,\n")
-            self.base_header_file.write("\t\t\t\t\t\t\tuint32_t runtime_cycles) { }\n")
+            self.base_header_file.write("\t\t\t\t\t\t\tuint32_t runtime_cycles) : _functional_unit(functional_unit), _functional_unit_limit(functional_unit_limit), _opcode_num(opcode_num), _runtime_cycles(runtime_cycles) { }\n")
 
             # Getters / Setters
             self.base_header_file.write("\t\tuint32_t get_functional_unit() { return _functional_unit; }\n")
             self.base_header_file.write("\t\tuint32_t get_functional_unit_limit() { return _functional_unit_limit; }\n")
             self.base_header_file.write("\t\tuint32_t get_opcode_num() { return _opcode_num; }\n")
             self.base_header_file.write("\t\tuint32_t get_runtime_cycles() { return _runtime_cycles; }\n")
-
+            
             # end class body
             self.base_header_file.write("};\n")
             # end header gaurd
@@ -605,6 +599,6 @@ class FunctionalUnitGenerator():
         self.inst_list = inst_list
         with open(self.scons_dir_inst, 'w+') as self.scons_file:
             self.scons_file.write("Import('*')\n")
-            self.scons_file.write("if env['TARGET_ISA'] == 'arm':\n\n")
+            self.scons_file.write("if env[\"CONF\"][\"USE_ARM_ISA\"] and env.get(\"WITH_SALAM\", False):\n\n")
             for inst in self.inst_list:
                 self.scons_file.write("    Source('" + inst + ".cc')\n")

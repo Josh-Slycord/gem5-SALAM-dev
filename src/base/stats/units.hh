@@ -75,7 +75,6 @@ namespace gem5
         UNIT_UNSPECIFIED, statistics::units::Unspecified::get(), \
         "Use statistics::units::Unspecified::get()")
 
-GEM5_DEPRECATED_NAMESPACE(Stats, statistics);
 namespace statistics
 {
 
@@ -110,7 +109,6 @@ namespace statistics
  *   - The new unit is significant enough to be not included in Count unit.
  *     (e.g. Cycle unit, Tick unit)
  */
-GEM5_DEPRECATED_NAMESPACE(Units, units);
 namespace units
 {
 
@@ -122,6 +120,7 @@ namespace units
 class Base
 {
   public:
+    virtual ~Base() = default;
     virtual std::string getUnitString() const = 0;
 };
 
@@ -342,19 +341,19 @@ class Unspecified : public Base
 template <typename T1, typename T2>
 class Rate : public Base
 {
-    static_assert(std::is_base_of<Base, T1>::value, "Rate(T1,T2) must have "
+    static_assert(std::is_base_of_v<Base, T1>, "Rate(T1,T2) must have "
         "T1 and T2 derived from statistics::units::Base");
-    static_assert(std::is_base_of<Base, T2>::value, "Rate(T1,T2) must have "
+    static_assert(std::is_base_of_v<Base, T2>, "Rate(T1,T2) must have "
         "T1 and T2 derived from statistics::units::Base");
-    static_assert(!std::is_same<T1, T2>::value ||
-        std::is_same<T1, Count>::value || std::is_same<T1, Unspecified>::value,
+    static_assert(!std::is_same_v<T1, T2> || std::is_same_v<T1, Count> ||
+            std::is_same_v<T1, Unspecified>,
         "Rate(T1,T2) must have T1 and T2 of different types; "
         "otherwise, it would be a Ratio");
 
   private:
-    Rate<T1,T2>() {}
+    Rate() {}
   public:
-    Rate<T1,T2>(Rate<T1,T2> const&) = delete;
+    Rate(Rate const&) = delete;
     void operator=(Rate<T1,T2> const&) = delete;
     static Rate<T1,T2>*
     get()

@@ -46,12 +46,22 @@ struct HW_Cycle_Stats {
 
 
 
+    HW_Cycle_Stats() { reset(); }
+
     void reset() {
         cycle = 0;
         resInFlight = 0;
         loadInFlight = 0;
+        loadInternal = 0;
+        loadAcitve = 0;
+        loadRawStall = 0;
         storeInFlight = 0;
+        storeActive = 0;
         compInFlight = 0;
+        compLaunched = 0;
+        compActive = 0;
+        compFUStall = 0;
+        compCommited = 0;
     }
 };
 

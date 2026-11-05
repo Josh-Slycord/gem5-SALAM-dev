@@ -2,8 +2,6 @@
  * Copyright (c) 2016-2020 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -52,7 +50,7 @@ class TokenRequestPort : public RequestPort
   public:
     TokenRequestPort(const std::string& name, SimObject* owner,
                     PortID id = InvalidPortID) :
-        RequestPort(name, owner, id), tokenManager(nullptr)
+        RequestPort(name, id), tokenManager(nullptr)
     { }
 
     /**
@@ -100,9 +98,9 @@ class TokenResponsePort : public ResponsePort
     void recvRespRetry() override;
 
   public:
-    TokenResponsePort(const std::string& name, ClockedObject *owner,
+    TokenResponsePort(const std::string& name,
                    PortID id = InvalidPortID) :
-        ResponsePort(name, owner, id), tokenRequestPort(nullptr)
+        ResponsePort(name, id), tokenRequestPort(nullptr)
     { }
     ~TokenResponsePort() { }
 

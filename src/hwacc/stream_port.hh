@@ -1,6 +1,7 @@
 #ifndef __HWACC_STREAM_PORT_HH__
 #define __HWACC_STREAM_PORT_HH__
 
+#include "base/statistics.hh"
 #include "mem/port.hh"
 #include "mem/tport.hh"
 
@@ -18,6 +19,30 @@ class StreamResponsePort : public SimpleTimingPort {
   friend class StreamRequestPort;
   private:
   protected:
+    struct StreamStats : public statistics::Group
+    {
+        StreamStats(statistics::Group *parent, const std::string &port_name)
+            : statistics::Group(parent, port_name.c_str()),
+              ADD_STAT(requests, statistics::units::Count::get(),
+                       "Stream timing requests accepted"),
+              ADD_STAT(bytes, statistics::units::Byte::get(),
+                       "Stream payload bytes accepted"),
+              ADD_STAT(tvalidStalls, statistics::units::Count::get(),
+                       "Requests rejected because stream data/space was not valid"),
+              ADD_STAT(busyStalls, statistics::units::Count::get(),
+                       "Requests rejected while the stream port was busy"),
+              ADD_STAT(retries, statistics::units::Count::get(),
+                       "Retry notifications sent after stream busy periods")
+        {}
+
+        statistics::Scalar requests;
+        statistics::Scalar bytes;
+        statistics::Scalar tvalidStalls;
+        statistics::Scalar busyStalls;
+        statistics::Scalar retries;
+    };
+    StreamStats streamStats;
+
     virtual bool tvalid(PacketPtr pkt) = 0;
     virtual bool tvalid(size_t len, bool isRead) = 0;
     Tick recvAtomic(PacketPtr pkt) override {
@@ -29,8 +54,9 @@ class StreamResponsePort : public SimpleTimingPort {
       return range;
     }
   public:
-    StreamResponsePort(const std::string& name, SimObject* owner) :
-      SimpleTimingPort(name, owner) {}
+    StreamResponsePort(const std::string& name, SimObject* owner,
+                       const std::string &stat_name="stream") :
+      SimpleTimingPort(name, owner), streamStats(owner, stat_name) {}
 };
 
 /**
@@ -53,6 +79,7 @@ class StreamResponsePortT : public StreamResponsePort
         isBusy = false;
         if (retryReq) {
             retryReq = false;
+            streamStats.retries++;
             sendRetryReq();
         }
     }
@@ -68,17 +95,24 @@ class StreamResponsePortT : public StreamResponsePort
         // we should not get a new request after committing to retry the
         // current one, but unfortunately the CPU violates this rule, so
         // simply ignore it for now
-        if (retryReq)
+        if (retryReq) {
+          streamStats.busyStalls++;
           return false;
+        }
         // if we are busy with a read or write, remember that we have to
         // retry
         if (isBusy) {
           retryReq = true;
+          streamStats.busyStalls++;
           return false;
         }
         // Make sure that the transfer is valid
-        if(!tvalid(pkt))
+        if(!tvalid(pkt)) {
+          streamStats.tvalidStalls++;
           return false;
+        }
+        streamStats.requests++;
+        streamStats.bytes += pkt->getSize();
         // the SimpleTimingPort should not be used anywhere where there is
         // a need to deal with snoop responses and their flow control
         // requirements
@@ -124,11 +158,11 @@ class StreamResponsePortT : public StreamResponsePort
     }
 
   public:
-    StreamResponsePortT(Device *dev) :
-      StreamResponsePort(dev->name() + ".stream", dev),
+    StreamResponsePortT(Device *dev, const std::string &port_suffix="stream") :
+      StreamResponsePort(dev->name() + "." + port_suffix, dev, port_suffix),
       isBusy(false),
       retryReq(false),
-      releaseEvent([this]{ release(); }, dev->name()),
+      releaseEvent([this]{ release(); }, dev->name() + "." + port_suffix),
       device(dev) {}
       virtual ~StreamResponsePortT() {}
 };

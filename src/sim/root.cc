@@ -42,7 +42,6 @@
 #include "base/hostinfo.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
-#include "config/the_isa.hh"
 #include "debug/TimeSync.hh"
 #include "sim/core.hh"
 #include "sim/cur_tick.hh"
@@ -194,6 +193,16 @@ Root::Root(const RootParams &p, int)
     // having a single global stat group for global stats. Merge that
     // group into the root object here.
     mergeStatGroup(&Root::RootStats::instance);
+
+    // Print the tick if we panic.
+    Logger::getPanic().registerExtraLog([]() {
+        if (Gem5Internal::_curTickPtr) {
+            return csprintf("Panic at tick %llu\n",
+                            (unsigned long long)curTick());
+        } else {
+            return std::string("Panic at tick 0 (no event queue active)\n");
+        }
+    });
 }
 
 void
@@ -206,8 +215,6 @@ void
 Root::serialize(CheckpointOut &cp) const
 {
     SERIALIZE_SCALAR(FullSystem);
-    std::string isa = THE_ISA_STR;
-    SERIALIZE_SCALAR(isa);
 
     globals.serializeSection(cp, "globals");
 }

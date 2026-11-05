@@ -7,6 +7,11 @@ class HWStatistics(SimObject):
     type = 'HWStatistics'
     # gem5-SALAM attached header
     cxx_header = "hwacc/HWModeling/src/hw_statistics.hh"
+    cycle_tracking = Param.Bool(
+        False,
+        "Unsupported legacy cycle-history switch; True is rejected. Use native "
+        "gem5 statistics and invocation/FU JSON instead"
+    )
     ### --- Do Not Modify Below This Line --- ###
     ### Templates
     ### YML Type: statistics

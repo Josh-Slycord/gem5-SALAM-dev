@@ -28,11 +28,19 @@
 
 #include "arch/riscv/linux/fs_workload.hh"
 
+#include <optional>
+
 #include "arch/riscv/faults.hh"
+#include "arch/riscv/mmu.hh"
+#include "arch/riscv/regs/misc.hh"
 #include "base/loader/dtb_file.hh"
 #include "base/loader/object_file.hh"
 #include "base/loader/symtab.hh"
+#include "base/logging.hh"
+#include "cpu/pc_event.hh"
+#include "kern/linux/events.hh"
 #include "sim/kernel_workload.hh"
+#include "sim/sim_exit.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -40,6 +48,45 @@ namespace gem5
 
 namespace RiscvISA
 {
+
+namespace
+{
+
+void
+initBootState(System *system, const std::optional<Addr> &dtbAddr,
+              bool directSupervisorBoot)
+{
+    for (auto *tc : system->threads) {
+        tc->getIsaPtr()->resetThread();
+
+        if (directSupervisorBoot) {
+            /*
+             * Direct S-mode boots skip the M-mode firmware that would
+             * normally install a permissive PMP entry. KVM mostly doesn't
+             * notice because the host executes guest memory accesses, but
+             * gem5-side functional walks for m5ops still consult gem5's PMP
+             * model and need an allow-all rule.
+             */
+            auto *mmu = dynamic_cast<MMU *>(tc->getMMUPtr());
+            panic_if(!mmu,
+                     "Direct RISC-V S-mode boot requires a RISC-V MMU.\n");
+            auto *pmp = mmu->getPMP();
+
+            pmp->pmpUpdateAddr(0, static_cast<RegVal>(-1));
+            pmp->pmpUpdateCfg(0, 0x1f);
+            tc->setMiscRegNoEffect(MISCREG_PMPADDR00, static_cast<RegVal>(-1));
+            tc->setMiscRegNoEffect(MISCREG_PMPCFG0, 0x1f);
+        }
+
+        tc->setReg(int_reg::A0, tc->contextId());
+        if (dtbAddr.has_value()) {
+            tc->setReg(int_reg::A1, *dtbAddr);
+        }
+        tc->activate();
+    }
+}
+
+} // anonymous namespace
 
 void
 FsLinux::initState()
@@ -62,17 +109,227 @@ FsLinux::initState()
             .write(system->physProxy);
         delete dtb_file;
 
-        for (auto *tc: system->threads) {
-            tc->setIntReg(11, params().dtb_addr);
-        }
     } else {
         warn("No DTB file specified\n");
     }
 
-    for (auto *tc: system->threads) {
-        RiscvISA::Reset().invoke(tc);
-        tc->activate();
+    initBootState(system,
+                  params().dtb_filename != ""
+                      ? std::optional<Addr>(params().dtb_addr)
+                      : std::nullopt,
+                  true);
+}
+
+void
+FsLinux::startup()
+{
+    KernelWorkload::startup();
+
+    addExitOnKernelPanicEvent();
+    addExitOnKernelOopsEvent();
+}
+
+void
+FsLinux::addExitOnKernelPanicEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    if (params().exit_on_kernel_panic) {
+        kernelPanicPcEvent = addKernelFuncEvent<linux::PanicOrOopsEvent>(
+            "panic", "Kernel panic in simulated system.",
+            dmesg_output, params().on_panic
+        );
+        warn_if(!kernelPanicPcEvent, "Failed to find kernel symbol 'panic'");
     }
+}
+
+void
+FsLinux::addExitOnKernelOopsEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    if (params().exit_on_kernel_oops) {
+        kernelOopsPcEvent = addKernelFuncEvent<linux::PanicOrOopsEvent>(
+            "oops_exit", "Kernel oops in simulated system.",
+            dmesg_output, params().on_oops
+        );
+        warn_if(!kernelOopsPcEvent,
+                "Failed to find kernel symbol 'oops_exit'");
+    }
+}
+
+void
+BootloaderKernelWorkload::loadBootloaderSymbolTable()
+{
+    if (params().bootloader_filename != "") {
+        Addr bootloader_paddr_offset = params().bootloader_addr;
+        bootloader = loader::createObjectFile(params().bootloader_filename);
+        bootloaderSymbolTable = bootloader->symtab();
+        auto renamedBootloaderSymbolTable = \
+            bootloaderSymbolTable.offset(
+                bootloader_paddr_offset
+            )->functionSymbols()->rename(
+                [](const std::string &name) {
+                    return "bootloader." + name;
+                }
+            );
+        loader::debugSymbolTable.insert(*renamedBootloaderSymbolTable);
+    }
+}
+
+void
+BootloaderKernelWorkload::loadKernelSymbolTable()
+{
+    if (params().object_file != "") {
+        kernel = loader::createObjectFile(params().object_file);
+        kernelSymbolTable = kernel->symtab();
+        auto renamedKernelSymbolTable = \
+            kernelSymbolTable.functionSymbols()->rename(
+                [](const std::string &name) {
+                    return "kernel." + name;
+                }
+            );
+        loader::debugSymbolTable.insert(*renamedKernelSymbolTable);
+    }
+}
+
+void
+BootloaderKernelWorkload::loadBootloader()
+{
+    if (params().bootloader_filename != "") {
+        loader::MemoryImage image = bootloader->buildImage();
+        Addr bootloader_addr_offset = \
+            params().bootloader_addr - image.minAddr();
+        image.offset(bootloader_addr_offset).write(system->physProxy);
+        delete bootloader;
+
+        inform("Loaded bootloader \'%s\' at 0x%llx\n",
+               params().bootloader_filename,
+               params().bootloader_addr);
+    } else {
+        inform("Bootloader is not specified.\n");
+    }
+}
+
+void
+BootloaderKernelWorkload::loadKernel()
+{
+    if (params().object_file != "") {
+        loader::MemoryImage image = kernel->buildImage();
+        Addr kernel_paddr_offset = params().kernel_addr - image.minAddr();
+        image.offset(kernel_paddr_offset).write(system->physProxy);
+        delete kernel;
+
+        inform("Loaded kernel \'%s\' at 0x%llx\n",
+                params().object_file,
+                params().kernel_addr);
+    } else {
+        inform("Kernel is not specified.\n");
+    }
+}
+
+void
+BootloaderKernelWorkload::loadInitrd()
+{
+    if (params().initrd_filename != "") {
+        inform("Loading initrd file: %s at address %#x\n",
+               params().initrd_filename, params().initrd_addr);
+
+        loader::ImageFileDataPtr initrd_file_data(
+            new loader::ImageFileData(params().initrd_filename, false));
+        system->physProxy.writeBlob(params().initrd_addr,
+                                    initrd_file_data->data(),
+                                    initrd_file_data->len());
+        initrd_len = initrd_file_data->len();
+    }
+}
+
+void
+BootloaderKernelWorkload::loadDtb()
+{
+    if (params().dtb_filename != "") {
+        auto *dtb_file = new loader::DtbFile(params().dtb_filename);
+
+        if (params().initrd_filename != "") {
+            if (!dtb_file->addBootData(params().command_line.c_str(),
+                                       params().command_line.size(),
+                                       params().initrd_addr, initrd_len)) {
+                warn("couldn't append bootargs to DTB file: %s\n",
+                     params().dtb_filename);
+            }
+        }
+
+        dtb_file->buildImage().offset(params().dtb_addr)
+            .write(system->physProxy);
+        delete dtb_file;
+
+        inform("Loaded DTB \'%s\' at 0x%llx\n",
+                params().dtb_filename,
+                params().dtb_addr);
+
+    } else {
+        inform("DTB file is not specified.\n");
+    }
+}
+
+void
+BootloaderKernelWorkload::addExitOnKernelPanicEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    if (params().exit_on_kernel_panic) {
+        kernelPanicPcEvent = addFuncEvent<linux::PanicOrOopsEvent>(
+            kernelSymbolTable, "panic", "Kernel panic in simulated system.",
+            dmesg_output, params().on_panic
+        );
+    }
+}
+
+void
+BootloaderKernelWorkload::addExitOnKernelOopsEvent()
+{
+    const std::string dmesg_output = name() + ".dmesg";
+    if (params().exit_on_kernel_oops) {
+        kernelOopsPcEvent = addFuncEvent<linux::PanicOrOopsEvent>(
+            kernelSymbolTable, "oops_exit", "Kernel oops in simulated system.",
+            dmesg_output, params().on_oops
+        );
+    }
+}
+
+void
+BootloaderKernelWorkload::initState()
+{
+    loadBootloader();
+    loadKernel();
+    loadInitrd();
+    loadDtb();
+
+    initBootState(system,
+                  params().dtb_filename != ""
+                      ? std::optional<Addr>(params().dtb_addr)
+                      : std::nullopt,
+                  params().bootloader_filename == "");
+}
+
+void
+BootloaderKernelWorkload::startup()
+{
+    Workload::startup();
+
+    addExitOnKernelPanicEvent();
+    addExitOnKernelOopsEvent();
+}
+
+void
+BootloaderKernelWorkload::serialize(CheckpointOut &checkpoint) const
+{
+    bootloaderSymbolTable.serialize("bootloader_symbol_table", checkpoint);
+    kernelSymbolTable.serialize("kernel_symbol_table", checkpoint);
+}
+
+void
+BootloaderKernelWorkload::unserialize(CheckpointIn &checkpoint)
+{
+    bootloaderSymbolTable.unserialize("bootloader_symbol_table", checkpoint);
+    kernelSymbolTable.unserialize("kernel_symbol_table", checkpoint);
 }
 
 } // namespace RiscvISA

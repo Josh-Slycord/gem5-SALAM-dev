@@ -47,7 +47,7 @@ let {{
 
         def __init__(self, mnem, Name, size=4, sign=False, user=False,
                      literal=False, flavor="normal", top=False):
-            super(LoadInst64, self).__init__()
+            super().__init__()
 
             self.name = mnem
             self.Name = Name
@@ -88,11 +88,15 @@ let {{
 
             if self.flavor not in ("acquire", "acex", "exclusive",
                                    "acexp", "exp"):
-                self.memFlags.append("ArmISA::TLB::AllowUnaligned")
+                self.memFlags.append("ArmISA::MMU::AllowUnaligned")
 
             if self.flavor in ("acquire", "acex", "acexp"):
                 self.instFlags.extend(["IsWriteBarrier", "IsReadBarrier"])
                 self.memFlags.append("Request::ACQUIRE")
+
+            if self.flavor in ("acquire_pc"):
+                self.instFlags.extend(["IsWriteBarrier", "IsReadBarrier"])
+                self.memFlags.append("Request::ACQUIRE_PC")
 
             if self.flavor in ("acex", "exclusive", "exp", "acexp"):
                 self.memFlags.append("Request::LLSC")
@@ -136,7 +140,7 @@ let {{
             if self.user:
                 eaCode += " uint8_t userFlag = 0;\n"\
                           "  if(isUnpriviledgeAccess(xc->tcBase()))\n"\
-                          "     userFlag = ArmISA::TLB::UserMode;"
+                          "     userFlag = ArmISA::MMU::UserMode;"
 
             self.codeBlobs["ea_code"] = eaCode
 
@@ -175,14 +179,14 @@ let {{
 
     class LoadImmInst64(LoadInst64):
         def __init__(self, *args, **kargs):
-            super(LoadImmInst64, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             self.offset = " + imm"
 
             self.wbDecl = "MicroAddXiUop(machInst, base, base, imm);"
 
     class LoadRegInst64(LoadInst64):
         def __init__(self, *args, **kargs):
-            super(LoadRegInst64, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             self.offset = " + extendReg64(XOffset, type, shiftAmt, 64)"
 
             self.wbDecl = \
@@ -191,7 +195,7 @@ let {{
 
     class LoadRawRegInst64(LoadInst64):
         def __init__(self, *args, **kargs):
-            super(LoadRawRegInst64, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             self.offset = ""
 
     class LoadSingle64(LoadInst64):
@@ -201,7 +205,7 @@ let {{
             accEpilogCode = None
             # Code that actually handles the access
             if self.flavor in ("dprefetch", "iprefetch", "mprefetch"):
-                accCode = 'GEM5_VAR_USED uint64_t temp = Mem%s;'
+                accCode = '[[maybe_unused]] uint64_t temp = Mem%s;'
             elif self.flavor == "fp":
                 accEpilogCode = '''
                     ArmISA::ISA::zeroSveVecRegUpperPart(AA64FpDest,
@@ -474,6 +478,25 @@ let {{
     LoadRaw64("ldar", "LDARW64", size=4, flavor="acquire").emit()
     LoadRaw64("ldarh", "LDARH64", size=2, flavor="acquire").emit()
     LoadRaw64("ldarb", "LDARB64", size=1, flavor="acquire").emit()
+
+    LoadImm64("ldapurb", "LDAPURB64_IMM", size=1,
+              sign=False, flavor="acquire_pc").emit()
+    LoadImm64("ldapursb", "LDAPURSBW64_IMM", size=1,
+              sign=True, flavor="acquire_pc").emit()
+    LoadImm64("ldapursb", "LDAPURSBX64_IMM", size=1,
+              sign=True, flavor="acquire_pc").emit()
+    LoadImm64("ldapurh", "LDAPURH64_IMM", size=2,
+              sign=False, flavor="acquire_pc").emit()
+    LoadImm64("ldapursh", "LDAPURSHW64_IMM", size=2,
+              sign=True, flavor="acquire_pc").emit()
+    LoadImm64("ldapursh", "LDAPURSHX64_IMM", size=2,
+              sign=True, flavor="acquire_pc").emit()
+    LoadImm64("ldapursw", "LDAPURSW64_IMM", size=4,
+              sign=True, flavor="acquire_pc").emit()
+    LoadImm64("ldapur", "LDAPURW64_IMM", size=4,
+              sign=False, flavor="acquire_pc").emit()
+    LoadImm64("ldapur", "LDAPURX64_IMM", size=8,
+              sign=False, flavor="acquire_pc").emit()
 
     LoadEx64("ldaxr", "LDAXRX64", size=8, flavor="acex").emit()
     LoadEx64("ldaxr", "LDAXRW64", size=4, flavor="acex").emit()

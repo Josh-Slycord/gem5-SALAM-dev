@@ -101,9 +101,9 @@ class Terminal : public SerialDevice
     OutputStream * terminalDump(const TerminalParams &p);
 
   protected:
-    ListenSocket listener;
+    ListenSocketPtr listener;
 
-    void listen(int port);
+    void listen();
     void accept();
 
   protected:
@@ -118,6 +118,27 @@ class Terminal : public SerialDevice
     ///////////////////////
     // Terminal Interface
 
+    /**
+     * @return true if there is a listener (socket or other endpoint)
+     * configured and listening for this terminal.
+     */
+    bool
+    hasListener() const
+    {
+        return (bool)listener;
+    }
+
+    /**
+     * Returns the actual bound address of the listener.
+     *
+     * This method provides a snapshot of the current listening endpoint
+     * (e.g., a TCP port number or a UNIX socket path). It does NOT
+     * consume or clear any buffered serial data.
+     *
+     * @return A string representation of the listening endpoint, or an
+     * empty string if no listener is attached or configured.
+     */
+    std::string getListenerOutput() const;
     void data();
 
     void read(uint8_t &c) { read(&c, 1); }

@@ -32,9 +32,12 @@
 
 #include <string>
 
+#include "arch/riscv/pcstate.hh"
+#include "arch/riscv/regs/misc.hh"
 #include "arch/riscv/types.hh"
 #include "cpu/exec_context.hh"
 #include "cpu/static_inst.hh"
+#include "cpu/thread_context.hh"
 #include "mem/packet.hh"
 
 namespace gem5
@@ -54,18 +57,45 @@ class RiscvStaticInst : public StaticInst
         StaticInst(_mnemonic, __opClass), machInst(_machInst)
     {}
 
+    template <typename T>
+    T
+    rvSelect(T v32, T v64) const
+    {
+        return (machInst.rv_type == RV32) ? v32 : v64;
+    }
+
+    template <typename T32, typename T64>
+    T64 rvExt(T64 x) const { return rvSelect((T64)(T32)x, x); }
+    uint64_t rvZext(uint64_t x) const { return rvExt<uint32_t, uint64_t>(x); }
+    int64_t rvSext(int64_t x) const { return rvExt<int32_t, int64_t>(x); }
+
   public:
     ExtMachInst machInst;
 
-    void advancePC(PCState &pc) const override { pc.advance(); }
-
-    PCState
-    buildRetPC(const PCState &curPC, const PCState &callPC) const override
+    void
+    advancePC(PCStateBase &pc) const override
     {
-        PCState retPC = callPC;
-        retPC.advance();
-        retPC.pc(curPC.npc());
-        return retPC;
+        pc.as<PCState>().advance();
+    }
+
+    void
+    advancePC(ThreadContext *tc) const override
+    {
+        PCState pc = tc->pcState().as<PCState>();
+        pc.advance();
+        tc->pcState(pc);
+    }
+
+    uint64_t getEMI() const override { return machInst; }
+
+    std::unique_ptr<PCStateBase>
+    buildRetPC(const PCStateBase &cur_pc,
+            const PCStateBase &call_pc) const override
+    {
+        PCStateBase *ret_pc_ptr = call_pc.clone();
+        auto &ret_pc = ret_pc_ptr->as<PCState>();
+        ret_pc.advance();
+        return std::unique_ptr<PCStateBase>{ret_pc_ptr};
     }
 
     size_t
@@ -99,23 +129,32 @@ class RiscvMacroInst : public RiscvStaticInst
     }
 
     Fault
-    initiateAcc(ExecContext *xc, Trace::InstRecord *traceData) const override
+    initiateAcc(ExecContext *xc, trace::InstRecord *traceData) const override
     {
         panic("Tried to execute a macroop directly!\n");
     }
 
     Fault
     completeAcc(PacketPtr pkt, ExecContext *xc,
-                Trace::InstRecord *traceData) const override
+                trace::InstRecord *traceData) const override
     {
         panic("Tried to execute a macroop directly!\n");
     }
 
     Fault
-    execute(ExecContext *xc, Trace::InstRecord *traceData) const override
+    execute(ExecContext *xc, trace::InstRecord *traceData) const override
     {
         panic("Tried to execute a macroop directly!\n");
     }
+
+    void size(size_t newSize) override
+    {
+        for (int i = 0; i < microops.size(); i++) {
+            microops[i]->size(newSize);
+        }
+        _size = newSize;
+    }
+
 };
 
 /**
@@ -131,7 +170,8 @@ class RiscvMicroInst : public RiscvStaticInst
         flags[IsMicroop] = true;
     }
 
-    void advancePC(PCState &pcState) const override;
+    void advancePC(PCStateBase &pcState) const override;
+    void advancePC(ThreadContext *tc) const override;
 };
 
 } // namespace RiscvISA

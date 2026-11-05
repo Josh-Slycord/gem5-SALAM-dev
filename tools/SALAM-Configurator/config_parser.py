@@ -57,8 +57,9 @@ class AccCluster:
                                 pio_masters=pio_masters,
                                 address=top_address,
                                 dmaType=device_dict['Type'],
-                                int_num=device_dict['BufferSize'],
-                                size=device_dict['MaxReqSize']
+                                int_num=None,
+                                size=device_dict['BufferSize'],
+                                maxReq=device_dict['MaxReqSize']
                             )
                         )
                     aligned_inc = int(pio_size) + (64 - (int(pio_size) % 64))
@@ -221,7 +222,7 @@ class AccCluster:
                         else:
                             # Should never get here... but just in case throw an exception
                             exceptionString = ("The Variable: " + name
-                                               + " has an invalid type named: " + self.type)
+                                               + " has an invalid type named: " + str(var.get('Type')))
                             raise Exception(exceptionString)
             # Append accelerator to the cluster
             acc_class.append(
@@ -345,9 +346,8 @@ class Accelerator:
                 lines.append("clstr." + self.name +
                              ".pio = clstr.local_bus.mem_side_ports")
             else:
-                assert False, "Shouldn't be here?"
-                # lines.append("clstr." + self.name + ".pio " +
-                #              "=" " clstr." + i + ".local")
+                lines.append("clstr." + self.name + ".pio = clstr."
+                             + master.lower() + ".local")
         # Add StreamIn
         for inCon in self.stream_in:
             lines.append("clstr." + self.name +
@@ -393,11 +393,9 @@ class StreamDMA:
         self.rd_int = rd_int
         self.wr_int = wr_int
 
-        for master in self.pio_masters:
-            count = 0
+        for count, master in enumerate(self.pio_masters):
             if "localbus" in master.lower():
                 pio_masters[count] = "local_bus"
-                count += 1
     # Probably could apply the style used here in other genConfigs
 
     def genConfig(self):
@@ -447,11 +445,9 @@ class DMA:
         self.int_num = int_num
         self.maxReq = maxReq
 
-        for master in self.pio_masters:
-            count = 0
+        for count, master in enumerate(self.pio_masters):
             if "localbus" in master.lower():
                 pio_masters[count] = "local_bus"
-                count += 1
     # Probably could apply the style used here in other genConfigs
 
     def genConfig(self):
@@ -459,9 +455,14 @@ class DMA:
         dmaPath = "clstr." + self.name + "."
         systemPath = "clstr."
         lines.append("# Noncoherent DMA")
-        lines.append("clstr." + self.name + " = NoncoherentDma(pio_addr="
-                     + hex(self.address) + ", pio_size = " + str(self.pio)
-                     + ", gic=gic, int_num=" + str(self.int_num) + ")")
+        if self.int_num is not None:
+            lines.append("clstr." + self.name + " = NoncoherentDma(pio_addr="
+                         + hex(self.address) + ", pio_size = " + str(self.pio)
+                         + ", gic=gic, int_num=" + str(self.int_num) + ")")
+        else:
+            lines.append("clstr." + self.name + " = NoncoherentDma(pio_addr="
+                         + hex(self.address) + ", pio_size = " + str(self.pio)
+                         + ", gic=gic)")
         lines.append(dmaPath + "cluster_dma = " +
                      systemPath + "local_bus.cpu_side_ports")
         lines.append(dmaPath + "max_req_size = " + str(self.maxReq))
@@ -505,7 +506,7 @@ class Variable:
             if 'Connections' in kwargs:
                 for conDef in kwargs.get('Connections').split(','):
                     con, numPorts = conDef.split(':')
-                    self.connections.append(PortedConnection(con, numPorts))
+                    self.connections.append(PortedConnection(con, int(numPorts)))
         elif self.type == 'Stream':
             # Read in Stream args
             self.name = kwargs.get('Name')
@@ -532,7 +533,7 @@ class Variable:
             if 'Connections' in kwargs:
                 for conDef in kwargs.get('Connections').split(','):
                     con, numPorts = conDef.split(':')
-                    self.connections.append(PortedConnection(con, numPorts))
+                    self.connections.append(PortedConnection(con, int(numPorts)))
         elif self.type == 'Cache':
             self.name = kwargs.get('Name')
             self.accName = kwargs.get('AccName')

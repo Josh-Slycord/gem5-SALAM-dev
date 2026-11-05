@@ -1,3 +1,2 @@
-# Core dependencies
-PyYAML>=5.0
-pydot>=1.4.0
+mypy==2.3.1
+pre-commit==4.6.2

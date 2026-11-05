@@ -33,6 +33,7 @@
 #include "arch/sparc/types.hh"
 #include "base/logging.hh"
 #include "cpu/thread_context.hh"
+#include "mem/se_translating_port_proxy.hh"
 
 namespace gem5
 {
@@ -40,8 +41,9 @@ namespace gem5
 namespace SparcISA
 {
 
-const std::vector<int> SEWorkload::BaseSyscallABI::ArgumentRegs = {
-    INTREG_O0, INTREG_O1, INTREG_O2, INTREG_O3, INTREG_O4, INTREG_O5
+const std::vector<RegId> SEWorkload::BaseSyscallABI::ArgumentRegs = {
+    int_reg::O0, int_reg::O1, int_reg::O2,
+    int_reg::O3, int_reg::O4, int_reg::O5
 };
 
 bool
@@ -53,7 +55,7 @@ SEWorkload::is64(ThreadContext *tc)
 void
 SEWorkload::handleTrap(ThreadContext *tc, int trapNum)
 {
-    PCState pc = tc->pcState();
+    auto &pc = tc->pcState().as<PCState>();
     switch (trapNum) {
       case 0x01: // Software breakpoint
         warn("Software breakpoint encountered at pc %#x.", pc.pc());
@@ -95,9 +97,9 @@ SEWorkload::handleTrap(ThreadContext *tc, int trapNum)
 void
 SEWorkload::flushWindows(ThreadContext *tc)
 {
-    RegVal Cansave = tc->readIntReg(INTREG_CANSAVE);
-    RegVal Canrestore = tc->readIntReg(INTREG_CANRESTORE);
-    RegVal Otherwin = tc->readIntReg(INTREG_OTHERWIN);
+    RegVal Cansave = tc->getReg(int_reg::Cansave);
+    RegVal Canrestore = tc->getReg(int_reg::Canrestore);
+    RegVal Otherwin = tc->getReg(int_reg::Otherwin);
     RegVal CWP = tc->readMiscReg(MISCREG_CWP);
     RegVal origCWP = CWP;
 
@@ -105,24 +107,27 @@ SEWorkload::flushWindows(ThreadContext *tc)
     const size_t reg_bytes = is_64 ? 8 : 4;
     uint8_t bytes[8];
 
+    SETranslatingPortProxy proxy(tc);
+
     CWP = (CWP + Cansave + 2) % NWindows;
     while (NWindows - 2 - Cansave != 0) {
         panic_if(Otherwin, "Otherwin non-zero.");
 
         tc->setMiscReg(MISCREG_CWP, CWP);
         // Do the stores
-        RegVal sp = tc->readIntReg(StackPointerReg);
+        RegVal sp = tc->getReg(StackPointerReg);
 
         Addr addr = is_64 ? sp + 2047 : sp;
         for (int index = 16; index < 32; index++) {
+            RegId reg = intRegClass[index];
             if (is_64) {
-                uint64_t regVal = htobe<uint64_t>(tc->readIntReg(index));
+                uint64_t regVal = htobe<uint64_t>(tc->getReg(reg));
                 memcpy(bytes, &regVal, reg_bytes);
             } else {
-                uint32_t regVal = htobe<uint32_t>(tc->readIntReg(index));
+                uint32_t regVal = htobe<uint32_t>(tc->getReg(reg));
                 memcpy(bytes, &regVal, reg_bytes);
             }
-            if (!tc->getVirtProxy().tryWriteBlob(addr, bytes, reg_bytes)) {
+            if (!proxy.tryWriteBlob(addr, bytes, reg_bytes)) {
                 warn("Failed to save register to the stack when "
                         "flushing windows.");
             }
@@ -133,8 +138,8 @@ SEWorkload::flushWindows(ThreadContext *tc)
         CWP = (CWP + 1) % NWindows;
     }
 
-    tc->setIntReg(INTREG_CANSAVE, Cansave);
-    tc->setIntReg(INTREG_CANRESTORE, Canrestore);
+    tc->setReg(int_reg::Cansave, Cansave);
+    tc->setReg(int_reg::Canrestore, Canrestore);
     tc->setMiscReg(MISCREG_CWP, origCWP);
 }
 

@@ -46,7 +46,7 @@ This is the main entry point for running gem5-SALAM full-system simulations
 with hardware accelerators. It configures an ARM-based system with:
 
 - VExpress_GEM5 platform (ARM Cortex-A compatible)
-- Configurable CPU model (TimingSimpleCPU, MinorCPU, DerivO3CPU)
+- Configurable CPU model (ArmTimingSimpleCPU, ArmMinorCPU, ArmO3CPU)
 - Optional L1/L2 caches
 - Hardware accelerator cluster via HWAcc module
 
@@ -80,10 +80,9 @@ See Also:
 
 __version__ = "3.0.0.pre[1.0.0]"
 
-from __future__ import print_function
-from __future__ import absolute_import
 
 import argparse
+import os
 import sys
 
 import m5
@@ -91,6 +90,11 @@ from m5.defines import buildEnv
 from m5.objects import *
 from m5.util import addToPath, fatal, warn
 from m5.util.fdthelper import *
+
+from gem5.isas import ISA
+
+if not buildEnv.get("USE_ARM_ISA", False):
+    fatal("The SALAM full-system configuration requires an ARM build")
 
 addToPath("../")
 
@@ -122,36 +126,21 @@ def cmd_line_template():
 
 def build_test_system(np):
     cmdline = cmd_line_template()
-    if buildEnv["TARGET_ISA"] == "alpha":
-        test_sys = makeLinuxAlphaSystem(
-            test_mem_mode, bm[0], options.ruby, cmdline=cmdline
-        )
-    elif buildEnv["TARGET_ISA"] == "mips":
-        test_sys = makeLinuxMipsSystem(test_mem_mode, bm[0], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "sparc":
-        test_sys = makeSparcSystem(test_mem_mode, bm[0], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "x86":
-        test_sys = makeLinuxX86System(
-            test_mem_mode, np, bm[0], options.ruby, cmdline=cmdline
-        )
-    elif buildEnv["TARGET_ISA"] == "arm":
-        test_sys = makeArmSystem(
-            test_mem_mode,
-            options.machine_type,
-            np,
-            bm[0],
-            options.dtb_filename,
-            bare_metal=options.bare_metal,
-            cmdline=cmdline,
-            external_memory=options.external_memory_system,
-            ruby=options.ruby,
-            security=options.enable_security_extensions,
-            vio_9p=options.vio_9p,
-        )
-        if options.enable_context_switch_stats_dump:
-            test_sys.enable_context_switch_stats_dump = True
-    else:
-        fatal("Incapable of building %s full system!", buildEnv["TARGET_ISA"])
+    test_sys = makeArmSystem(
+        test_mem_mode,
+        options.machine_type,
+        np,
+        bm[0],
+        options.dtb_filename,
+        bare_metal=options.bare_metal,
+        cmdline=cmdline,
+        external_memory=options.external_memory_system,
+        ruby=options.ruby,
+        vio_9p=options.vio_9p,
+        bootloader=options.bootloader,
+    )
+    if options.enable_context_switch_stats_dump:
+        test_sys.workload.enable_context_switch_stats_dump = True
 
     # Set the cache line size for the entire system
     test_sys.cache_line_size = options.cacheline_size
@@ -181,12 +170,6 @@ def build_test_system(np):
     if options.script is not None:
         test_sys.readfile = options.script
 
-    if options.lpae:
-        test_sys.have_lpae = True
-
-    if options.virtualisation:
-        test_sys.have_virtualization = True
-
     test_sys.init_param = options.init_param
 
     # For now, assign all the CPUs to the same clock domain
@@ -210,7 +193,7 @@ def build_test_system(np):
 
         # Connect the ruby io port to the PIO bus,
         # assuming that there is just one such port.
-        test_sys.iobus.master = test_sys.ruby._io_port.slave
+        test_sys.iobus.mem_side_ports = test_sys.ruby._io_port.cpu_side_ports
 
         for (i, cpu) in enumerate(test_sys.cpu):
             #
@@ -220,28 +203,18 @@ def build_test_system(np):
             cpu.createThreads()
             cpu.createInterruptController()
 
-            cpu.icache_port = test_sys.ruby._cpu_ports[i].slave
-            cpu.dcache_port = test_sys.ruby._cpu_ports[i].slave
-
-            if buildEnv["TARGET_ISA"] in ("x86", "arm"):
-                cpu.itb.walker.port = test_sys.ruby._cpu_ports[i].slave
-                cpu.dtb.walker.port = test_sys.ruby._cpu_ports[i].slave
-
-            if buildEnv["TARGET_ISA"] in "x86":
-                cpu.interrupts[0].pio = test_sys.ruby._cpu_ports[i].master
-                cpu.interrupts[0].int_master = test_sys.ruby._cpu_ports[i].slave
-                cpu.interrupts[0].int_slave = test_sys.ruby._cpu_ports[i].master
+            test_sys.ruby._cpu_ports[i].connectCpuPorts(cpu)
 
     else:
         if options.caches or options.l2cache:
             # By default the IOCache runs at the system clock
             test_sys.iocache = IOCache(addr_ranges=test_sys.mem_ranges)
-            test_sys.iocache.cpu_side = test_sys.iobus.master
-            test_sys.iocache.mem_side = test_sys.membus.slave
+            test_sys.iocache.cpu_side = test_sys.iobus.mem_side_ports
+            test_sys.iocache.mem_side = test_sys.membus.cpu_side_ports
         elif not options.external_memory_system:
             test_sys.iobridge = Bridge(delay="50ns", ranges=test_sys.mem_ranges)
-            test_sys.iobridge.slave = test_sys.iobus.master
-            test_sys.iobridge.master = test_sys.membus.slave
+            test_sys.iobridge.cpu_side_port = test_sys.iobus.mem_side_ports
+            test_sys.iobridge.mem_side_port = test_sys.membus.cpu_side_ports
 
         # Sanity check
         if options.simpoint_profile:
@@ -284,8 +257,7 @@ def build_test_system(np):
 
         MemConfig.config_mem(options, test_sys)
 
-    if buildEnv["TARGET_ISA"] == "arm":
-        HWAcc.makeHWAcc(options, test_sys)
+    HWAcc.makeHWAcc(options, test_sys)
 
     return test_sys
 
@@ -293,28 +265,19 @@ def build_test_system(np):
 def build_drive_system(np):
     # driver system CPU is always simple, so is the memory
     # Note this is an assignment of a class, not an instance.
-    DriveCPUClass = AtomicSimpleCPU
+    DriveCPUClass = ArmAtomicSimpleCPU
     drive_mem_mode = "atomic"
     DriveMemClass = SimpleMemory
 
     cmdline = cmd_line_template()
-    if buildEnv["TARGET_ISA"] == "alpha":
-        drive_sys = makeLinuxAlphaSystem(drive_mem_mode, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "mips":
-        drive_sys = makeLinuxMipsSystem(drive_mem_mode, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "sparc":
-        drive_sys = makeSparcSystem(drive_mem_mode, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "x86":
-        drive_sys = makeLinuxX86System(drive_mem_mode, np, bm[1], cmdline=cmdline)
-    elif buildEnv["TARGET_ISA"] == "arm":
-        drive_sys = makeArmSystem(
-            drive_mem_mode,
-            options.machine_type,
-            np,
-            bm[1],
-            options.dtb_filename,
-            cmdline=cmdline,
-        )
+    drive_sys = makeArmSystem(
+        drive_mem_mode,
+        options.machine_type,
+        np,
+        bm[1],
+        options.dtb_filename,
+        cmdline=cmdline,
+    )
 
     # Create a top-level voltage domain
     drive_sys.voltage_domain = VoltageDomain(voltage=options.sys_voltage)
@@ -335,9 +298,9 @@ def build_drive_system(np):
     drive_sys.cpu = DriveCPUClass(clk_domain=drive_sys.cpu_clk_domain, cpu_id=0)
     drive_sys.cpu.createThreads()
     drive_sys.cpu.createInterruptController()
-    drive_sys.cpu.connectAllPorts(drive_sys.membus)
+    drive_sys.cpu.connectBus(drive_sys.membus)
     if options.kernel is not None:
-        drive_sys.kernel = binary(options.kernel)
+        drive_sys.workload.object_file = binary(options.kernel)
     else:
         print("Error: a kernel must be provided to run in full system mode")
         sys.exit(1)
@@ -346,14 +309,14 @@ def build_drive_system(np):
         drive_sys.kvm_vm = KvmVM()
 
     drive_sys.iobridge = Bridge(delay="50ns", ranges=drive_sys.mem_ranges)
-    drive_sys.iobridge.slave = drive_sys.iobus.master
-    drive_sys.iobridge.master = drive_sys.membus.slave
+    drive_sys.iobridge.cpu_side_port = drive_sys.iobus.mem_side_ports
+    drive_sys.iobridge.mem_side_port = drive_sys.membus.cpu_side_ports
 
     # Create the appropriate memory controllers and connect them to the
     # memory bus
     drive_sys.mem_ctrls = [DriveMemClass(range=r) for r in drive_sys.mem_ranges]
     for i in range(len(drive_sys.mem_ctrls)):
-        drive_sys.mem_ctrls[i].port = drive_sys.membus.master
+        drive_sys.mem_ctrls[i].port = drive_sys.membus.mem_side_ports
 
     drive_sys.init_param = options.init_param
 
@@ -362,7 +325,7 @@ def build_drive_system(np):
 
 # Add options
 parser = argparse.ArgumentParser()
-Options.addCommonOptions(parser)
+Options.addCommonOptions(parser, default_isa=ISA.ARM)
 Options.addFSOptions(parser)
 
 # Add SALAM-specific options
@@ -393,7 +356,6 @@ if "--ruby" in sys.argv:
 options = parser.parse_args()
 
 # Set SALAM logging level from command line option
-import os
 
 if hasattr(options, "salam_log_level"):
     os.environ["SALAM_LOG_LEVEL"] = options.salam_log_level
@@ -471,11 +433,7 @@ if options.timesync:
 if options.frame_capture:
     VncServer.frame_capture = True
 
-if (
-    buildEnv["TARGET_ISA"] == "arm"
-    and not options.bare_metal
-    and not options.dtb_filename
-):
+if not options.bare_metal and not options.dtb_filename:
     if options.machine_type not in ["VExpress_GEM5", "VExpress_GEM5_V1"]:
         warn(
             "Can only correctly generate a dtb for VExpress_GEM5_V1 "
@@ -487,7 +445,10 @@ if (
     for sysname in ("system", "testsys", "drivesys"):
         if hasattr(root, sysname):
             sys = getattr(root, sysname)
-            sys.generateDtb(m5.options.outdir, "%s.dtb" % sysname)
+            sys.workload.dtb_filename = os.path.join(
+                m5.options.outdir, "%s.dtb" % sysname
+            )
+            sys.generateDtb(sys.workload.dtb_filename)
 
 Simulation.setWorkCountOptions(test_sys, options)
 Simulation.run(options, root, test_sys, FutureClass)

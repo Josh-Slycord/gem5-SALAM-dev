@@ -5,49 +5,45 @@
 #
 # CACTI integration for gem5-SALAM
 
-Import('main')
+Import('env')
 
-env = main.Clone()
+# External libraries are evaluated for each configured build variant in gem5
+# 26.  Mutate that exported variant, not the pre-variant main environment.
+if env['CONF']['USE_ARM_ISA'] and env.get('WITH_SALAM', False):
+    cacti_env = env.Clone()
+    cacti_env.Append(CPPDEFINES=['NTHREADS=8'])
 
-# Suppress warnings from CACTI code (it's third-party)
-# Define NTHREADS for multi-threaded cache exploration
-env.Append(CPPDEFINES=['NTHREADS=8'])
+    # Keep warnings from this third-party library local to its own sources.
+    if cacti_env['GCC'] or cacti_env['CLANG']:
+        cacti_env.Append(CCFLAGS=['-w'])
 
-if env['GCC']:
-    env.Append(CCFLAGS=['-w'])  # Disable all warnings
-elif env['CLANG']:
-    env.Append(CCFLAGS=['-w'])
+    # main.cc is the standalone CACTI executable and must not enter gem5.
+    cacti_sources = [
+        'Ucache.cc',
+        'arbiter.cc',
+        'area.cc',
+        'bank.cc',
+        'basic_circuit.cc',
+        'cacti_interface.cc',
+        'component.cc',
+        'crossbar.cc',
+        'decoder.cc',
+        'htree2.cc',
+        'io.cc',
+        'mat.cc',
+        'nuca.cc',
+        'parameter.cc',
+        'router.cc',
+        'subarray.cc',
+        'technology.cc',
+        'uca.cc',
+        'wire.cc',
+    ]
 
-# CACTI source files (excluding main.cc as it's standalone)
-cacti_files = []
+    cacti_env.Library(
+        'cacti', [cacti_env.SharedObject(source) for source in cacti_sources]
+    )
 
-def CactiFile(filename):
-    cacti_files.append(File('./' + filename))
-
-CactiFile('Ucache.cc')
-CactiFile('arbiter.cc')
-CactiFile('area.cc')
-CactiFile('bank.cc')
-CactiFile('basic_circuit.cc')
-CactiFile('cacti_interface.cc')
-CactiFile('component.cc')
-CactiFile('crossbar.cc')
-CactiFile('decoder.cc')
-CactiFile('htree2.cc')
-CactiFile('io.cc')
-CactiFile('mat.cc')
-CactiFile('nuca.cc')
-CactiFile('parameter.cc')
-CactiFile('router.cc')
-CactiFile('subarray.cc')
-CactiFile('technology.cc')
-CactiFile('uca.cc')
-CactiFile('wire.cc')
-
-# Build as static library
-env.Library('cacti', [env.SharedObject(f) for f in cacti_files])
-
-# Add include path and link library
-main.Prepend(CPPPATH=Dir('./'))
-main.Append(LIBS=['cacti'])
-main.Prepend(LIBPATH=[Dir('.')])
+    env.Prepend(CPPPATH=Dir('.').srcnode())
+    env.Append(LIBS=['cacti'])
+    env.Prepend(LIBPATH=[Dir('.')])

@@ -33,13 +33,6 @@
 namespace sc_core
 {
 
-namespace
-{
-
-std::vector<sc_object *> top_level_objects;
-
-} // anonymous namespace
-
 const char *
 sc_object::name() const
 {
@@ -130,19 +123,18 @@ sc_object::simcontext() const
     return _gem5_object->simcontext();
 }
 
-sc_object::sc_object()
+sc_object::sc_object() : _gem5_object(new sc_gem5::Object(this))
 {
-    _gem5_object = new sc_gem5::Object(this);
 }
 
 sc_object::sc_object(const char *name)
+  : _gem5_object(new sc_gem5::Object(this, name))
 {
-    _gem5_object = new sc_gem5::Object(this, name);
 }
 
 sc_object::sc_object(const sc_object &other)
+  : _gem5_object(new sc_gem5::Object(this, *other._gem5_object))
 {
-    _gem5_object = new sc_gem5::Object(this, *other._gem5_object);
 }
 
 sc_object &
@@ -168,5 +160,8 @@ sc_find_object(const char *name)
 {
     return sc_gem5::findObject(name);
 }
+
+// Non-standard symbol.
+const char SC_HIERARCHY_CHAR = '.';
 
 } // namespace sc_core

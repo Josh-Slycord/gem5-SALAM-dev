@@ -108,7 +108,7 @@ def makeHWAcc(options, system):
     ############################# Adding Accelerators to Cluster ##################################
     # Add an accelerator to the cluster
     system.acctest.acc = CommInterface(devicename=options.accbench)
-    AccConfig(system.acctest.acc, acc_config, acc_bench)
+    AccConfig(system.acctest.acc, acc_bench, acc_config)
 
     # Add an SPM for the accelerator
     system.acctest.acc_spm = ScratchpadMemory()
@@ -121,8 +121,8 @@ def makeHWAcc(options, system):
 
     # Connect HWAcc to cluster buses
     system.acctest._connect_hwacc(system.acctest.acc)
-    system.acctest.acc.local = system.acctest.local_bus.slave
-    system.acctest.acc.acp = system.acctest.coherency_bus.slave
+    system.acctest.acc.local = system.acctest.local_bus.cpu_side_ports
+    system.acctest.acc.acp = system.acctest.coherency_bus.cpu_side_ports
 
     # Enable display of debug messages for the accelerator
     # Controlled via --salam-debug command line option
@@ -138,8 +138,8 @@ def makeHWAcc(options, system):
         int_num=95,
     )
     system.acctest._connect_cluster_dma(system, system.acctest.dma)
-    # system.acctest.dma.dma = system.membus.slave
-    # system.acctest.dma.pio = system.acctest.local_bus.master
+    # system.acctest.dma.dma = system.membus.cpu_side_ports
+    # system.acctest.dma.pio = system.acctest.local_bus.mem_side_ports
 
     system.acctest.stream_dma_0 = StreamDma(
         pio_addr=0x2FF10000, pio_size=32, gic=system.realview.gic, max_pending=32

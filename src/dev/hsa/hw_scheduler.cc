@@ -2,8 +2,6 @@
  * Copyright (c) 2016-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -38,12 +36,11 @@
 #include "debug/HSAPacketProcessor.hh"
 #include "sim/cur_tick.hh"
 
-#define HWSCHDLR_EVENT_DESCRIPTION_GENERATOR(XEVENT) \
-  const char*                                    \
-  HWScheduler::XEVENT::description() const       \
-  {                                              \
-      return #XEVENT;                            \
-  }
+#define HWSCHDLR_EVENT_DESCRIPTION_GENERATOR(XEVENT)                          \
+    const char *HWScheduler::XEVENT::description() const                      \
+    {                                                                         \
+        return #XEVENT;                                                       \
+    }
 
 namespace gem5
 {
@@ -78,60 +75,72 @@ HWScheduler::schedWakeup()
     if (!schedWakeupEvent.scheduled() &&
         regdListMap.size() < activeList.size()) {
         hsaPP->schedule(&schedWakeupEvent, curTick() + wakeupDelay);
-        DPRINTF(HSAPacketProcessor,
-                "Scheduling wakeup at %lu\n", (curTick() + wakeupDelay));
+        DPRINTF(HSAPacketProcessor, "Scheduling wakeup at %lu\n",
+                (curTick() + wakeupDelay));
     }
 }
 
 void
 HWScheduler::registerNewQueue(uint64_t hostReadIndexPointer,
-                              uint64_t basePointer,
-                              uint64_t queue_id,
-                              uint32_t size, int doorbellSize)
+                              uint64_t basePointer, uint64_t queue_id,
+                              uint32_t size, int doorbellSize,
+                              GfxVersion gfxVersion, Addr offset,
+                              uint64_t rd_idx)
 {
     assert(queue_id < MAX_ACTIVE_QUEUES);
     // Map queue ID to doorbell.
     // We are only using offset to pio base address as doorbell
     // We use the same mapping function used by hsa runtime to do this mapping
-    Addr db_offset = queue_id * doorbellSize;
-    if (dbMap.find(db_offset) != dbMap.end()) {
+    if (!offset) {
+        offset = queue_id * doorbellSize;
+    }
+    if (dbMap.find(offset) != dbMap.end()) {
         panic("Creating an already existing queue (queueID %d)", queue_id);
     }
 
     // Populate doorbell map
-    dbMap[db_offset] = queue_id;
+    dbMap[offset] = queue_id;
+    qidMap[queue_id] = offset;
 
     if (queue_id >= MAX_ACTIVE_QUEUES) {
-        panic("Attempting to create a queue (queueID %d)" \
-              " beyond PIO range", queue_id);
+        panic("Attempting to create a queue (queueID %d)"
+              " beyond PIO range",
+              queue_id);
     }
 
-    HSAQueueDescriptor* q_desc =
-       new HSAQueueDescriptor(basePointer, db_offset,
-                              hostReadIndexPointer, size);
-    AQLRingBuffer* aql_buf =
-        new AQLRingBuffer(NUM_DMA_BUFS, hsaPP->name());
+    HSAQueueDescriptor *q_desc = new HSAQueueDescriptor(
+        basePointer, offset, hostReadIndexPointer, size, gfxVersion);
+    AQLRingBuffer *aql_buf = new AQLRingBuffer(NUM_DMA_BUFS, hsaPP->name());
+    if (rd_idx > 0) {
+        aql_buf->setRdIdx(rd_idx);
+        aql_buf->setWrIdx(rd_idx);
+        aql_buf->setDispIdx(rd_idx);
+    }
+    DPRINTF(HSAPacketProcessor, "Setting read index for %#lx to %ld\n", offset,
+            rd_idx);
+
     QCntxt q_cntxt(q_desc, aql_buf);
-    activeList[dbMap[db_offset]] = q_cntxt;
+    activeList[dbMap[offset]] = q_cntxt;
 
     // Check if this newly created queue can be directly mapped
     // to registered queue list
-    GEM5_VAR_USED bool register_q = mapQIfSlotAvlbl(queue_id, aql_buf, q_desc);
+    [[maybe_unused]] bool register_q =
+        mapQIfSlotAvlbl(queue_id, aql_buf, q_desc);
     schedWakeup();
     DPRINTF(HSAPacketProcessor,
-             "%s: offset = %p, qID = %d, is_regd = %s, AL size %d\n",
-             __FUNCTION__, db_offset, queue_id,
-             (register_q) ? "true" : "false", dbMap.size());
+            "%s: offset = %p, qID = %d, is_regd = %s, AL size %d\n",
+            __FUNCTION__, offset, queue_id, (register_q) ? "true" : "false",
+            dbMap.size());
 }
 
 bool
 HWScheduler::findEmptyHWQ()
 {
-    DPRINTF(HSAPacketProcessor,
-            "Trying to find empty HW queue, @ %s\n", __FUNCTION__);
+    DPRINTF(HSAPacketProcessor, "Trying to find empty HW queue, @ %s\n",
+            __FUNCTION__);
     if (regdListMap.size() < hsaPP->numHWQueues) {
         for (int emptyQId = 0; emptyQId < hsaPP->numHWQueues; emptyQId++) {
-            HSAQueueDescriptor* qDesc =
+            HSAQueueDescriptor *qDesc =
                 hsaPP->getRegdListEntry(nextRLId)->qCntxt.qDesc;
             // If qDesc is empty, we find an empty HW queue
             if (qDesc == NULL) {
@@ -147,11 +156,11 @@ HWScheduler::findEmptyHWQ()
 }
 
 bool
-HWScheduler::mapQIfSlotAvlbl(uint32_t q_id, AQLRingBuffer* aql_buf,
-                             HSAQueueDescriptor* q_desc)
+HWScheduler::mapQIfSlotAvlbl(uint32_t q_id, AQLRingBuffer *aql_buf,
+                             HSAQueueDescriptor *q_desc)
 {
-    DPRINTF(HSAPacketProcessor,
-            "Trying to map new queue, @ %s\n", __FUNCTION__);
+    DPRINTF(HSAPacketProcessor, "Trying to map new queue, @ %s\n",
+            __FUNCTION__);
     if (!findEmptyHWQ()) {
         return false;
     }
@@ -168,13 +177,14 @@ HWScheduler::scheduleAndWakeupMappedQ()
     // to be fetched. Invoke the logic to fetch AQL packets
     hsaPP->getCommandsFromHost(0, nextRLId);
     // Schedule the newly mapped queue
-    if (hsaPP->regdQList[nextRLId]->dispPending())
+    if (hsaPP->regdQList[nextRLId]->dispPending()) {
         hsaPP->schedAQLProcessing(nextRLId);
+    }
 }
 
 void
-HWScheduler::addQCntxt(uint32_t al_idx, AQLRingBuffer* aql_buf,
-                        HSAQueueDescriptor* q_desc)
+HWScheduler::addQCntxt(uint32_t al_idx, AQLRingBuffer *aql_buf,
+                       HSAQueueDescriptor *q_desc)
 {
     assert(hsaPP->getRegdListEntry(nextRLId)->qCntxt.qDesc == NULL);
     assert(hsaPP->getRegdListEntry(nextRLId)->qCntxt.aqlBuf == NULL);
@@ -190,17 +200,17 @@ HWScheduler::addQCntxt(uint32_t al_idx, AQLRingBuffer* aql_buf,
 bool
 HWScheduler::contextSwitchQ()
 {
-    DPRINTF(HSAPacketProcessor,
-            "Trying to map next queue, @ %s", __FUNCTION__);
+    DPRINTF(HSAPacketProcessor, "Trying to map next queue, @ %s\n",
+            __FUNCTION__);
     // Identify the next queue, if there is nothing to
     // map, return false
     if (!findNextActiveALQ()) {
         return false;
     }
-    HSAQueueDescriptor* q_desc = activeList[nextALId].qDesc;
-    AQLRingBuffer* aql_buf = activeList[nextALId].aqlBuf;
+    HSAQueueDescriptor *q_desc = activeList[nextALId].qDesc;
+    AQLRingBuffer *aql_buf = activeList[nextALId].aqlBuf;
     // If there is empty slot available, use that slot
-    if(mapQIfSlotAvlbl(nextALId, aql_buf, q_desc)) {
+    if (mapQIfSlotAvlbl(nextALId, aql_buf, q_desc)) {
         return true;
     }
     // There is no empty slot to map this queue. So, we need to
@@ -268,8 +278,8 @@ HWScheduler::findNextActiveALQ()
                 continue;
             } else {
                 DPRINTF(HSAPacketProcessor,
-                        "Next Active ALQ %d (current %d), max ALQ %d\n",
-                         al_id, nextALId, MAX_ACTIVE_QUEUES);
+                        "Next Active ALQ %d (current %d), max ALQ %d\n", al_id,
+                        nextALId, MAX_ACTIVE_QUEUES);
                 nextALId = al_id;
                 return true;
             }
@@ -295,9 +305,9 @@ HWScheduler::findNextIdleRLQ()
 bool
 HWScheduler::isRLQIdle(uint32_t rl_idx)
 {
-    DPRINTF(HSAPacketProcessor,
-            "@ %s, analyzing hw queue %d\n", __FUNCTION__, rl_idx);
-    HSAQueueDescriptor* qDesc = hsaPP->getRegdListEntry(rl_idx)->qCntxt.qDesc;
+    DPRINTF(HSAPacketProcessor, "@ %s, analyzing hw queue %d\n", __FUNCTION__,
+            rl_idx);
+    HSAQueueDescriptor *qDesc = hsaPP->getRegdListEntry(rl_idx)->qCntxt.qDesc;
 
     // If there a pending DMA to this registered queue
     // then the queue is not idle
@@ -325,6 +335,14 @@ HWScheduler::write(Addr db_addr, uint64_t doorbell_reg)
     uint32_t al_idx = dbMap[db_addr];
     // Modify the write pointer
     activeList[al_idx].qDesc->writeIndex = doorbell_reg;
+    // If a queue is unmapped and remapped (common in full system) the qDesc
+    // gets reused. Keep the readIndex up to date so that when the HSA packet
+    // processor gets commands from host, the correct entry is read after
+    // remapping.
+    activeList[al_idx].qDesc->readIndex = doorbell_reg - 1;
+    DPRINTF(HSAPacketProcessor, "q %d readIndex %d writeIndex %d\n", al_idx,
+            activeList[al_idx].qDesc->readIndex,
+            activeList[al_idx].qDesc->writeIndex);
     // If this queue is mapped, then start DMA to fetch the
     // AQL packet
     if (regdListMap.find(al_idx) != regdListMap.end()) {
@@ -335,11 +353,12 @@ HWScheduler::write(Addr db_addr, uint64_t doorbell_reg)
 void
 HWScheduler::unregisterQueue(uint64_t queue_id, int doorbellSize)
 {
-    Addr db_offset = queue_id * doorbellSize;
+    assert(qidMap.count(queue_id));
+    Addr db_offset = qidMap[queue_id];
+    qidMap.erase(queue_id);
     auto dbmap_iter = dbMap.find(db_offset);
     if (dbmap_iter == dbMap.end()) {
-        panic("Destroying a non-existing queue (db_offset %x)",
-               db_offset);
+        panic("Destroying a non-existing queue (db_offset %x)", db_offset);
     }
     uint32_t al_idx = dbMap[db_offset];
     assert(dbMap[db_offset] == dbmap_iter->second);

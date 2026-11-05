@@ -33,7 +33,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
 def macroop FADD1_R
 {
     addfp st(0), sti, st(0)
@@ -42,14 +42,15 @@ def macroop FADD1_R
 
 def macroop FADD1_M
 {
-    ldfp ufp1, seg, sib, disp
+    # Convert memory float32/float64 into the internal double representation.
+    ldfp87 ufp1, seg, sib, disp
     addfp st(0), st(0), ufp1
 };
 
 def macroop FADD1_P
 {
     rdip t7
-    ldfp ufp1, seg, riprel, disp
+    ldfp87 ufp1, seg, riprel, disp
     addfp st(0), st(0), ufp1
 };
 
@@ -60,14 +61,14 @@ def macroop FADD2_R
 
 def macroop FADD2_M
 {
-    ldfp ufp1, seg, sib, disp
+    ldfp87 ufp1, seg, sib, disp
     addfp st(0), st(0), ufp1
 };
 
 def macroop FADD2_P
 {
     rdip t7
-    ldfp ufp1, seg, riprel, disp
+    ldfp87 ufp1, seg, riprel, disp
     addfp st(0), st(0), ufp1
 };
 
@@ -92,4 +93,4 @@ def macroop FADDP_P
 };
 
 # FIADD
-'''
+"""

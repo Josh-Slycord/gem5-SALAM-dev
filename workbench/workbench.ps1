@@ -24,9 +24,57 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot "workspace.json") -Raw | ConvertFrom-Json
-$distribution = $manifest.engine.distribution
-$enginePath = $manifest.engine.path
+$selection = $manifest.engine
+if ($Action -in @("configurator", "configure") -and $manifest.configuration_engine) {
+    $selection = $manifest.configuration_engine
+}
+$distribution = $selection.distribution
+$enginePath = $selection.path
 if ($distribution -notmatch '^[A-Za-z0-9._-]+$') { throw "Invalid WSL distribution in workspace.json" }
+function Assert-WorkbenchLinuxToolPath([object]$Value, [string]$Name) {
+    if ($Value -isnot [string] -or -not $Value.StartsWith("/") -or $Value -eq "/" -or
+        $Value.Contains("\") -or $Value.Contains([char]0) -or $Value.Contains([char]10) -or $Value.Contains([char]13) -or $Value.Contains("//") -or
+        $Value.EndsWith("/") -or @($Value.Split("/") | Where-Object { $_ -in @(".", "..") }).Count) {
+        throw "Toolchain $Name must be a normalized absolute Linux path"
+    }
+}
+$python = "/usr/bin/python3.8"
+$modernProfile = $false
+$profileEntry = $manifest.configuration_engine.toolchain_profile
+if ($null -ne $profileEntry) {
+    $profileId = if ($profileEntry -is [string]) { $profileEntry } else { [string]$profileEntry.id }
+    if ($profileId -notin @("ubuntu20-llvm12-python38-armgcc9", "gem5-26-retained-salam")) {
+        throw "Unsupported toolchain profile id in workspace.json"
+    }
+    $modernProfile = $profileId -eq "gem5-26-retained-salam"
+    if ($modernProfile) { $python = "/home/jslycord/.venvs/salam26-20261030/bin/python" }
+    if ($profileEntry -isnot [string]) {
+        $legacyPaths = @{
+            python = "/usr/bin/python3.8"; scons = "/usr/bin/scons"; cxx = "/usr/bin/g++"
+            python_config = "/usr/bin/python3.8-config"; linker = "/usr/bin/ld"
+            llvm_bin = "/usr/lib/llvm-12/bin"; llvm_config = "/usr/lib/llvm-12/bin/llvm-config"; arm_bin = "/usr/bin"
+        }
+        foreach ($property in $profileEntry.PSObject.Properties) {
+            if ($property.Name -eq "id") { continue }
+            if (-not $legacyPaths.ContainsKey($property.Name) -and -not ($modernProfile -and $property.Name -in @("arm_sysroot", "arm_include"))) { throw "Unknown toolchain profile field: $($property.Name)" }
+            Assert-WorkbenchLinuxToolPath $property.Value $property.Name
+            if (-not $modernProfile -and $property.Value -cne $legacyPaths[$property.Name]) {
+                throw "The recorded legacy profile does not permit tool overrides"
+            }
+        }
+        if ($profileEntry.PSObject.Properties.Name -contains "python") { $python = $profileEntry.python }
+    }
+    Assert-WorkbenchLinuxToolPath $python "python"
+}
+if ($modernProfile) {
+    if ($Action -in @("reproduce", "regression", "compare") -or ($Action -eq "checks" -and $Tier -eq "gemm")) {
+        throw "This legacy reference harness is unavailable on the gem5 26 profile. Use configurator or configure with a configured simulation and independent numerical checks."
+    }
+    $configuredDistribution = $manifest.configuration_engine.distribution
+    if ($configuredDistribution -notmatch '^[A-Za-z0-9._-]+$' -or $distribution -ine $configuredDistribution) {
+        throw "The selected action uses a different WSL distribution than the modern toolchain profile. Use a consistent workspace or the preserved legacy checkout."
+    }
+}
 function ConvertTo-WorkbenchWslPath([string]$TaskPath) {
     if ($TaskPath.StartsWith("/")) { return $TaskPath }
     if ($TaskPath -match '^\\\\(?:wsl\$|wsl\.localhost)\\([^\\]+)\\(.+)$') {
@@ -41,7 +89,12 @@ function ConvertTo-WorkbenchWslPath([string]$TaskPath) {
     return $projectPath + "/" + $TaskPath.Replace("\","/")
 }
 $projectPath = ConvertTo-WorkbenchWslPath $PSScriptRoot
-$commandArgs = @("-d", $distribution, "--cd", $projectPath, "--exec", "/usr/bin/python3.8", "-B")
+$commandArgs = @("-d", $distribution, "--cd", $projectPath, "--exec")
+if ($modernProfile) {
+    $commandArgs += @("/usr/bin/env", "PYTHONNOUSERSITE=1", "PYTHONDONTWRITEBYTECODE=1", $python, "-B")
+} else {
+    $commandArgs += @("/usr/bin/python3.8", "-B")
+}
 switch ($Action) {
     "configurator" {
         $commandArgs += @("-m", "salam_workbench.configurator_app")
@@ -50,7 +103,6 @@ switch ($Action) {
     "configure" {
         $configurationEngine = $enginePath
         if ($manifest.configuration_engine -and $ConfigureMode -in @("prepare", "run")) {
-            $configurationEngine = $manifest.configuration_engine.path
             if (-not $BuildReceipt -and -not $ConfiguredEngine) { $BuildReceipt = $manifest.configuration_engine.build_receipt }
         }
         if ($ConfigureMode -in @("build", "install") -and -not $ConfiguredEngine) {

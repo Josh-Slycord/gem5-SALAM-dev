@@ -39,6 +39,7 @@
 #ifndef __CPU_KVM_KVMVM_HH__
 #define __CPU_KVM_KVMVM_HH__
 
+#include <unordered_map>
 #include <vector>
 
 #include "base/addr_range.hh"
@@ -145,6 +146,13 @@ class Kvm
 
     /** Support for getting and setting the kvm_xsave structure. */
     bool capXSave() const;
+
+    /** Support for ARM IRQ line layout 2 **/
+    bool capIRQLineLayout2() const;
+
+    /** Support for getting and setting vCPU MP state. */
+    bool capMPState() const;
+
     /** @} */
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -416,10 +424,8 @@ class KvmVM : public SimObject
     /** Global KVM interface */
     Kvm *kvm;
 
-    /**
-     * Initialize system pointer. Invoked by system object.
-     */
-    void setSystem(System *s);
+    /** Verify gem5 configuration will support KVM emulation */
+    bool validEnvironment() const;
 
     /**
       * Get the VCPUID for a given context
@@ -555,6 +561,16 @@ class KvmVM : public SimObject
     };
     std::vector<MemorySlot> memorySlots;
     uint32_t maxMemorySlot;
+
+    struct Deleter
+    {
+        void
+        operator()(void *ptr) const
+        {
+            free(ptr);
+        }
+    };
+    std::unordered_map<uint32_t, std::unique_ptr<void, Deleter>> _slotPad;
 };
 
 } // namespace gem5

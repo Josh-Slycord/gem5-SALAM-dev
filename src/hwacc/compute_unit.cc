@@ -3,7 +3,7 @@
 //------------------------------------------//
 
 ComputeUnit::ComputeUnit(const ComputeUnitParams &p) :
-    SimObject(p),
+    ClockedObject(p),
     comm(p.comm_int),
     hw(p.hw_int),
     tickEvent(this) {}

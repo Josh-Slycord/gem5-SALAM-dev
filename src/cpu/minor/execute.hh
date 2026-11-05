@@ -59,7 +59,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
@@ -77,9 +76,6 @@ class Execute : public Named
 
     /** Pointer back to the containing CPU */
     MinorCPU &cpu;
-
-    /** Index of the zero integer register. */
-    const RegIndex zeroReg;
 
     /** Number of instructions that can be issued per cycle */
     unsigned int issueLimit;
@@ -232,8 +228,7 @@ class Execute : public Named
     /** Actually create a branch to communicate to Fetch1/Fetch2 and,
      *  if that is a stream-changing branch update the streamSeqNum */
     void updateBranchData(ThreadID tid, BranchData::Reason reason,
-        MinorDynInstPtr inst, const TheISA::PCState &target,
-        BranchData &branch);
+        MinorDynInstPtr inst, const PCStateBase &target, BranchData &branch);
 
     /** Handle extracting mem ref responses from the memory queues and
      *  completing the associated instructions.
@@ -327,7 +322,7 @@ class Execute : public Named
   public:
     Execute(const std::string &name_,
         MinorCPU &cpu_,
-        const MinorCPUParams &params,
+        const BaseMinorCPUParams &params,
         Latch<ForwardInstData>::Output inp_,
         Latch<BranchData>::Input out_);
 
@@ -361,6 +356,12 @@ class Execute : public Named
     /** Like the drain interface on SimObject */
     unsigned int drain();
     void drainResume();
+
+    struct IssueStats : public statistics::Group
+    {
+        IssueStats(MinorCPU *cpu);
+        statistics::Vector2d issuedInstType;
+    } issueStats;
 };
 
 } // namespace minor

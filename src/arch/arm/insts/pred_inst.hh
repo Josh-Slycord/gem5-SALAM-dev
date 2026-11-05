@@ -42,9 +42,11 @@
 #define __ARCH_ARM_INSTS_PREDINST_HH__
 
 #include "arch/arm/insts/static_inst.hh"
+#include "arch/arm/pcstate.hh"
 #include "base/compiler.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
+#include "cpu/thread_context.hh"
 
 namespace gem5
 {
@@ -154,7 +156,7 @@ simd_modified_imm(bool op, uint8_t cmode, uint8_t data, bool &immValid,
                 break;
             }
         }
-        GEM5_FALLTHROUGH;
+        [[fallthrough]];
       default:
         immValid = false;
         break;
@@ -281,14 +283,14 @@ class PredIntOp : public PredOp
 class DataImmOp : public PredOp
 {
   protected:
-    IntRegIndex dest, op1;
+    RegIndex dest, op1;
     uint32_t imm;
     // Whether the carry flag should be modified if that's an option for
     // this instruction.
     bool rotC;
 
     DataImmOp(const char *mnem, ExtMachInst _machInst, OpClass __opClass,
-              IntRegIndex _dest, IntRegIndex _op1, uint32_t _imm, bool _rotC) :
+              RegIndex _dest, RegIndex _op1, uint32_t _imm, bool _rotC) :
         PredOp(mnem, _machInst, __opClass),
         dest(_dest), op1(_op1), imm(_imm), rotC(_rotC)
     {}
@@ -300,12 +302,12 @@ class DataImmOp : public PredOp
 class DataRegOp : public PredOp
 {
   protected:
-    IntRegIndex dest, op1, op2;
+    RegIndex dest, op1, op2;
     int32_t shiftAmt;
     ArmShiftType shiftType;
 
     DataRegOp(const char *mnem, ExtMachInst _machInst, OpClass __opClass,
-              IntRegIndex _dest, IntRegIndex _op1, IntRegIndex _op2,
+              RegIndex _dest, RegIndex _op1, RegIndex _op2,
               int32_t _shiftAmt, ArmShiftType _shiftType) :
         PredOp(mnem, _machInst, __opClass),
         dest(_dest), op1(_op1), op2(_op2),
@@ -319,12 +321,12 @@ class DataRegOp : public PredOp
 class DataRegRegOp : public PredOp
 {
   protected:
-    IntRegIndex dest, op1, op2, shift;
+    RegIndex dest, op1, op2, shift;
     ArmShiftType shiftType;
 
     DataRegRegOp(const char *mnem, ExtMachInst _machInst, OpClass __opClass,
-                 IntRegIndex _dest, IntRegIndex _op1, IntRegIndex _op2,
-                 IntRegIndex _shift, ArmShiftType _shiftType) :
+                 RegIndex _dest, RegIndex _op1, RegIndex _op2,
+                 RegIndex _shift, ArmShiftType _shiftType) :
         PredOp(mnem, _machInst, __opClass),
         dest(_dest), op1(_op1), op2(_op2), shift(_shift),
         shiftType(_shiftType)
@@ -369,13 +371,22 @@ class PredMacroOp : public PredOp
     }
 
     Fault
-    execute(ExecContext *, Trace::InstRecord *) const override
+    execute(ExecContext *, trace::InstRecord *) const override
     {
         panic("Execute method called when it shouldn't!");
     }
 
     std::string generateDisassembly(
             Addr pc, const loader::SymbolTable *symtab) const override;
+
+
+    void size(size_t newSize) override
+    {
+        for (int i = 0; i < numMicroops; i++) {
+            microOps[i]->size(newSize);
+        }
+        _size = newSize;
+    }
 };
 
 /**
@@ -391,12 +402,24 @@ class PredMicroop : public PredOp
     }
 
     void
-    advancePC(PCState &pcState) const override
+    advancePC(PCStateBase &pcState) const override
     {
+        auto &apc = pcState.as<PCState>();
         if (flags[IsLastMicroop])
-            pcState.uEnd();
+            apc.uEnd();
         else
-            pcState.uAdvance();
+            apc.uAdvance();
+    }
+
+    void
+    advancePC(ThreadContext *tc) const override
+    {
+        PCState pc = tc->pcState().as<PCState>();
+        if (flags[IsLastMicroop])
+            pc.uEnd();
+        else
+            pc.uAdvance();
+        tc->pcState(pc);
     }
 };
 

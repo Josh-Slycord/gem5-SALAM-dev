@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013,2018, 2021 ARM Limited
+ * Copyright (c) 2011-2013,2018, 2021-2022 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -51,13 +51,18 @@ std::string
 SysDC64::generateDisassembly(Addr pc, const loader::SymbolTable *symtab) const
 {
     std::stringstream ss;
-    printMnemonic(ss, "", false);
-    ccprintf(ss, ", ");
+    ss << "  " << mnemonic << ", ";
     printIntReg(ss, base);
     return ss.str();
 }
 
 
+uint32_t
+SysDC64::iss() const
+{
+    const auto misc_reg = encodeAArch64SysReg(dest);
+    return _iss(misc_reg.value(), base);
+}
 
 void
 Memory64::startDisassembly(std::ostream &os) const
@@ -76,9 +81,9 @@ void
 Memory64::setExcAcRel(bool exclusive, bool acrel)
 {
     if (exclusive)
-        memAccessFlags |= Request::LLSC;
+        memAccessFlags.set(Request::LLSC);
     else
-        memAccessFlags |= ArmISA::TLB::AllowUnaligned;
+        memAccessFlags.set(ArmISA::MMU::AllowUnaligned);
     if (acrel) {
         flags[IsWriteBarrier] = true;
         flags[IsReadBarrier] = true;
@@ -149,9 +154,9 @@ MemoryPostIndex64::generateDisassembly(
 {
     std::stringstream ss;
     startDisassembly(ss);
-    if (imm)
-        ccprintf(ss, "], #%d", imm);
     ccprintf(ss, "]");
+    if (imm)
+        ccprintf(ss, ", #%d", imm);
     return ss.str();
 }
 

@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -40,6 +38,7 @@
 #include "debug/GPUVRF.hh"
 #include "gpu-compute/compute_unit.hh"
 #include "gpu-compute/gpu_dyn_inst.hh"
+#include "gpu-compute/register_file_cache.hh"
 #include "gpu-compute/simple_pool_manager.hh"
 #include "gpu-compute/wavefront.hh"
 #include "params/VectorRegisterFile.hh"
@@ -50,7 +49,7 @@ namespace gem5
 VectorRegisterFile::VectorRegisterFile(const VectorRegisterFileParams &p)
     : RegisterFile(p)
 {
-    regFile.resize(numRegs(), VecRegContainer());
+    regFile.resize(numRegs());
 
     for (auto &reg : regFile) {
         reg.zero();
@@ -60,36 +59,47 @@ VectorRegisterFile::VectorRegisterFile(const VectorRegisterFileParams &p)
 bool
 VectorRegisterFile::operandsReady(Wavefront *w, GPUDynInstPtr ii) const
 {
-    for (const auto& srcVecOp : ii->srcVecRegOperands()) {
-        for (const auto& physIdx : srcVecOp.physIndices()) {
-            if (regBusy(physIdx)) {
+    bool src_ready = true, dst_ready = true;
+    for (const auto &srcVecOp : ii->srcVecRegOperands()) {
+        for (const auto &physIdx : srcVecOp.physIndices()) {
+            if (regBusy(physIdx) &&
+                !computeUnit->rfc[simdId]->inRFC(physIdx)) {
                 DPRINTF(GPUVRF, "RAW stall: WV[%d]: %s: physReg[%d]\n",
                         w->wfDynId, ii->disassemble(), physIdx);
                 w->stats.numTimesBlockedDueRAWDependencies++;
-                return false;
+                src_ready = false;
+                break;
             }
+        }
+        if (!src_ready) {
+            break;
         }
     }
 
-    for (const auto& dstVecOp : ii->dstVecRegOperands()) {
-        for (const auto& physIdx : dstVecOp.physIndices()) {
-            if (regBusy(physIdx)) {
+    for (const auto &dstVecOp : ii->dstVecRegOperands()) {
+        for (const auto &physIdx : dstVecOp.physIndices()) {
+            if (regBusy(physIdx) &&
+                !computeUnit->rfc[simdId]->inRFC(physIdx)) {
                 DPRINTF(GPUVRF, "WAX stall: WV[%d]: %s: physReg[%d]\n",
                         w->wfDynId, ii->disassemble(), physIdx);
                 w->stats.numTimesBlockedDueWAXDependencies++;
-                return false;
+                dst_ready = false;
+                break;
             }
+        }
+        if (!dst_ready) {
+            break;
         }
     }
 
-    return true;
+    return src_ready && dst_ready;
 }
 
 void
 VectorRegisterFile::scheduleWriteOperands(Wavefront *w, GPUDynInstPtr ii)
 {
-    for (const auto& dstVecOp : ii->dstVecRegOperands()) {
-        for (const auto& physIdx : dstVecOp.physIndices()) {
+    for (const auto &dstVecOp : ii->dstVecRegOperands()) {
+        for (const auto &physIdx : dstVecOp.physIndices()) {
             // If the instruction is atomic instruciton and the atomics do
             // not return value, then do not mark this reg as busy.
             if (!(ii->isAtomic() && !ii->isAtomicRet())) {
@@ -116,6 +126,22 @@ VectorRegisterFile::waveExecuteInst(Wavefront *w, GPUDynInstPtr ii)
     int DWords = ii->numSrcVecDWords();
     stats.registerReads += (DWords * w->execMask().count());
 
+    for (const auto &dstVecOp : ii->dstVecRegOperands()) {
+        for (const auto &physIdx : dstVecOp.physIndices()) {
+            if (computeUnit->rfc[simdId]->inRFC(physIdx)) {
+                stats.rfc_cache_write_hits += w->execMask().count();
+            }
+        }
+    }
+
+    for (const auto &srcVecOp : ii->srcVecRegOperands()) {
+        for (const auto &physIdx : srcVecOp.physIndices()) {
+            if (computeUnit->rfc[simdId]->inRFC(physIdx)) {
+                stats.rfc_cache_read_hits += w->execMask().count();
+            }
+        }
+    }
+
     uint64_t mask = w->execMask().to_ullong();
     int srams = w->execMask().size() / 4;
     for (int i = 0; i < srams; i++) {
@@ -125,17 +151,16 @@ VectorRegisterFile::waveExecuteInst(Wavefront *w, GPUDynInstPtr ii)
         mask = mask >> 4;
     }
 
-    if (!ii->isLoad()
-        && !(ii->isAtomic() || ii->isMemSync())) {
+    if (!ii->isLoad() && !(ii->isAtomic() || ii->isMemSync())) {
         // TODO: compute proper delay
         // For now, it is based on largest operand size
         int opSize = ii->maxOperandSize();
         Cycles delay(opSize <= 4 ? computeUnit->spBypassLength()
-            : computeUnit->dpBypassLength());
+                                 : computeUnit->dpBypassLength());
         Tick tickDelay = computeUnit->cyclesToTicks(delay);
 
-        for (const auto& dstVecOp : ii->dstVecRegOperands()) {
-            for (const auto& physIdx : dstVecOp.physIndices()) {
+        for (const auto &dstVecOp : ii->dstVecRegOperands()) {
+            for (const auto &physIdx : dstVecOp.physIndices()) {
                 enqRegFreeEvent(physIdx, tickDelay);
             }
         }
@@ -155,12 +180,12 @@ VectorRegisterFile::waveExecuteInst(Wavefront *w, GPUDynInstPtr ii)
 }
 
 void
-VectorRegisterFile::scheduleWriteOperandsFromLoad(
-    Wavefront *w, GPUDynInstPtr ii)
+VectorRegisterFile::scheduleWriteOperandsFromLoad(Wavefront *w,
+                                                  GPUDynInstPtr ii)
 {
     assert(ii->isLoad() || ii->isAtomicRet());
-    for (const auto& dstVecOp : ii->dstVecRegOperands()) {
-        for (const auto& physIdx : dstVecOp.physIndices()) {
+    for (const auto &dstVecOp : ii->dstVecRegOperands()) {
+        for (const auto &physIdx : dstVecOp.physIndices()) {
             enqRegFreeEvent(physIdx, computeUnit->clockPeriod());
         }
     }

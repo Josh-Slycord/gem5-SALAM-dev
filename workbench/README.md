@@ -1,18 +1,29 @@
+> **For this gem5 26 branch:** use the explicit modern profile and separate
+> dependency lock described in [GEM5_26_UPGRADE.md](docs/GEM5_26_UPGRADE.md).
+> Historical fixed-reference commands below describe the preserved gem5 21
+> environment. The modern profile rejects those harnesses until separately
+> validated; configured GEMM, FFT and stencil use full independent output checks.
+
 # SALAM Research Workbench
 
 The workbench connects configuration editing to generated SALAM SimObjects/C++, simulator builds, staged benchmark compilation, real gem5 execution and independently checked results. It lives beside the simulator source in this fork; machine settings and run outputs remain local.
 
+The [5 November 2026 checkpoint](docs/CHECKPOINT_2026-11-05.md) records the
+merged tooling qualification and upstream-readiness gates.
+
 Start with the [functional-unit scheduling results](docs/FU_SCHEDULING_RESULTS.md), [packaging options](docs/PACKAGING.md), and [output and Git policy](docs/HYGIENE.md).
 
-## Current supported environment
+## Validated environments
 
-The validated local toolchain is Ubuntu 20.04 under WSL2, Python 3.8, LLVM/Clang 12, GCC 9 and ARM bare-metal tools. GUI acceptance used PySide6 6.2.4. The exact tested Python GUI packages are in `requirements-gui-validated.txt`. A current generic gem5 image is not interchangeable with this older SALAM toolchain.
+This gem5 26 branch uses a separate Ubuntu 24.04 WSL2 environment, Python 3.12, LLVM/Clang 14, GCC 13 and PySide6 6.8.3. Its explicit toolchain profile, modern dependency lock and validation limits are in [GEM5_26_UPGRADE.md](docs/GEM5_26_UPGRADE.md).
+
+The preserved gem5 21 `main` uses Ubuntu 20.04 under WSL2, Python 3.8, LLVM/Clang 12, GCC 9 and ARM bare-metal tools. Its GUI acceptance used PySide6 6.2.4 and `requirements-gui-validated.txt`. The historical reference commands below describe that environment. A generic gem5 image is not interchangeable with either recorded toolchain.
 
 This publication supports binding an **existing verified external runtime engine**. It does not yet promise a clean-machine installer or redistribute a compiled simulator. Keep that engine outside this checkout: generated staging directories must not be inside their source engine, and source/build receipts must not silently change when documentation or GUI files change.
 
 ## Use the integrated desktop Workbench
 
-Open **SALAM Workbench** from the Windows desktop or Start menu shortcut. The
+The existing **SALAM Workbench** Windows shortcut opens the preserved gem5 21 environment. To open this branch separately, follow the modern launch instructions in [GEM5_26_UPGRADE.md](docs/GEM5_26_UPGRADE.md). The
 window combines the installed benchmark library, configuration editor, run
 monitor, recorded results, SALAM metrics and system topology. The library
 inspects actual source layouts; missing inputs and unsupported layouts remain
@@ -43,6 +54,21 @@ validation checks, bounded text/log previews and source provenance. Metric
 filters and side-by-side comparisons preserve units and measurement scope.
 Missing power, energy or area data remains unavailable; model parameters do not
 become measurements of physical hardware.
+
+**Execution timeline** exports a selected hash-verified FU trace from Results.
+The worker replays the complete stream and writes a separate derived HTML and
+provenance receipt under ignored evidence/execution-timelines/. Floating-point
+and custom unit IDs remain visible. Large timelines render a labeled bounded
+preview; trace validity does not establish numerical correctness. See
+[execution visualizer](docs/EXECUTION_VISUALIZER.md).
+
+The root run_gemm.sh requires --request /absolute/path/to/request.json and
+replays an explicit generated-input GEMM request through that same checked
+configuration pipeline. The historical direct-generator and guest-pass-only
+shortcut is disabled. See [upstream readiness](docs/UPSTREAM_READINESS.md) for
+reviewer questions and future simulator proof obligations.
+The [appliance](../docker/README.md) remains experimental until clean-host
+build, import and GUI acceptance are completed.
 
 **SALAM process** is an interactive conceptual diagram of the configured
 workflow, with selectable stages and related hash-verified evidence from

@@ -35,18 +35,18 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
 # fild common case
 def macroop FILD_M {
     ldifp87 ufp1, seg, sib, disp
-    movfp st(-1), ufp1, spm=-1
+    movfp st(-1), ufp1, spm=-1, dataSize=8
 };
 
 # fild with RIP-relative addressing
 def macroop FILD_P {
     rdip t7
     ldifp87 ufp1, seg, riprel, disp
-    movfp st(-1), ufp1, spm=-1
+    movfp st(-1), ufp1, spm=-1, dataSize=8
 };
 
 # FIST
@@ -67,4 +67,4 @@ def macroop FISTP_P
 };
 
 # FISTTP
-'''
+"""

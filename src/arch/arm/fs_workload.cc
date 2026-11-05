@@ -47,6 +47,7 @@
 #include "dev/arm/gic_v2.hh"
 #include "kern/system_events.hh"
 #include "params/ArmFsWorkload.hh"
+#include "params/ArmSystem.hh"
 
 namespace gem5
 {
@@ -57,18 +58,18 @@ namespace ArmISA
 void
 SkipFunc::returnFromFuncIn(ThreadContext *tc)
 {
-    PCState newPC = tc->pcState();
+    PCState new_pc = tc->pcState().as<PCState>();
     if (inAArch64(tc)) {
-        newPC.set(tc->readIntReg(INTREG_X30));
+        new_pc.set(tc->getReg(int_reg::X30));
     } else {
-        newPC.set(tc->readIntReg(ReturnAddressReg) & ~1ULL);
+        new_pc.set(tc->getReg(ReturnAddressReg) & ~1ULL);
     }
 
     CheckerCPU *checker = tc->getCheckerCpuPtr();
     if (checker) {
-        tc->pcStateNoRecord(newPC);
+        tc->pcStateNoRecord(new_pc);
     } else {
-        tc->pcState(newPC);
+        tc->pcState(new_pc);
     }
 }
 
@@ -130,11 +131,11 @@ FsWorkload::initState()
                  "gic_cpu_addr must be set with bootloader");
 
         for (auto *tc: arm_sys->threads) {
-            tc->setIntReg(3, kernelEntry);
+            tc->setReg(int_reg::R3, kernelEntry);
             if (is_gic_v2)
-                tc->setIntReg(4, arm_sys->params().gic_cpu_addr);
+                tc->setReg(int_reg::R4, arm_sys->params().gic_cpu_addr);
             if (getArch() == loader::Arm)
-                tc->setIntReg(5, params().cpu_release_addr);
+                tc->setReg(int_reg::R5, params().cpu_release_addr);
         }
         inform("Using kernel entry physical address at %#x\n", kernelEntry);
     } else {
@@ -144,7 +145,14 @@ FsWorkload::initState()
     }
 }
 
-    loader::ObjectFile *
+void
+FsWorkload::setSystem(System *sys)
+{
+    KernelWorkload::setSystem(sys);
+    gdb = BaseRemoteGDB::build<RemoteGDB>(params().remote_gdb_port, system);
+}
+
+loader::ObjectFile *
 FsWorkload::getBootLoader(loader::ObjectFile *const obj)
 {
     if (obj) {

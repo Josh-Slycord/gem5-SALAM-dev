@@ -43,7 +43,6 @@ namespace gem5
 
 class ThreadContext;
 
-GEM5_DEPRECATED_NAMESPACE(GuestABI, guest_abi);
 namespace guest_abi
 {
 
@@ -100,10 +99,10 @@ callFrom(ThreadContext *tc, typename ABI::State &state,
 
 template <typename ABI, typename Ret, typename ...Args>
 static void
-dumpArgsFrom(std::ostream &os, GEM5_VAR_USED ThreadContext *tc,
+dumpArgsFrom(std::ostream &os, [[maybe_unused]] ThreadContext *tc,
         typename ABI::State &state)
 {
-    int count = 0;
+    [[maybe_unused]] int count = 0;
     // Extract all the arguments from the thread context and print them,
     // prefixed with either a ( or a , as appropriate.
     GEM5_FOR_EACH_IN_PACK(os << (count++ ? ", " : "("),

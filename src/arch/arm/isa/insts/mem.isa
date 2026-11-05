@@ -56,8 +56,11 @@ let {{
 
             # This shouldn't be part of the eaCode, but until the exec templates
             # are converted over it's the easiest place to put it.
-            eaCode += '\n    unsigned memAccessFlags = '
-            eaCode += ('|'.join(memFlags) + ';')
+            memFlagsCasted = map(
+                lambda x: f'static_cast<unsigned>({x})', memFlags
+            )
+            eaCode += '\n    Request::Flags memAccessFlags = '
+            eaCode += ('|'.join(memFlagsCasted) + ';')
 
             codeBlobs["ea_code"] = eaCode
 
@@ -66,7 +69,7 @@ let {{
                 codeBlobs["fa_code"] = faCode
             elif wbDecl == None:
                 codeBlobs["fa_code"] = '''
-                    if (dest != INTREG_PC) {
+                    if (dest != int_reg::Pc) {
                         fault->annotate(ArmISA::ArmFault::SAS, %s);
                         fault->annotate(ArmISA::ArmFault::SSE, %s);
                         fault->annotate(ArmISA::ArmFault::SRT, dest);
@@ -229,4 +232,3 @@ let {{
             raise Exception("Illegal combination of post and writeback")
         return base
 }};
-

@@ -2,7 +2,7 @@
 #define __HWACC_COMPUTE_UNIT_HH__
 //------------------------------------------//
 #include "params/ComputeUnit.hh"
-#include "sim/sim_object.hh"
+#include "sim/clocked_object.hh"
 #include "hwacc/workbench_statistics.hh"
 #include "hwacc/comm_interface.hh"
 #include "hwacc/LLVMRead/src/mem_request.hh"
@@ -10,7 +10,7 @@
 #include "hwacc/HWModeling/src/hw_interface.hh" 
 //------------------------------------------//
 
-class ComputeUnit : public SimObject {
+class ComputeUnit : public ClockedObject {
   private:
 
   protected:
@@ -31,7 +31,6 @@ class ComputeUnit : public SimObject {
 
 
     TickEvent tickEvent;
-    int clock_period;
 
   public:
     virtual void tick() {}

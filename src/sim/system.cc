@@ -44,19 +44,12 @@
 #include <algorithm>
 
 #include "base/compiler.hh"
+#include "base/cprintf.hh"
 #include "base/loader/object_file.hh"
 #include "base/loader/symtab.hh"
 #include "base/str.hh"
 #include "base/trace.hh"
-#include "config/the_isa.hh"
-#include "config/use_kvm.hh"
-#if USE_KVM
-#include "cpu/kvm/base.hh"
-#include "cpu/kvm/vm.hh"
-#endif
-#if THE_ISA != NULL_ISA
 #include "cpu/base.hh"
-#endif
 #include "cpu/thread_context.hh"
 #include "debug/Loader.hh"
 #include "debug/Quiesce.hh"
@@ -66,8 +59,8 @@
 #include "params/System.hh"
 #include "sim/byteswap.hh"
 #include "sim/debug.hh"
-#include "sim/full_system.hh"
 #include "sim/redirect_path.hh"
+#include "sim/serialize_handlers.hh"
 
 namespace gem5
 {
@@ -77,10 +70,8 @@ std::vector<System *> System::systemList;
 void
 System::Threads::Thread::resume()
 {
-#   if THE_ISA != NULL_ISA
     DPRINTFS(Quiesce, context->getCpuPtr(), "activating\n");
     context->activate();
-#   endif
 }
 
 std::string
@@ -95,37 +86,22 @@ void
 System::Threads::Thread::quiesce() const
 {
     context->suspend();
-    auto *workload = context->getSystemPtr()->workload;
-    if (workload)
-        workload->recordQuiesce();
+    context->getSystemPtr()->workload->recordQuiesce();
 }
 
 void
-System::Threads::insert(ThreadContext *tc, ContextID id)
+System::Threads::insert(ThreadContext *tc)
 {
-    if (id == InvalidContextID) {
-        for (id = 0; id < size(); id++) {
-            if (!threads[id].context)
-                break;
-        }
-    }
-
+    ContextID id = size();
     tc->setContextId(id);
 
-    if (id >= size())
-        threads.resize(id + 1);
-
-    fatal_if(threads[id].context,
-            "Cannot have two thread contexts with the same id (%d).", id);
-
-    auto *sys = tc->getSystemPtr();
-
-    auto &t = thread(id);
+    auto &t = threads.emplace_back();
     t.context = tc;
     // Look up this thread again on resume, in case the threads vector has
     // been reallocated.
     t.resumeEvent = new EventFunctionWrapper(
-            [this, id](){ thread(id).resume(); }, sys->name());
+            [this, id](){ thread(id).resume(); },
+            tc->getSystemPtr()->name());
 }
 
 void
@@ -133,13 +109,11 @@ System::Threads::replace(ThreadContext *tc, ContextID id)
 {
     auto &t = thread(id);
     panic_if(!t.context, "Can't replace a context which doesn't exist.");
-#   if THE_ISA != NULL_ISA
     if (t.resumeEvent->scheduled()) {
         Tick when = t.resumeEvent->when();
         t.context->getCpuPtr()->deschedule(t.resumeEvent);
         tc->getCpuPtr()->schedule(t.resumeEvent, when);
     }
-#   endif
     t.context = tc;
 }
 
@@ -171,17 +145,14 @@ void
 System::Threads::quiesce(ContextID id)
 {
     auto &t = thread(id);
-#   if THE_ISA != NULL_ISA
-    GEM5_VAR_USED BaseCPU *cpu = t.context->getCpuPtr();
+    [[maybe_unused]] BaseCPU *cpu = t.context->getCpuPtr();
     DPRINTFS(Quiesce, cpu, "quiesce()\n");
-#   endif
     t.quiesce();
 }
 
 void
 System::Threads::quiesceTick(ContextID id, Tick when)
 {
-#   if THE_ISA != NULL_ISA
     auto &t = thread(id);
     BaseCPU *cpu = t.context->getCpuPtr();
 
@@ -189,59 +160,37 @@ System::Threads::quiesceTick(ContextID id, Tick when)
     t.quiesce();
 
     cpu->reschedule(t.resumeEvent, when, true);
-#   endif
 }
 
 int System::numSystemsRunning = 0;
 
 System::System(const Params &p)
-    : SimObject(p), _systemPort("system_port", this),
+    : SimObject(p),
+      _systemPort("system_port"),
+      externalMemRanges(p.external_memory_ranges.begin(),
+                        p.external_memory_ranges.end()),
       multiThread(p.multi_thread),
       init_param(p.init_param),
       physProxy(_systemPort, p.cache_line_size),
       workload(p.workload),
-#if USE_KVM
-      kvmVM(p.kvm_vm),
-#endif
       physmem(name() + ".physmem", p.memories, p.mmap_using_noreserve,
-              p.shared_backstore),
-      ShadowRomRanges(p.shadow_rom_ranges.begin(),
-                      p.shadow_rom_ranges.end()),
+              p.shared_backstore, p.auto_unlink_shared_backstore,
+              p.is_sparse_restore),
       memoryMode(p.mem_mode),
       _cacheLineSize(p.cache_line_size),
       numWorkIds(p.num_work_ids),
       thermalModel(p.thermal_model),
-      _m5opRange(p.m5ops_base ?
-                 RangeSize(p.m5ops_base, 0x10000) :
-                 AddrRange(1, 0)), // Create an empty range if disabled
+      _m5opRange(p.m5ops_base
+                     ? RangeSize(p.m5ops_base, 0x10000)
+                     : AddrRange(1, 0)), // Create an empty range if disabled
       redirectPaths(p.redirect_paths)
 {
-    if (workload)
-        workload->setSystem(this);
+    panic_if(!workload, "No workload set for system %s "
+            "(could use StubWorkload?).", name());
+    workload->setSystem(this);
 
     // add self to global system list
     systemList.push_back(this);
-
-#if USE_KVM
-    if (kvmVM) {
-        kvmVM->setSystem(this);
-    }
-#endif
-
-    if (!FullSystem) {
-        AddrRangeList memories = physmem.getConfAddrRanges();
-        assert(!memories.empty());
-        for (const auto &mem : memories) {
-            assert(!mem.interleaved());
-            memPools.emplace_back(this, mem.start(), mem.end());
-        }
-
-        /*
-         * Set freePage to what it was before Gabe Black's page table changes
-         * so allocations don't trample the page table entries.
-         */
-        memPools[0].setFreePage(memPools[0].freePage() + 70);
-    }
 
     // check if the cache line size is a value known to work
     if (_cacheLineSize != 16 && _cacheLineSize != 32 &&
@@ -250,7 +199,7 @@ System::System(const Params &p)
     }
 
     // Get the generic system requestor IDs
-    GEM5_VAR_USED RequestorID tmp_id;
+    [[maybe_unused]] RequestorID tmp_id;
     tmp_id = getRequestorId(this, "writebacks");
     assert(tmp_id == Request::wbRequestorId);
     tmp_id = getRequestorId(this, "functional");
@@ -287,12 +236,11 @@ System::setMemoryMode(enums::MemoryMode mode)
 }
 
 void
-System::registerThreadContext(ThreadContext *tc, ContextID assigned)
+System::registerThreadContext(ThreadContext *tc)
 {
-    threads.insert(tc, assigned);
+    threads.insert(tc);
 
-    if (workload)
-        workload->registerThreadContext(tc);
+    workload->registerThreadContext(tc);
 
     for (auto *e: liveEvents)
         tc->schedule(e);
@@ -324,8 +272,7 @@ System::replaceThreadContext(ThreadContext *tc, ContextID context_id)
     auto *otc = threads[context_id];
     threads.replace(tc, context_id);
 
-    if (workload)
-        workload->replaceThreadContext(tc);
+    workload->replaceThreadContext(tc);
 
     for (auto *e: liveEvents) {
         otc->remove(e);
@@ -333,49 +280,27 @@ System::replaceThreadContext(ThreadContext *tc, ContextID context_id)
     }
 }
 
-bool
-System::validKvmEnvironment() const
-{
-#if USE_KVM
-    if (threads.empty())
-        return false;
-
-    for (auto *tc: threads) {
-        if (!dynamic_cast<BaseKvmCPU *>(tc->getCpuPtr()))
-            return false;
-    }
-
-    return true;
-#else
-    return false;
-#endif
-}
-
 Addr
-System::allocPhysPages(int npages, int poolID)
+System::memSize() const
 {
-    assert(!FullSystem);
-    return memPools[poolID].allocate(npages);
-}
-
-Addr
-System::memSize(int poolID) const
-{
-    assert(!FullSystem);
-    return memPools[poolID].totalBytes();
-}
-
-Addr
-System::freeMemSize(int poolID) const
-{
-    assert(!FullSystem);
-    return memPools[poolID].freeBytes();
+    return physmem.totalSize();
 }
 
 bool
 System::isMemAddr(Addr addr) const
 {
-    return physmem.isMemAddr(addr);
+    if (physmem.isMemAddr(addr)) {
+        return true;
+    } else {
+        // Check the external memory ranges as well
+        for (const auto& range : externalMemRanges) {
+            if (range.contains(addr)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 void
@@ -423,17 +348,6 @@ System::serialize(CheckpointOut &cp) const
         paramOut(cp, csprintf("quiesceEndTick_%d", id), when);
     }
 
-    std::vector<Addr> ptrs;
-    std::vector<Addr> limits;
-
-    for (const auto& memPool : memPools) {
-        ptrs.push_back(memPool.freePageAddr());
-        limits.push_back(memPool.totalBytes());
-    }
-
-    SERIALIZE_CONTAINER(ptrs);
-    SERIALIZE_CONTAINER(limits);
-
     // also serialize the memories in the system
     physmem.serializeSection(cp, "physmem");
 }
@@ -449,20 +363,8 @@ System::unserialize(CheckpointIn &cp)
                 !when || !t.resumeEvent) {
             continue;
         }
-#       if THE_ISA != NULL_ISA
         t.context->getCpuPtr()->schedule(t.resumeEvent, when);
-#       endif
     }
-
-    std::vector<Addr> ptrs;
-    std::vector<Addr> limits;
-
-    UNSERIALIZE_CONTAINER(ptrs);
-    UNSERIALIZE_CONTAINER(limits);
-
-    assert(ptrs.size() == limits.size());
-    for (size_t i = 0; i < ptrs.size(); i++)
-        memPools.emplace_back(this, ptrs[i], limits[i]);
 
     // also unserialize the memories in the system
     physmem.unserializeSection(cp, "physmem");
@@ -502,9 +404,9 @@ System::workItemEnd(uint32_t tid, uint32_t workid)
 }
 
 bool
-System::trapToGdb(int signal, ContextID ctx_id) const
+System::trapToGdb(GDBSignal signal, ContextID ctx_id) const
 {
-    return workload && workload->trapToGdb(signal, ctx_id);
+    return workload->trapToGdb(signal, ctx_id);
 }
 
 void

@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -38,6 +36,7 @@
 #include <memory>
 #include <string>
 
+#include "arch/amdgpu/common/dtype/packed_types.hh"
 #include "base/amo.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
@@ -52,8 +51,36 @@ namespace gem5
 
 class GPUStaticInst;
 
-template<typename T>
-class AtomicOpCAS : public TypedAtomicOpFunctor<T>
+template <typename T> class AtomicOpPkAddBF16 : public TypedAtomicOpFunctor<T>
+{
+  public:
+    T data;
+    AtomicOpPkAddBF16(T _data) : data(_data) {}
+
+    void
+    execute([[maybe_unused]] T *b)
+    {
+        if constexpr (sizeof(T) == 4) {
+            AMDGPU::PkBfloat16 pk_b, pk_data;
+            pk_data = data;
+            pk_b = *b;
+
+            pk_b += pk_data;
+
+            *b = pk_b.get();
+        } else {
+            fatal("Attempted packed atomic bf16 on non 32-bit type");
+        }
+    }
+
+    AtomicOpFunctor *
+    clone()
+    {
+        return new AtomicOpPkAddBF16(data);
+    }
+};
+
+template <typename T> class AtomicOpCAS : public TypedAtomicOpFunctor<T>
 {
   public:
     T c;
@@ -62,7 +89,8 @@ class AtomicOpCAS : public TypedAtomicOpFunctor<T>
     ComputeUnit *computeUnit;
 
     AtomicOpCAS(T _c, T _s, ComputeUnit *compute_unit)
-      : c(_c), s(_s), computeUnit(compute_unit) { }
+        : c(_c), s(_s), computeUnit(compute_unit)
+    {}
 
     void
     execute(T *b)
@@ -75,7 +103,11 @@ class AtomicOpCAS : public TypedAtomicOpFunctor<T>
             computeUnit->stats.numFailedCASOps++;
         }
     }
-    AtomicOpFunctor* clone () { return new AtomicOpCAS(c, s, computeUnit); }
+    AtomicOpFunctor *
+    clone()
+    {
+        return new AtomicOpCAS(c, s, computeUnit);
+    }
 };
 
 class RegisterOperandInfo
@@ -85,21 +117,34 @@ class RegisterOperandInfo
     RegisterOperandInfo(int op_idx, int num_dwords,
                         const std::vector<int> &virt_indices,
                         const std::vector<int> &phys_indices)
-        : opIdx(op_idx), numDWORDs(num_dwords), virtIndices(virt_indices),
+        : opIdx(op_idx),
+          numDWORDs(num_dwords),
+          virtIndices(virt_indices),
           physIndices(phys_indices)
-    {
-    }
+    {}
 
     /**
      * The number of registers required to store this operand.
      */
-    int numRegisters() const { return numDWORDs / TheGpuISA::RegSizeDWords; }
-    int operandIdx() const { return opIdx; }
+    int
+    numRegisters() const
+    {
+        return numDWORDs / TheGpuISA::RegSizeDWords;
+    }
+    int
+    operandIdx() const
+    {
+        return opIdx;
+    }
     /**
      * We typically only need the first virtual register for the operand
      * regardless of its size.
      */
-    int virtIdx(int reg_num=0) const { return virtIndices.at(reg_num); }
+    int
+    virtIdx(int reg_num = 0) const
+    {
+        return virtIndices.at(reg_num);
+    }
 
   private:
     /**
@@ -123,10 +168,10 @@ class GPUDynInst : public GPUExecContext
     ~GPUDynInst();
     void execute(GPUDynInstPtr gpuDynInst);
 
-    const std::vector<OperandInfo>& srcVecRegOperands() const;
-    const std::vector<OperandInfo>& dstVecRegOperands() const;
-    const std::vector<OperandInfo>& srcScalarRegOperands() const;
-    const std::vector<OperandInfo>& dstScalarRegOperands() const;
+    const std::vector<OperandInfo> &srcVecRegOperands() const;
+    const std::vector<OperandInfo> &dstVecRegOperands() const;
+    const std::vector<OperandInfo> &srcScalarRegOperands() const;
+    const std::vector<OperandInfo> &dstScalarRegOperands() const;
 
     int numSrcRegOperands();
     int numDstRegOperands();
@@ -154,13 +199,16 @@ class GPUDynInst : public GPUExecContext
 
     // returns true if the string "opcodeStr" is found in the
     // opcode of the instruction
-    bool isOpcode(const std::string& opcodeStr) const;
-    bool isOpcode(const std::string& opcodeStr,
-                  const std::string& extStr) const;
+    bool isOpcode(const std::string &opcodeStr) const;
+    bool isOpcode(const std::string &opcodeStr,
+                  const std::string &extStr) const;
 
     const std::string &disassemble() const;
 
     InstSeqNum seqNum() const;
+
+    Addr pc();
+    void pc(Addr _pc);
 
     enums::StorageClassType executedAs();
 
@@ -210,7 +258,11 @@ class GPUDynInst : public GPUExecContext
 
     void updateStats();
 
-    GPUStaticInst* staticInstruction() { return _staticInst; }
+    GPUStaticInst *
+    staticInstruction()
+    {
+        return _staticInst;
+    }
 
     TheGpuISA::ScalarRegU32 srcLiteral() const;
 
@@ -232,6 +284,8 @@ class GPUDynInst : public GPUExecContext
     bool isMemSync() const;
     bool isMemRef() const;
     bool isFlat() const;
+    bool isFlatGlobal() const;
+    bool isFlatScratch() const;
     bool isLoad() const;
     bool isStore() const;
 
@@ -254,6 +308,7 @@ class GPUDynInst : public GPUExecContext
     bool writesFlatScratch() const;
     bool readsExecMask() const;
     bool writesExecMask() const;
+    bool needsToken() const;
 
     bool isAtomicAnd() const;
     bool isAtomicOr() const;
@@ -266,6 +321,7 @@ class GPUDynInst : public GPUExecContext
     bool isAtomicDec() const;
     bool isAtomicMax() const;
     bool isAtomicMin() const;
+    bool isAtomicPkAddBF16() const;
 
     bool isArgLoad() const;
     bool isGlobalMem() const;
@@ -282,6 +338,7 @@ class GPUDynInst : public GPUExecContext
     bool isGloballyCoherent() const;
     bool isSystemCoherent() const;
 
+    bool isI8() const;
     bool isF16() const;
     bool isF32() const;
     bool isF64() const;
@@ -289,6 +346,7 @@ class GPUDynInst : public GPUExecContext
     bool isFMA() const;
     bool isMAC() const;
     bool isMAD() const;
+    bool isMFMA() const;
 
     // for FLAT memory ops. check the segment address
     // against the APE registers to see if it falls
@@ -299,7 +357,8 @@ class GPUDynInst : public GPUExecContext
     // Function to resolve a flat accesses during execution stage.
     void resolveFlatSegment(const VectorMask &mask);
 
-    template<typename c0> AtomicOpFunctorPtr
+    template <typename c0>
+    AtomicOpFunctorPtr
     makeAtomicOpFunctor(c0 *reg0, c0 *reg1)
     {
         if (isAtomicAnd()) {
@@ -324,6 +383,8 @@ class GPUDynInst : public GPUExecContext
             return std::make_unique<AtomicOpMax<c0>>(*reg0);
         } else if (isAtomicMin()) {
             return std::make_unique<AtomicOpMin<c0>>(*reg0);
+        } else if (isAtomicPkAddBF16()) {
+            return std::make_unique<AtomicOpPkAddBF16<c0>>(*reg0);
         } else {
             fatal("Unrecognized atomic operation");
         }
@@ -378,9 +439,10 @@ class GPUDynInst : public GPUExecContext
     void
     setStatusVector(int lane, int newVal)
     {
-        // currently we can have up to 2 memory requests per lane (if the
-        // lane's request goes across multiple cache lines)
-        assert((newVal >= 0) && (newVal <= 2));
+        // Currently we can have up to 4 memory requests per lane. This can
+        // occur on a memory request loading 4x dwords where the memory is
+        // swizzled.
+        assert((newVal >= 0) && (newVal <= 4));
         statusVector[lane] = newVal;
     }
 
@@ -416,16 +478,20 @@ class GPUDynInst : public GPUExecContext
         for (int lane = 0; lane < TheGpuISA::NumVecElemPerVecReg; ++lane) {
             // if any lane still has pending requests, return false
             if (statusVector[lane] > 0) {
-                DPRINTF(GPUMem, "CU%d: WF[%d][%d]: lane: %d has %d pending "
-                        "request(s) for %#x\n", cu_id, simdId, wfSlotId, lane,
-                        statusVector[lane], addr[lane]);
+                DPRINTF(GPUMem,
+                        "CU%d: WF[%d][%d]: lane: %d has %d pending "
+                        "request(s) for %#x\n",
+                        cu_id, simdId, wfSlotId, lane, statusVector[lane],
+                        addr[lane]);
                 allZero = false;
             }
         }
 
         if (allZero) {
-            DPRINTF(GPUMem, "CU%d: WF[%d][%d]: all lanes have no pending"
-                    " requests for %#x\n", cu_id, simdId, wfSlotId, addr[0]);
+            DPRINTF(GPUMem,
+                    "CU%d: WF[%d][%d]: all lanes have no pending"
+                    " requests for %#x\n",
+                    cu_id, simdId, wfSlotId, addr[0]);
         }
         return allZero;
     }
@@ -461,24 +527,52 @@ class GPUDynInst : public GPUExecContext
     // of outstanding reqs here
     int numScalarReqs;
 
-    Tick getAccessTime() const { return accessTime; }
+    Tick
+    getAccessTime() const
+    {
+        return accessTime;
+    }
 
-    void setAccessTime(Tick currentTime) { accessTime = currentTime; }
+    void
+    setAccessTime(Tick currentTime)
+    {
+        accessTime = currentTime;
+    }
 
     void profileRoundTripTime(Tick currentTime, int hopId);
-    std::vector<Tick> getRoundTripTime() const { return roundTripTime; }
+    std::vector<Tick>
+    getRoundTripTime() const
+    {
+        return roundTripTime;
+    }
 
     void profileLineAddressTime(Addr addr, Tick currentTime, int hopId);
-    const std::map<Addr, std::vector<Tick>>& getLineAddressTime() const
-    { return lineAddressTime; }
+    const std::map<Addr, std::vector<Tick>> &
+    getLineAddressTime() const
+    {
+        return lineAddressTime;
+    }
 
     // inst used to save/restore a wavefront context
     bool isSaveRestore;
+
+    bool
+    isSystemReq()
+    {
+        return systemReq;
+    }
+    void
+    setSystemReq()
+    {
+        systemReq = true;
+    }
+
   private:
     GPUStaticInst *_staticInst;
     const InstSeqNum _seqNum;
     int maxSrcVecRegOpSize;
     int maxSrcScalarRegOpSize;
+    bool systemReq = false;
 
     // the time the request was started
     Tick accessTime = -1;

@@ -158,6 +158,7 @@ SALAM::APIntRegister::APIntRegister(llvm::Type * T,
         assert(it);
         data = llvm::APSInt::getMinValue(it->getBitWidth(), true);
     #else
+        bits = T->getIntegerBitWidth();
         data = 0;
     #endif
 }
@@ -169,6 +170,7 @@ SALAM::APIntRegister::APIntRegister(uint64_t bitwidth,
     #if USE_LLVM_AP_VALUES
         data = llvm::APSInt::getMinValue(bitwidth), true);
     #else
+        bits = bitwidth;
         data = 0;
     #endif
 }
@@ -179,6 +181,7 @@ SALAM::APIntRegister::APIntRegister(const llvm::APInt &RHS) :
     #if USE_LLVM_AP_VALUES
         data = RHS;
     #else
+        bits = RHS.getBitWidth();
         data = (uint64_t)(RHS.getLimitedValue());
         regdata = data;
     #endif
@@ -277,6 +280,11 @@ SALAM::PointerRegister::PointerRegister(uint64_t val,
         if (incReads && tracked) reads++;
         int64_t tmp;
         switch (sizeInBits) {
+            case 1:
+            {
+                tmp = (data & 1) ? -1 : 0;
+                break;
+            }
             case 8:
             {
                 tmp = (int64_t)((int8_t)(data));
@@ -311,6 +319,9 @@ SALAM::PointerRegister::PointerRegister(uint64_t val,
     {
         if (incWrites && tracked) writes++;
         std::memcpy(&data, &api, len);
+        if (bits < 64) {
+            data &= (uint64_t(1) << bits) - 1;
+        }
         regdata = data;
     }
 #endif

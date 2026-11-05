@@ -48,12 +48,13 @@
 #include "arch/arm/aapcs64.hh"
 #include "arch/arm/remote_gdb.hh"
 #include "kern/linux/events.hh"
-#include "params/ArmFsWorkload.hh"
 #include "sim/kernel_workload.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
 {
+
+struct ArmFsWorkloadParams;
 
 namespace ArmISA
 {
@@ -143,16 +144,13 @@ class FsWorkload : public KernelWorkload
             return loader::Arm64;
     }
 
+    ByteOrder byteOrder() const override { return ByteOrder::little; }
+
     FsWorkload(const Params &p);
 
     void initState() override;
 
-    void
-    setSystem(System *sys) override
-    {
-        KernelWorkload::setSystem(sys);
-        gdb = BaseRemoteGDB::build<RemoteGDB>(system);
-    }
+    void setSystem(System *sys) override;
 
     Addr
     fixFuncEventAddr(Addr addr) const override

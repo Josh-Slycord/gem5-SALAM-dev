@@ -131,7 +131,7 @@ NSGigE::NSGigE(const Params &p)
     interface = new NSGigEInt(name() + ".int0", this);
 
     regsReset();
-    memcpy(&rom.perfectMatch, p.hardware_address.bytes(), ETH_ADDR_LEN);
+    memcpy(&rom.perfectMatch, p.hardware_address.bytes(), ETHER_ADDR_LEN);
 
     memset(&rxDesc32, 0, sizeof(rxDesc32));
     memset(&txDesc32, 0, sizeof(txDesc32));
@@ -152,7 +152,7 @@ NSGigE::writeConfig(PacketPtr pkt)
 {
     int offset = pkt->getAddr() & PCI_CONFIG_SIZE;
     if (offset < PCI_DEVICE_SPECIFIC)
-        PciDevice::writeConfig(pkt);
+        PciEndpoint::writeConfig(pkt);
     else
         panic("Device specific PCI config space not implemented!\n");
 
@@ -161,7 +161,7 @@ NSGigE::writeConfig(PacketPtr pkt)
         // put in the IO to double check, an assertion will fail if we
         // need to properly implement it
       case PCI_COMMAND:
-        if (config.data[offset] & PCI_CMD_IOSE)
+        if (config().command & PCI_CMD_IOSE)
             ioEnable = true;
         else
             ioEnable = false;
@@ -184,7 +184,7 @@ NSGigE::getPort(const std::string &if_name, PortID idx)
  * spec sheet
  */
 Tick
-NSGigE::read(PacketPtr pkt)
+NSGigE::readDevice(PacketPtr pkt)
 {
     assert(ioEnable);
 
@@ -406,7 +406,7 @@ NSGigE::read(PacketPtr pkt)
 }
 
 Tick
-NSGigE::write(PacketPtr pkt)
+NSGigE::writeDevice(PacketPtr pkt)
 {
     assert(ioEnable);
 
@@ -1922,8 +1922,9 @@ NSGigE::rxFilter(const EthPacketPtr &packet)
         if (acceptPerfect && dst == rom.perfectMatch)
             drop = false;
 
-        if (acceptArp && eth->type() == ETH_TYPE_ARP)
+        if (acceptArp && eth->type() == ETHERTYPE_ARP) {
             drop = false;
+        }
 
     } else if (dst.broadcast()) {
         // if we're accepting broadcasts
@@ -2017,8 +2018,8 @@ NSGigE::drainResume()
 void
 NSGigE::serialize(CheckpointOut &cp) const
 {
-    // Serialize the PciDevice base class
-    PciDevice::serialize(cp);
+    // Serialize the PciEndpoint base class
+    PciEndpoint::serialize(cp);
 
     /*
      * Finalize any DMA events now.
@@ -2063,7 +2064,7 @@ NSGigE::serialize(CheckpointOut &cp) const
     SERIALIZE_SCALAR(regs.taner);
     SERIALIZE_SCALAR(regs.tesr);
 
-    SERIALIZE_ARRAY(rom.perfectMatch, ETH_ADDR_LEN);
+    SERIALIZE_ARRAY(rom.perfectMatch, ETHER_ADDR_LEN);
     SERIALIZE_ARRAY(rom.filterHash, FHASH_SIZE);
 
     SERIALIZE_SCALAR(ioEnable);
@@ -2190,8 +2191,8 @@ NSGigE::serialize(CheckpointOut &cp) const
 void
 NSGigE::unserialize(CheckpointIn &cp)
 {
-    // Unserialize the PciDevice base class
-    PciDevice::unserialize(cp);
+    // Unserialize the PciEndpoint base class
+    PciEndpoint::unserialize(cp);
 
     UNSERIALIZE_SCALAR(regs.command);
     UNSERIALIZE_SCALAR(regs.config);
@@ -2228,7 +2229,7 @@ NSGigE::unserialize(CheckpointIn &cp)
     UNSERIALIZE_SCALAR(regs.taner);
     UNSERIALIZE_SCALAR(regs.tesr);
 
-    UNSERIALIZE_ARRAY(rom.perfectMatch, ETH_ADDR_LEN);
+    UNSERIALIZE_ARRAY(rom.perfectMatch, ETHER_ADDR_LEN);
     UNSERIALIZE_ARRAY(rom.filterHash, FHASH_SIZE);
 
     UNSERIALIZE_SCALAR(ioEnable);

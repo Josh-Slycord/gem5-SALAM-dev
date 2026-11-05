@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 ARM Limited
+ * Copyright (c) 2017-2019, 2025-2026 ARM Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -43,12 +43,13 @@
 #ifndef __ARCH_ARM_TRACERS_TARMAC_RECORD_V8_HH__
 #define __ARCH_ARM_TRACERS_TARMAC_RECORD_V8_HH__
 
+#include "arch/arm/insts/static_inst.hh"
 #include "tarmac_record.hh"
 
 namespace gem5
 {
 
-namespace Trace {
+namespace trace {
 
 /**
  * TarmacTracer record for ARMv8 CPUs:
@@ -103,26 +104,28 @@ class TarmacTracerRecordV8 : public TarmacTracerRecord
                            const std::string &prefix = "") const override;
 
       protected:
-        void updateInt(const TarmacContext& tarmCtx,
-                       RegIndex regRelIdx) override;
+        void updateInt(const TarmacContext& tarmCtx) override;
+        void updateMisc(const TarmacContext& tarmCtx) override;
+        void updateVec(const TarmacContext& tarmCtx) override;
+        void updatePred(const TarmacContext& tarmCtx) override;
+        void updateMatrix(const TarmacContext &tarmCtx) override;
 
-        void updateMisc(const TarmacContext& tarmCtx,
-                        RegIndex regRelIdx) override;
-
-        void updateVec(const TarmacContext& tarmCtx,
-                       RegIndex regRelIdx) override;
-
-        void updatePred(const TarmacContext& tarmCtx,
-                        RegIndex regRelIdx) override;
+        template <typename MatElem>
+        void updateMatValue(const TarmacContext &tarmCtx,
+                            ArmISA::ArmSmeStaticInst::TouchType type,
+                            uint8_t tile_idx,
+                            const std::vector<uint16_t> vec_idx);
 
         /**
          * Returning a string which contains the formatted
          * register value: transformed in hex, 0 padded or/and
          * split in chunks separated by underscores in case of
          * vector register.
+         * @param start start position for format.
+         * @param count Count of elements to format.
          * @return str formatted string
          */
-        std::string formatReg() const;
+        std::string formatReg(int start = 0, int count = -1) const;
 
         /** Size in bits of arch register */
         uint16_t regWidth;
@@ -147,8 +150,8 @@ class TarmacTracerRecordV8 : public TarmacTracerRecord
 
   public:
     TarmacTracerRecordV8(Tick _when, ThreadContext *_thread,
-                         const StaticInstPtr _staticInst, ArmISA::PCState _pc,
-                         TarmacTracer& _parent,
+                         const StaticInstPtr _staticInst,
+                         const PCStateBase &_pc, TarmacTracer& _parent,
                          const StaticInstPtr _macroStaticInst = NULL)
       : TarmacTracerRecord(_when, _thread, _staticInst, _pc,
                            _parent, _macroStaticInst)
@@ -165,7 +168,7 @@ class TarmacTracerRecordV8 : public TarmacTracerRecord
     void addRegEntry(std::vector<RegPtr>& queue, const TarmacContext& ptr);
 };
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5
 
 #endif // __ARCH_ARM_TRACERS_TARMAC_RECORD_V8_HH__

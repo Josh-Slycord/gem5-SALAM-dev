@@ -15,6 +15,7 @@ from .facade import validate_and_generate
 from .provenance import assert_tooling_unchanged, snapshot_tooling
 from .report import parse_stats, write_report
 from .runner import ENV_ALLOWLIST, file_hash, run_experiment
+from .toolchain_profile import require_legacy_harness
 
 BASELINE = "42539ecca54ff0fed455a7afe0bda0603554e360"
 REL = Path("benchmarks/sys_validation/gemm")
@@ -405,6 +406,7 @@ def build_mismatch(engine, out):
 
 
 def reproduce(engine, runs_root, build_engine=False, jobs=8):
+    require_legacy_harness(PROJECT, "reproduce")
     engine, runs_root = engine.resolve(strict=True), runs_root.resolve()
     identifier = (
         datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S")

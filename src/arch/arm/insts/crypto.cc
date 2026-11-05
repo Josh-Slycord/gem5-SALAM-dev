@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 ARM Limited
+ * Copyright (c) 2018, 2025-2026 ARM Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -161,6 +161,44 @@ Crypto::aesINVSHIFT[16] = {
     0, 13, 10, 7, 4, 1, 14, 11,
     8, 5, 2, 15, 12, 9, 6, 3
 };
+
+// clang-format off
+const uint8_t
+Crypto::sm4Sbox[256] = {
+    0x48, 0x39, 0xcb, 0xd7, 0x3e, 0x5f, 0xee, 0x79, 0x20, 0x4d, 0xdc, 0x3a,
+    0xec, 0x7d, 0xf0, 0x18,
+    0x84, 0xc6, 0x6e, 0xc5, 0x09, 0xf1, 0xb9, 0x65, 0x7e, 0x77, 0x96, 0x0c,
+    0x4a, 0x97, 0x69, 0x89,
+    0xb0, 0xb4, 0xe5, 0xb8, 0x12, 0xd0, 0x74, 0x2d, 0xbd, 0x7b, 0xcd, 0xa5,
+    0x88, 0x31, 0xc1, 0x0a,
+    0xd8, 0x5a, 0x10, 0x1f, 0x41, 0x5c, 0xd9, 0x11, 0x7f, 0xbc, 0xdd, 0xbb,
+    0x92, 0xaf, 0x1b, 0x8d,
+    0x51, 0x5b, 0x6c, 0x6d, 0x72, 0x6a, 0xff, 0x03, 0x2f, 0x8e, 0xfd, 0xde,
+    0x45, 0x37, 0xdb, 0xd5,
+    0x6f, 0x4e, 0x53, 0x0d, 0xab, 0x23, 0x29, 0xc0, 0x60, 0xca, 0x66, 0x82,
+    0x2e, 0xe2, 0xf6, 0x1d,
+    0xe3, 0xb1, 0x8c, 0xf5, 0x30, 0x32, 0x93, 0xad, 0x55, 0x1a, 0x34, 0x9b,
+    0xa4, 0x5d, 0xae, 0xe0,
+    0xa1, 0x15, 0x61, 0xf9, 0xce, 0xf2, 0xf7, 0xa3, 0xb5, 0x38, 0xc7, 0x40,
+    0xd2, 0x8a, 0xbf, 0xea,
+    0x9e, 0xc8, 0xc4, 0xa0, 0xe7, 0x02, 0x36, 0x4c, 0x52, 0x27, 0xd3, 0x9f,
+    0x57, 0x46, 0x00, 0xd4,
+    0x87, 0x78, 0x21, 0x01, 0x3b, 0x7c, 0x22, 0x25, 0xa2, 0xd1, 0x58, 0x63,
+    0x5e, 0x0e, 0x24, 0x1e,
+    0x35, 0x9d, 0x56, 0x70, 0x4b, 0x0f, 0xeb, 0xf8, 0x8b, 0xda, 0x64, 0x71,
+    0xb2, 0x81, 0x6b, 0x68,
+    0xa8, 0x4f, 0x85, 0xe6, 0x19, 0x3c, 0x59, 0x83, 0xba, 0x17, 0x73, 0xf3,
+    0xfc, 0xa7, 0x07, 0x47,
+    0xa6, 0x3f, 0x8f, 0x75, 0xfa, 0x94, 0xdf, 0x80, 0x95, 0xe8, 0x08, 0xc9,
+    0xa9, 0x1c, 0xb3, 0xe4,
+    0x62, 0xac, 0xcf, 0xed, 0x43, 0x0b, 0x54, 0x33, 0x7a, 0x98, 0xef, 0x91,
+    0xf4, 0x50, 0x42, 0x9c,
+    0x99, 0x06, 0x86, 0x49, 0x26, 0x13, 0x44, 0xaa, 0xc3, 0x04, 0xbe, 0x2a,
+    0x76, 0x9a, 0x67, 0x2b,
+    0x05, 0x2c, 0xfb, 0x28, 0xc2, 0x14, 0xb6, 0x16, 0xb7, 0x3d, 0xe1, 0xcc,
+    0xfe, 0xe9, 0x90, 0xd6,
+};
+// clang-format on
 
 uint8_t
 Crypto::aesFFMul(uint8_t a, uint8_t b)
@@ -438,6 +476,9 @@ Crypto::sha1H(uint8_t *output, uint8_t *input)
     uint32_t X[4], Y[4];
     load2Reg(&X[0], &Y[0], output, input);
     X[0] = ror(Y[0], 2);
+    X[1] = 0;
+    X[2] = 0;
+    X[3] = 0;
     store1Reg(output, &X[0]);
 }
 
@@ -513,6 +554,312 @@ Crypto::store1Reg(uint8_t *output, uint32_t *X)
         output[i*4+2] = (uint8_t)(X[i] >> 16);
         output[i*4+3] = (uint8_t)(X[i] >> 24);
     }
+}
+
+uint32_t
+Crypto::_sm4Sbox(uint32_t input)
+{
+    union
+    {
+        uint32_t data_32b;
+        uint8_t data_8b[4];
+    } in_32_8, out_8_32;
+
+    in_32_8.data_32b = input;
+    for (int i = 0; i < 4; ++i) {
+        uint8_t sboxindex = 255 - in_32_8.data_8b[i];
+        out_8_32.data_8b[i] = sm4Sbox[sboxindex];
+    }
+    return out_8_32.data_32b;
+}
+
+void
+Crypto::sm4e(uint32_t *output, uint32_t *input, uint32_t *key)
+{
+    uint32_t roundresult[4];
+    for (int index = 0; index < 4; ++index) {
+        roundresult[index] = input[index];
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        uint32_t roundkey = key[index];
+        uint32_t intval =
+            roundresult[3] ^ roundresult[2] ^ roundresult[1] ^ roundkey;
+        intval = _sm4Sbox(intval);
+        intval = intval ^ rol(intval, 2) ^ rol(intval, 10) ^ rol(intval, 18) ^
+                 rol(intval, 24);
+        intval = intval ^ roundresult[0];
+
+        roundresult[0] = roundresult[1];
+        roundresult[1] = roundresult[2];
+        roundresult[2] = roundresult[3];
+        roundresult[3] = intval;
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = roundresult[index];
+    }
+}
+
+void
+Crypto::sm4ekey(uint32_t *output, uint32_t *input, uint32_t *source)
+{
+    uint32_t roundresult[4];
+    for (int index = 0; index < 4; ++index) {
+        roundresult[index] = input[index];
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        uint32_t const_value = source[index];
+        uint32_t intval =
+            roundresult[3] ^ roundresult[2] ^ roundresult[1] ^ const_value;
+        intval = _sm4Sbox(intval);
+        intval = intval ^ rol(intval, 13) ^ rol(intval, 23);
+        intval = intval ^ roundresult[0];
+
+        roundresult[0] = roundresult[1];
+        roundresult[1] = roundresult[2];
+        roundresult[2] = roundresult[3];
+        roundresult[3] = intval;
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = roundresult[index];
+    }
+}
+
+void
+Crypto::sm3partw1(uint32_t *output, uint32_t *input, uint32_t *input2)
+{
+    uint32_t result[4];
+    for (int index = 0; index < 3; ++index) {
+        result[index] =
+            (output[index] ^ input[index]) ^ rol(input2[index + 1], 15);
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        if (index == 3) {
+            result[index] =
+                (output[index] ^ input[index]) ^ rol(result[0], 15);
+        }
+        result[index] =
+            result[index] ^ rol(result[index], 15) ^ rol(result[index], 23);
+    }
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::sm3partw2(uint32_t *output, uint32_t *input, uint32_t *input2)
+{
+    uint32_t tmp[4];
+    uint32_t result[4];
+    for (int index = 0; index < 4; ++index) {
+        tmp[index] = input[index] ^ rol(input2[index], 7);
+        result[index] = output[index] ^ tmp[index];
+    }
+
+    uint32_t tmp2 = rol(tmp[0], 15);
+    tmp2 = tmp2 ^ rol(tmp2, 15) ^ rol(tmp2, 23);
+    result[3] = result[3] ^ tmp2;
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::sm3ss1(uint32_t *output, uint32_t *input, uint32_t *input2,
+               uint32_t *input3)
+{
+    uint32_t result = rol(rol(input[3], 12) + input2[3] + input3[3], 7);
+
+    output[3] = result;
+    output[2] = 0;
+    output[1] = 0;
+    output[0] = 0;
+}
+
+void
+Crypto::sm3tt1a(uint32_t *output, uint32_t *input, uint32_t *input2,
+                uint8_t imm)
+{
+    uint32_t wjprime = input2[imm];
+    uint32_t ss2 = input[3] ^ rol(output[3], 12);
+    uint32_t tt1 = output[1] ^ (output[3] ^ output[2]);
+    tt1 = (tt1 + output[0] + ss2 + wjprime);
+
+    uint32_t result[4];
+    result[0] = output[1];
+    result[1] = rol(output[2], 9);
+    result[2] = output[3];
+    result[3] = tt1;
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::sm3tt1b(uint32_t *output, uint32_t *input, uint32_t *input2,
+                uint8_t imm)
+{
+    uint32_t wjprime = input2[imm];
+    uint32_t ss2 = input[3] ^ rol(output[3], 12);
+    uint32_t tt1 = (output[3] & output[1]) | (output[3] & output[2]) |
+                   (output[1] & output[2]);
+    tt1 = (tt1 + output[0] + ss2 + wjprime);
+
+    uint32_t result[4];
+    result[0] = output[1];
+    result[1] = rol(output[2], 9);
+    result[2] = output[3];
+    result[3] = tt1;
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::sm3tt2a(uint32_t *output, uint32_t *input, uint32_t *input2,
+                uint8_t imm)
+{
+    uint32_t wj = input2[imm];
+    uint32_t tt2 = output[1] ^ (output[3] ^ output[2]);
+    tt2 = tt2 + output[0] + input[3] + wj;
+
+    uint32_t result[4];
+    result[0] = output[1];
+    result[1] = rol(output[2], 19);
+    result[2] = output[3];
+    result[3] = tt2 ^ rol(tt2, 9) ^ rol(tt2, 17);
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::sm3tt2b(uint32_t *output, uint32_t *input, uint32_t *input2,
+                uint8_t imm)
+{
+    uint32_t wj = input2[imm];
+    uint32_t tt2 = (output[3] & output[2]) | ((~output[3]) & output[1]);
+    tt2 = tt2 + output[0] + input[3] + wj;
+
+    uint32_t result[4];
+    result[0] = output[1];
+    result[1] = rol(output[2], 19);
+    result[2] = output[3];
+    result[3] = tt2 ^ rol(tt2, 9) ^ rol(tt2, 17);
+
+    for (int index = 0; index < 4; ++index) {
+        output[index] = result[index];
+    }
+}
+
+void
+Crypto::bcax(uint64_t *output, uint64_t *input, uint64_t *input2,
+             uint64_t *input3)
+{
+    for (int index = 0; index < 2; ++index) {
+        output[index] = input[index] ^ (input2[index] & (~input3[index]));
+    }
+}
+
+void
+Crypto::eor3(uint64_t *output, uint64_t *input, uint64_t *input2,
+             uint64_t *input3)
+{
+    for (int index = 0; index < 2; ++index) {
+        output[index] = input[index] ^ input2[index] ^ input3[index];
+    }
+}
+
+void
+Crypto::rax1(uint64_t *output, uint64_t *input, uint64_t *input2)
+{
+    for (int index = 0; index < 2; ++index) {
+        output[index] = input[index] ^ rol(input2[index], 1);
+    }
+}
+
+void
+Crypto::xar(uint64_t *output, uint64_t *input, uint64_t *input2, uint8_t imm)
+{
+    for (int index = 0; index < 2; ++index) {
+        output[index] = ror(input[index] ^ input2[index], imm);
+    }
+}
+
+void
+Crypto::sha512h(uint64_t *output, uint64_t *input, uint64_t *input2)
+{
+    uint64_t msigma1;
+    uint64_t vtmp[2];
+
+    msigma1 = ror(input2[1], 14) ^ ror(input2[1], 18) ^ ror(input2[1], 41);
+    vtmp[1] = (input2[1] & input[0]) ^ ((~input2[1]) & input[1]);
+    vtmp[1] = vtmp[1] + msigma1 + output[1];
+    uint64_t tmp = vtmp[1] + input2[0];
+    msigma1 = ror(tmp, 14) ^ ror(tmp, 18) ^ ror(tmp, 41);
+    vtmp[0] = (tmp & input2[1]) ^ ((~tmp) & input[0]);
+    vtmp[0] = vtmp[0] + msigma1 + output[0];
+
+    output[1] = vtmp[1];
+    output[0] = vtmp[0];
+}
+
+void
+Crypto::sha512h2(uint64_t *output, uint64_t *input, uint64_t *input2)
+{
+    uint64_t nsigma0;
+    uint64_t vtmp[2];
+
+    nsigma0 = ror(input2[0], 28) ^ ror(input2[0], 34) ^ ror(input2[0], 39);
+    // vtmp[1] = shamajority(input[0], input2[1], input2[0]);
+    vtmp[1] = (input[0] & input2[1]) | ((input[0] | input2[1]) & input2[0]);
+    vtmp[1] = vtmp[1] + nsigma0 + output[1];
+    nsigma0 = ror(vtmp[1], 28) ^ ror(vtmp[1], 34) ^ ror(vtmp[1], 39);
+    // vtmp[0] = shamajority(vtmp[1], input2[0], input2[1]);
+    vtmp[0] = (vtmp[1] & input2[0]) | ((vtmp[1] | input2[0]) & input2[1]);
+    vtmp[0] = vtmp[0] + nsigma0 + output[0];
+
+    output[1] = vtmp[1];
+    output[0] = vtmp[0];
+}
+
+void
+Crypto::sha512su0(uint64_t *output, uint64_t *input)
+{
+    uint64_t sig0;
+    uint64_t vtmp[2];
+
+    sig0 = ror(output[1], 1) ^ ror(output[1], 8) ^ (output[1] >> 7);
+    vtmp[0] = output[0] + sig0;
+    sig0 = ror(input[0], 1) ^ ror(input[0], 8) ^ (input[0] >> 7);
+    vtmp[1] = output[1] + sig0;
+
+    output[1] = vtmp[1];
+    output[0] = vtmp[0];
+}
+
+void
+Crypto::sha512su1(uint64_t *output, uint64_t *input, uint64_t *input2)
+{
+    uint64_t sig1;
+    uint64_t vtmp[2];
+
+    sig1 = ror(input[1], 19) ^ ror(input[1], 61) ^ (input[1] >> 6);
+    vtmp[1] = output[1] + sig1 + input2[1];
+    sig1 = ror(input[0], 19) ^ ror(input[0], 61) ^ (input[0] >> 6);
+    vtmp[0] = output[0] + sig1 + input2[0];
+
+    output[1] = vtmp[1];
+    output[0] = vtmp[0];
 }
 
 } // namespace ArmISA

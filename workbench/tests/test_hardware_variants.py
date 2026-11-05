@@ -8,10 +8,13 @@ from unittest import mock
 
 from salam_workbench.hardware_codegen import _normalize_profile_overrides
 from salam_workbench.hardware_variants import (
+    _configuration_hashes,
     _copy_engine,
     _fingerprint,
+    _fingerprint_inputs,
     _link_plan,
     _profile_hashes,
+    _verify_variant,
     ensure_hardware_variant,
 )
 
@@ -208,6 +211,7 @@ class HardwareVariantsTests(unittest.TestCase):
                     "state": "built",
                     "fingerprint": "current-fingerprint",
                     "engine_path": str(existing),
+                    "fingerprint_inputs": {"selected_profile_inputs": {}},
                 }
             ),
             encoding="utf-8",
@@ -246,6 +250,102 @@ class HardwareVariantsTests(unittest.TestCase):
         self.assertEqual(result["state"], "reused")
         verify.assert_called_once()
         generate.assert_not_called()
+
+    def configuration_fixture(self):
+        base = self.root / "config-engine"
+        for relative in (
+            "configs/common/Simulation.py",
+            "configs/SALAM/HWAccConfig.py",
+            "SALAM-Configurator/fs_template.py",
+            "SALAM-Configurator/systembuilder.py",
+            "SALAM-Configurator/parser.py",
+        ):
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# actual configuration fixture\n")
+        return base
+
+    def test_runtime_configuration_change_invalidates_variant_fingerprint(self):
+        base = self.configuration_fixture()
+        receipt = self.root / "build.json"
+        receipt.write_text("{}")
+        with mock.patch(
+            "salam_workbench.hardware_variants.compiled_identity",
+            return_value={"sha256": "unchanged-compiled-source"},
+        ), mock.patch(
+            "salam_workbench.hardware_variants._profile_hashes", return_value={}
+        ), mock.patch(
+            "salam_workbench.hardware_variants._toolchain_hashes", return_value={}
+        ):
+            before = _fingerprint_inputs(
+                base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+            )
+            (base / "configs/common/Simulation.py").write_text(
+                "# changed final native clock adapter\n"
+            )
+            after = _fingerprint_inputs(
+                base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+            )
+        self.assertEqual(
+            before["base_compiled_source_sha256"], after["base_compiled_source_sha256"]
+        )
+        self.assertNotEqual(_fingerprint(before), _fingerprint(after))
+
+    def test_configuration_identity_requires_runtime_and_builder_sources(self):
+        base = self.configuration_fixture()
+        (base / "configs/common/Simulation.py").rename(
+            base / "configs/common/Simulation.py.saved"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Missing hardware variant configuration"
+        ):
+            _configuration_hashes(base)
+
+    def test_generated_configuration_outputs_do_not_invalidate_source_identity(self):
+        base = self.configuration_fixture()
+        before = _configuration_hashes(base)
+        generated = base / "configs/SALAM/generated/fs_gemm.py"
+        generated.parent.mkdir()
+        generated.write_text("# generated per request\n")
+        self.assertEqual(before, _configuration_hashes(base))
+        helper = base / "configs/common/new_runtime_helper.py"
+        helper.write_text("# newly imported runtime helper\n")
+        self.assertNotEqual(before, _configuration_hashes(base))
+
+    def test_variant_configuration_tampering_is_rejected_on_reuse(self):
+        variant = self.configuration_fixture()
+        sources = _configuration_hashes(variant)
+        generation = self.root / "generation.json"
+        generation.write_text(
+            json.dumps({"state": "generated", "valid": True, "outputs": []})
+        )
+        build = self.root / "build.json"
+        build.write_text("{}")
+        manifest = {
+            "state": "built",
+            "fingerprint": "key",
+            "build_receipt": str(build),
+            "generation_receipt": str(generation),
+            "fingerprint_inputs": {"configuration_source_inputs": sources},
+        }
+        with mock.patch("salam_workbench.hardware_variants.verify_engine"):
+            self.assertEqual(_verify_variant(variant, manifest, "key", {}), manifest)
+            (variant / "configs/common/Simulation.py").write_text(
+                "# stale/corrupted cached runtime\n"
+            )
+            with self.assertRaisesRegex(ValueError, "configuration source identity"):
+                _verify_variant(variant, manifest, "key", {})
+
+    def test_symlinked_runtime_configuration_is_rejected(self):
+        base = self.configuration_fixture()
+        path = base / "configs/common/Simulation.py"
+        preserved = path.with_suffix(".saved")
+        path.rename(preserved)
+        path.symlink_to(preserved)
+        with self.assertRaisesRegex(
+            ValueError, "Symlinked hardware variant configuration"
+        ):
+            _configuration_hashes(base)
 
 
 if __name__ == "__main__":

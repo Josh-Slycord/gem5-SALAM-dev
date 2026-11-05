@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015, 2017-2018,2020 ARM Limited
+ * Copyright (c) 2013, 2015, 2017-2018,2020,2022,2026 Arm Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -79,6 +79,7 @@ class SystemCounterListener
     /// Called from the SystemCounter when a change in counting speed occurred
     /// Events should be rescheduled properly inside this member function
     virtual void notify(void) = 0;
+    virtual ~SystemCounterListener() = default;
 };
 
 /// Global system counter.  It is shared by the architected and memory-mapped
@@ -280,9 +281,7 @@ class ArchTimerKvm : public ArchTimer
     // For ArchTimer's in a GenericTimerISA with Kvm execution about
     // to begin, skip rescheduling the event.
     // Otherwise, we should reschedule the event (if necessary).
-    bool scheduleEvents() override {
-        return !system.validKvmEnvironment();
-    }
+    bool scheduleEvents() override;
 };
 
 class GenericTimer : public SimObject
@@ -299,13 +298,26 @@ class GenericTimer : public SimObject
     void setMiscReg(int misc_reg, unsigned cpu, RegVal val);
     RegVal readMiscReg(int misc_reg, unsigned cpu);
 
+    enum class CoreTimersType
+    {
+        Cntv,
+        Cntp
+    };
+
+    ArchTimer *coreTimer(int cpu_id, CoreTimersType type);
+
   protected:
     class CoreTimers : public SystemCounterListener, public Serializable
     {
       public:
         CoreTimers(GenericTimer &_parent, ArmSystem &system, unsigned cpu,
-                   ArmInterruptPin *_irqPhysS, ArmInterruptPin *_irqPhysNS,
-                   ArmInterruptPin *_irqVirt, ArmInterruptPin *_irqHyp);
+                   ArmInterruptPin *irq_el3_phys,
+                   ArmInterruptPin *irq_el1_phys,
+                   ArmInterruptPin *irq_el1_virt,
+                   ArmInterruptPin *irq_el2_ns_phys,
+                   ArmInterruptPin *irq_el2_ns_virt,
+                   ArmInterruptPin *irq_el2_s_phys,
+                   ArmInterruptPin *irq_el2_s_virt);
 
         /// Generic Timer parent reference
         GenericTimer &parent;
@@ -322,15 +334,21 @@ class GenericTimer : public SimObject
         /// Thread (HW) context associated to this PE implementation
         ThreadContext *threadContext;
 
-        ArmInterruptPin const *irqPhysS;
-        ArmInterruptPin const *irqPhysNS;
-        ArmInterruptPin const *irqVirt;
-        ArmInterruptPin const *irqHyp;
+        ArmInterruptPin const *irqPhysEL3;
+        ArmInterruptPin const *irqPhysEL1;
+        ArmInterruptPin const *irqVirtEL1;
+        ArmInterruptPin const *irqPhysNsEL2;
+        ArmInterruptPin const *irqVirtNsEL2;
+        ArmInterruptPin const *irqPhysSEL2;
+        ArmInterruptPin const *irqVirtSEL2;
 
-        ArchTimerKvm physS;
-        ArchTimerKvm physNS;
-        ArchTimerKvm virt;
-        ArchTimerKvm hyp;
+        ArchTimerKvm physEL3;
+        ArchTimerKvm physEL1;
+        ArchTimerKvm virtEL1;
+        ArchTimerKvm physNsEL2;
+        ArchTimerKvm virtNsEL2;
+        ArchTimerKvm physSEL2;
+        ArchTimerKvm virtSEL2;
 
         // Event Stream. Events are generated based on a configurable
         // transitionBit over the counter value. transitionTo indicates

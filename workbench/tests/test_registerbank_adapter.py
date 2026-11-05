@@ -12,6 +12,7 @@ from salam_workbench.registerbank_adapter import (
     MARKER,
     adapt_registerbank_ports,
     registerbank_port_kind,
+    registerbank_ports_supported,
 )
 
 # Minimal unchanged legacy parser sections. The tests execute the generated
@@ -401,6 +402,63 @@ class RegisterBankAdapterTests(unittest.TestCase):
         self.assertNotIn(b"\n", raw.replace(b"\r\n", b""))
         clstr, _ = self.execute(self.variable(Ports=3))
         self.assertEqual(len(clstr.compute.peers), 3)
+
+    def test_actual_current_parser_integer_counts_adapt_and_execute(self):
+        actual = Path(__file__).resolve().parents[2] / "SALAM-Configurator/parser.py"
+        original = actual.read_bytes()
+        self.assertIn(b"PortedConnection(con, int(numPorts))", original)
+        self.parser.write_bytes(original)
+        receipt = self.root / "actual-parser-adapter.json"
+        result = adapt_registerbank_ports(self.stage, receipt_path=receipt)
+        self.assertEqual(result["state"], "patched")
+        self.assertEqual(actual.read_bytes(), original)
+        self.assertTrue(registerbank_ports_supported(self.stage))
+        clstr, _ = self.execute(self.variable(Ports=2, Connections="Reader:3"))
+        self.assertEqual(len(clstr.compute.peers), 2)
+        self.assertEqual(len(clstr.reader.peers), 3)
+        self.assertEqual(
+            adapt_registerbank_ports(self.stage)["state"], "already_patched"
+        )
+
+    def test_integer_count_form_preserves_crlf_and_rejects_other_casts(self):
+        source = PARSER_SOURCE.replace(
+            "PortedConnection(con, numPorts)", "PortedConnection(con, int(numPorts))"
+        )
+        self.parser.write_bytes(source.replace("\n", "\r\n").encode())
+        adapt_registerbank_ports(self.stage)
+        self.assertNotIn(b"\n", self.parser.read_bytes().replace(b"\r\n", b""))
+        self.assertTrue(registerbank_ports_supported(self.stage))
+        for changed in (
+            source.replace("int(numPorts)", "float(numPorts)"),
+            source.replace("int(numPorts)", "int(numPorts) + 1"),
+            source.replace("self.accName, 1", "self.accName, 2"),
+        ):
+            with self.subTest(changed=changed):
+                self.parser.write_text(changed)
+                before = self.parser.read_bytes()
+                with self.assertRaises(ValueError):
+                    adapt_registerbank_ports(self.stage)
+                self.assertEqual(self.parser.read_bytes(), before)
+
+    def test_matching_text_outside_variable_method_is_rejected(self):
+        original = PARSER_SOURCE
+        # Text still contains the exact known blocks, but they belong to another
+        # class. An adapter must witness the actual Variable consumer.
+        self.parser.write_text(original.replace("class Variable:", "class Decoy:"))
+        before = self.parser.read_bytes()
+        with self.assertRaisesRegex(ValueError, "Variable"):
+            adapt_registerbank_ports(self.stage)
+        self.assertEqual(self.parser.read_bytes(), before)
+
+    def test_support_marker_and_blocks_must_belong_to_actual_consumer(self):
+        adapt_registerbank_ports(self.stage)
+        self.assertTrue(registerbank_ports_supported(self.stage))
+        self.parser.write_text(
+            self.parser.read_text().replace("def genConfig(", "def unusedConfig(")
+        )
+        self.assertFalse(registerbank_ports_supported(self.stage))
+        with self.assertRaises(ValueError):
+            adapt_registerbank_ports(self.stage)
 
 
 _VERSION_LINE = '__version__ = "3.0.0.pre[1.0.0]"\n'

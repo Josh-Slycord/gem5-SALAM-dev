@@ -344,9 +344,16 @@ class BaseXBar : public ClockedObject
      * given a packet with this address range.
      *
      * @param addr_range Address range to find port for.
-     * @return id of port that the packet should be sent out of.
+     * @param pkt Packet that containing the address range.
+     * @return id of port that the packet should be sent ou of.
      */
-    PortID findPort(AddrRange addr_range);
+    virtual PortID findPort(AddrRange addr_range, PacketPtr pkt = nullptr);
+
+    PortID
+    findPort(PacketPtr pkt)
+    {
+        return findPort(pkt->getAddrRange(), pkt);
+    }
 
     /**
      * Return the address ranges the crossbar is responsible for.
@@ -387,6 +394,10 @@ class BaseXBar : public ClockedObject
        range will cause a fatal error.  If false, just send all
        addresses not handled by another port to default device. */
     const bool useDefaultRange;
+
+    /** If true, allow receiving and forwarding of backdoor requests.
+        If false, the XBar will send packets without a backdoor. */
+    const bool enableBackdoor;
 
     BaseXBar(const BaseXBarParams &p);
 

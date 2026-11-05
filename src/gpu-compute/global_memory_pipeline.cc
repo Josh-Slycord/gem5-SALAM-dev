@@ -2,8 +2,6 @@
  * Copyright (c) 2014-2015 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -32,12 +30,12 @@
  */
 
 #define __STDC_FORMAT_MACROS
+#include "gpu-compute/global_memory_pipeline.hh"
 #include <cinttypes>
 #include "debug/GPUCoalescer.hh"
 #include "debug/GPUMem.hh"
 #include "debug/GPUReg.hh"
 #include "gpu-compute/compute_unit.hh"
-#include "gpu-compute/global_memory_pipeline.hh"
 #include "gpu-compute/gpu_dyn_inst.hh"
 #include "gpu-compute/shader.hh"
 #include "gpu-compute/vector_register_file.hh"
@@ -48,12 +46,14 @@ namespace gem5
 
 GlobalMemPipeline::GlobalMemPipeline(const ComputeUnitParams &p,
                                      ComputeUnit &cu)
-    : computeUnit(cu), _name(cu.name() + ".GlobalMemPipeline"),
+    : computeUnit(cu),
+      _name(cu.name() + ".GlobalMemPipeline"),
       gmQueueSize(p.global_mem_queue_size),
-      maxWaveRequests(p.max_wave_requests), inflightStores(0),
-      inflightLoads(0), stats(&cu)
-{
-}
+      maxWaveRequests(p.max_wave_requests),
+      inflightStores(0),
+      inflightLoads(0),
+      stats(&cu)
+{}
 
 void
 GlobalMemPipeline::init()
@@ -64,6 +64,10 @@ GlobalMemPipeline::init()
 bool
 GlobalMemPipeline::coalescerReady(GPUDynInstPtr mp) const
 {
+    // System requests do not need GPU coalescer tokens. Make sure nothing
+    // has bypassed the operand gather check stage.
+    assert(!mp->isSystemReq());
+
     // We require one token from the coalescer's uncoalesced table to
     // proceed
     int token_count = 1;
@@ -97,8 +101,8 @@ GlobalMemPipeline::outstandingReqsCheck(GPUDynInstPtr mp) const
 {
     // Ensure we haven't exceeded the maximum number of vmem requests
     // for this wavefront
-    if ((mp->wavefront()->outstandingReqsRdGm
-         + mp->wavefront()->outstandingReqsWrGm) >= maxWaveRequests) {
+    if ((mp->wavefront()->outstandingReqsRdGm +
+         mp->wavefront()->outstandingReqsWrGm) >= maxWaveRequests) {
         return false;
     }
 
@@ -119,14 +123,15 @@ GlobalMemPipeline::exec()
     if (m && (m->isLoad() || m->isAtomicRet())) {
         w = m->wavefront();
 
-        accessVrf = w->computeUnit->vrf[w->simdId]->
-            canScheduleWriteOperandsFromLoad(w, m);
-
+        accessVrf =
+            w->computeUnit->vrf[w->simdId]->canScheduleWriteOperandsFromLoad(
+                w, m);
     }
 
     if (m && m->latency.rdy() && computeUnit.glbMemToVrfBus.rdy() &&
-        accessVrf && (computeUnit.shader->coissue_return ||
-        computeUnit.vectorGlobalMemUnit.rdy())) {
+        accessVrf &&
+        (computeUnit.shader->coissue_return ||
+         computeUnit.vectorGlobalMemUnit.rdy())) {
 
         w = m->wavefront();
 
@@ -135,12 +140,14 @@ GlobalMemPipeline::exec()
         m->completeAcc(m);
         if (m->isFlat()) {
             w->decLGKMInstsIssued();
+            w->untrackLGKMInst(m);
         }
         w->decVMemInstsIssued();
+        w->untrackVMemInst(m);
 
         if (m->isLoad() || m->isAtomicRet()) {
-            w->computeUnit->vrf[w->simdId]->
-            scheduleWriteOperandsFromLoad(w, m);
+            w->computeUnit->vrf[w->simdId]->scheduleWriteOperandsFromLoad(w,
+                                                                          m);
         }
 
         completeRequest(m);
@@ -151,14 +158,14 @@ GlobalMemPipeline::exec()
         computeUnit.shader->ScheduleAdd(&w->outstandingReqs, m->time, -1);
         if (m->isStore() || m->isAtomic() || m->isMemSync()) {
             computeUnit.shader->sampleStore(accessTime);
-            computeUnit.shader->ScheduleAdd(&w->outstandingReqsWrGm,
-                                             m->time, -1);
+            computeUnit.shader->ScheduleAdd(&w->outstandingReqsWrGm, m->time,
+                                            -1);
         }
 
         if (m->isLoad() || m->isAtomic() || m->isMemSync()) {
             computeUnit.shader->sampleLoad(accessTime);
-            computeUnit.shader->ScheduleAdd(&w->outstandingReqsRdGm,
-                                             m->time, -1);
+            computeUnit.shader->ScheduleAdd(&w->outstandingReqsRdGm, m->time,
+                                            -1);
         }
 
         w->validateRequestCounters();
@@ -172,8 +179,9 @@ GlobalMemPipeline::exec()
 
         // Mark write bus busy for appropriate amount of time
         computeUnit.glbMemToVrfBus.set(m->time);
-        if (!computeUnit.shader->coissue_return)
+        if (!computeUnit.shader->coissue_return) {
             w->computeUnit->vectorGlobalMemUnit.set(m->time);
+        }
     }
 
     // If pipeline has executed a global memory instruction
@@ -201,6 +209,7 @@ GlobalMemPipeline::exec()
 
         if (mp->isStore() && mp->isGlobalSeg()) {
             mp->wavefront()->decExpInstsIssued();
+            mp->wavefront()->untrackExpInst(mp);
         }
 
         if (((mp->isMemSync() && !mp->isEndOfKernel()) || !mp->isMemSync())) {
@@ -213,20 +222,20 @@ GlobalMemPipeline::exec()
              * because once they are issued from the GM pipeline,
              * they do not send any response back to it.
              */
-            gmOrderedRespBuffer.insert(std::make_pair(mp->seqNum(),
-                std::make_pair(mp, false)));
+            gmOrderedRespBuffer.insert(
+                std::make_pair(mp->seqNum(), std::make_pair(mp, false)));
         }
 
         if (!mp->isMemSync() && !mp->isEndOfKernel() && mp->allLanesZero()) {
             /**
-            * Memory accesses instructions that do not generate any memory
-            * requests (such as out-of-bounds buffer acceses where all lanes
-            * are out of bounds) will not trigger a callback to complete the
-            * request, so we need to mark it as completed as soon as it is
-            * issued.  Note this this will still insert an entry in the
-            * ordered return FIFO such that waitcnt is still resolved
-            * correctly.
-            */
+             * Memory accesses instructions that do not generate any memory
+             * requests (such as out-of-bounds buffer acceses where all lanes
+             * are out of bounds) will not trigger a callback to complete the
+             * request, so we need to mark it as completed as soon as it is
+             * issued.  Note this this will still insert an entry in the
+             * ordered return FIFO such that waitcnt is still resolved
+             * correctly.
+             */
             handleResponse(mp);
             computeUnit.getTokenManager()->recvTokens(1);
         }
@@ -310,12 +319,27 @@ GlobalMemPipeline::handleResponse(GPUDynInstPtr gpuDynInst)
     mem_req->second.second = true;
 }
 
-GlobalMemPipeline::
-GlobalMemPipelineStats::GlobalMemPipelineStats(statistics::Group *parent)
-    : statistics::Group(parent, "GlobalMemPipeline"),
-      ADD_STAT(loadVrfBankConflictCycles, "total number of cycles GM data "
-               "are delayed before updating the VRF")
+void
+GlobalMemPipeline::printProgress()
 {
+    std::cout << "GMPipe inflight: " << inflightLoads << "/" << inflightStores
+              << " issued: " << gmIssuedRequests.size()
+              << " returned: " << gmOrderedRespBuffer.size() << " -- :\n";
+
+    for (auto &pair : gmOrderedRespBuffer) {
+        auto &inst_pair = pair.second;
+        auto &inst = inst_pair.first;
+        std::cout << "\t" << inst->disassemble() << " -- " << inst_pair.second
+                  << "\n";
+    }
 }
+
+GlobalMemPipeline::GlobalMemPipelineStats::GlobalMemPipelineStats(
+    statistics::Group *parent)
+    : statistics::Group(parent, "GlobalMemPipeline"),
+      ADD_STAT(loadVrfBankConflictCycles,
+               "total number of cycles GM data "
+               "are delayed before updating the VRF")
+{}
 
 } // namespace gem5

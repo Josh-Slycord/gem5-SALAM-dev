@@ -2,8 +2,6 @@
  * Copyright (c) 2011-2015,2018 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -75,25 +73,32 @@ class GPUDispatcher : public SimObject
     void setShader(Shader *new_shader);
     void exec();
     bool isReachingKernelEnd(Wavefront *wf);
-    void updateInvCounter(int kern_id, int val=-1);
-    bool updateWbCounter(int kern_id, int val=-1);
+    void updateInvCounter(int kern_id, int val = -1);
+    bool updateWbCounter(int kern_id, int val = -1);
     int getOutstandingWbs(int kern_id);
     void notifyWgCompl(Wavefront *wf);
     void scheduleDispatch();
     void dispatch(HSAQueueEntry *task);
-    HSAQueueEntry* hsaTask(int disp_id);
+    HSAQueueEntry *hsaTask(int disp_id);
+    bool
+    hasKernelExitEvents() const
+    {
+        return kernelExitEvents;
+    }
 
   private:
     Shader *shader;
     GPUCommandProcessor *gpuCmdProc;
     EventFunctionWrapper tickEvent;
-    std::unordered_map<int, HSAQueueEntry*> hsaQueueEntries;
+    std::unordered_map<int, HSAQueueEntry *> hsaQueueEntries;
     // list of kernel_ids to launch
     std::queue<int> execIds;
     // list of kernel_ids that have finished
     std::queue<int> doneIds;
     // is there a kernel in execution?
     bool dispatchActive;
+    // Enable exiting sim loop after each kernel completion
+    bool kernelExitEvents;
 
   protected:
     struct GPUDispatcherStats : public statistics::Group

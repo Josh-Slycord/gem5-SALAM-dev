@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2012, 2014, 2019 ARM Limited
+ * Copyright (c) 2010-2012, 2014, 2019, 2025 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -58,7 +58,7 @@
 namespace gem5
 {
 
-struct O3CPUParams;
+struct BaseO3CPUParams;
 
 namespace o3
 {
@@ -104,7 +104,8 @@ class IEW
         Idle,
         StartSquash,
         Squashing,
-        Unblocking
+        Unblocking,
+        ThreadStatusMax
     };
 
   private:
@@ -127,7 +128,7 @@ class IEW
 
   public:
     /** Constructs a IEW with the given parameters. */
-    IEW(CPU *_cpu, const O3CPUParams &params);
+    IEW(CPU *_cpu, const BaseO3CPUParams &params);
 
     /** Returns the name of the IEW stage. */
     std::string name() const;
@@ -171,6 +172,9 @@ class IEW
     /** Wakes all dependents of a completed instruction. */
     void wakeDependents(const DynInstPtr &inst);
 
+    /** Wakes misc register dependents after their producer commits. */
+    void wakeCommittedMiscRegDependents(const DynInstPtr &inst);
+
     /** Tells memory dependence unit that a memory instruction needs to be
      * rescheduled. It will re-execute once replayMemInst() is called.
      */
@@ -181,6 +185,9 @@ class IEW
 
     /** Moves memory instruction onto the list of cache blocked instructions */
     void blockMemInst(const DynInstPtr &inst);
+
+    /** Moves memory instruction onto the list of retry memory instructions */
+    void retryMemInst(const DynInstPtr &inst);
 
     /** Notifies that the cache has become unblocked */
     void cacheUnblocked();
@@ -357,8 +364,8 @@ class IEW
     /** Load / store queue. */
     LSQ ldstQueue;
 
-    /** Pointer to the functional unit pool. */
-    FUPool *fuPool;
+    /** Vector of pointers to the functional unit pools. */
+    std::vector<FUPool *> fuPools;
     /** Records if the LSQ needs to be updated on the next cycle, so that
      * IEW knows if there will be activity on the next cycle.
      */
@@ -417,16 +424,13 @@ class IEW
 
     struct IEWStats : public statistics::Group
     {
+        static std::string statusStrings[ThreadStatusMax];
+
         IEWStats(CPU *cpu);
 
-        /** Stat for total number of idle cycles. */
-        statistics::Scalar idleCycles;
-        /** Stat for total number of squashing cycles. */
-        statistics::Scalar squashCycles;
-        /** Stat for total number of blocking cycles. */
-        statistics::Scalar blockCycles;
-        /** Stat for total number of unblocking cycles. */
-        statistics::Scalar unblockCycles;
+        /** Stat for total number of cycles spent in each IEW state */
+        statistics::Vector dispatchStatus;
+        statistics::Vector execStatus;
         /** Stat for total number of instructions dispatched. */
         statistics::Scalar dispatchedInsts;
         /** Stat for total number of squashed instructions dispatch skips. */
@@ -455,25 +459,11 @@ class IEW
         {
             ExecutedInstStats(CPU *cpu);
 
-            /** Stat for total number of executed instructions. */
-            statistics::Scalar numInsts;
-            /** Stat for total number of executed load instructions. */
-            statistics::Vector numLoadInsts;
             /** Stat for total number of squashed instructions skipped at
              *  execute. */
             statistics::Scalar numSquashedInsts;
             /** Number of executed software prefetches. */
             statistics::Vector numSwp;
-            /** Number of executed nops. */
-            statistics::Vector numNop;
-            /** Number of executed meomory references. */
-            statistics::Vector numRefs;
-            /** Number of executed branches. */
-            statistics::Vector numBranches;
-            /** Number of executed store instructions. */
-            statistics::Formula numStoreInsts;
-            /** Number of instructions executed per cycle. */
-            statistics::Formula numRate;
         } executedInstStats;
 
         /** Number of instructions sent to commit. */

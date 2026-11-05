@@ -27,13 +27,14 @@
 
 from slicc.ast.ExprAST import ExprAST
 
+
 class NewExprAST(ExprAST):
     def __init__(self, slicc, type_ast):
-        super(NewExprAST, self).__init__(slicc)
+        super().__init__(slicc)
         self.type_ast = type_ast
 
     def __repr__(self):
-        return "[NewExprAST: %r]" % self.type_ast
+        return f"[NewExprAST: {self.type_ast!r}]"
 
     @property
     def name(self):

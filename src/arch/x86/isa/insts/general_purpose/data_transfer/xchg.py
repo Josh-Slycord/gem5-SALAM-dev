@@ -33,17 +33,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
 
 # All the memory versions need to use LOCK, regardless of if it was set
 
 def macroop XCHG_R_R
 {
-    # Use the xor trick instead of moves to reduce register pressure.
-    # This probably doesn't make much of a difference, but it's easy.
-    xor reg, reg, regm
-    xor regm, regm, reg
-    xor reg, reg, regm
+    # The operands may refer to the same architectural register. An
+    # xor-swap would zero it, so use a microcode temporary.
+    mov t1, t1, reg
+    mov reg, reg, regm
+    mov regm, regm, t1
 };
 
 def macroop XCHG_R_M
@@ -102,4 +102,4 @@ def macroop XCHG_LOCKED_P_R
     mfence
     mov reg, reg, t1
 };
-'''
+"""

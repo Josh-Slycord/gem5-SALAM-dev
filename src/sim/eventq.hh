@@ -46,6 +46,9 @@
 
 #include "base/debug.hh"
 #include "base/flags.hh"
+#include "base/named.hh"
+#include "base/trace.hh"
+#include "base/type_traits.hh"
 #include "base/types.hh"
 #include "base/uncontended_mutex.hh"
 #include "debug/Event.hh"
@@ -273,9 +276,6 @@ class Event : public EventBase, public Serializable
     Flags flags;
 
 #ifndef NDEBUG
-    /// Global counter to generate unique IDs for Event instances
-    static Counter instanceCounter;
-
     /// This event's unique ID.  We can also use pointer values for
     /// this but they're not consistent across runs making debugging
     /// more difficult.  Thus we use a global counter value when
@@ -285,11 +285,9 @@ class Event : public EventBase, public Serializable
     /// queue to which this event belongs (though it may or may not be
     /// scheduled on this queue yet)
     EventQueue *queue;
-#endif
 
-#ifdef EVENTQ_DEBUG
-    Tick whenCreated;   //!< time created
-    Tick whenScheduled; //!< time scheduled
+    // The queue from which this event was scheduled.
+    EventQueue *originQueue;
 #endif
 
     void
@@ -298,9 +296,6 @@ class Event : public EventBase, public Serializable
         _when = when;
 #ifndef NDEBUG
         queue = q;
-#endif
-#ifdef EVENTQ_DEBUG
-        whenScheduled = curTick();
 #endif
     }
 
@@ -380,26 +375,16 @@ class Event : public EventBase, public Serializable
     /**
      * Managed event scheduled and being held in the event queue.
      */
-    void acquire()
-    {
-        if (flags.isSet(Event::Managed))
-            acquireImpl();
-    }
+    void acquire();
 
     /**
      * Managed event removed from the event queue.
      */
-    void release() {
-        if (flags.isSet(Event::Managed))
-            releaseImpl();
-    }
+    void release();
 
-    virtual void acquireImpl() {}
+    virtual void acquireImpl();
 
-    virtual void releaseImpl() {
-        if (!scheduled())
-            delete this;
-    }
+    virtual void releaseImpl();
 
     /** @} */
 
@@ -417,12 +402,8 @@ class Event : public EventBase, public Serializable
     {
         assert(f.noneSet(~PublicWrite));
 #ifndef NDEBUG
-        instance = ++instanceCounter;
-        queue = NULL;
-#endif
-#ifdef EVENTQ_DEBUG
-        whenCreated = curTick();
-        whenScheduled = 0;
+        queue = nullptr;
+        originQueue = nullptr;
 #endif
     }
 
@@ -627,9 +608,10 @@ class EventQueue
     std::string objName;
     Event *head;
     Tick _curTick;
+    Tick _nextSimQuantum;
 
     //! Mutex to protect async queue.
-    UncontendedMutex async_queue_mutex;
+    FairUncontendedMutex async_queue_mutex;
 
     //! List of events added by other threads to this event queue.
     std::list<Event*> async_queue;
@@ -654,7 +636,7 @@ class EventQueue
      * @see EventQueue::lock()
      * @see EventQueue::unlock()
      */
-    UncontendedMutex service_mutex;
+    FairUncontendedMutex service_mutex;
 
     //! Insert / remove event from the queue. Should only be called
     //! by thread operating this queue.
@@ -667,6 +649,11 @@ class EventQueue
     void asyncInsert(Event *event);
 
     EventQueue(const EventQueue &);
+
+#ifndef NDEBUG
+    // Counter for events created from this event queue.
+    Counter eventCounter = 0;
+#endif
 
   public:
     class ScopedMigration
@@ -755,6 +742,8 @@ class EventQueue
     void name(const std::string &st) { objName = st; }
     /** @}*/ //end of api_eventq group
 
+    void setNextSimQuantum(Tick when) { _nextSimQuantum = when; }
+
     /**
      * Schedule the given event on this queue. Safe to call from any thread.
      *
@@ -763,9 +752,13 @@ class EventQueue
     void
     schedule(Event *event, Tick when, bool global=false)
     {
-        assert(when >= getCurTick());
         assert(!event->scheduled());
         assert(event->initialized());
+
+#ifndef NDEBUG
+        event->instance = curEventQueue()->incrementAndGetEventCounter();
+        event->originQueue = curEventQueue();
+#endif
 
         event->setWhen(when, this);
 
@@ -820,10 +813,10 @@ class EventQueue
     void
     reschedule(Event *event, Tick when, bool always=false)
     {
+        assert(!inParallelMode || this == curEventQueue());
         assert(when >= getCurTick());
         assert(always || event->scheduled());
         assert(event->initialized());
-        assert(!inParallelMode || this == curEventQueue());
 
         if (event->scheduled()) {
             remove(event);
@@ -968,6 +961,14 @@ class EventQueue
      */
     void checkpointReschedule(Event *event);
 
+#ifndef NDEBUG
+    Counter
+    incrementAndGetEventCounter()
+    {
+        return ++eventCounter;
+    }
+#endif
+
     virtual ~EventQueue()
     {
         while (!empty())
@@ -1080,37 +1081,65 @@ class EventManager
     void setCurTick(Tick newVal) { eventq->setCurTick(newVal); }
 };
 
-template <class T, void (T::* F)()>
-class EventWrapper : public Event
+/**
+ * @brief Wrap a member function inside MemberEventWrapper to use it as an
+ * event callback. This wrapper should be prefered over EventFunctionWrapper
+ * for better performance and type safety.
+ *
+ * Wrapping a function *process* member of a class *klass* can be done by
+ * adding a member variable of the following type:
+ * MemberEventWrapper<&klass::process>.
+ *
+ * It is required that klass::process takes no explicit argument and returns no
+ * value as these could not be handled by the event scheduler.
+ *
+ * @tparam F Pointer to the member function wrapped in this event.
+ */
+template <auto F>
+class MemberEventWrapper final: public Event, public Named
 {
-  private:
-    T *object;
+    using CLASS = MemberFunctionClass_t<F>;
+    static_assert(std::is_same_v<void, MemberFunctionReturn_t<F>>);
+    static_assert(std::is_same_v<MemberFunctionArgsTuple_t<F>, std::tuple<>>);
 
-  public:
-    EventWrapper(T *obj, bool del = false, Priority p = Default_Pri)
-        : Event(p), object(obj)
+public:
+    [[deprecated("Use reference version of this constructor instead")]]
+    MemberEventWrapper(CLASS *object,
+                       bool del = false,
+                       Priority p = Default_Pri):
+        MemberEventWrapper{*object, del, p}
+    {}
+
+    /**
+     * @brief Construct a new MemberEventWrapper object
+     *
+     * @param object instance of the object to call the wrapped member func on
+     * @param del if true, flag this event as AutoDelete
+     * @param p priority of this event
+     */
+    MemberEventWrapper(CLASS &object,
+                       bool del = false,
+                       Priority p = Default_Pri):
+        Event(p),
+        Named(object.name() + ".wrapped_event"),
+        mObject(&object)
     {
-        if (del)
-            setFlags(AutoDelete);
+        if (del) setFlags(AutoDelete);
+        gem5_assert(mObject);
     }
 
-    EventWrapper(T &obj, bool del = false, Priority p = Default_Pri)
-        : Event(p), object(&obj)
-    {
-        if (del)
-            setFlags(AutoDelete);
+    void process() override {
+        (mObject->*F)();
     }
 
-    void process() { (object->*F)(); }
-
-    const std::string
-    name() const
-    {
-        return object->name() + ".wrapped_event";
-    }
-
-    const char *description() const { return "EventWrapped"; }
+    const char *description() const override { return "EventWrapped"; }
+private:
+    CLASS *mObject;
 };
+
+template <class T, void (T::* F)()>
+using EventWrapper [[deprecated("Use MemberEventWrapper instead")]]
+    = MemberEventWrapper<F>;
 
 class EventFunctionWrapper : public Event
 {

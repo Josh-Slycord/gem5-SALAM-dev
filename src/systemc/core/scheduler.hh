@@ -465,13 +465,13 @@ class Scheduler
     }
 
     void runReady();
-    gem5::EventWrapper<Scheduler, &Scheduler::runReady> readyEvent;
+    gem5::MemberEventWrapper<&Scheduler::runReady> readyEvent;
     void scheduleReadyEvent();
 
     void pause();
     void stop();
-    gem5::EventWrapper<Scheduler, &Scheduler::pause> pauseEvent;
-    gem5::EventWrapper<Scheduler, &Scheduler::stop> stopEvent;
+    gem5::MemberEventWrapper<&Scheduler::pause> pauseEvent;
+    gem5::MemberEventWrapper<&Scheduler::stop> stopEvent;
 
     const ::sc_core::sc_report *_throwUp;
 
@@ -484,7 +484,7 @@ class Scheduler
                  timeSlots.front()->targeted_when > maxTick) &&
                 initList.empty());
     }
-    gem5::EventWrapper<Scheduler, &Scheduler::pause> starvationEvent;
+    gem5::MemberEventWrapper<&Scheduler::pause> starvationEvent;
     void scheduleStarvationEvent();
 
     bool _elaborationDone;
@@ -502,10 +502,10 @@ class Scheduler
             _changeStamp++;
         pause();
     }
-    gem5::EventWrapper<Scheduler, &Scheduler::maxTickFunc> maxTickEvent;
+    gem5::MemberEventWrapper<&Scheduler::maxTickFunc> maxTickEvent;
 
     void timeAdvances() { trace(false); }
-    gem5::EventWrapper<Scheduler, &Scheduler::timeAdvances> timeAdvancesEvent;
+    gem5::MemberEventWrapper<&Scheduler::timeAdvances> timeAdvancesEvent;
     void
     scheduleTimeAdvancesEvent()
     {
@@ -540,7 +540,7 @@ class Scheduler
     void trace(bool delta);
 };
 
-extern Scheduler scheduler;
+Scheduler &scheduler();
 
 // A proxy function to avoid having to expose the scheduler in header files.
 Process *getCurrentProcess();
@@ -548,22 +548,22 @@ Process *getCurrentProcess();
 inline void
 Scheduler::TimeSlot::process()
 {
-    scheduler.stepChangeStamp();
-    scheduler.status(StatusTiming);
+    scheduler().stepChangeStamp();
+    scheduler().status(StatusTiming);
 
     try {
         while (!events.empty())
             events.front()->run();
     } catch (...) {
         if (events.empty())
-            scheduler.completeTimeSlot(this);
+            scheduler().completeTimeSlot(this);
         else
-            scheduler.schedule(this);
-        scheduler.throwUp();
+            scheduler().schedule(this);
+        scheduler().throwUp();
     }
 
-    scheduler.status(StatusOther);
-    scheduler.completeTimeSlot(this);
+    scheduler().status(StatusOther);
+    scheduler().completeTimeSlot(this);
 }
 
 const ::sc_core::sc_report reportifyException();

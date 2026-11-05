@@ -31,6 +31,7 @@
 #define __ARCH_RISCV_LINUX_SE_WORKLOAD_HH__
 
 #include "arch/riscv/linux/linux.hh"
+#include "arch/riscv/page_size.hh"
 #include "arch/riscv/se_workload.hh"
 #include "params/RiscvEmuLinux.hh"
 #include "sim/syscall_desc.hh"
@@ -46,15 +47,17 @@ class EmuLinux : public SEWorkload
   protected:
 
     /// 64 bit syscall descriptors, indexed by call number.
-    static SyscallDescTable<SEWorkload::SyscallABI> syscallDescs64;
+    static SyscallDescTable<SEWorkload::SyscallABI64> syscallDescs64;
 
     /// 32 bit syscall descriptors, indexed by call number.
-    static SyscallDescTable<SEWorkload::SyscallABI> syscallDescs32;
+    static SyscallDescTable<SEWorkload::SyscallABI32> syscallDescs32;
 
   public:
     using Params = RiscvEmuLinuxParams;
 
-    EmuLinux(const Params &p) : SEWorkload(p) {}
+    EmuLinux(const Params &p) : SEWorkload(p, PageShift) {}
+
+    ByteOrder byteOrder() const override { return ByteOrder::little; }
 
     void syscall(ThreadContext *tc) override;
 };

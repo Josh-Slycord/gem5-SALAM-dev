@@ -1,3 +1,16 @@
+# -*- mode:python -*-
+# Copyright (c) 2026 Arm Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 1999-2008 Mark D. Hill and David A. Wood
 # Copyright (c) 2009 The Hewlett-Packard Development Company
 # All rights reserved.
@@ -26,24 +39,41 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from slicc.ast.DeclAST import DeclAST
-from slicc.symbols import Func, Type
+from slicc.symbols import (
+    Func,
+    Type,
+)
+
 
 class FuncDeclAST(DeclAST):
-    def __init__(self, slicc, return_type, ident, formals, pairs, statements):
-        super(FuncDeclAST, self).__init__(slicc, pairs)
+    def __init__(
+        self,
+        slicc,
+        return_type,
+        ident,
+        formals,
+        pairs,
+        statements,
+        is_public=False,
+    ):
+        super().__init__(slicc, pairs)
 
         self.return_type = return_type
         self.ident = ident
         self.formals = formals
         self.statements = statements
+        self.is_public = is_public
+
+        if self.is_public:
+            self["public"] = "yes"
 
     def __repr__(self):
-        return "[FuncDecl: %s]" % self.ident
+        return f"[FuncDecl: {self.ident}]"
 
     def files(self, parent=None):
         return set()
 
-    def generate(self, parent = None, **kwargs):
+    def generate(self, parent=None, **kwargs):
         types = []
         params = []
         void_type = self.symtab.find("void", Type)
@@ -79,6 +109,7 @@ class FuncDeclAST(DeclAST):
         if parent is None:
             for arg in self.formals:
                 from slicc.ast import FormalParamAST
+
                 if isinstance(arg, FormalParamAST):
                     arg_name = arg.type_ast.ident
                 else:
@@ -86,17 +117,26 @@ class FuncDeclAST(DeclAST):
                 func_name_args += "_" + str(arg_name)
 
         machine = self.state_machine
-        func = Func(self.symtab, func_name_args, self.ident, self.location,
-                    return_type, types, params, str(body), self.pairs)
+        func = Func(
+            self.symtab,
+            func_name_args,
+            self.ident,
+            self.location,
+            return_type,
+            types,
+            params,
+            str(body),
+            self.pairs,
+        )
 
         if parent is not None:
             if not parent.addFunc(func):
-                self.error("Duplicate method: %s:%s()" % (parent, self.ident))
+                self.error(f"Duplicate method: {parent}:{self.ident}()")
             func.class_name = parent.c_ident
 
         elif machine is not None:
             machine.addFunc(func)
             func.isInternalMachineFunc = True
-            func.class_name = "%s_Controller" % machine
+            func.class_name = f"{machine}_Controller"
         else:
             self.symtab.newSymbol(func)

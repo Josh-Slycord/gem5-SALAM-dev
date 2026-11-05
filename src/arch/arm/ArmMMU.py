@@ -1,6 +1,6 @@
 # -*- mode:python -*-
 
-# Copyright (c) 2020 ARM Limited
+# Copyright (c) 2020-2021, 2025 Arm Limited
 # All rights reserved.
 #
 # The license below extends only to copyright in the software and shall
@@ -35,55 +35,97 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from m5.objects.ArmTLB import ArmITB, ArmDTB, ArmStage2TLB
+from m5.objects.ArmSystem import ArmRelease
+from m5.objects.ArmTLB import (
+    ArmStage2TLB,
+    ArmTLB,
+)
 from m5.objects.BaseMMU import BaseMMU
+from m5.objects.BaseTLB import TypeTLB
 from m5.objects.ClockedObject import ClockedObject
+from m5.objects.System import System
 from m5.params import *
 from m5.proxy import *
 
-# Basic stage 1 translation objects
-class ArmTableWalker(ClockedObject):
-    type = 'ArmTableWalker'
-    cxx_class = 'gem5::ArmISA::TableWalker'
+
+class ArmWalkUnit(ClockedObject):
+    type = "ArmWalkUnit"
+    cxx_class = "gem5::ArmISA::WalkUnit"
     cxx_header = "arch/arm/table_walker.hh"
-    is_stage2 =  Param.Bool(False, "Is this object for stage 2 translation?")
-    num_squash_per_cycle = Param.Unsigned(2,
-            "Number of outstanding walks that can be squashed per cycle")
+    walk_type = Param.TypeTLB("instruction/data/unified walk")
+    functional = Param.Bool(
+        False, "Is this object for functional translation?"
+    )
+    is_stage2 = Param.Bool(False, "Is this object for stage 2 translation?")
+
+    sys = Param.System(Parent.any, "system object parameter")
+
+
+class ArmTableWalker(ClockedObject):
+    type = "ArmTableWalker"
+    cxx_class = "gem5::ArmISA::TableWalker"
+    cxx_header = "arch/arm/table_walker.hh"
 
     port = RequestPort("Table Walker port")
 
     sys = Param.System(Parent.any, "system object parameter")
 
-# Stage 2 translation objects, only used when virtualisation is being used
-class ArmStage2TableWalker(ArmTableWalker):
-    is_stage2 = True
+    walk_units = VectorParam.ArmWalkUnit(
+        [
+            ArmWalkUnit(walk_type="instruction"),
+            ArmWalkUnit(walk_type="data"),
+            ArmWalkUnit(walk_type="unified"),
+            ArmWalkUnit(walk_type="unified"),
+            ArmWalkUnit(walk_type="instruction", is_stage2=True),
+            ArmWalkUnit(walk_type="data", is_stage2=True),
+            ArmWalkUnit(walk_type="unified", is_stage2=True),
+            ArmWalkUnit(walk_type="unified", is_stage2=True),
+        ],
+        "Walk Units",
+    )
+    walk_unit_func_s1 = Param.ArmWalkUnit(
+        ArmWalkUnit(walk_type="unified", functional=True),
+        "Walk Unit to be used for S1 functional walks",
+    )
+    walk_unit_func_s2 = Param.ArmWalkUnit(
+        ArmWalkUnit(walk_type="unified", functional=True, is_stage2=True),
+        "Walk Unit to be used for S2 functional walks",
+    )
+
 
 class ArmMMU(BaseMMU):
-    type = 'ArmMMU'
-    cxx_class = 'gem5::ArmISA::MMU'
-    cxx_header = 'arch/arm/mmu.hh'
-    itb = ArmITB()
-    dtb = ArmDTB()
+    type = "ArmMMU"
+    cxx_class = "gem5::ArmISA::MMU"
+    cxx_header = "arch/arm/mmu.hh"
+
+    # L2 TLBs
+    l2_shared = ArmTLB(
+        entry_type="unified", size=1280, assoc=5, partial_levels=["L2"]
+    )
+
+    # L1 TLBs
+    itb = ArmTLB(entry_type="instruction", next_level=Parent.l2_shared)
+    dtb = ArmTLB(entry_type="data", next_level=Parent.l2_shared)
+
+    stage2_itb = Param.ArmTLB(
+        ArmStage2TLB(entry_type="instruction"), "Stage 2 Instruction TLB"
+    )
+    stage2_dtb = Param.ArmTLB(
+        ArmStage2TLB(entry_type="data"), "Stage 2 Data TLB"
+    )
+
+    walker = Param.ArmTableWalker(ArmTableWalker(), "HW Table walker")
 
     sys = Param.System(Parent.any, "system object parameter")
 
-    stage2_itb = Param.ArmTLB(ArmStage2TLB(), "Stage 2 Instruction TLB")
-    stage2_dtb = Param.ArmTLB(ArmStage2TLB(), "Stage 2 Data TLB")
-
-    itb_walker = Param.ArmTableWalker(
-        ArmTableWalker(), "HW Table walker")
-    dtb_walker = Param.ArmTableWalker(
-        ArmTableWalker(), "HW Table walker")
-
-    stage2_itb_walker = Param.ArmTableWalker(
-        ArmStage2TableWalker(), "HW Table walker")
-    stage2_dtb_walker = Param.ArmTableWalker(
-        ArmStage2TableWalker(), "HW Table walker")
+    release_se = Param.ArmRelease(
+        Parent.isa[0].release_se,
+        "Set of features/extensions to use in SE mode",
+    )
 
     @classmethod
     def walkerPorts(cls):
-        return ["mmu.itb_walker.port", "mmu.dtb_walker.port"]
+        return ["mmu.walker.port"]
 
     def connectWalkerPorts(self, iport, dport):
-        self.itb_walker.port = iport
-        self.dtb_walker.port = dport
+        self.walker.port = dport

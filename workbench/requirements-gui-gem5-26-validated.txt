@@ -1,0 +1,11 @@
+# Isolated gem5 26 / Ubuntu 24.04 / Python 3.12 validation environment.
+# Separate from the retained Ubuntu 20.04 / Python 3.8 lock.
+PySide6==6.8.3
+shiboken6==6.8.3
+networkx==3.2.1
+numpy==1.26.4
+PyYAML==6.0.3
+pydot==1.4.2
+SCons==4.8.1
+ply==3.11
+packaging==24.2

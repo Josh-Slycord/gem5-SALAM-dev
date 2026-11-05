@@ -160,8 +160,8 @@ def makeHWAcc(options, system):
     system.acctest.dma = NoncoherentDma(
         pio_addr=0x17F00000, pio_size=21, gic=gic, int_num=98
     )
-    system.acctest.dma.cluster_dma = system.acctest.local_bus.slave
-    system.acctest.dma.dma = system.acctest.coherency_bus.slave
+    system.acctest.dma.cluster_dma = system.acctest.local_bus.cpu_side_ports
+    system.acctest.dma.dma = system.acctest.coherency_bus.cpu_side_ports
     system.acctest.dma.pio = system.acctest.top.local
     system.acctest.dma.max_req_size = max_req_size
     system.acctest.dma.buffer_size = buffer_size

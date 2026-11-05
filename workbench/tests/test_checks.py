@@ -1,8 +1,11 @@
 """Check receipts use harmless child programs; no simulator or compiler is run."""
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
+import venv
 from pathlib import Path
 from unittest import mock
 
@@ -120,6 +123,90 @@ class CheckTests(unittest.TestCase):
                 / "mutation/source-snapshot/files/salam_workbench/fixture.py"
             ).read_text(),
             "# original source\n",
+        )
+
+    def test_independent_checker_mutation_invalidates_identity_and_retains_before_image(
+        self,
+    ):
+        checker = self.project / "scripts/verify_numpy_outputs.py"
+        checker.parent.mkdir()
+        original = "# independent checker before image\n"
+        checker.write_text(original)
+        before = checks.source_identity(self.project)
+        self.assertIn("scripts/verify_numpy_outputs.py", before["files"])
+        code = (
+            "from pathlib import Path; import json; "
+            "Path(" + repr(str(checker)) + ").write_text('# altered checker\\n'); "
+            "Path("
+            + repr(str(self.evidence / "checker-mutation/unit-results.json"))
+            + ").write_text(json.dumps({'success': True, 'available': True}))"
+        )
+        with self.plan(code):
+            result = self.run_fixture(check_id="checker-mutation")
+        self.assertEqual(result["state"], "incomplete")
+        self.assertFalse(result["tooling_unchanged"])
+        self.assertNotEqual(
+            before["sha256"], checks.source_identity(self.project)["sha256"]
+        )
+        self.assertEqual(
+            (
+                self.evidence
+                / "checker-mutation/source-snapshot/files/scripts/verify_numpy_outputs.py"
+            ).read_text(),
+            original,
+        )
+
+    def test_child_plan_preserves_real_venv_dependencies_and_hashes_resolved_binary(
+        self,
+    ):
+        selected = self.root / "selected-python-environment"
+        venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(selected)
+        python = selected / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        site = (
+            selected / "Lib/site-packages"
+            if os.name == "nt"
+            else next((selected / "lib").glob("python*/site-packages"))
+        )
+        (site / "salam_only_selected_venv_dependency.py").write_text("VALUE = 7351\n")
+        self.evidence.mkdir()
+        with mock.patch.object(checks.sys, "executable", str(python)):
+            plan = checks.build_plan("fast", self.project, self.evidence)
+        probe = (
+            "import json,sys,salam_only_selected_venv_dependency as dependency; "
+            "print(json.dumps({'prefix':sys.prefix,'dependency':dependency.VALUE}))"
+        )
+        step = dict(
+            plan[0],
+            name="selected-venv-dependency",
+            argv=[plan[0]["argv"][0], "-B", "-c", probe],
+        )
+        result = checks._execute_step(step, 0, self.evidence, 20)
+        self.assertEqual(
+            result["return_code"], 0, (self.evidence / result["stderr"]).read_text()
+        )
+        observed = json.loads((self.evidence / result["stdout"]).read_text())
+        self.assertEqual(Path(observed["prefix"]).resolve(), selected.resolve())
+        self.assertEqual(observed["dependency"], 7351)
+        self.assertEqual(step["argv"][0], str(python))
+        self.assertEqual(
+            result["executable_sha256"], file_hash(python.resolve(strict=True))
+        )
+        self.assertTrue(result["executable_unchanged_after_run"])
+        base = Path(getattr(sys, "_base_executable", sys.executable)).resolve(
+            strict=True
+        )
+        negative = subprocess.run(
+            [str(base), "-B", "-c", "import salam_only_selected_venv_dependency"],
+            cwd=self.project,
+            capture_output=True,
+            text=True,
+            timeout=20,
+            shell=False,
+        )
+        self.assertNotEqual(
+            negative.returncode,
+            0,
+            "System Python unexpectedly imported the isolated venv dependency",
         )
 
     def test_reused_id_refuses_to_replace_previous_receipt(self):

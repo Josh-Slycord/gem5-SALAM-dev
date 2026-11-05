@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2019, 2021 ARM Limited
+ * Copyright (c) 2017, 2019, 2021, 2025-2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -39,10 +39,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "pybind11/operators.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
-
-#include "python/pybind11/core.hh"
 
 #include <ctime>
 
@@ -54,9 +53,11 @@
 #include "base/socket.hh"
 #include "base/temperature.hh"
 #include "base/types.hh"
+#include "cpu/probes/pc_count_pair.hh"
 #include "sim/core.hh"
 #include "sim/cur_tick.hh"
 #include "sim/drain.hh"
+#include "sim/init_signals.hh"
 #include "sim/serialize.hh"
 #include "sim/sim_object.hh"
 
@@ -85,18 +86,6 @@ PybindSimObjectResolver::resolveSimObject(const std::string &name)
 
 extern const char *compileDate;
 extern const char *gem5Version;
-
-#ifdef DEBUG
-const bool flag_DEBUG = true;
-#else
-const bool flag_DEBUG = false;
-#endif
-#ifdef NDEBUG
-const bool flag_NDEBUG = true;
-#else
-const bool flag_NDEBUG = false;
-#endif
-const bool flag_TRACING_ON = TRACING_ON;
 
 static void
 init_drain(py::module_ &m_native)
@@ -150,10 +139,117 @@ init_range(py::module_ &m_native)
 
     py::class_<AddrRange>(m, "AddrRange")
         .def(py::init<>())
-        .def(py::init<Addr &, Addr &>())
-        .def(py::init<Addr, Addr, const std::vector<Addr> &, uint8_t>())
-        .def(py::init<const std::vector<AddrRange> &>())
-        .def(py::init<Addr, Addr, uint8_t, uint8_t, uint8_t, uint8_t>())
+        .def(py::init<Addr &, Addr &>(),
+             "Create a simple address range without interleaving.\n"
+             "\n"
+             ":param start: Start address of the range.\n"
+             ":param end: End address of the range (not included).")
+        .def(py::init<Addr, Addr, const std::vector<Addr> &, uint8_t>(),
+             "Create an address range with masked interleaving.\n"
+             "\n"
+             "The address a is in the range if start <= a < end and "
+             "sel == intlv_match, where sel is determined by the XOR of "
+             "bits specified by the masks.\n"
+             "\n"
+             ":param start: The start address of this range\n"
+             ":param end: The end address of this range (not included)\n"
+             ":param masks: The input vector of masks\n"
+             ":param intlv_match: The matching value of the xor operations")
+        .def_static(
+            "withMaskInterleaving",
+            py::overload_cast<Addr, Addr, const std::vector<Addr> &, uint8_t>(
+                &AddrRange::withMaskInterleaving),
+            "Create an address range with masked interleaving.\n"
+            "\n"
+            "The address a is in the range if start <= a < end and "
+            "sel == intlv_match, where sel is determined by the XOR of "
+            "bits specified by the masks.\n"
+            "\n"
+            ":param start: The start address of this range\n"
+            ":param end: The end address of this range (not included)\n"
+            ":param masks: The input vector of masks\n"
+            ":param intlv_match: The matching value of the xor operations")
+        .def(py::init<const std::vector<AddrRange> &>(),
+             "Create an address range by merging a collection of interleaved "
+             "ranges.\n"
+             "\n"
+             ":param ranges: Interleaved ranges to be merged")
+        .def(
+            py::init<Addr, Addr, uint8_t, uint8_t, uint8_t, uint8_t>(),
+            "Legacy constructor of AddrRange.\n"
+            "\n"
+            ":param start: The start address of this range\n"
+            ":param end: The end address of this range (not included)\n"
+            ":param intlv_high_bit: The MSB of the intlv bits (disabled if "
+            "0)\n"
+            ":param xor_high_bit: The MSB of the xor bit (disabled if 0)\n"
+            ":param intlv_bits: The size, in bits, of the intlv and xor bits\n"
+            ":param intlv_match: The matching value of the xor operations")
+        .def_static(
+            "withModuloInterleaving",
+            py::overload_cast<Addr, Addr, uint32_t, uint32_t, uint32_t>(
+                &AddrRange::withModuloInterleaving),
+            "Create an address range with modulo-based interleaving.\n"
+            "\n"
+            "Using modulo instead of interleaving allows for non-power "
+            "of 2 stripe counts.\n"
+            "\n"
+            ":param start: The start address of the range.\n"
+            ":param end: The end address of the range (not included).\n"
+            ":param stripes: The number of stripes (channels).\n"
+            ":param intlv_match: The stripe index for this range.\n"
+            ":param intlv_low_bit: The bit position of the interleaving "
+            "granularity (log2).")
+        .def(py::init([](const std::vector<AddrRange> &ranges,
+                         const std::vector<Addr> &masks, uint8_t intlv_match) {
+                 std::vector<std::pair<Addr, Addr>> chunks;
+                 for (const auto &r : ranges) {
+                     chunks.emplace_back(r.start(), r.end());
+                 }
+                 return new AddrRange(chunks, masks, intlv_match);
+             }),
+             "Create an address range with sparse sub-ranges and masked "
+             "interleaving.\n"
+             "\n"
+             ":param ranges: List of valid address chunks (start, end).\n"
+             ":param masks: The input vector of masks.\n"
+             ":param intlv_match: The matching value of the xor operations.")
+        .def_static(
+            "withMaskInterleaving",
+            [](const std::vector<AddrRange> &ranges,
+               const std::vector<Addr> &masks, uint8_t intlv_match) {
+                std::vector<std::pair<Addr, Addr>> chunks;
+                for (const auto &r : ranges) {
+                    chunks.emplace_back(r.start(), r.end());
+                }
+                return AddrRange::withMaskInterleaving(chunks, masks,
+                                                       intlv_match);
+            },
+            "Create an address range with sparse sub-ranges and masked "
+            "interleaving.\n"
+            "\n"
+            ":param ranges: List of valid address chunks (start, end).\n"
+            ":param masks: The input vector of masks.\n"
+            ":param intlv_match: The matching value of the xor operations.")
+        .def_static(
+            "withModuloInterleaving",
+            [](const std::vector<AddrRange> &ranges, uint32_t stripes,
+               uint32_t intlv_match, uint32_t intlv_low_bit) {
+                std::vector<std::pair<Addr, Addr>> chunks;
+                for (const auto &r : ranges) {
+                    chunks.emplace_back(r.start(), r.end());
+                }
+                return AddrRange::withModuloInterleaving(
+                    chunks, stripes, intlv_match, intlv_low_bit);
+            },
+            "Create an address range with sparse sub-ranges and modulo "
+            "interleaving.\n"
+            "\n"
+            ":param ranges: List of valid address chunks (start, end).\n"
+            ":param stripes: The number of stripes (channels).\n"
+            ":param intlv_match: The matching value of the modulo operation.\n"
+            ":param intlv_low_bit: The lowest bit to use for the modulo "
+            "operation.")
 
         .def("__str__", &AddrRange::to_string)
 
@@ -167,15 +263,39 @@ init_range(py::module_ &m_native)
         .def("mergesWith", &AddrRange::mergesWith)
         .def("intersects", &AddrRange::intersects)
         .def("isSubset", &AddrRange::isSubset)
-        ;
-
-    // We need to make vectors of AddrRange opaque to avoid weird
-    // memory allocation issues in PyBind's STL wrappers.
-    py::bind_vector<std::vector<AddrRange>>(m, "AddrRangeVector");
+        .def("contains", &AddrRange::contains)
+        .def("exclude",
+             static_cast<AddrRangeList (AddrRange::*)(const AddrRangeList &)
+                             const>(&AddrRange::exclude));
 
     m.def("RangeEx", &RangeEx);
     m.def("RangeIn", &RangeIn);
     m.def("RangeSize", &RangeSize);
+}
+
+static void
+init_pc(py::module_ &m_native)
+{
+    py::module_ m = m_native.def_submodule("pc");
+    py::class_<PcCountPair>(m, "PcCountPair")
+        .def(py::init<>())
+        .def(py::init<Addr, uint64_t>())
+        .def("__eq__", [](const PcCountPair& self, py::object other) {
+            py::int_ pyPC = other.attr("get_pc")();
+            py::int_ pyCount = other.attr("get_count")();
+            uint64_t cPC = pyPC.cast<uint64_t>();
+            uint64_t cCount = pyCount.cast<uint64_t>();
+            return (self.getPC() == cPC && self.getCount() == cCount);
+        })
+        .def("__hash__", [](const PcCountPair& self){
+            py::int_ pyPC = py::cast(self.getPC());
+            py::int_ pyCount = py::cast(self.getCount());
+            return py::hash(py::make_tuple(pyPC, pyCount));
+        })
+        .def("__str__", &PcCountPair::to_string)
+        .def("get_pc", &PcCountPair::getPC)
+        .def("get_count", &PcCountPair::getCount)
+        ;
 }
 
 static void
@@ -210,6 +330,20 @@ init_loader(py::module_ &m_native)
     py::module_ m = m_native.def_submodule("loader");
 
     m.def("setInterpDir", &loader::setInterpDir);
+}
+
+static void
+init_socket(py::module_ &m_native)
+{
+    py::module_ m_socket = m_native.def_submodule("socket");
+    m_socket
+        .def("listenSocketEmptyConfig", &listenSocketEmptyConfig)
+        .def("listenSocketInetConfig", &listenSocketInetConfig)
+        .def("listenSocketUnixFileConfig", &listenSocketUnixFileConfig)
+        .def("listenSocketUnixAbstractConfig",
+                &listenSocketUnixAbstractConfig);
+
+    py::class_<ListenSocketConfig>(m_socket, "ListenSocketConfig");
 }
 
 void
@@ -277,33 +411,28 @@ pybind_init_core(py::module_ &m_native)
         .value("HACK", Logger::HACK)
         ;
 
-    m_core
-        .def("setLogLevel", &Logger::setLevel)
+    m_core.def("setLogLevel", &Logger::setLevel)
         .def("setOutputDir", &setOutputDir)
         .def("doExitCleanup", &doExitCleanup)
+        .def("initSignals", &initSignals, "Initialize gem5 signal handlers")
 
         .def("disableAllListeners", &ListenSocket::disableAll)
         .def("listenersDisabled", &ListenSocket::allDisabled)
         .def("listenersLoopbackOnly", &ListenSocket::loopbackOnly)
-        .def("seedRandom", [](uint64_t seed) { random_mt.init(seed); })
-
+        .def("seedRandom", [](uint64_t seed) { Random::reseedAll(seed); })
 
         .def("fixClockFrequency", &fixClockFrequency)
         .def("clockFrequencyFixed", &clockFrequencyFixed)
 
         .def("setClockFrequency", &setClockFrequency)
         .def("getClockFrequency", &getClockFrequency)
-        .def("curTick", curTick)
-        ;
+        .def("curTick", curTick);
 
     /* TODO: These should be read-only */
     m_core.attr("compileDate") = py::cast(compileDate);
     m_core.attr("gem5Version") = py::cast(gem5Version);
 
-    m_core.attr("flag_DEBUG") = py::cast(flag_DEBUG);
-    m_core.attr("flag_DEBUG") = py::cast(flag_DEBUG);
-    m_core.attr("flag_NDEBUG") = py::cast(flag_NDEBUG);
-    m_core.attr("flag_TRACING_ON") = py::cast(flag_TRACING_ON);
+    m_core.attr("TRACING_ON") = py::cast(TRACING_ON);
 
     m_core.attr("MaxTick") = py::cast(MaxTick);
 
@@ -319,12 +448,82 @@ pybind_init_core(py::module_ &m_native)
 
         ;
 
+    /*
+     * Instantiation helpers
+     */
+    m_core
+        .def("bindPorts",
+             [](const py::list &obj_ptrs,
+                const std::vector<std::string> &obj_port_names,
+                const std::vector<PortID> &obj_port_indices,
+                const py::list &peer_ptrs,
+                const std::vector<std::string> &peer_port_names,
+                const std::vector<PortID> &peer_port_indices) {
+                 const size_t n = obj_ptrs.size();
+                 for (size_t i = 0; i < n; ++i) {
+                     // We use py::capsule instead of directly passing a Python
+                     // list of SimObject instances (which can be automatically
+                     // cast to std::vector<SimObject*> by pybind11) to
+                     // eliminate massive type-casting overhead.
+                     auto *obj =
+                         py::capsule(obj_ptrs[i]).get_pointer<SimObject>();
+                     auto *peer =
+                         py::capsule(peer_ptrs[i]).get_pointer<SimObject>();
+
+                     Port &pa =
+                         obj->getPort(obj_port_names[i], obj_port_indices[i]);
+                     Port &pb = peer->getPort(peer_port_names[i],
+                                              peer_port_indices[i]);
+                     pa.bind(pb);
+                 }
+             })
+        // We pass a list of capsules to reduce pybind11 overhead.
+        .def("initAll",
+             [](const py::list &capsules) {
+                 for (py::handle cap : capsules) {
+                     auto *obj =
+                         cap.cast<py::capsule>().get_pointer<SimObject>();
+                     obj->init();
+                 }
+             })
+        .def("regProbePointsAll",
+             [](const py::list &capsules) {
+                 for (py::handle cap : capsules) {
+                     auto *obj =
+                         cap.cast<py::capsule>().get_pointer<SimObject>();
+                     obj->regProbePoints();
+                 }
+             })
+        .def("regProbeListenersAll",
+             [](const py::list &capsules) {
+                 for (py::handle cap : capsules) {
+                     auto *obj =
+                         cap.cast<py::capsule>().get_pointer<SimObject>();
+                     obj->regProbeListeners();
+                 }
+             })
+        .def("initStateAll",
+             [](const py::list &capsules) {
+                 for (py::handle cap : capsules) {
+                     auto *obj =
+                         cap.cast<py::capsule>().get_pointer<SimObject>();
+                     obj->initState();
+                 }
+             })
+        .def("loadStateAll", [](CheckpointIn &cp, const py::list &capsules) {
+            for (py::handle cap : capsules) {
+                auto *obj = cap.cast<py::capsule>().get_pointer<SimObject>();
+                obj->loadState(cp);
+            }
+        });
 
     init_drain(m_native);
     init_serialize(m_native);
     init_range(m_native);
     init_net(m_native);
     init_loader(m_native);
+    init_pc(m_native);
+    init_socket(m_native);
 }
 
 } // namespace gem5

@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -44,6 +42,7 @@ TesterThread::TesterThread(const Params &p)
       : ClockedObject(p),
         threadEvent(this, "TesterThread tick"),
         deadlockCheckEvent(this),
+        cacheLineSize(p.cache_line_size),
         threadId(p.thread_id),
         numLanes(p.num_lanes),
         tester(nullptr), addrManager(nullptr), port(nullptr),
@@ -146,12 +145,44 @@ TesterThread::attachTesterThreadToPorts(ProtocolTester *_tester,
 void
 TesterThread::issueNewEpisode()
 {
-    int num_reg_loads = random() % tester->getEpisodeLength();
+    int num_reg_loads = \
+        rng->random<unsigned int>() % tester->getEpisodeLength();
     int num_reg_stores = tester->getEpisodeLength() - num_reg_loads;
 
     // create a new episode
     curEpisode = new Episode(tester, this, num_reg_loads, num_reg_stores);
     episodeHistory.push_back(curEpisode);
+}
+
+int
+TesterThread::getTokensNeeded()
+{
+    if (!tokenPort) {
+        return 0;
+    }
+
+    int tokens_needed = 0;
+    curAction = curEpisode->peekCurAction();
+
+    switch(curAction->getType()) {
+        case Episode::Action::Type::ATOMIC:
+            tokens_needed = numLanes;
+            break;
+        case Episode::Action::Type::LOAD:
+        case Episode::Action::Type::STORE:
+            for (int lane = 0; lane < numLanes; ++lane) {
+                Location loc = curAction->getLocation(lane);
+
+                if (loc != AddressManager::INVALID_LOCATION && loc >= 0) {
+                    tokens_needed++;
+                }
+            }
+            break;
+        default:
+            tokens_needed = 0;
+    }
+
+    return tokens_needed;
 }
 
 bool
@@ -164,10 +195,13 @@ TesterThread::isNextActionReady()
 
         // Only GPU wavefront threads have a token port. For all other types
         // of threads evaluate to true.
-        bool haveTokens = tokenPort ? tokenPort->haveTokens(numLanes) : true;
+        bool haveTokens = true;
 
         switch(curAction->getType()) {
             case Episode::Action::Type::ATOMIC:
+                haveTokens = tokenPort ?
+                    tokenPort->haveTokens(getTokensNeeded()) : true;
+
                 // an atomic action must wait for all previous requests
                 // to complete
                 if (pendingLdStCount == 0 &&
@@ -208,7 +242,7 @@ TesterThread::isNextActionReady()
                 assert(pendingAtomicCount == 0);
 
                 // can't issue if there is a pending fence
-                if (pendingFenceCount > 0 || !haveTokens) {
+                if (pendingFenceCount > 0) {
                     return false;
                 }
 
@@ -217,7 +251,7 @@ TesterThread::isNextActionReady()
                 for (int lane = 0; lane < numLanes; ++lane) {
                     Location loc = curAction->getLocation(lane);
 
-                    if (loc != AddressManager::INVALID_LOCATION) {
+                    if (loc != AddressManager::INVALID_LOCATION && loc >= 0) {
                         Addr addr = addrManager->getAddress(loc);
 
                         if (outstandingLoads.find(addr) !=
@@ -239,6 +273,12 @@ TesterThread::isNextActionReady()
                     }
                 }
 
+                haveTokens = tokenPort ?
+                    tokenPort->haveTokens(getTokensNeeded()) : true;
+                if (!haveTokens) {
+                    return false;
+                }
+
                 return true;
             default:
                 panic("The tester got an invalid action\n");
@@ -252,7 +292,7 @@ TesterThread::issueNextAction()
     switch(curAction->getType()) {
         case Episode::Action::Type::ATOMIC:
             if (tokenPort) {
-                tokenPort->acquireTokens(numLanes);
+                tokenPort->acquireTokens(getTokensNeeded());
             }
             issueAtomicOps();
             break;
@@ -264,13 +304,13 @@ TesterThread::issueNextAction()
             break;
         case Episode::Action::Type::LOAD:
             if (tokenPort) {
-                tokenPort->acquireTokens(numLanes);
+                tokenPort->acquireTokens(getTokensNeeded());
             }
             issueLoadOps();
             break;
         case Episode::Action::Type::STORE:
             if (tokenPort) {
-                tokenPort->acquireTokens(numLanes);
+                tokenPort->acquireTokens(getTokensNeeded());
             }
             issueStoreOps();
             break;
@@ -343,7 +383,7 @@ TesterThread::validateAtomicResp(Location loc, int lane, Value ret_val)
         ss << threadName << ": Atomic Op returned unexpected value\n"
            << "\tEpisode " << curEpisode->getEpisodeId() << "\n"
            << "\tLane ID " << lane << "\n"
-           << "\tAddress " << ruby::printAddress(addr) << "\n"
+           << "\tAddress " << printAddress(addr) << "\n"
            << "\tAtomic Op's return value " << ret_val << "\n";
 
         // print out basic info
@@ -369,7 +409,7 @@ TesterThread::validateLoadResp(Location loc, int lane, Value ret_val)
            << "\tTesterThread " << threadId << "\n"
            << "\tEpisode " << curEpisode->getEpisodeId() << "\n"
            << "\tLane ID " << lane << "\n"
-           << "\tAddress " << ruby::printAddress(addr) << "\n"
+           << "\tAddress " << printAddress(addr) << "\n"
            << "\tLoaded value " << ret_val << "\n"
            << "\tLast writer " << addrManager->printLastWriter(loc) << "\n";
 
@@ -427,7 +467,7 @@ TesterThread::printOutstandingReqs(const OutstandingReqTable& table,
 
     for (const auto& m : table) {
         for (const auto& req : m.second) {
-            ss << "\t\t\tAddr " << ruby::printAddress(m.first)
+            ss << "\t\t\tAddr " << printAddress(m.first)
                << ": delta (curCycle - issueCycle) = "
                << (cur_cycle - req.issueCycle) << std::endl;
         }
@@ -446,6 +486,12 @@ TesterThread::printAllOutstandingReqs(std::stringstream& ss) const
     printOutstandingReqs(outstandingAtomics, ss);
     ss << "\t\tNumber of outstanding acquires & releases: "
        << pendingFenceCount << std::endl;
+}
+
+std::string
+TesterThread::printAddress(Addr addr) const
+{
+    return ruby::printAddress(addr, floorLog2(cacheLineSize));
 }
 
 } // namespace gem5

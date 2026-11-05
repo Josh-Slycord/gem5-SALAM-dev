@@ -29,6 +29,7 @@
 #ifndef __BASE_STATS_TYPES_HH__
 #define __BASE_STATS_TYPES_HH__
 
+#include <cstddef>
 #include <limits>
 #include <map>
 #include <vector>
@@ -39,7 +40,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Stats, statistics);
 namespace statistics
 {
 
@@ -57,7 +57,7 @@ typedef double Result;
 /** vector of results. */
 typedef std::vector<Result> VResult;
 
-typedef unsigned int size_type;
+typedef std::size_t size_type;
 typedef unsigned int off_type;
 
 enum DistType { Deviation, Dist, Hist };

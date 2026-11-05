@@ -65,7 +65,7 @@ let {{
 
         def __init__(self, mnem, Name, size=4, user=False, flavor="normal",
                     unsign=True, top = False, paired=False, ret_op=True):
-            super(AtomicInst64, self).__init__()
+            super().__init__()
 
             self.name= mnem
             self.Name = Name
@@ -83,7 +83,7 @@ let {{
 
             # Add memory request flags where necessary
             if self.user:
-                self.memFlags.append("ArmISA::TLB::UserMode")
+                self.memFlags.append("ArmISA::MMU::UserMode")
 
             sz = self.size*2 if paired else self.size
             self.memFlags.append("%d" % int(math.log(sz, 2)))
@@ -166,7 +166,7 @@ let {{
         execBase = 'AmoOp'
 
         def __init__(self, *args, **kargs):
-            super(AtomicSingleOp, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             self.suffix = buildMemSuffix(not self.unsign, self.size)
             if self.size == 8:
                 self.res = 'XResult_ud' #if self.unsign else 'XResult_sd'
@@ -267,7 +267,7 @@ let {{
         execBase = 'AmoOp'
 
         def __init__(self, *args, **kargs):
-            super(CasPair64, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             self.paired = True
             self.offset = ""
             if self.size == 8:
@@ -386,7 +386,7 @@ let {{
         execBase = 'AmoOp'
 
         def __init__(self, *args, **kargs):
-            super(AtomicArithmeticSingleOp, self).__init__(*args, **kargs)
+            super().__init__(*args, **kargs)
             store_res = "%(utype)s unsMem = Mem%(suffix)s"
 
             if self.size != 8:
@@ -427,7 +427,7 @@ let {{
                    flavor="release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldaddab",   "LDADDAB",   1, unsign=True,
                    flavor="acquire").emit(OP_DICT['ADD'])
-    AtomicArithmeticSingleOp("ldaddlab",  "LDADDLAB",  1, unsign=True,
+    AtomicArithmeticSingleOp("ldaddalb",  "LDADDALB",  1, unsign=True,
                    flavor="acquire_release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldaddh",    "LDADDH",    2, unsign=True,
                    flavor="normal").emit(OP_DICT['ADD'])
@@ -435,7 +435,7 @@ let {{
                    flavor="release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldaddah",   "LDADDAH",   2, unsign=True,
                    flavor="acquire").emit(OP_DICT['ADD'])
-    AtomicArithmeticSingleOp("ldaddlah",  "LDADDLAH",  2, unsign=True,
+    AtomicArithmeticSingleOp("ldaddalh",  "LDADDALH",  2, unsign=True,
                    flavor="acquire_release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldadd",     "LDADD",     4, unsign=True,
                    flavor="normal").emit(OP_DICT['ADD'])
@@ -443,7 +443,7 @@ let {{
                    flavor="release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldadda",    "LDADDA",    4, unsign=True,
                    flavor="acquire").emit(OP_DICT['ADD'])
-    AtomicArithmeticSingleOp("ldaddla",   "LDADDLA",   4, unsign=True,
+    AtomicArithmeticSingleOp("ldaddal",   "LDADDAL",   4, unsign=True,
                    flavor="acquire_release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldadd64",   "LDADD64",   8, unsign=True,
                    flavor="normal").emit(OP_DICT['ADD'])
@@ -451,7 +451,7 @@ let {{
                    flavor="release").emit(OP_DICT['ADD'])
     AtomicArithmeticSingleOp("ldadda64",  "LDADDA64",  8, unsign=True,
                    flavor="acquire").emit(OP_DICT['ADD'])
-    AtomicArithmeticSingleOp("ldaddla64", "LDADDLA64", 8, unsign=True,
+    AtomicArithmeticSingleOp("ldaddal64", "LDADDAL64", 8, unsign=True,
                    flavor="acquire_release").emit(OP_DICT['ADD'])
 
     AtomicArithmeticSingleOp("ldclrb",    "LDCLRB",    1, unsign=True,
@@ -827,35 +827,35 @@ let {{
                    ret_op=False, flavor="release").emit(OP_DICT['MIN'])
 
     AtomicArithmeticSingleOp("swpb",   "SWPB",    1, unsign=True,
-                   ret_op=False, flavor="normal").emit(OP_DICT['SWP'])
+                   flavor="normal").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swplb",  "SWPLB",   1, unsign=True,
-                   ret_op=False, flavor="release").emit(OP_DICT['SWP'])
+                   flavor="release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpab",  "SWPAB",   1, unsign=True,
-                   ret_op=False, flavor="acquire").emit(OP_DICT['SWP'])
+                   flavor="acquire").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swplab", "SWPLAB",  1, unsign=True,
-                   ret_op=False, flavor="acquire_release").emit(OP_DICT['SWP'])
+                   flavor="acquire_release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swph",   "SWPH",    2, unsign=True,
-                   ret_op=False, flavor="normal").emit(OP_DICT['SWP'])
+                   flavor="normal").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swplh",  "SWPLH",   2, unsign=True,
-                   ret_op=False, flavor="release").emit(OP_DICT['SWP'])
+                   flavor="release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpah",  "SWPAH",   2, unsign=True,
-                   ret_op=False, flavor="acquire").emit(OP_DICT['SWP'])
+                   flavor="acquire").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swplah", "SWPLAH",  2, unsign=True,
-                   ret_op=False, flavor="acquire_release").emit(OP_DICT['SWP'])
+                   flavor="acquire_release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swp",    "SWP",     4, unsign=True,
-                   ret_op=False, flavor="normal").emit(OP_DICT['SWP'])
+                   flavor="normal").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpl",   "SWPL",    4, unsign=True,
-                   ret_op=False, flavor="release").emit(OP_DICT['SWP'])
+                   flavor="release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpa",   "SWPA",    4, unsign=True,
-                   ret_op=False, flavor="acquire").emit(OP_DICT['SWP'])
+                   flavor="acquire").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpla",  "SWPLA",   4, unsign=True,
-                   ret_op=False, flavor="acquire_release").emit(OP_DICT['SWP'])
+                   flavor="acquire_release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swp64",  "SWP64",    8, unsign=True,
-                   ret_op=False, flavor="normal").emit(OP_DICT['SWP'])
+                   flavor="normal").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpl64", "SWPL64",   8, unsign=True,
-                   ret_op=False, flavor="release").emit(OP_DICT['SWP'])
+                   flavor="release").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpa64", "SWPA64",   8, unsign=True,
-                   ret_op=False, flavor="acquire").emit(OP_DICT['SWP'])
+                   flavor="acquire").emit(OP_DICT['SWP'])
     AtomicArithmeticSingleOp("swpla64", "SWPLA64", 8, unsign=True,
-                   ret_op=False, flavor="acquire_release").emit(OP_DICT['SWP'])
+                   flavor="acquire_release").emit(OP_DICT['SWP'])
 }};
