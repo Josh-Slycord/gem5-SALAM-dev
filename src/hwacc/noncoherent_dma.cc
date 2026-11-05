@@ -2,6 +2,22 @@
 #include "hwacc/noncoherent_dma.hh"
 //------------------------------------------//
 
+NoncoherentDma::DmaStats::DmaStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(transfers, statistics::units::Count::get(),
+               "DMA transfers started"),
+      ADD_STAT(bytes, statistics::units::Byte::get(),
+               "Bytes moved from the read FIFO into the write FIFO"),
+      ADD_STAT(beats, statistics::units::Count::get(),
+               "Internal read-to-write FIFO beats transferred"),
+      ADD_STAT(writePackets, statistics::units::Count::get(),
+               "DMA write packets issued"),
+      ADD_STAT(active, statistics::units::Ratio::get(),
+               "Fraction of cycles the DMA engine was active")
+{
+    active.flags(statistics::nozero);
+}
+
 NoncoherentDma::NoncoherentDma(const NoncoherentDmaParams &p)
     : DmaDevice(p),
     devname(p.devicename),
@@ -14,12 +30,15 @@ NoncoherentDma::NoncoherentDma(const NoncoherentDmaParams &p)
     gic(p.gic),
     intNum(p.int_num),
     clock_period(p.clock_period),
+    processCycles(p.process_cycles),
     tickEvent([this]{tick();}, name()),
+    dmaStats(this),
     accPort(this, sys, p.sid, p.ssid) {
+    auto count_write = [this](size_t) { dmaStats.writePackets++; };
     memSideReadFifo = new DmaReadFifo(dmaPort, size_t(bufferSize/2), maxReqSize, maxPending);
-    memSideWriteFifo = new DmaWriteFifo(dmaPort, size_t(bufferSize/2), maxReqSize, maxPending);
+    memSideWriteFifo = new DmaWriteFifo(dmaPort, size_t(bufferSize/2), maxReqSize, maxPending, 0, count_write);
     accSideReadFifo = new DmaReadFifo(accPort, size_t(bufferSize/2), maxReqSize, maxPending);
-    accSideWriteFifo = new DmaWriteFifo(accPort, size_t(bufferSize/2), maxReqSize, maxPending);
+    accSideWriteFifo = new DmaWriteFifo(accPort, size_t(bufferSize/2), maxReqSize, maxPending, 0, count_write);
     readFifo = nullptr;
     writeFifo = nullptr;
     mmreg = new uint8_t[pioSize];
@@ -69,6 +88,8 @@ void
 NoncoherentDma::tick() {
     if (!running && ((*FLAGS&0x01)==0x01)) {
         running = true;
+        dmaStats.transfers++;
+        dmaStats.active = 1;
         *FLAGS &= 0xFE;
         *FLAGS |= 0x02;
         activeSrc = *SRC;
@@ -92,6 +113,8 @@ NoncoherentDma::tick() {
                 uint8_t * data = new uint8_t[toWrite];
                 if (readFifo->tryGet(data, toWrite)) {
                     writeFifo->fill(data, toWrite);
+                    dmaStats.beats++;
+                    dmaStats.bytes += toWrite;
                     writesLeft -= toWrite;
                 }
                 delete[] data;
@@ -99,6 +122,7 @@ NoncoherentDma::tick() {
         } else {
             if (!writeFifo->isActive()) {
                 running = false;
+                dmaStats.active = 0;
                 *FLAGS &= 0xFD;
                 *FLAGS |= 0x04;
                 //raise interrupts
@@ -110,7 +134,7 @@ NoncoherentDma::tick() {
     }
 	last_flag = *FLAGS;
     if (!tickEvent.scheduled() && running) {
-        schedule(tickEvent, curTick() + clock_period*1000);
+        schedule(tickEvent, clockEdge(processCycles));
     }
 }
 
@@ -120,21 +144,23 @@ NoncoherentDma::read(PacketPtr pkt) {
 
     Addr offset = pkt->req->getPaddr() - pioAddr;
 
-    uint64_t data;
-
-    data = *(uint64_t *)(mmreg+offset);
+    uint64_t data = 0;
 
     switch(pkt->getSize()) {
       case 1:
+        data = *(uint8_t *)(mmreg+offset);
         pkt->setLE<uint8_t>(data);
         break;
       case 2:
+        data = *(uint16_t *)(mmreg+offset);
         pkt->setLE<uint16_t>(data);
         break;
       case 4:
+        data = *(uint32_t *)(mmreg+offset);
         pkt->setLE<uint32_t>(data);
         break;
       case 8:
+        data = *(uint64_t *)(mmreg+offset);
         pkt->setLE<uint64_t>(data);
         break;
       default:
@@ -158,7 +184,7 @@ NoncoherentDma::write(PacketPtr pkt) {
     pkt->writeData(mmreg + (pkt->req->getPaddr() - pioAddr));
 
     if (!tickEvent.scheduled()) {
-        schedule(tickEvent, curTick() + clock_period*1000);
+        schedule(tickEvent, clockEdge(processCycles));
     }
     pkt->makeAtomicResponse();
     return pioDelay;

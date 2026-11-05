@@ -1,6 +1,7 @@
 #ifndef __HWACC_NONCOHERENT_DMA_HH__
 #define __HWACC_NONCOHERENT_DMA_HH__
 //------------------------------------------//
+#include "base/statistics.hh"
 #include "dev/arm/base_gic.hh"
 #include "dev/dma_device.hh"
 #include "hwacc/LLVMRead/src/debug_flags.hh"
@@ -35,6 +36,7 @@ class NoncoherentDma : public DmaDevice
     BaseGic * gic;
     uint32_t intNum;
     int clock_period;
+    Cycles processCycles;
 
     uint8_t * mmreg;
     uint8_t * FLAGS;
@@ -52,6 +54,18 @@ class NoncoherentDma : public DmaDevice
     Tick start_time;
 
     EventFunctionWrapper tickEvent;
+
+    struct DmaStats : public statistics::Group
+    {
+        DmaStats(statistics::Group *parent);
+
+        statistics::Scalar transfers;
+        statistics::Scalar bytes;
+        statistics::Scalar beats;
+        statistics::Scalar writePackets;
+        statistics::Average active;
+    };
+    DmaStats dmaStats;
 
   protected:
     DmaPort accPort;

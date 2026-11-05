@@ -7,6 +7,11 @@ class HWStatistics(SimObject):
     type = 'HWStatistics'
     # gem5-SALAM attached header
     cxx_header = "hwacc/HWModeling/src/hw_statistics.hh"
+    cycle_tracking = Param.Bool(
+        False,
+        "Record per-cycle queue/FU snapshots; disabled by default because the "
+        "history is unbounded unless consumed"
+    )
     ### --- Do Not Modify Below This Line --- ###
     ### Templates
     ### YML Type: statistics
