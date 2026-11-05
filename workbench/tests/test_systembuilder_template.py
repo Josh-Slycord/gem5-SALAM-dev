@@ -1,5 +1,6 @@
 """Regressions for content-bound full-system template generation."""
 import ast
+import importlib.util
 import keyword
 import unittest
 from pathlib import Path
@@ -129,6 +130,64 @@ class FullSystemTemplateTests(unittest.TestCase):
     def test_non_string_module_name_is_rejected(self):
         with self.assertRaises(ValueError):
             self.render(self.template, None)
+
+    def test_parser_dma_optional_interrupt_and_int_port_counts(self):
+        for rel in (
+            "SALAM-Configurator/parser.py",
+            "tools/SALAM-Configurator/config_parser.py",
+        ):
+            with self.subTest(rel=rel):
+                path = ENGINE / rel
+                spec = importlib.util.spec_from_file_location("cfg_parser", path)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                dmas = [
+                    {
+                        "DMA": [
+                            {
+                                "Name": "dma0",
+                                "Type": "NonCoherent",
+                                "PIOMaster": "other,LocalBus",
+                                "BufferSize": 128,
+                                "MaxReqSize": 32,
+                            }
+                        ]
+                    }
+                ]
+                accs = [
+                    {
+                        "Accelerator": [
+                            {"Name": "top"},
+                            {"PIOSize": 32},
+                            {"IrPath": "hw/top.ll"},
+                            {"PIOMaster": "LocalBus"},
+                            {
+                                "Var": [
+                                    {
+                                        "Name": "spm0",
+                                        "Type": "SPM",
+                                        "Size": 64,
+                                        "Ports": 2,
+                                        "Connections": "other:3",
+                                    }
+                                ]
+                            },
+                        ]
+                    }
+                ]
+                cluster = mod.AccCluster(
+                    "test_clstr", dmas, accs, 0x10020000, "/m5", "/m5/config.yml"
+                )
+                dma = cluster.dmas[0]
+                self.assertIsNone(dma.int_num)
+                self.assertEqual(dma.size, 128)
+                self.assertEqual(dma.maxReq, 32)
+                dma_lines = "\n".join(dma.genConfig())
+                self.assertNotIn("int_num=None", dma_lines)
+                self.assertIn("clstr.local_bus.mem_side_ports", dma_lines)
+                spm = cluster.accs[0].variables[0]
+                self.assertEqual(spm.connections[1].numPorts, 3)
+                self.assertIsInstance(spm.connections[1].numPorts, int)
 
 
 if __name__ == "__main__":

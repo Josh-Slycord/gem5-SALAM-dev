@@ -106,6 +106,8 @@ if env["CONF"]["USE_ARM_ISA"] and env.get("WITH_SALAM", False):
     # GUI Publisher (optional ZeroMQ support)
     # Compiles without ZeroMQ but functionality is disabled
     Source('gui_publisher.cc')
+    GTest('fu_scheduling_pool.test', 'fu_scheduling_pool.test.cc',
+          with_tag('gem5 trace'))
 
     #
     DebugFlag('CommInterface')
