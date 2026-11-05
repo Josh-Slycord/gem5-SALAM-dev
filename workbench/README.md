@@ -8,6 +8,9 @@
 
 The workbench connects configuration editing to generated SALAM SimObjects/C++, simulator builds, staged benchmark compilation, real gem5 execution and independently checked results. It lives beside the simulator source in this fork; machine settings and run outputs remain local.
 
+The [5 November 2026 checkpoint](docs/CHECKPOINT_2026-11-05.md) records the
+merged tooling qualification and upstream-readiness gates.
+
 Start with the [functional-unit scheduling results](docs/FU_SCHEDULING_RESULTS.md), [packaging options](docs/PACKAGING.md), and [output and Git policy](docs/HYGIENE.md).
 
 ## Validated environments
