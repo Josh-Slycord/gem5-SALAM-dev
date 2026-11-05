@@ -130,20 +130,25 @@ def _load_hw_config(config_file, benchname, bench_path=None, m5_path_len=0):
     try:
         with open(config_file, "r") as f:
             # Check for mobilenetv2 multi-document format
-            if bench_path and len(bench_path) > m5_path_len + 1:
-                if bench_path[m5_path_len + 1] == "mobilenetv2":
-                    for yaml_inst_list in yaml.safe_load_all(f):
-                        document = yaml_inst_list.get("acc_cluster", [{}])
-                        if document:
-                            current_acc = document[0].get("Name", "") + "_" + benchname
-                            if len(bench_path) > 9 and bench_path[9] == document[0].get(
-                                "Name"
-                            ):
-                                logger.info(f"{current_acc} Profile Loaded")
-                                return yaml_inst_list.get("hw_config", {}).get(
-                                    current_acc
-                                )
-                    return None
+            if bench_path and "mobilenetv2" in bench_path:
+                for yaml_inst_list in yaml.safe_load_all(f):
+                    if not yaml_inst_list:
+                        continue
+                    document = yaml_inst_list.get("acc_cluster", [{}])
+                    if document:
+                        doc_name = document[0].get("Name", "")
+                        current_acc = doc_name + "_" + benchname
+                        rel_parts = (
+                            bench_path[m5_path_len:]
+                            if m5_path_len and len(bench_path) > m5_path_len
+                            else bench_path
+                        )
+                        if doc_name and doc_name in rel_parts:
+                            logger.info(f"{current_acc} Profile Loaded")
+                            return yaml_inst_list.get("hw_config", {}).get(
+                                current_acc
+                            )
+                return None
 
             # Standard single-document format
             yaml_data = yaml.safe_load(f)
