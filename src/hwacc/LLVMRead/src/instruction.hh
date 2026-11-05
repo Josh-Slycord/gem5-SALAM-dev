@@ -56,6 +56,7 @@ class Instruction : public Value
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles); //
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles, uint64_t functional_unit); //
         ~Instruction(); //
+        void releaseGraphEdges() override;
         bool operator == (const std::shared_ptr<SALAM::Instruction> inst) const { return this->getUID() == inst->getUID(); }
         bool operator != (const std::shared_ptr<SALAM::Instruction> inst) const { return !operator==(inst); }
         virtual void initialize(llvm::Value * irval, irvmap * irmap, SALAM::valueListTy * valueList); //
@@ -207,6 +208,7 @@ class Br : public Instruction {
         void initialize(llvm::Value * irval,
                         irvmap * irmap,
                         SALAM::valueListTy * valueList);
+        void releaseGraphEdges() override;
         Br &isConditional(bool isConditional) { conditional = isConditional; return *this; }
         bool isConditional() { return conditional; }
         std::shared_ptr<SALAM::BasicBlock> getTarget() override;
@@ -233,6 +235,11 @@ typedef std::pair<std::shared_ptr<SALAM::Value>, std::shared_ptr<SALAM::BasicBlo
 typedef std::vector< caseArgs> switchArgs;
 
 class Switch : public Instruction {
+    public:
+        static constexpr size_t kSwitchConditionOperandIndex = 0;
+        static constexpr size_t kSwitchDefaultDestOperandIndex = 1;
+        static constexpr size_t kSwitchFirstCaseOperandIndex = 2;
+
     private:
         std::vector< std::vector<uint64_t> > conditions;
         // conditions.at[0] == base params
@@ -252,6 +259,7 @@ class Switch : public Instruction {
         void initialize (llvm::Value * irval,
                         irvmap * irmap,
                         SALAM::valueListTy * valueList);
+        void releaseGraphEdges() override;
         // std::shared_ptr<SALAM::Value> defaultDest() { return arguments[0].second; }
         // std::shared_ptr<SALAM::Value> destination(int switchVar);
         std::shared_ptr<SALAM::BasicBlock> getTarget() override;
@@ -1475,6 +1483,7 @@ class Phi : public Instruction {
         void initialize(llvm::Value * irval,
                         irvmap * irmap,
                         SALAM::valueListTy * valueList);
+        void releaseGraphEdges() override;
         //virtual std::deque<uint64_t> runtimeInitialize() override;
         virtual std::vector<uint64_t> runtimeInitialize() override;
         bool isPhi() override { return true; }
@@ -1512,6 +1521,7 @@ class Call : public Instruction {
         void initialize (llvm::Value * irval,
                         irvmap * irmap,
                         SALAM::valueListTy * valueList);
+        void releaseGraphEdges() override;
         bool isCall() override { return true; }
         uint64_t getCycleCount() { return conditions.at(0).at(2); }
         void compute();

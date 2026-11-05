@@ -130,20 +130,25 @@ def _load_hw_config(config_file, benchname, bench_path=None, m5_path_len=0):
     try:
         with open(config_file, "r") as f:
             # Check for mobilenetv2 multi-document format
-            if bench_path and len(bench_path) > m5_path_len + 1:
-                if bench_path[m5_path_len + 1] == "mobilenetv2":
-                    for yaml_inst_list in yaml.safe_load_all(f):
-                        document = yaml_inst_list.get("acc_cluster", [{}])
-                        if document:
-                            current_acc = document[0].get("Name", "") + "_" + benchname
-                            if len(bench_path) > 9 and bench_path[9] == document[0].get(
-                                "Name"
-                            ):
-                                logger.info(f"{current_acc} Profile Loaded")
-                                return yaml_inst_list.get("hw_config", {}).get(
-                                    current_acc
-                                )
-                    return None
+            rel_parts = (
+                bench_path[m5_path_len:]
+                if bench_path and m5_path_len and len(bench_path) > m5_path_len
+                else bench_path
+            )
+            if rel_parts and "mobilenetv2" in rel_parts:
+                for yaml_inst_list in yaml.safe_load_all(f):
+                    if not yaml_inst_list:
+                        continue
+                    document = yaml_inst_list.get("acc_cluster", [{}])
+                    if document:
+                        doc_name = document[0].get("Name", "")
+                        current_acc = doc_name + "_" + benchname
+                        if doc_name and doc_name in rel_parts:
+                            logger.info(f"{current_acc} Profile Loaded")
+                            return yaml_inst_list.get("hw_config", {}).get(
+                                current_acc
+                            )
+                return None
 
             # Standard single-document format
             yaml_data = yaml.safe_load(f)
@@ -381,3 +386,63 @@ def AccConfig(acc, bench_file, config_file):
 # num_ports = ConfigSectionMap("Memory")['ports']
 # for i in range(int(num_ports)):
 #    acc.spm[i] = spm.spm_ports[i]
+
+
+def configure_native_salam_clocks(root, options, future_cpu=None):
+    """Bind retained integer-ns SALAM settings to real native clock domains.
+
+    Called only at Simulation.run's final parameter-application boundary,
+    after option-derived writes and CPU setup. Apply scalar overrides once,
+    then preserve accelerator/DMA periods independently of system/CPU clocks.
+    Native edge alignment remains intentional and can shift a first interval
+    relative to the historical curTick()+period implementation.
+    """
+    kinds = {"LLVMInterface", "CommInterface", "NoncoherentDma"}
+    objects = [
+        obj for obj in root.descendants()
+        if getattr(obj, "type", None) in kinds
+    ]
+    if not objects:
+        return []
+    if (
+        future_cpu is not None
+        or getattr(options, "standard_switch", None)
+        or getattr(options, "repeat_switch", None)
+    ):
+        raise ValueError(
+            "Native SALAM clock binding currently requires a fixed CPU; "
+            "CPU-switching configurations need separate qualification"
+        )
+    system = getattr(root, "system", None)
+    if system is None:
+        raise ValueError(
+            "Native SALAM clock binding currently requires a single-system root; "
+            "dual/distributed systems need separate qualification"
+        )
+    parameters = list(getattr(options, "param", None) or [])
+    # A clock-domain override would be overwritten by this compatibility
+    # translation. Reject it explicitly rather than accepting a no-op setting.
+    for obj in objects:
+        prefix = obj.path() + ".clk_domain"
+        if any(str(value).lstrip().startswith(prefix) for value in parameters):
+            raise ValueError(
+                "Set " + obj.path() + ".clock_period in integer ns; "
+                "direct SALAM domain replacement is not supported by this adapter"
+            )
+    root.apply_config(parameters)
+    # Materialize before adding clock children; descendants() is a live walk.
+    objects = list(objects)
+    records = []
+    for obj in objects:
+        period_ns = int(obj.clock_period)
+        if not 1 <= period_ns <= 1000000:
+            raise ValueError("SALAM clock_period must be 1..1000000 ns: " + obj.path())
+        obj.clk_domain = SrcClockDomain(
+            clock=str(period_ns) + "ns",
+            voltage_domain=system.voltage_domain,
+        )
+        records.append({"object": obj.path(), "clock_period_ns": period_ns})
+    # All option-derived assignments and CPU creation have already happened.
+    # Consume overrides once here, immediately before native instantiation.
+    options.param = []
+    return records

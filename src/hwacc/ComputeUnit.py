@@ -1,10 +1,10 @@
 from m5.params import *
 from m5.proxy import *
-from m5.SimObject import SimObject
+from m5.objects.ClockedObject import ClockedObject
 from m5.objects.CommInterface import CommInterface
 from m5.objects.HWInterface import HWInterface
 
-class ComputeUnit(SimObject):
+class ComputeUnit(ClockedObject):
     type = 'ComputeUnit'
     cxx_header = "hwacc/compute_unit.hh"
 

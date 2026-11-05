@@ -354,23 +354,20 @@ def parseOriginalHeader(clusters):
     headerList = []
     for cluster in clusters:
         try:
-            f = open(workingDirectory + cluster.name + "_hw_defines.h", "r")
-            oldHeader = f.readlines()
-            f.close()
+            with open(workingDirectory + cluster.name + "_hw_defines.h", "r") as f:
+                oldHeader = f.readlines()
             begin = None
             end = None
             for i in range(0, len(oldHeader)):
-                if oldHeader[i] == "//BEGIN GENERATED CODE\n":
+                stripped = oldHeader[i].strip()
+                if stripped == "//BEGIN GENERATED CODE":
                     begin = i
-                elif (
-                    oldHeader[i] == "//END GENERATED CODE\n"
-                    or oldHeader[i] == "//END GENERATED CODE"
-                ):
+                elif stripped == "//END GENERATED CODE":
                     end = i
             if begin is not None and end is not None:
                 del oldHeader[begin : end + 1]
             headerList.append(oldHeader)
-        except:
+        except OSError:
             print("No Header Found for " + cluster.name)
             headerList.append([])
     return headerList

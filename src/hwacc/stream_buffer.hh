@@ -23,6 +23,18 @@ class StreamBuffer : public ClockedObject {
     Tick streamDelay;
     const double bandwidth;
 
+    struct TransferStats : public statistics::Group
+    {
+        TransferStats(statistics::Group *parent);
+
+        statistics::Scalar reads;
+        statistics::Scalar writes;
+        statistics::Scalar bytesRead;
+        statistics::Scalar bytesWritten;
+        statistics::Scalar statusReads;
+    };
+    TransferStats transferStats;
+
   public:
     // typedef StreamBufferParams Params;
     // const Params *

@@ -2,10 +2,9 @@
 
 # Import needed packages
 import argparse
-from http.client import FOUND
+import keyword
 import os
 import shutil
-from unittest import expectedFailure
 import config_parser
 
 import yaml
@@ -136,9 +135,8 @@ def parse_yaml(
 
 
 def open_yaml(yml_path: str):
-    stream = open(yml_path, "r")
-    config = yaml.safe_load_all(stream)
-    return config
+    with open(yml_path, "r") as stream:
+        return list(yaml.safe_load_all(stream))
 
 
 def gen_config(clusters, config_path: str, file_name: str):
@@ -167,93 +165,121 @@ def gen_config(clusters, config_path: str, file_name: str):
 
 
 def load_og_header(clusters, working_dir: str):
-    begin = None
-    end = None
     # Read in existing header
     header_list = []
-    for i in clusters:
+    for cluster in clusters:
+        begin = None
+        end = None
         try:
-            # f = open(working_dir + i.name  + "_" + args.headerName + ".h", 'r')
-            f = open(working_dir + i.name + "_hw_defines.h", 'r')
-            oldHeader = f.readlines()
-            for i in range(0, len(oldHeader)):
-                if oldHeader[i] == "//BEGIN GENERATED CODE\n":
-                    begin = i
-                elif oldHeader[i] == "//END GENERATED CODE\n" or oldHeader[i] == "//END GENERATED CODE":
-                    end = i
-            del oldHeader[begin:end+1]
+            with open(working_dir + cluster.name + "_hw_defines.h", 'r') as f:
+                oldHeader = f.readlines()
+            for idx, line in enumerate(oldHeader):
+                stripped = line.strip()
+                if stripped == "//BEGIN GENERATED CODE":
+                    begin = idx
+                elif stripped == "//END GENERATED CODE":
+                    end = idx
+            if begin is not None and end is not None:
+                del oldHeader[begin:end+1]
             header_list.append(oldHeader)
-        except:
+        except OSError:
             print("No Header Found")
-            emptyList = []
-            header_list.append(emptyList)
+            header_list.append([])
     return header_list
 
 
 def gen_header(header_list, clusters, working_dir: str):
     # Write out headers
-    for current_header in header_list:
-        for cluster in clusters:
-            with open(working_dir + cluster.name + "_hw_defines.h", 'w') as f:
-                current_header.append("//BEGIN GENERATED CODE\n")
+    for current_header, cluster in zip(header_list, clusters):
+        current_header = list(current_header)
+        with open(working_dir + cluster.name + "_hw_defines.h", 'w') as f:
+            current_header.append("//BEGIN GENERATED CODE\n")
+            current_header.append(
+                "//Cluster: " + cluster.name.upper() + "\n")
+            for dma in cluster.dmas:
+                if dma.dmaType == "NonCoherent":
+                    current_header.append(
+                        "//" + dma.dmaType + "DMA" + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_Flags " + hex(dma.address) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_RdAddr " + hex(dma.address + 1) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_WrAddr " + hex(dma.address + 9) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_CopyLen " + hex(dma.address + 17) + "\n")
+                elif dma.dmaType == "Stream":
+                    current_header.append(
+                        "//" + dma.dmaType + "DMA" + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_Flags " + hex(dma.address) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_RdAddr " + hex(dma.address + 4) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_WrAddr " + hex(dma.address + 12) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_RdFrameSize " + hex(dma.address + 20) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_NumRdFrames " + hex(dma.address + 24) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_RdFrameBufSize " + hex(dma.address + 25) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_WrFrameSize " + hex(dma.address + 26) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_NumWrFrames " + hex(dma.address + 30) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_WrFrameBufSize " + hex(dma.address + 31) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_Stream " + hex(dma.address + 32) + "\n")
+                    current_header.append(
+                        "#define " + dma.name.upper() + "_Status " + hex(dma.statusAddress) + "\n")
+            for acc in cluster.accs:
                 current_header.append(
-                    "//Cluster: " + cluster.name.upper() + "\n")
-                for dma in cluster.dmas:
-                    if dma.dmaType == "NonCoherent":
+                    "//Accelerator: " + acc.name.upper() + "\n")
+                current_header.append(
+                    "#define " + acc.name.upper() + " " + hex(acc.address) + "\n")
+                for var in acc.variables:
+                    if "Cache" in var.type:
+                        continue
+                    elif "Stream" in var.type:
                         current_header.append(
-                            "//" + dma.dmaType + "DMA" + "\n")
+                            "#define " + var.name + " " + hex(var.address) + "\n")
                         current_header.append(
-                            "#define " + dma.name.upper() + "_Flags " + hex(dma.address) + "\n")
+                            "#define " + var.name + "_Status " + hex(var.statusAddress) + "\n")
+                    else:
                         current_header.append(
-                            "#define " + dma.name.upper() + "_RdAddr " + hex(dma.address + 1) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_WrAddr " + hex(dma.address + 9) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_CopyLen " + hex(dma.address + 17) + "\n")
-                    elif dma.dmaType == "Stream":
-                        current_header.append(
-                            "//" + dma.dmaType + "DMA" + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_Flags " + hex(dma.address) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_RdAddr " + hex(dma.address + 4) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_WrAddr " + hex(dma.address + 12) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_RdFrameSize " + hex(dma.address + 20) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_NumRdFrames " + hex(dma.address + 24) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_RdFrameBufSize " + hex(dma.address + 25) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_WrFrameSize " + hex(dma.address + 26) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_NumWrFrames " + hex(dma.address + 30) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_WrFrameBufSize " + hex(dma.address + 31) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_Stream " + hex(dma.address + 32) + "\n")
-                        current_header.append(
-                            "#define " + dma.name.upper() + "_Status " + hex(dma.statusAddress) + "\n")
-                for acc in cluster.accs:
-                    current_header.append(
-                        "//Accelerator: " + acc.name.upper() + "\n")
-                    current_header.append(
-                        "#define " + acc.name.upper() + " " + hex(acc.address) + "\n")
-                    for var in acc.variables:
-                        if "Cache" in var.type:
-                            continue
-                        elif "Stream" in var.type:
-                            current_header.append(
-                                "#define " + var.name + " " + hex(var.address) + "\n")
-                            current_header.append(
-                                "#define " + var.name + "_Status " + hex(var.statusAddress) + "\n")
-                        else:
-                            current_header.append(
-                                "#define " + var.name + " " + hex(var.address) + "\n")
-                current_header.append("//END GENERATED CODE")
-                f.writelines(current_header)
-                current_header = []
+                            "#define " + var.name + " " + hex(var.address) + "\n")
+            current_header.append("//END GENERATED CODE")
+            f.writelines(current_header)
+
+
+def render_full_system_template(template: str, module_name: str) -> str:
+    """Bind the unique template import and accelerator call by their content."""
+    if not isinstance(module_name, str) or not module_name.isidentifier():
+        raise ValueError("Full-system module name must be a Python identifier")
+    if keyword.iskeyword(module_name):
+        raise ValueError("Full-system module name cannot be a Python keyword")
+    replacements = {
+        "import TEMPLATE": "import " + module_name,
+        "TEMPLATE.makeHWAcc(args, test_sys)": (
+            module_name + ".makeHWAcc(args, test_sys)"
+        ),
+    }
+    counts = dict.fromkeys(replacements, 0)
+    rendered = []
+    for line in template.splitlines(keepends=True):
+        marker = line.strip()
+        if marker in replacements:
+            counts[marker] += 1
+            line = line.replace(marker, replacements[marker], 1)
+        rendered.append(line)
+    for marker, count in counts.items():
+        if count != 1:
+            raise ValueError(
+                "Full-system template requires exactly one %r placeholder; found %d"
+                % (marker, count)
+            )
+    return "".join(rendered)
 
 
 def writeLines(writer, lines):
@@ -271,13 +297,13 @@ def main():
         print("Looking for Path Argument from Command Line")
         if args.m5_path is None:
             raise Exception("Path argument required when M5_PATH not set")
-        M5_Path = args.path
+        M5_Path = args.m5_path
         if M5_Path is None:
             raise Exception("M5_PATH Not Found")
 
     # Set file information
-    if args.sys_name == None:
-        file_name = os.path.basename(os.path.normpath(args.sys_path))
+    if args.sys_name is None:
+        file_name = os.path.basename(os.path.normpath(args.bench_path))
     else:
         file_name = args.sys_name
     config_path = M5_Path + "/configs/SALAM/"
@@ -314,16 +340,13 @@ def main():
         working_dir=working_dir
     )
     # Generate full system file
-    shutil.copyfile(M5_Path + "/tools/SALAM-Configurator/fs_template.py",
-                    config_path + "fs_" + file_name + ".py")
-    f = open(config_path + "fs_" + file_name + ".py", "r")
-    fullSystem = f.readlines()
-    fullSystem[65] = "import " + file_name
-    fullSystem[229] = "        " + file_name + ".makeHWAcc(args, test_sys)\n"
-    f = open(config_path + "fs_" + file_name + ".py", "w")
-    f.writelines(fullSystem)
+    template_path = M5_Path + "/tools/SALAM-Configurator/fs_template.py"
+    with open(template_path, "r") as f:
+        fullSystem = render_full_system_template(f.read(), file_name)
+    with open(config_path + "fs_" + file_name + ".py", "w") as f:
+        f.write(fullSystem)
     # Warn if the size is greater than allowed
-    if (clusters[-1].top_address > max_address):
+    if clusters and (clusters[-1].top_address > max_address):
         print("WARNING: Address range is greater than defined for gem5")
 
 

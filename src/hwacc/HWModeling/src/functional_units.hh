@@ -16,6 +16,7 @@
 #include "../generated/functionalunits/float_multiplier.hh"
 #include "../generated/functionalunits/integer_adder.hh"
 #include "../generated/functionalunits/integer_multiplier.hh"
+#include <cstdint>
 #include <iostream>
 #include <cstdlib>
 #include <vector>

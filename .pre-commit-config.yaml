@@ -1,13 +1,28 @@
-# Only maintained workbench code and configuration are checked here.
-# Historical gem5 and SALAM files retain their own provenance and style.
+# Maintained workbench files retain their formatting and data checks.
+# SALAM configuration/SimObject entry points receive syntax checks only.
+# Historical source, generated files and vendor style remain outside formatting.
 minimum_pre_commit_version: '3.5.0'
 
-files: '^(workbench/(salam_workbench/|tests/|scripts/|visualizer/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/|docs/CI\.md)'
+files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh|(?:configs/SALAM/[^/]+|SALAM-Configurator/[^/]+|tools/SALAM-Configurator/[^/]+|src/hwacc/[^/]+|src/hwacc/tests/[^/]+)\.py)$'
 exclude: '^workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)'
 
 repos:
   - repo: local
     hooks:
+      - id: gem5-commit-msg-checker
+        name: Check optional gem5 commit-message conventions
+        entry: python3 util/git-commit-msg.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      - id: salam-python-syntax
+        name: Parse SALAM configurations and SimObjects
+        entry: check-ast
+        language: system
+        types: [python]
+        files: '^(configs/SALAM/[^/]+|SALAM-Configurator/[^/]+|tools/SALAM-Configurator/[^/]+|src/hwacc/[^/]+|src/hwacc/tests/[^/]+)\.py$'
+
       - id: workbench-black
         name: Black on maintained workbench Python
         entry: black --config workbench/pyproject.toml --check --diff
@@ -56,6 +71,7 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
+        files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
 
       - id: maintained-trailing-whitespace
         name: No accidental trailing whitespace in maintained text
@@ -63,6 +79,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
         language: system
         types: [text]
+        files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
 
       - id: maintained-line-endings
         name: LF line endings in maintained Python and new CI files

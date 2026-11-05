@@ -31,6 +31,7 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 
 // SALAM Includes
+#include "base/statistics.hh"
 #include "hwacc/HWModeling/src/hw_interface.hh"
 #include "hwacc/fu_scheduling_pool.hh"
 #include "hwacc/LLVMRead/src/basic_block.hh"
@@ -41,14 +42,71 @@
 #include "params/LLVMInterface.hh"
 
 class LLVMInterface : public ComputeUnit {
+  public:
+    enum OpClass
+    {
+        ComputeOp = 0,
+        LoadOp = 1,
+        StoreOp = 2,
+        CallOp = 3,
+        ControlOp = 4,
+        NumOpClasses = 5
+    };
+
+    enum CycleCategory
+    {
+        IssueCycle = 0,
+        FuStallCycle = 1,
+        MemoryWaitCycle = 2,
+        ComputeWaitCycle = 3,
+        OtherCycle = 4,
+        NumCycleCategories = 5
+    };
+
   private:
     std::string filename;
     std::string topName;
     uint32_t scheduling_threshold;
     const uint32_t fuTraceEventLimit;
-    int32_t clock_period;
     int cycle;
     int stalls;
+
+    struct PassEvents
+    {
+        bool issued = false;
+        bool fuDenied = false;
+        bool memoryOrderWait = false;
+    };
+    PassEvents pass;
+
+    struct ExecStats : public statistics::Group
+    {
+        ExecStats(LLVMInterface *owner);
+        void regStats() override;
+
+        statistics::Scalar invocations;
+        statistics::Scalar completedInvocations;
+        statistics::Scalar invocationTicks;
+        statistics::Scalar cycles;
+        statistics::Vector cycleCategories;
+        statistics::Vector issued;
+        statistics::Vector completed;
+        statistics::Vector opcodesIssued;
+        statistics::Scalar fuDenials;
+        statistics::Scalar memoryOrderWaits;
+        statistics::Average reservedOps;
+        statistics::Average computeOps;
+        statistics::Average readOps;
+        statistics::Average writeOps;
+    };
+    ExecStats execStats;
+
+    void countIssue(OpClass cls, uint64_t opcode);
+    void countCompletion(OpClass cls);
+    void countFuDenial();
+    void countMemoryOrderWait();
+    void countCycleCategory();
+    void sampleOccupancy();
 
     bool running;
     bool loadOpScheduled;

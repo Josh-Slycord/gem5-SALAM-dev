@@ -1,6 +1,7 @@
 #ifndef __HWACC_STREAM_DMA_HH__
 #define __HWACC_STREAM_DMA_HH__
 //------------------------------------------//
+#include "base/statistics.hh"
 #include "hwacc/LLVMRead/src/debug_flags.hh"
 #include "hwacc/dma_write_fifo.hh"
 #include "params/StreamDma.hh"
@@ -148,6 +149,22 @@ class StreamDma : public DmaDevice {
     uint64_t framesWritten;
     uint8_t writeIntFrames;
     uint64_t writePtr;
+
+    struct DmaStats : public statistics::Group
+    {
+        DmaStats(statistics::Group *parent);
+
+        statistics::Scalar readStarts;
+        statistics::Scalar writeStarts;
+        statistics::Scalar framesRead;
+        statistics::Scalar framesWritten;
+        statistics::Scalar bytesRead;
+        statistics::Scalar bytesWritten;
+        statistics::Scalar writePackets;
+        statistics::Scalar statusReads;
+        statistics::Average active;
+    };
+    DmaStats dmaStats;
 
   protected:
 

@@ -4,21 +4,28 @@
 #include "sim/system.hh"
 #include "mem/packet_access.hh"
 #include "debug/AddrRanges.hh"
+#include <cstring>
 
 using namespace std;
 
-// StreamBuffer::StreamBuffer(Params *p) :
-// 	BasicPioDevice(p, p->pio_size),
-// 	buffer(p->buffer_size),
-// 	fifoSize(p->buffer_size),
-// 	endian(p->system->getGuestByteOrder()) {
-// 	//
-// }
+StreamBuffer::TransferStats::TransferStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(reads, statistics::units::Count::get(),
+               "Stream read requests completed"),
+      ADD_STAT(writes, statistics::units::Count::get(),
+               "Stream write requests completed"),
+      ADD_STAT(bytesRead, statistics::units::Byte::get(),
+               "Bytes read from the stream buffer"),
+      ADD_STAT(bytesWritten, statistics::units::Byte::get(),
+               "Bytes written to the stream buffer"),
+      ADD_STAT(statusReads, statistics::units::Count::get(),
+               "Status register reads completed")
+{}
 
 StreamBuffer::StreamBuffer(const StreamBufferParams &p) :
     ClockedObject(p),
-    streamIn(this),
-    streamOut(this),
+    streamIn(this, "stream_in"),
+    streamOut(this, "stream_out"),
     statusIn(this),
     statusOut(this),
     buffer(p.buffer_size),
@@ -29,7 +36,8 @@ StreamBuffer::StreamBuffer(const StreamBufferParams &p) :
     statusAddr(p.status_address),
     statusSize(p.status_size),
     streamDelay(p.stream_latency),
-    bandwidth(p.bandwidth) {}
+    bandwidth(p.bandwidth),
+    transferStats(this) {}
 
 bool
 StreamBuffer::canReadStream(size_t len) {
@@ -93,9 +101,12 @@ bool StreamBuffer::tvalid(size_t len, bool isRead) {
 Tick
 StreamBuffer::streamRead(PacketPtr pkt) {
     DPRINTF(StreamBuffer, "A read request of size %d was received by this stream buffer\n", pkt->getSize());
+    transferStats.reads++;
+    transferStats.bytesRead += pkt->getSize();
     uint8_t *buff = new uint8_t[pkt->getSize()];
     readStream(buff, pkt->getSize());
-    uint64_t data = *(uint64_t *)buff;
+    uint64_t data = 0;
+    std::memcpy(&data, buff, pkt->getSize());
     delete[] buff;
 
     switch(pkt->getSize()) {
@@ -123,10 +134,12 @@ StreamBuffer::streamRead(PacketPtr pkt) {
 Tick
 StreamBuffer::streamWrite(PacketPtr pkt) {
     DPRINTF(StreamBuffer, "A write request of size %d was received by this stream buffer\n", pkt->getSize());
+    transferStats.writes++;
+    transferStats.bytesWritten += pkt->getSize();
     uint8_t * data = new uint8_t[pkt->getSize()];
     pkt->writeData(data);
     writeStream(data, pkt->getSize());
-    delete data;
+    delete[] data;
     pkt->makeAtomicResponse();
     return streamDelay;
 }
@@ -136,6 +149,7 @@ StreamBuffer::status(PacketPtr pkt, bool readStatus) {
     // Provide a means of reading the current buffer capacity of the stream
     // Writes to this register do nothing
     if (pkt->isRead()) {
+        transferStats.statusReads++;
         DPRINTF(StreamBuffer, "The status of the buffer has been read. Current capacity is %d of %d bytes\n",
                 buffer.size(), fifoSize);
         uint64_t data = buffer.size();

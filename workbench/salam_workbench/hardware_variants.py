@@ -56,6 +56,7 @@ def _toolchain_hashes():
         (
             PROJECT / "evidence/toolchain.json",
             Path(hardware_codegen.__file__).resolve(strict=True),
+            Path(__file__).resolve(strict=True),
             PROJECT / "salam_workbench/regression.py",
             PROJECT / "salam_workbench/runner.py",
             PROJECT / "salam_workbench/toolchain_profile.py",
@@ -131,6 +132,40 @@ def _profile_hashes(base, benchmark, model, period, profile):
     return result
 
 
+_CONFIGURATION_REQUIRED = (
+    "configs/common/Simulation.py",
+    "configs/SALAM/HWAccConfig.py",
+    "SALAM-Configurator/fs_template.py",
+    "SALAM-Configurator/systembuilder.py",
+    "SALAM-Configurator/parser.py",
+)
+
+
+def _configuration_hashes(base):
+    """Bind copied runtime configuration, separately from compiled C++ inputs."""
+    base = Path(base).resolve(strict=True)
+    files = set()
+    for folder in ("configs", "SALAM-Configurator"):
+        for path in (base / folder).rglob("*.py"):
+            if not {"generated", "__pycache__"} & set(path.relative_to(base).parts):
+                files.add(path)
+    for relative in _CONFIGURATION_REQUIRED:
+        path = base / relative
+        if path not in files or not path.is_file():
+            raise ValueError(
+                "Missing hardware variant configuration source: " + relative
+            )
+    result = {}
+    for path in sorted(files):
+        if path.is_symlink():
+            raise ValueError(
+                "Symlinked hardware variant configuration source: " + str(path)
+            )
+        path.resolve(strict=True).relative_to(base)
+        result[path.relative_to(base).as_posix()] = _sha(path)
+    return result
+
+
 def _link_plan(base):
     """Preflight all symlinks so a copied build tree cannot write through base."""
     plan = {}
@@ -195,6 +230,7 @@ def _fingerprint_inputs(
         "selected_profile_inputs": _profile_hashes(
             base, benchmark, model, period, profile
         ),
+        "configuration_source_inputs": _configuration_hashes(base),
         "selection": {
             "benchmark": benchmark,
             "model": model,
@@ -214,6 +250,11 @@ def _fingerprint(inputs):
 def _verify_variant(variant, manifest, fingerprint, profile_inputs):
     if manifest.get("fingerprint") != fingerprint or manifest.get("state") != "built":
         raise ValueError("Existing variant has a different or incomplete fingerprint")
+    configurations = manifest.get("fingerprint_inputs", {}).get(
+        "configuration_source_inputs"
+    )
+    if not configurations or _configuration_hashes(variant) != configurations:
+        raise ValueError("Existing variant configuration source identity differs")
     build_path = Path(manifest["build_receipt"]).resolve(strict=True)
     verify_engine(variant, build_path)
     generation = json.loads(Path(manifest["generation_receipt"]).read_text())
@@ -295,6 +336,10 @@ def ensure_hardware_variant(
         if not marker.is_file():
             raise ValueError("Existing variant is incomplete: " + str(variant))
         saved = json.loads(marker.read_text(encoding="utf-8"))
+        if saved.get("fingerprint_inputs") != inputs:
+            raise ValueError(
+                "Existing variant fingerprint inputs differ from current base"
+            )
         _verify_variant(variant, saved, fingerprint, inputs["selected_profile_inputs"])
         return dict(saved, state="reused")
     links = _link_plan(base)
@@ -344,6 +389,10 @@ def ensure_hardware_variant(
             != inputs["base_compiled_source_sha256"]
         ):
             raise ValueError("Variant source copy differs from verified base")
+        if _configuration_hashes(variant) != inputs["configuration_source_inputs"]:
+            raise ValueError(
+                "Variant configuration source copy differs from fingerprint"
+            )
         overlay = install_hardware_overlay(
             record["generation_receipt"], variant, evidence / "overlay"
         )
