@@ -681,7 +681,19 @@ def run(options, root, testsys, cpu_class):
     checkpoint_dir = None
     if options.checkpoint_restore:
         cpt_starttick, checkpoint_dir = findCptDir(options, cptdir, testsys)
-    root.apply_config(options.param)
+    # SALAM's retained integer-ns clock knobs must be translated only after
+    # every option-derived assignment and the final scalar overrides. Keep
+    # ordinary gem5 runs independent of optional SALAM modules/build objects.
+    if any(
+        getattr(obj, "type", None)
+        in {"LLVMInterface", "CommInterface", "NoncoherentDma"}
+        for obj in root.descendants()
+    ):
+        from SALAM.HWAccConfig import configure_native_salam_clocks
+
+        configure_native_salam_clocks(root, options, cpu_class)
+    else:
+        root.apply_config(options.param)
     m5.instantiate(checkpoint_dir)
 
     # Initialization is complete.  If we're not in control of simulation

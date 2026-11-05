@@ -83,6 +83,21 @@ failures. Historical triage recorded 1,031 whole-tree style findings and 24
 mypy findings. The current scoped source gate does not claim to resolve
 inherited whole-tree style debt or perform mypy checking.
 
+## Optional local hooks
+
+Run `bash util/pre-commit-install.sh --install` to opt in to the existing
+workbench checks, SALAM entry-point syntax checks and gem5 commit-message
+conventions. With no arguments the installer only displays usage. It requires
+`pre-commit`, refuses custom hooks and `core.hooksPath`, and never installs a
+fallback. Existing pre-commit-managed hooks can be refreshed; linked worktrees
+share their Git common hook directory. Installation is a separate manual step.
+
+The syntax hook uses pre-commit's staged-file snapshot handling. SALAM source
+is not added to workbench Black/isort or whitespace cleanup. Historical scripts
+and generated C++ remain outside these formatting checks. Native formatting
+can be reviewed separately with gem5's existing clang-format utility; it is not
+a required or silently bypassed acceptance gate here.
+
 ## Real simulator acceptance is separate
 
 Local acceptance needs a fresh SALAM-enabled simulator build whose receipt

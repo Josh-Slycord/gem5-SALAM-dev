@@ -18,6 +18,12 @@
 class CommInterface : public BasicPioDevice
 {
   protected:
+    static constexpr uint8_t MmrStatusRun = 0x01;
+    static constexpr uint8_t MmrStatusBusy = 0x02;
+    static constexpr uint8_t MmrStatusDone = 0x04;
+    static constexpr uint8_t MmrClearRunMask = 0xfe;
+    static constexpr uint8_t MmrClearRunBusyMask = 0xfc;
+
     Addr io_addr;
     Addr io_size;
     Addr flag_size;

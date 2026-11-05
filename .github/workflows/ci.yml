@@ -2,7 +2,7 @@ name: Workbench source validation
 
 on:
   push:
-    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*', 'codex/wsl2-*', 'codex/pr3-*']
+    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*', 'codex/wsl2-*', 'codex/pr3-*', 'codex/gemini-review-*']
   pull_request:
     branches: [main, 'codex/gem5-26-*']
   workflow_dispatch:
@@ -353,6 +353,15 @@ jobs:
           }
           Path('workbench/evidence/ci/environment.json').write_text(json.dumps(record, indent=2) + '\n')
           PY
+
+      - name: Run native helper sanitizer regressions and stats-reader controls
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B workbench/scripts/verify_native_helpers.py \
+            --output workbench/evidence/ci/native-helpers
+          "$RUNNER_TEMP/salam-ci26/bin/python" -B -m unittest discover \
+            -s src/hwacc/tests -p test_native_stats_reader.py -v \
+            > workbench/evidence/ci/native-stats-reader.log 2>&1
 
       - name: Select legacy-default unit-contract fixture under Python 3.12
         run: |

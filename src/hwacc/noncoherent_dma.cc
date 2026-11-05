@@ -96,12 +96,12 @@ NoncoherentDma::getActiveWriteFifo() {
 
 void
 NoncoherentDma::tick() {
-    if (!running && ((*FLAGS&0x01)==0x01)) {
+    if (!running && ((*FLAGS & DmaFlagStart) == DmaFlagStart)) {
         running = true;
         dmaStats.transfers++;
         dmaStats.active = 1;
-        *FLAGS &= 0xFE;
-        *FLAGS |= 0x02;
+        *FLAGS &= DmaClearStartMask;
+        *FLAGS |= DmaFlagRunning;
         activeSrc = *SRC;
         activeDst = *DST;
         writesLeft = *LEN;
@@ -112,7 +112,8 @@ NoncoherentDma::tick() {
         readFifo->startFill(activeSrc, writesLeft);
         writeFifo->startEmpty(activeDst, writesLeft);
     }
-    if (((last_flag&0x04)==0x04) && ((*FLAGS&0x04) != 0x04)) {
+    if (((last_flag & DmaFlagDone) == DmaFlagDone) &&
+        ((*FLAGS & DmaFlagDone) != DmaFlagDone)) {
         //clear interrupts
         gic->clearInt(intNum);
     }
@@ -133,8 +134,8 @@ NoncoherentDma::tick() {
             if (!writeFifo->isActive()) {
                 running = false;
                 dmaStats.active = 0;
-                *FLAGS &= 0xFD;
-                *FLAGS |= 0x04;
+                *FLAGS &= DmaClearRunningMask;
+                *FLAGS |= DmaFlagDone;
                 //raise interrupts
                 gic->sendInt(intNum);
                 double xfer_time = (double)(curTick() - start_time) * (1e-6);

@@ -547,14 +547,16 @@ Switch::initialize(llvm::Value * irval,
     llvm::SwitchInst * switchInst = llvm::dyn_cast<llvm::SwitchInst>(irval);
     assert(switchInst);
     caseArgs newArgs;
-    for (int i = 2; i < tmpStaticDeps.size();) {
+    for (size_t i = kSwitchFirstCaseOperandIndex; i < tmpStaticDeps.size();) {
         newArgs.first = tmpStaticDeps.at(i); ++i;
         newArgs.second = std::dynamic_pointer_cast<SALAM::BasicBlock>(tmpStaticDeps.at(i)); ++i;
         this->cases.push_back(newArgs);
     }
 
-    staticDependencies.push_back(tmpStaticDeps.front());
-    defaultDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(tmpStaticDeps.at(1));
+    staticDependencies.push_back(
+        tmpStaticDeps.at(kSwitchConditionOperandIndex));
+    defaultDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(
+        tmpStaticDeps.at(kSwitchDefaultDestOperandIndex));
 }
 
 // std::shared_ptr<SALAM::Value>

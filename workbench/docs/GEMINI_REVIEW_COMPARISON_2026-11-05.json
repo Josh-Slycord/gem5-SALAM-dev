@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "kind": "independent_gemini_review_comparison",
+  "original_snapshot": "d3d4930593acfcb9fb024446ce295649fb887ba1",
+  "final_snapshot": "b9c798893d53e8565943aed6678a151434d4a5f1",
+  "final_public_branch": "https://github.com/Josh-Slycord/gem5-SALAM-dev/tree/codex/pr2429-reviewer-compliance",
+  "original_private_archive": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/gemini-pr2429-20261105",
+  "final_private_archive": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/gemini-final-20261105",
+  "standalone_private_archive": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/standalone-workbench-20261105",
+  "preserved_checkpoint": "gem5-26-checkpoint-20261105",
+  "integration_base": "85045fe8b7695b8d2c5bb618553ecd1cff7c24d8",
+  "gemini_source_modified": false,
+  "gemini_reported_counts": {
+    "pytest": 662,
+    "gtest": 4,
+    "independently_verified_execution_report": false
+  },
+  "independent_final_smoke": {
+    "guest_check_passed": true,
+    "native_period_parameter_ns": 10,
+    "actual_clock_period_ticks": 1000,
+    "actual_period_ns": 1,
+    "interface_tick_calls": 603,
+    "elapsed_ticks": 602000,
+    "conclusion": "legacy clock compatibility not preserved"
+  },
+  "adopted": [
+    "memory/IR repairs with additional native safety fixes",
+    "native ClockedObject and statistics with explicit legacy-domain adapter",
+    "shared C++ FU/instruction constructors with generated consumer verification",
+    "configurator argument/path/template fixes",
+    "named native constants",
+    "FU native tests with strengthened unlimited lease control",
+    "repaired opt-in validation hooks"
+  ],
+  "deferred": [
+    {
+      "item": "AccCluster new cache parameters",
+      "reason": "Generated cache paths do not activate/use them; constructor-copied values would not follow later --param overrides. No completed cache control claim."
+    },
+    {
+      "item": "Maintainer email jslycord@uncc.edu",
+      "reason": "Current preferred public contact not verified."
+    },
+    {
+      "item": "Fallback forced hook installation",
+      "reason": "Overwrites existing hooks; invalid linked-worktree assumptions and working-tree versus staged-byte mismatch."
+    },
+    {
+      "item": "stdlib SALAM board/cluster components",
+      "reason": "Not implemented in final changes; generated Python class templates remain."
+    },
+    {
+      "item": "Reviewer edge case closure",
+      "reason": "Full synchronous SimObject backpressure, DMA bypass, repeat-launch cleanup, negative actual IR and native reset execution require further production tests."
+    },
+    {
+      "item": "Repository-wide license/provenance clearance",
+      "reason": "Not established by added notices or tracker completion."
+    }
+  ]
+}
