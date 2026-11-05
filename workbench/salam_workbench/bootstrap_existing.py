@@ -14,6 +14,7 @@ from .configurator import verify_engine
 from .configurator_gui_bridge import _verify_generated_outputs
 from .fu_capability import inspect_fu_capability
 from .runner import file_hash
+from .toolchain_profile import load_toolchain
 
 PROJECT = Path(__file__).resolve().parents[1]
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -95,6 +96,8 @@ def bootstrap_existing(source_workspace, project=PROJECT):
         )
     original = json.loads(source_workspace.read_text(encoding="utf-8-sig"))
     selected = original["configuration_engine"]
+    # Validate declared tool paths before preserving the exact selection.
+    source_profile = load_toolchain(manifest=original)
     engine = Path(selected["path"]).resolve(strict=True)
     if engine == project or engine in project.parents or project in engine.parents:
         raise ValueError("Selected engine must be external to the new workbench")
@@ -117,7 +120,7 @@ def bootstrap_existing(source_workspace, project=PROJECT):
     for item in build_data.get("toolchain", []):
         if file_hash(Path(item["path"]).resolve(strict=True)) != item["sha256"]:
             raise ValueError("A recorded build tool has changed: " + item["path"])
-    verify_engine(engine, build)
+    verify_engine(engine, build, toolchain_profile=source_profile)
     generation_data = json.loads(generation.read_text(encoding="utf-8"))
     if (
         generation_data.get("state") != "generated"
@@ -125,7 +128,9 @@ def bootstrap_existing(source_workspace, project=PROJECT):
     ):
         raise ValueError("Selected hardware generation did not pass")
     _verify_generated_outputs(engine, generation_data)
-    capability = inspect_fu_capability(engine, build_receipt=build)
+    capability = inspect_fu_capability(
+        engine, build_receipt=build, toolchain_profile=source_profile
+    )
     if not capability["supported"] or not capability["build_verified"]:
         raise ValueError(
             "Selected engine lacks verified FU capability: " + str(capability["reason"])
@@ -159,6 +164,7 @@ def bootstrap_existing(source_workspace, project=PROJECT):
                 "source_patch_manifest",
                 "verified_capabilities",
                 "purpose",
+                "toolchain_profile",
             )
             if key in selected
         },

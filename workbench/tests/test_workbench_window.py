@@ -116,6 +116,63 @@ class _EmptyProcessOutput:
 
 
 class WorkbenchWindowTests(unittest.TestCase):
+    def test_timeline_button_only_exposes_hash_verified_fu_artifacts(self):
+        self.window._show_run(
+            {
+                "benchmark": "gemm",
+                "artifacts": [
+                    {
+                        "name": "fu-scheduling-system.a.invocation-1.json",
+                        "path": str(self.project / "evidence/trace.json"),
+                        "status": "present_unbound",
+                        "sha256": "a" * 64,
+                    }
+                ],
+            }
+        )
+        self.assertFalse(self.window.timeline_btn.isEnabled())
+        self.assertEqual(self.window.timeline_combo.count(), 0)
+        self.window._show_run(
+            {
+                "benchmark": "fft",
+                "artifacts": [
+                    {
+                        "name": "fu-scheduling-system.fft.invocation-1.json",
+                        "path": str(self.project / "evidence/trace.json"),
+                        "status": "hash_verified",
+                        "sha256": "a" * 64,
+                    }
+                ],
+            }
+        )
+        self.assertTrue(self.window.timeline_btn.isEnabled())
+        self.assertEqual(self.window.timeline_combo.count(), 1)
+
+    def test_timeline_export_uses_worker_and_keeps_numerical_state_separate(self):
+        result = {
+            "benchmark": "fft",
+            "state": "failed",
+            "validation_state": "numerical_mismatch",
+            "artifacts": [
+                {
+                    "name": "fu-scheduling-system.fft.invocation-1.json",
+                    "path": str(self.project / "evidence/trace.json"),
+                    "status": "hash_verified",
+                    "sha256": "a" * 64,
+                }
+            ],
+        }
+        self.window._show_run(result)
+        with patch.object(self.window, "_task") as task:
+            self.window.timeline_btn.click()
+        self.assertEqual(task.call_args[0][0], "timeline")
+        self.assertTrue(self.window._timeline_running)
+        self.assertFalse(self.window.timeline_btn.isEnabled())
+        self.assertEqual(self.window.selected_run["state"], "failed")
+        self.window._data_failed("timeline", "TraceValidationError: truncated")
+        self.assertFalse(self.window._timeline_running)
+        self.assertIn("truncated", self.window.statusBar().currentMessage())
+
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])

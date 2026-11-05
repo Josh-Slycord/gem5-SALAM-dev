@@ -2,9 +2,9 @@ name: Workbench source validation
 
 on:
   push:
-    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*']
+    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*', 'codex/wsl2-*', 'codex/pr3-*']
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/gem5-26-*']
   workflow_dispatch:
 
 permissions:
@@ -88,7 +88,7 @@ jobs:
           from pathlib import Path
           import yaml
           root = Path('workbench')
-          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts')
+          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts', 'visualizer')
                       for path in (root / folder).rglob('*.py')
                       if 'vendor' not in path.parts)
           js = sorted((root / 'experiments').rglob('*.json'))
@@ -386,7 +386,7 @@ jobs:
           from pathlib import Path
           import yaml
           root = Path('workbench')
-          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts')
+          py = sorted(path for folder in ('salam_workbench', 'tests', 'scripts', 'visualizer')
                       for path in (root / folder).rglob('*.py')
                       if 'vendor' not in path.parts)
           js = sorted((root / 'experiments').rglob('*.json'))
@@ -581,4 +581,26 @@ jobs:
           name: workbench-source-validation-gem5-26
           path: workbench/evidence/ci/
           if-no-files-found: warn
+          retention-days: 14
+
+  windows-packaging-contracts:
+    name: PowerShell syntax and packaging failure controls
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate packaging without Docker or WSL installation
+        shell: pwsh
+        run: |
+          ./docker/test_packaging_contracts.ps1 -ArtifactRoot "$env:RUNNER_TEMP/salam-packaging-contracts"
+      - name: Preserve packaging contract evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: packaging-contracts
+          path: '${{ runner.temp }}/salam-packaging-contracts/'
+          if-no-files-found: error
           retention-days: 14

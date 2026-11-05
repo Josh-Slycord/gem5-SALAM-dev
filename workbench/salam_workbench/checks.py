@@ -22,6 +22,9 @@ PROJECT = Path(__file__).resolve().parents[1]
 TIERS = ("fast", "config", "gui", "collector", "gemm")
 FAST_MODULES = (
     "test_benchmark_oracles",
+    "test_execution_visualizer",
+    "test_timeline_export",
+    "test_checkpoint_integration",
     "test_benchmark_inputs",
     "test_configurable_breadth",
     "test_benchmark_overlays",
@@ -104,7 +107,7 @@ def source_identity(project, engine=None, tier="fast"):
     """Fingerprint actual local tooling files, without Git writes or shell state."""
     project = Path(project).resolve()
     sources = []
-    for directory in ("salam_workbench", "tests"):
+    for directory in ("salam_workbench", "tests", "visualizer"):
         sources.extend(
             path
             for path in (project / directory).rglob("*.py")

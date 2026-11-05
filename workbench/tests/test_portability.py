@@ -109,12 +109,18 @@ class PortabilityTests(unittest.TestCase):
                             "path": str(engine),
                             "build_receipt": build_relative,
                             "generation_receipt": generation_relative,
+                            "toolchain_profile": {
+                                "id": "gem5-26-retained-salam",
+                                "python": "/opt/salam/bin/python",
+                            },
                         },
                     }
                 ),
                 encoding="utf-8",
             )
-            with patch.object(bootstrap_existing, "verify_engine"), patch.object(
+            with patch.object(
+                bootstrap_existing, "verify_engine"
+            ) as verify_build, patch.object(
                 bootstrap_existing, "_verify_generated_outputs"
             ), patch.object(
                 bootstrap_existing,
@@ -128,6 +134,15 @@ class PortabilityTests(unittest.TestCase):
             ):
                 result = bootstrap_existing.bootstrap_existing(workspace, project)
             self.assertEqual(result["state"], "bound_existing")
+            from salam_workbench.toolchain_profile import load_toolchain
+
+            verify_build.assert_called_once_with(
+                engine,
+                build,
+                toolchain_profile=load_toolchain(
+                    manifest=json.loads(workspace.read_text())
+                ),
+            )
             self.assertEqual(
                 (project / build_relative).read_bytes(), build.read_bytes()
             )
@@ -145,6 +160,10 @@ class PortabilityTests(unittest.TestCase):
             )
             selected = json.loads((project / "workspace.json").read_text())
             self.assertEqual(selected["configuration_engine"]["path"], str(engine))
+            self.assertEqual(
+                selected["configuration_engine"]["toolchain_profile"],
+                {"id": "gem5-26-retained-salam", "python": "/opt/salam/bin/python"},
+            )
             with self.assertRaisesRegex(ValueError, "new workbench binding"):
                 bootstrap_existing.bootstrap_existing(workspace, project)
 

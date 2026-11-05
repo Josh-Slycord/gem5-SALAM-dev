@@ -72,7 +72,7 @@ def capability_source_paths(engine_root):
     return paths
 
 
-def inspect_fu_capability(engine_root, build_receipt=None):
+def inspect_fu_capability(engine_root, build_receipt=None, *, toolchain_profile=None):
     """Return support only for an exact source marker and optional verified build."""
     result = {
         "schema_version": 1,
@@ -155,7 +155,13 @@ def inspect_fu_capability(engine_root, build_receipt=None):
         if build_receipt is not None:
             from .configurator import verify_engine
 
-            result["build"] = verify_engine(engine, build_receipt)
+            result["build"] = (
+                verify_engine(engine, build_receipt)
+                if toolchain_profile is None
+                else verify_engine(
+                    engine, build_receipt, toolchain_profile=toolchain_profile
+                )
+            )
             result["build_verified"] = True
         result["supported"] = True
     except Exception as error:

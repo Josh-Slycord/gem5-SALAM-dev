@@ -8,6 +8,9 @@
 
 The workbench connects configuration editing to generated SALAM SimObjects/C++, simulator builds, staged benchmark compilation, real gem5 execution and independently checked results. It lives beside the simulator source in this fork; machine settings and run outputs remain local.
 
+The [5 November 2026 checkpoint](docs/CHECKPOINT_2026-11-05.md) records the
+merged tooling qualification and upstream-readiness gates.
+
 Start with the [functional-unit scheduling results](docs/FU_SCHEDULING_RESULTS.md), [packaging options](docs/PACKAGING.md), and [output and Git policy](docs/HYGIENE.md).
 
 ## Validated environments
@@ -51,6 +54,21 @@ validation checks, bounded text/log previews and source provenance. Metric
 filters and side-by-side comparisons preserve units and measurement scope.
 Missing power, energy or area data remains unavailable; model parameters do not
 become measurements of physical hardware.
+
+**Execution timeline** exports a selected hash-verified FU trace from Results.
+The worker replays the complete stream and writes a separate derived HTML and
+provenance receipt under ignored evidence/execution-timelines/. Floating-point
+and custom unit IDs remain visible. Large timelines render a labeled bounded
+preview; trace validity does not establish numerical correctness. See
+[execution visualizer](docs/EXECUTION_VISUALIZER.md).
+
+The root run_gemm.sh requires --request /absolute/path/to/request.json and
+replays an explicit generated-input GEMM request through that same checked
+configuration pipeline. The historical direct-generator and guest-pass-only
+shortcut is disabled. See [upstream readiness](docs/UPSTREAM_READINESS.md) for
+reviewer questions and future simulator proof obligations.
+The [appliance](../docker/README.md) remains experimental until clean-host
+build, import and GUI acceptance are completed.
 
 **SALAM process** is an interactive conceptual diagram of the configured
 workflow, with selectable stages and related hash-verified evidence from
