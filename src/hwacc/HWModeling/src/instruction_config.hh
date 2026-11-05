@@ -54,6 +54,7 @@
 #include "../generated/instructions/vaarg.hh"
 #include "../generated/instructions/xor_inst.hh"
 #include "../generated/instructions/zext.hh"
+#include <cstdint>
 #include <iostream>
 #include <cstdlib>
 #include <vector>
