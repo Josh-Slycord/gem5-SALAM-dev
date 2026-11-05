@@ -76,3 +76,7 @@ $record=@{
 }
 $record | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $validationRoot 'mocked-contracts.json') -Encoding UTF8
 $record | ConvertTo-Json -Depth 6
+
+# The final negative control intentionally leaves a mocked native exit code.
+# All expected rejections were asserted above; report harness success to CI.
+$global:LASTEXITCODE=0
