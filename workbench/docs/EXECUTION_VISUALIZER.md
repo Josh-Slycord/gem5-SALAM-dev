@@ -1,61 +1,117 @@
-# SALAM Execution Trace Visualizer & WSL2 Containerization
+# SALAM functional-unit trace viewer
 
-This document records the design, implementation, and integration of the **cycle-accurate execution trace visualizer** and the **automated Docker-to-WSL2 pre-built distribution pipeline** for the gem5-SALAM research workbench (gem5 v26.0.0.0 upgrade).
+The standalone HTML viewer presents the direct SALAM scheduler event stream.
+It is an inspection tool for modeled functional-unit leases. A successful
+export establishes complete, internally consistent scheduling evidence for
+that source file; it does not establish benchmark numerical correctness,
+physical RTL timing accuracy, or calibrated power. Keep the Workbench's
+independent numerical checks, effective-configuration witnesses and original
+raw output alongside each view.
 
----
+The Docker/WSL appliance has its own instructions in [docker/README.md](../../docker/README.md).
+Build support and clean-host acceptance are separate from viewer acceptance.
+The original PR's reported build timings, guest pass marker and 110 tests
+are historical claims, not a new acceptance result for every benchmark.
 
-## 1. Background & Motivation
+## Export an existing trace
 
-While the existing Workbench GUI (`salam_workbench`) provides system configuration editing, static metric tables, and Graphviz SimObject topology layouts, it lacked a dynamic, cycle-by-cycle visual representation of how hardware accelerators execute in real time. 
+From the repository root:
 
-Additionally, building gem5-SALAM from source requires precise versions of Clang/LLVM 14, Python 3.10, and cross-compilers, taking 20–40 minutes per compile. To provide a reproducible, turnkey research environment, this work establishes:
-1. An automated Dockerfile that packages and pre-compiles the entire simulation engine, bootloaders, and benchmark suites into an isolated WSL2 distribution.
-2. A lightweight, standalone microarchitectural execution visualizer that transforms raw cycle-by-cycle event traces into an interactive timeline dashboard.
+```sh
+python3 workbench/visualizer/export_salam_visualizer.py \
+  /path/to/observability/fu-scheduling-accelerator.invocation-1.json \
+  /path/to/viewer.html --max-spans 20000
+```
 
----
+The optional `--expected-sha256 HASH` binds the input to an existing Workbench
+artifact record. The command returns nonzero on invalid input or a mismatched
+hash and writes no new dashboard in those cases. It prints JSON containing
+source path, bytes, SHA-256, full replay count, and preview coverage. The
+library equivalent is:
 
-## 2. Docker & WSL2 Appliance Architecture
+```python
+metadata = export_trace(
+    trace_path, output_path, max_spans=20000,
+    expected_sha256=recorded_artifact_hash,
+)
+```
 
-The container recipe in `docker/` builds a clean, disposable **Ubuntu 22.04 LTS (Jammy)** environment:
-* **LLVM 14 & Typed-Pointer IR:** Configured as the system default (`clang-14`, `llvm-14`, `llvm-config-14`), fulfilling gem5 26's strict SALAM SCons requirements.
-* **Baremetal & 64-bit Cross-Compilers:** Installs `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, and `gcc-aarch64-linux-gnu`.
-* **Automated Pre-compilation:**
-  * Compiles ARM32 (`boot.arm`) and ARM64 (`boot.arm64`) bootloaders.
-  * Compiles `build/ARM/gem5.opt` with `--with-salam LLVM_CONFIG=/usr/bin/llvm-config-14 PROTOCOL=CHI USE_KVM=0`.
-  * Pre-compiles GEMM benchmark hardware bitcode (`clang -emit-llvm -I/usr/include/newlib`) and software binary (`main.elf`).
-* **WSL2 Integration:** Configures `/etc/wsl.conf` with default user `jslycord` and systemd enabled. The rootfs is exported to secondary storage (`D:\wsl_instances\gem5-salam-prebuilt\ext4.vhdx`), preserving host `C:\` capacity.
+`docker/export_salam_visualizer.py` is a compatibility entry point to the
+same implementation. It deliberately contains no second renderer. The old
+hardcoded personal WSL paths have been retired: callers must supply the
+actual trace they intend to inspect. Output must be HTML and cannot replace
+the source trace.
 
----
+## Evidence contract
 
-## 3. Microarchitectural Trace Visualizer
+The input must be direct `salam_fu_scheduling` schema version 1, not a witness
+summary. The exporter streams the JSON trace, replays every event, and requires:
 
-### 3.1 Event Stream Contracts
-During execution, SALAM's `Observability` subsystem emits cycle-by-cycle JSON records to `observability/fu-scheduling-<accelerator>.invocation-1.json`:
-* `grant`: `{"event": "grant", "cycle": C, "tick": T, "uid": UID, "opcode": OP, "fu_id": FU, "lease_id": L}`
-* `release`: `{"event": "release", "cycle": C, "tick": T, "uid": UID, "opcode": OP, "fu_id": FU, "lease_id": L}`
+- An explicitly untruncated trace and valid declared event budget.
+- Unique declared FU IDs/names, unsigned counters and invocation bounds.
+- Monotonic cycle/tick order and increasing, unique grant lease IDs.
+- A first-to-last event tick span within the declared invocation elapsed ticks;
+  absolute tick values may have a nonzero simulation origin.
+- Identity-matched releases with no outstanding grants at completion.
+- Capacity-respecting grants and denials only when a positive cap is full.
+- Exact agreement of all per-unit and global counters with event replay.
 
-### 3.2 Span Extraction & Multi-Lane Stacking
-The generator (`workbench/visualizer/export_salam_visualizer.py`):
-1. **Pairs Grants and Releases:** Matches each `lease_id` into a distinct execution span with exact cycle duration, tick latency, and LLVM opcode identification.
-2. **Sub-Lane Allocation:** For units with simultaneous parallel execution (e.g. GEMM's 8 concurrent integer multipliers), assigns virtual sub-lanes so concurrent operations render in parallel rows without visual overlap.
-3. **Concurrency Area Curve:** Accumulates per-cycle active functional unit counts to plot an aligned concurrency curve below the Gantt matrix.
+Duplicate JSON keys, malformed objects and input changes during replay
+are rejected. SHA-256 is computed from the same binary stream being decoded,
+with incremental UTF-8 decoding. Stable file-descriptor identity, inode, change
+time, size and modification time are checked; a same-size atomic replacement
+with a restored modification time cannot substitute a second file for hashing. The input budget is 512 MiB and 4,194,304 events, matching the
+maximum current scheduler trace budget. A decoded non-event JSON value is
+limited to one MiB. These are refusal limits, not silent truncation.
 
-### 3.3 Interactive Dashboard Capabilities
-* **Time Scrubber & Playback:** Allows playing through cycles with variable speed (1x, 2x, 5x, 10x) or scrubbing manually.
-* **Stable Layout (Anti-Jitter):** Fixed-height cards and scroll containers prevent DOM layout jumping as active instruction counts vary across cycles.
-* **Structural Hazard Tracking:** Directly highlights when instruction stalls occur due to FU allocation limits (`denials > 0`).
+This replay is an exporter safety check. The existing independent Workbench
+FU replay and numerical checker remain separate acceptance gates.
 
----
+## What the display means
 
-## 4. Verification & Validation Evidence
+Track IDs and names come from the validated trace. Floating-point, double
+precision and unfamiliar future functional units remain visible. A limit of
+zero means **unlimited**, preserving the current SALAM scheduling contract;
+it does not infer static hardware instances.
 
-* **Simulator Execution:**
-  * GEMM executed end-to-end on `DerivO3CPU` timing model with `PROTOCOL=CHI`.
-  * Terminal output confirmed: `Job complete. Checking result. Comparing CPU run to accelerated run. Check Passed.`
-* **Visualizer Export:**
-  * Parsed 4,352 trace events, extracting 2,176 completed instruction spans across 271 cycles.
-  * Zero unreleased grants remaining.
-  * Verified HTML output: `BM_ARM_OUT/gemm_run/visualizer.html`.
-* **Workbench GUI Offscreen Verification:**
-  * Ran `QT_QPA_PLATFORM=offscreen python3 -m salam_workbench.configurator_app --inspect`.
-  * Result: `"state": "ready"`, all 5 workbench tabs and 43 catalog benchmarks initialized cleanly.
+Each lane depicts one non-overlapping lease interval `[grant, release)` in
+modeled accelerator cycles. A release and regrant on the same boundary may
+reuse a lane. A zero-duration lease is a marker, never a fabricated cycle.
+All lane indices are distinct, including beyond eight simultaneous leases.
+The full event-order peak can exceed the cycle-boundary occupancy: multiple
+ordered grant/release events can occur within one displayed cycle.
+
+Ticks are labeled as ticks. This FU schema does not itself declare the tick
+frequency, so the viewer does not assume picoseconds or convert to seconds.
+Tick and instruction/lease identities are preserved as strings where needed
+to avoid JavaScript integer precision loss.
+
+To keep large stencil outputs usable, full replay and rendering are separate.
+By default, the first **20,000 completed spans** are retained for the browser;
+`--max-spans` accepts 1 through 100,000. The header explicitly reports rendered
+and total span counts. The occupancy curve and active-operation display cover
+those preview spans only. The unit summary and event-order peak come from the
+complete replay. A limited preview must never be described as the entire
+execution timeline. Raw JSON remains the complete source of detail.
+
+HTML data is JSON-escaped before embedding, and trace names are escaped before
+insertion into rich markup. No network dependency or external script is
+required by an exported dashboard.
+
+## Checkpoint validation
+
+The focused regression suite covers invalid/truncated input, counter and lease
+tampering, floating-point and future FU IDs, twelve concurrent lanes,
+release/regrant boundaries, zero-duration markers, bounded previews, chunked
+input, source hashing, HTML injection and the Docker compatibility entry point:
+
+```sh
+cd workbench
+python3 -m unittest discover -s tests -p test_execution_visualizer.py -v
+```
+
+Real preserved GEMM, FFT and stencil GUI traces are also replayed and exported
+at the integration checkpoint. Their raw SHA-256 values and coverage metadata
+are retained in the checkpoint evidence; export success is not represented as
+a new simulator or numerical test run. The root checkpoint record carries the
+combined source, GUI and numerical validation results.

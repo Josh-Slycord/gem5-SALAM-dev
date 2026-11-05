@@ -48,6 +48,7 @@ from .gui_editor_qt import MODEL_FIELDS, _fill_rows
 from .gui_execution import read_request, validate_request
 from .process_view import ProcessPanel
 from .runner import file_hash
+from .timeline_export import eligible_traces, export_selected_trace
 from .workbench_catalog import discover_benchmarks
 from .workbench_completion import verify_completion
 from .workbench_results import discover_runs, load_run, read_artifact_text
@@ -199,6 +200,8 @@ class WorkbenchWindow(QMainWindow):
         self.catalog = []
         self.selected_benchmark = None
         self.selected_run = None
+        self._timeline_running = False
+        self._last_timeline = None
         self._tasks = []
         self._task_queue = OrderedDict()
         self._busy = False
@@ -384,6 +387,15 @@ class WorkbenchWindow(QMainWindow):
         self.result_overview = _label("", "runStatus")
         self.result_overview.hide()
         detail_layout.addWidget(self.result_overview)
+        timeline_tools = QHBoxLayout()
+        self.timeline_combo = QComboBox()
+        self.timeline_combo.setToolTip("Select a complete, hash-verified FU trace")
+        timeline_tools.addWidget(self.timeline_combo, 1)
+        self.timeline_btn = QPushButton("Export execution timeline")
+        self.timeline_btn.setEnabled(False)
+        self.timeline_btn.clicked.connect(self.export_timeline)
+        timeline_tools.addWidget(self.timeline_btn)
+        detail_layout.addLayout(timeline_tools)
         self.result_tabs = QTabWidget()
         detail_layout.addWidget(self.result_tabs, 1)
         metric_page = QWidget()
@@ -538,6 +550,16 @@ class WorkbenchWindow(QMainWindow):
         elif name.startswith("run:"):
             if name == "run:" + str(self._load_generation):
                 self._show_run(value)
+        elif name == "timeline":
+            self._timeline_running = False
+            self._last_timeline = value
+            self.timeline_btn.setEnabled(
+                bool(self.timeline_combo.count()) and not self._busy
+            )
+            self.statusBar().showMessage(
+                "Exported checked FU timeline; numerical status is separate"
+            )
+            QDesktopServices.openUrl(QUrl.fromLocalFile(value["html"]))
         elif name == "comparison":
             self._show_comparison(*value)
         elif name == "artifact":
@@ -550,7 +572,12 @@ class WorkbenchWindow(QMainWindow):
 
     def _data_failed(self, name, error):
         self.statusBar().showMessage(name + ": " + error)
-        if name == "catalog":
+        if name == "timeline":
+            self._timeline_running = False
+            self.timeline_btn.setEnabled(
+                bool(self.timeline_combo.count()) and not self._busy
+            )
+        elif name == "catalog":
             self.catalog_note.setText(error)
             self.refresh_library_btn.setEnabled(True)
         elif name == "history":
@@ -769,6 +796,11 @@ class WorkbenchWindow(QMainWindow):
 
     def _set_busy(self, busy):
         self._busy = busy
+        self.timeline_btn.setEnabled(
+            not busy
+            and not self._timeline_running
+            and bool(self.timeline_combo.count())
+        )
         self.benchmark_tree.setEnabled(not busy)
         self.mode_combo.setEnabled(not busy)
         self.refresh_library_btn.setEnabled(not busy)
@@ -988,6 +1020,9 @@ class WorkbenchWindow(QMainWindow):
             self._inspect_run(item.data(0, Qt.UserRole))
 
     def _inspect_run(self, path):
+        self.selected_run = None
+        self.timeline_combo.clear()
+        self.timeline_btn.setEnabled(False)
         self.process_view.show_run(None)
         self._load_generation += 1
         self.result_heading.setText("Reading run evidence…")
@@ -1005,6 +1040,14 @@ class WorkbenchWindow(QMainWindow):
 
     def _show_run(self, result):
         self.selected_run = result
+        self.timeline_combo.clear()
+        for trace in eligible_traces(result):
+            self.timeline_combo.addItem(trace["name"], trace["path"])
+        self.timeline_btn.setEnabled(
+            bool(self.timeline_combo.count())
+            and not self._busy
+            and not self._timeline_running
+        )
         self.process_view.show_run(result)
         self.topology.show_run(result)
         self.result_heading.setText(
@@ -1111,6 +1154,23 @@ class WorkbenchWindow(QMainWindow):
                 table.setColumnWidth(column, min(table.columnWidth(column), 430))
         for column, width in enumerate((350, 140, 130, 200, 180)):
             self.metrics.setColumnWidth(column, width)
+
+    def export_timeline(self):
+        if self._busy or self._timeline_running or not self.selected_run:
+            return
+        selected = self.timeline_combo.currentData()
+        if not selected:
+            self.statusBar().showMessage("No hash-verified FU trace is available")
+            return
+        snapshot = deepcopy(self.selected_run)
+        self._timeline_running = True
+        self.timeline_btn.setEnabled(False)
+        self.statusBar().showMessage(
+            "Replaying trace and exporting a derived timeline…"
+        )
+        self._task(
+            "timeline", lambda: export_selected_trace(snapshot, selected, self.project)
+        )
 
     def _filter_metrics(self):
         query = self.metric_search.text().lower().strip()

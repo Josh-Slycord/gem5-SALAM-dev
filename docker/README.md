@@ -1,72 +1,109 @@
-# gem5-SALAM Pre-compiled Docker $\to$ WSL2 Distro
+# Experimental Docker-to-WSL2 appliance
 
-This directory formalizes an automated, reproducible pipeline to build and package **gem5-SALAM** (pinned to branch `codex/gem5-26-upgrade` at commit `9c83f862e4ce96f85680e255c12164106e79986d`) as a self-contained, pre-compiled native **WSL2** distribution.
+This recipe packages a specific committed SALAM source tree and builds its
+simulator. **A clean-host Docker build, WSL import, GUI launch and independent
+numerical acceptance have not yet been established for this recipe.** The
+existing validated installations remain the supported local environments.
+This checkpoint fixes source identity and launch contracts; it does not certify
+an appliance release.
 
----
+## What changed from the initial PR
 
-## Why this Architecture?
+- The image uses one exact `git archive` snapshot, including its Workbench and
+  visualizer. It no longer clones an older commit and silently patches scripts.
+- Build jobs, base image, source revision, artifact directory, distribution name
+  and installation directory are explicit parameters.
+- Every native command failure stops the PowerShell workflow.
+- No existing distribution is unregistered, replaced or modified. Existing
+  exports are never overwritten. The stopped export container is retained.
+- The image records package versions, simulator SHA-256 and build information.
+  The host manifest records the source commit/archive hash, image identity and
+  rootfs hash. This is provenance, **not bit-for-bit reproducibility**: the
+  default base tag, Ubuntu apt repositories and transitive Python dependencies
+  are mutable. A digest-pinned base and controlled dependency mirror/lock are
+  additional release requirements.
+- The hand-written workspace and ad-hoc GEMM compilation are disabled in the
+  Dockerfile with comments explaining why. They bypassed verified receipts,
+  GUI adapter installation and the supported generation/ARM SDK flow.
 
-1. **Pre-compiled Simulator & Accelerators:** Compiling gem5 from source takes 20–40 minutes and requires exact versions of GCC, Clang/LLVM 14, Python 3.10, and SCons. By compiling inside Docker, you build the binary once; subsequent WSL spin-ups take **under 15 seconds**.
-2. **Total Isolation:** The resulting WSL virtual disk (`ext4.vhdx`) lives on secondary storage (`D:\wsl_instances\...`) instead of cluttering your `C:\` drive or mutating your existing WSL distributions (`Ubuntu-20.04`).
-3. **Pre-configured Workbench GUI & Benchmarks:** All dependencies (`PySide6`, `numpy`, `networkx`, `pydot`, `pytest`, `libgl1`, `libegl1`, `libxkbcommon0`), cross-compilers (`arm-none-eabi`, `aarch64-linux-gnu`), ARM bootloaders, and benchmark bitcode are pre-installed and pre-compiled.
-4. **Disposability:** If you ever experiment, break libraries, or want a fresh baseline, you can delete the distro with `wsl --unregister gem5-salam-prebuilt` and re-import from the exported tarball in seconds without re-compiling.
+## Build and export
 
----
+Requirements: Docker with a working Linux engine, Git, PowerShell and enough
+space on the chosen artifact disk. Use a clean committed source tree. The
+context archive, image build and exported filesystem can be large; no timing
+or disk-size guarantee is made.
 
-## File Contents
-
-* **`Dockerfile`**: The multi-step build recipe based on `ubuntu:22.04` (Jammy):
-  * Pins Clang 14 / LLVM 14 as default compiler and config generator (required for SALAM typed-pointer IR).
-  * Installs Python 3.10, SCons, Protobuf, tcmalloc, HDF5, Boost, PNG.
-  * Installs ARM baremetal toolchains (`gcc-arm-none-eabi`, `libstdc++-arm-none-eabi-newlib`, `libnewlib-arm-none-eabi`) and 64-bit cross-compiler (`gcc-aarch64-linux-gnu`).
-  * Installs PySide6 Qt6 GUI runtime libraries for seamless WSLg desktop rendering.
-  * Creates user `jslycord` with passwordless sudo and configures `/etc/wsl.conf` to boot directly into that user with systemd enabled.
-  * Clones `Josh-Slycord/gem5-SALAM-dev` at `9c83f862e4ce96f85680e255c12164106e79986d`.
-  * Pre-compiles ARM32 & ARM64 bootloaders (`system/arm/bootloader/*`).
-  * Pre-compiles `build/ARM/gem5.opt` with SALAM accelerators enabled (`--with-salam LLVM_CONFIG=/usr/bin/llvm-config-14 PROTOCOL=CHI USE_KVM=0`).
-  * Pre-compiles GEMM hardware bitcode (`clang -emit-llvm -I/usr/include/newlib`) and software ELF (`main.elf`).
-  * Configures `workbench/workspace.json` and `.bashrc` aliases.
-* **`build_gem5_wsl.ps1`**: The end-to-end PowerShell orchestrator:
-  1. Builds the Docker image.
-  2. Exports the filesystem to `D:\wsl_backups\gem5-salam-prebuilt.tar`.
-  3. Registers it with WSL2 under `D:\wsl_instances\gem5-salam-prebuilt`.
-
----
-
-## Quick Start
-
-### 1. Requirements
-* Docker Desktop running on Windows (with WSL2 backend enabled).
-* Available disk space on `D:\` (~15–20 GB for Docker build cache, ~8–12 GB for the final rootfs tarball/WSL vhdx).
-
-### 2. Run the Full Build & Import
-Open PowerShell as your user and run:
-```powershell
-cd D:\kb_dev\gem5-salam-workbench\docker
-.\build_gem5_wsl.ps1
-```
-
-### 3. Launching Your Instance
-Once complete, open a terminal or run:
-```powershell
-wsl -d gem5-salam-prebuilt
-```
-
-You will land directly in `/home/jslycord/gem5-SALAM-dev` as `jslycord` with all paths configured:
-
-* **Run GEMM simulation:** `run-gemm`
-* **Launch Desktop GUI:** `workbench`
-* **Inspect GUI headless:** `salam-inspect`
-* **Direct gem5 binary:** `gem5 --build-info`
-
----
-
-## Advanced Options
+Run from a Windows clone or WSL UNC checkout, supplying your own destination:
 
 ```powershell
-# Re-import a new WSL instance from an already exported tarball (takes ~10 seconds):
-.\build_gem5_wsl.ps1 -SkipBuild -SkipExport -DistroName "gem5-test-instance" -WslInstallDir "D:\wsl_instances\gem5-test"
-
-# Only build the Docker image without exporting or importing to WSL:
-.\build_gem5_wsl.ps1 -NoImport -SkipExport
+.\docker\build_gem5_wsl.ps1 -SourceRoot "D:\your-source-checkout" -ArtifactRoot "E:\salam-appliances\checkpoint-1" -Commit HEAD -Jobs 2
 ```
+
+Only committed tracked files are archived. The Dockerfile is read from that
+same commit. The packager rejects gitlinks because a plain archive does not include their
+submodule contents. This repository currently vendors SALAM's LLVMRead files;
+check future submodule additions before packaging.
+
+For stronger environment identification, pass an independently checked base
+digest instead of the mutable default `ubuntu:22.04`:
+
+```powershell
+# Supply a real digest from the intended platform; this is a placeholder.
+# -BaseImage "ubuntu@sha256:<verified-linux-amd64-digest>"
+```
+
+This example is intentionally commented out: no image digest was verified by
+this checkpoint. The default is a build convenience, not a frozen release.
+
+## Optional new WSL installation
+
+Import is opt-in and requires a new destination. It never unregisters anything:
+
+```powershell
+.\docker\build_gem5_wsl.ps1 -SourceRoot "D:\your-source-checkout" -ArtifactRoot "E:\salam-appliances\checkpoint-1" -Commit HEAD -SkipBuild -SkipExport -Import -DistroName "gem5-salam-checkpoint-1" -WslInstallDir "E:\wsl-instances\gem5-salam-checkpoint-1"
+```
+
+The default Linux account is `salam`. Simulator sources/binary are under
+`/opt/salam/engine`, package/build records under `/opt/salam/provenance`, and
+a separate Workbench copy under `/home/salam/workbench`. No passwordless sudo
+rule or systemd startup dependency is installed. WSLg support depends on the
+host's WSL installation.
+
+Docker environment variables are not carried into a `docker export` rootfs
+as WSL process defaults. The launch script selects paths explicitly.
+
+## Bind and launch the GUI
+
+The copied Workbench intentionally has **no fabricated `workspace.json`**.
+Use the supported [existing-installation bootstrap](../workbench/README.md#bind-an-existing-installation)
+with actual build/generation receipts and install its checked GUI adapter.
+Producing and validating those receipts inside this new appliance is an open
+clean-environment acceptance task. Do not copy receipt identities from another
+binary or source tree.
+
+After binding:
+
+```powershell
+.\docker\launch_workbench.ps1 -Distribution "gem5-salam-checkpoint-1" -WorkbenchRoot "/home/salam/workbench" -Inspect
+.\docker\launch_workbench.ps1 -Distribution "gem5-salam-checkpoint-1" -WorkbenchRoot "/home/salam/workbench"
+```
+
+The launcher reads the selected Python interpreter from the real workspace
+profile, propagates failures and accepts an optional `-Benchmark`. Missing
+bindings fail clearly; this launcher never starts a simulator by itself.
+
+## Release acceptance still required
+
+1. Build/export on a clean host; retain source, dependency and image manifests.
+2. Import into a new WSL name and disk path; verify the simulator hash.
+3. Produce genuine generation/build receipts, install GUI hook and bootstrap.
+4. Launch/inspect the actual GUI, apply settings and exercise regeneration/build.
+5. Run GEMM, FFT and stencil with independent numerical and FU replay checks,
+   including deliberate wrong-output and truncated-trace controls.
+6. Validate WSLg visibly and record license/redistribution obligations before
+   distributing an appliance. A successful simulator build is only one gate.
+
+Unsigned scripts on a WSL UNC share may be blocked by the host execution
+policy. Use a local reviewed script copy or the direct WSL invocation described
+in the Workbench README; no machine-wide policy change is required. Select the
+actual profile Python and bound Workbench directory for that invocation.

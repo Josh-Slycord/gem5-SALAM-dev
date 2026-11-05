@@ -513,7 +513,17 @@ def _modern_build_configuration(engine, directory):
     return snapshots
 
 
-def verify_engine(engine, configured_receipt=None):
+def verify_engine(engine, configured_receipt=None, *, toolchain_profile=None):
+    # Bootstrap verifies a new binding before workspace.json exists. Use its
+    # explicit source profile instead of silently selecting this checkout's
+    # legacy default. Ordinary callers retain their current workspace profile.
+    profile = (
+        load_toolchain(PROJECT)
+        if toolchain_profile is None
+        else load_toolchain(
+            manifest={"configuration_engine": {"toolchain_profile": toolchain_profile}}
+        )
+    )
     if configured_receipt:
         path = Path(configured_receipt).resolve(strict=True)
         receipt = json.loads(path.read_text())
@@ -527,12 +537,12 @@ def verify_engine(engine, configured_receipt=None):
         if receipt["compiled_source_sha256"] != compiled_identity(engine)["sha256"]:
             raise ValueError("Configured simulator sources changed; rebuild required")
         selected = receipt.get("selected_toolchain")
-        if selected is None and is_modern(load_toolchain(PROJECT)):
+        if selected is None and is_modern(profile):
             raise ValueError(
                 "Modern configured builds require a selected-toolchain receipt"
             )
         if selected is not None:
-            if selected.get("profile") != load_toolchain(PROJECT):
+            if selected.get("profile") != profile:
                 raise ValueError(
                     "Configured simulator selected a different toolchain profile"
                 )
@@ -545,7 +555,7 @@ def verify_engine(engine, configured_receipt=None):
                 raise ValueError(
                     "Configured build toolchain or linked LLVM library changed"
                 )
-        if is_modern(load_toolchain(PROJECT)):
+        if is_modern(profile):
             configurations = receipt.get("build_configuration", [])
             expected = {
                 str(engine / "build/ARM/gem5.build" / name)

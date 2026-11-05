@@ -2,7 +2,7 @@
 # Historical gem5 and SALAM files retain their own provenance and style.
 minimum_pre_commit_version: '3.5.0'
 
-files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md)'
+files: '^(workbench/(salam_workbench/|tests/|scripts/|visualizer/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/|docs/CI\.md)'
 exclude: '^workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)'
 
 repos:
@@ -13,21 +13,21 @@ repos:
         entry: black --config workbench/pyproject.toml --check --diff
         language: system
         types: [python]
-        files: '^workbench/(salam_workbench|tests|scripts)/.*\.py$'
+        files: '^(docker/export_salam_visualizer[.]py|workbench/(salam_workbench|tests|scripts|visualizer)/.*\.py)$'
 
       - id: workbench-isort
         name: isort on maintained workbench Python
         entry: isort --settings-path workbench/pyproject.toml --check-only --diff
         language: system
         types: [python]
-        files: '^workbench/(salam_workbench|tests|scripts)/.*\.py$'
+        files: '^(docker/export_salam_visualizer[.]py|workbench/(salam_workbench|tests|scripts|visualizer)/.*\.py)$'
 
       - id: workbench-python-syntax
         name: Parse maintained workbench Python
         entry: check-ast
         language: system
         types: [python]
-        files: '^workbench/(salam_workbench|tests|scripts)/.*\.py$'
+        files: '^(docker/export_salam_visualizer[.]py|workbench/(salam_workbench|tests|scripts|visualizer)/.*\.py)$'
 
       - id: workbench-json-syntax
         name: Parse maintained workbench JSON
@@ -70,4 +70,4 @@ repos:
         args: [--fix=lf]
         language: system
         types: [text]
-        files: '^(workbench/(salam_workbench|tests|scripts)/.*\.py|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml|docs/CI\.md)$'
+        files: '^(workbench/(salam_workbench|tests|scripts|visualizer)/.*\.py|\.github/workflows/ci\.yml|\.pre-commit-config\.yaml|docs/CI\.md)$'

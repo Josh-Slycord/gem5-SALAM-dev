@@ -1,167 +1,181 @@
 <#
 .SYNOPSIS
-    Builds the pre-compiled gem5-SALAM Docker image, exports its rootfs, and registers
-    it as an independent native WSL2 distribution.
-
-.PARAMETER ImageName
-    Name of the Docker image to build. Default: 'gem5-salam-prebuilt'.
-
-.PARAMETER DistroName
-    Name of the registered WSL distro. Default: 'gem5-salam-prebuilt'.
-
-.PARAMETER TarPath
-    Path where the rootfs tarball will be exported. Default: 'D:\wsl_backups\gem5-salam-prebuilt.tar'.
-
-.PARAMETER WslInstallDir
-    Directory on host disk where the WSL2 ext4.vhdx will reside. Default: 'D:\wsl_instances\gem5-salam-prebuilt'.
-
-.PARAMETER SkipBuild
-    Skip running `docker build` if the image is already built locally.
-
-.PARAMETER SkipExport
-    Skip creating and exporting the container tarball if TarPath already exists.
-
-.EXAMPLE
-    .\build_gem5_wsl.ps1
-    .\build_gem5_wsl.ps1 -DistroName "gem5-dev" -WslInstallDir "D:\wsl_instances\gem5-dev"
+Build an experimental SALAM snapshot and optionally import a new WSL2 instance.
+Existing distributions and export artifacts are never replaced.
+.DESCRIPTION
+Simulator build success is not configured-workbench or numerical acceptance.
+All source archives, rootfs exports and manifests live in ArtifactRoot outside
+the source checkout. Requires a clean committed source tree.
 #>
-
 [CmdletBinding()]
-param (
-    [string]$ImageName = "gem5-salam-prebuilt",
+param(
+    [ValidateNotNullOrEmpty()]
+    [string]$SourceRoot = (Split-Path -Parent $PSScriptRoot),
+    [ValidateNotNullOrEmpty()]
+    [string]$Commit = "HEAD",
+    [ValidateNotNullOrEmpty()]
+    [string]$ImageName = "gem5-salam-checkpoint",
+    [ValidateNotNullOrEmpty()]
+    [string]$BaseImage = "ubuntu:22.04",
+    [ValidateRange(1, 32)]
+    [int]$Jobs = 2,
+    [Parameter(Mandatory = $true)]
+    [string]$ArtifactRoot,
     [string]$DistroName = "gem5-salam-prebuilt",
-    [string]$TarPath = "D:\wsl_backups\gem5-salam-prebuilt.tar",
-    [string]$WslInstallDir = "D:\wsl_instances\gem5-salam-prebuilt",
+    [string]$WslInstallDir,
+    [switch]$Import,
     [switch]$SkipBuild,
-    [switch]$SkipExport,
-    [switch]$NoImport
+    [switch]$SkipExport
 )
-
 $ErrorActionPreference = "Stop"
-$swTotal = [System.Diagnostics.Stopwatch]::StartNew()
 
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " gem5-SALAM Pre-compiled Docker -> WSL2 Distro Generator" -ForegroundColor Cyan
-Write-Host "==========================================================" -ForegroundColor Cyan
-
-# 0. Check Docker CLI & Auto-discover PATH if needed
-Write-Host "`n[1/4] Checking Docker availability..." -ForegroundColor Yellow
-
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    $knownDockerPaths = @(
-        "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin",
-        "$env:ProgramFiles\Docker\Docker\resources\bin",
-        "C:\Program Files\Docker\Docker\resources\bin"
-    )
-    foreach ($cand in $knownDockerPaths) {
-        if (Test-Path (Join-Path $cand "docker.exe")) {
-            Write-Host "  -> Auto-detected Docker CLI in $cand (adding to session PATH)" -ForegroundColor DarkGray
-            $env:PATH = "$cand;$env:PATH"
-            break
-        }
+function Invoke-Checked {
+    param([string]$Program, [string[]]$Arguments)
+    & $Program @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Program failed with exit code $LASTEXITCODE."
     }
 }
-
-try {
-    $dockerVer = docker version --format '{{.Server.Version}}' 2>$null
-    if (-not $dockerVer) {
-        Write-Error "Docker is not running or not accessible. Please ensure Docker Desktop is started."
+function Read-Checked {
+    param([string]$Program, [string[]]$Arguments)
+    $value = & $Program @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Program failed with exit code $LASTEXITCODE."
     }
-    Write-Host "  -> Docker Engine connected (v$dockerVer)" -ForegroundColor Green
-} catch {
-    Write-Error "Failed to execute 'docker version': $_"
+    return $value
+}
+function Test-InSource {
+    param([string]$Candidate, [string]$Source)
+    $prefix = $Source.TrimEnd([char[]]"\/") +
+        [IO.Path]::DirectorySeparatorChar
+    return $Candidate.Equals($Source, [StringComparison]::OrdinalIgnoreCase) -or
+        $Candidate.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
 }
 
-# 1. Build Docker Image
-$DockerDir = $PSScriptRoot
+$source = (Resolve-Path -LiteralPath $SourceRoot).ProviderPath
+$artifacts = [IO.Path]::GetFullPath($ArtifactRoot)
+if (Test-InSource $artifacts $source) {
+    throw "ArtifactRoot must be outside the source checkout."
+}
+if ($Import -and -not $WslInstallDir) {
+    throw "-Import requires an explicit -WslInstallDir on the intended disk."
+}
+if ($Import) {
+    $install = [IO.Path]::GetFullPath($WslInstallDir)
+    if ((Test-InSource $install $source) -or
+        (Test-InSource $install $artifacts) -or
+        (Test-Path -LiteralPath $install)) {
+        throw "Choose a new WslInstallDir outside source and artifact paths."
+    }
+    $existing = Read-Checked "wsl.exe" @("--list", "--quiet")
+    $names = @($existing | ForEach-Object { ($_ -replace "\0", "").Trim() })
+    if ($names -contains $DistroName) {
+        throw "Distribution already exists; choose a new name. No replacement."
+    }
+}
+$gitPrefix = @("--no-optional-locks", "-c", "core.fsmonitor=false", "-C", $source)
+$sha = ((Read-Checked "git" ($gitPrefix + @(
+    "rev-parse", "--verify", "$Commit^{commit}"
+))) -join "").Trim()
+if ($sha -notmatch '^[0-9a-f]{40}$') { throw "Expected a full source commit." }
+$tree = Read-Checked "git" ($gitPrefix + @("ls-tree", "-r", $sha))
+if (@($tree | Where-Object { $_ -match '^160000 ' }).Count) {
+    throw "Selected source has gitlinks; archive packaging needs their contents."
+}
+if ($Commit -eq "HEAD") {
+    $dirty = Read-Checked "git" ($gitPrefix + @(
+        "status", "--porcelain", "--untracked-files=normal"
+    ))
+    if ($dirty) { throw "Commit the reviewed changes before packaging HEAD." }
+}
+[IO.Directory]::CreateDirectory($artifacts) | Out-Null
+$context = Join-Path $artifacts "context"
+$tarPath = Join-Path $artifacts "rootfs.tar"
+$manifestPath = Join-Path $artifacts "appliance.json"
 if (-not $SkipBuild) {
-    Write-Host "`n[2/4] Building Docker image '$ImageName' from $DockerDir..." -ForegroundColor Yellow
-    Write-Host "  -> Note: Pre-compiling gem5.opt can take 15-30 minutes depending on CPU." -ForegroundColor DarkGray
-    $swBuild = [System.Diagnostics.Stopwatch]::StartNew()
-
-    docker build -t $ImageName -f (Join-Path $DockerDir "Dockerfile") $DockerDir
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Docker build failed with exit code $LASTEXITCODE."
+    if (Test-Path -LiteralPath $context) {
+        throw "Build context exists; use a new ArtifactRoot."
     }
-    $swBuild.Stop()
-    Write-Host "  -> Docker image built in $($swBuild.Elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Green
-} else {
-    Write-Host "`n[2/4] Skipping Docker build (-SkipBuild specified)." -ForegroundColor DarkGray
+    [IO.Directory]::CreateDirectory($context) | Out-Null
+    $sourceTar = Join-Path $context "source.tar"
+    Invoke-Checked "git" ($gitPrefix + @(
+        "archive", "--format=tar", "--output=$sourceTar", $sha
+    ))
+    # Dockerfile and source.tar must come from the same selected commit.
+    $recipe = Read-Checked "git" ($gitPrefix + @(
+        "show", "${sha}:docker/Dockerfile"
+    ))
+    [IO.File]::WriteAllText(
+        (Join-Path $context "Dockerfile"),
+        ($recipe -join "`n") + "`n",
+        [Text.UTF8Encoding]::new($false)
+    )
+    $archiveHash = (Get-FileHash -LiteralPath $sourceTar -Algorithm SHA256).Hash
+    Invoke-Checked "docker" @("version", "--format", "{{.Server.Version}}")
+    Invoke-Checked "docker" @(
+        "build", "--tag", $ImageName,
+        "--build-arg", "BASE_IMAGE=$BaseImage",
+        "--build-arg", "SALAM_COMMIT=$sha",
+        "--build-arg", "SOURCE_ARCHIVE_SHA256=$($archiveHash.ToLowerInvariant())",
+        "--build-arg", "BUILD_JOBS=$Jobs", $context
+    )
 }
-
-# 2. Export Container Filesystem to Tarball
-$tarDir = Split-Path -Parent $TarPath
-if (-not (Test-Path $tarDir)) {
-    New-Item -ItemType Directory -Path $tarDir -Force | Out-Null
-}
-
 if (-not $SkipExport) {
-    Write-Host "`n[3/4] Exporting rootfs tarball to $TarPath..." -ForegroundColor Yellow
-    $swExport = [System.Diagnostics.Stopwatch]::StartNew()
-
-    Write-Host "  -> Creating temporary export container..." -ForegroundColor DarkGray
-    $containerId = (docker create $ImageName).Trim()
-    if (-not $containerId) {
-        Write-Error "Failed to create temporary Docker container for export."
+    if ((Test-Path -LiteralPath $tarPath) -or
+        (Test-Path -LiteralPath "$tarPath.partial") -or
+        (Test-Path -LiteralPath $manifestPath)) {
+        throw "Export already exists; choose a new ArtifactRoot."
     }
-
-    try {
-        Write-Host "  -> Exporting filesystem..." -ForegroundColor DarkGray
-        docker export $containerId -o $TarPath
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "docker export failed with exit code $LASTEXITCODE."
-        }
-    } finally {
-        docker rm -f $containerId | Out-Null
+    $image = (Read-Checked "docker" @("image", "inspect", $ImageName) |
+        Out-String | ConvertFrom-Json)[0]
+    if ($image.Config.Labels.'org.opencontainers.image.revision' -ne $sha) {
+        throw "Image source identity differs from the selected commit."
     }
-
-    $tarItem = Get-Item $TarPath
-    $tarMB = [math]::Round($tarItem.Length / 1MB, 2)
-    $swExport.Stop()
-    Write-Host "  -> Exported $tarMB MB in $($swExport.Elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Green
-} else {
-    Write-Host "`n[3/4] Skipping export (-SkipExport specified). Using existing $TarPath." -ForegroundColor DarkGray
+    if ($image.Config.Labels.'org.salam.source-archive.sha256' -notmatch
+        '^[0-9a-f]{64}$') {
+        throw "Image has no valid source archive SHA-256 label."
+    }
+    $container = ((Read-Checked "docker" @("create", $image.Id)) -join "").Trim()
+    if ($container -notmatch '^[0-9a-f]{12,64}$') {
+        throw "Docker returned an unexpected export container ID."
+    }
+    # Preserve this task-created stopped container for audit; no forced removal.
+    Invoke-Checked "docker" @("export", $container, "--output", "$tarPath.partial")
+    Move-Item -LiteralPath "$tarPath.partial" -Destination $tarPath
+    $record = [ordered]@{
+        schema_version = 1
+        state = "experimental_unvalidated_appliance"
+        source_commit = $sha
+        source_archive_sha256 =
+            $image.Config.Labels.'org.salam.source-archive.sha256'
+        image_id = $image.Id
+        image_repo_digests = @($image.RepoDigests)
+        base_image_requested = $BaseImage
+        export_container = $container
+        rootfs = $tarPath
+        rootfs_sha256 = (Get-FileHash $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        built_at_utc = [DateTime]::UtcNow.ToString("o")
+        configured_gui_acceptance = "not_performed"
+        independent_numerical_acceptance = "not_performed"
+    }
+    $record | ConvertTo-Json -Depth 6 |
+        Set-Content -LiteralPath $manifestPath -Encoding UTF8
 }
-
-# 3. Register WSL Distro
-if (-not $NoImport) {
-    Write-Host "`n[4/4] Registering WSL2 distribution '$DistroName'..." -ForegroundColor Yellow
-
-    if (-not (Test-Path $WslInstallDir)) {
-        New-Item -ItemType Directory -Path $WslInstallDir -Force | Out-Null
+if ($Import) {
+    if (-not (Test-Path -LiteralPath $tarPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "Import requires an exported rootfs and appliance.json."
     }
-
-    # Check if a distro with this name already exists
-    $existing = wsl -l -q 2>$null
-    if ($existing -match [regex]::Escape($DistroName)) {
-        Write-Warning "A WSL distribution named '$DistroName' is already registered."
-        $confirm = Read-Host "Unregister/replace '$DistroName'? This will delete its current disk image (y/N)"
-        if ($confirm -match '^[Yy]') {
-            Write-Host "  -> Unregistering existing distro..." -ForegroundColor DarkGray
-            wsl --unregister $DistroName
-        } else {
-            Write-Host "  -> Aborting import to protect existing distro." -ForegroundColor Yellow
-            return
-        }
+    $record = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $actualHash = (Get-FileHash $tarPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($record.rootfs_sha256 -ne $actualHash -or $record.source_commit -ne $sha) {
+        throw "Export hash/source identity check failed."
     }
-
-    $swImport = [System.Diagnostics.Stopwatch]::StartNew()
-    Write-Host "  -> Importing into $WslInstallDir..." -ForegroundColor DarkGray
-    wsl --import $DistroName $WslInstallDir $TarPath --version 2
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "wsl --import failed with exit code $LASTEXITCODE."
-    }
-    $swImport.Stop()
-    Write-Host "  -> Registered WSL distro in $($swImport.Elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Green
-
-    Write-Host "`n==========================================================" -ForegroundColor Green
-    Write-Host " SETUP COMPLETE!" -ForegroundColor Green
-    Write-Host " Total time: $($swTotal.Elapsed.ToString('hh\:mm\:ss'))" -ForegroundColor Green
-    Write-Host "==========================================================" -ForegroundColor Green
-    Write-Host "`nTo enter your pre-configured gem5-SALAM environment:" -ForegroundColor Cyan
-    Write-Host "  wsl -d $DistroName" -ForegroundColor Yellow
-    Write-Host "`nTo verify the pre-compiled simulator inside WSL:" -ForegroundColor Cyan
-    Write-Host "  ./build/ARM/gem5.opt --version" -ForegroundColor Yellow
-} else {
-    Write-Host "`n[4/4] Skipping WSL import (-NoImport specified)." -ForegroundColor DarkGray
+    [IO.Directory]::CreateDirectory($install) | Out-Null
+    Invoke-Checked "wsl.exe" @(
+        "--import", $DistroName, $install, $tarPath, "--version", "2"
+    )
+    Write-Host "Imported $DistroName. GUI/numerical acceptance remain pending."
 }
+Write-Host "Artifacts: $artifacts"
+Write-Host "Existing WSL installations and checkout bindings were not changed."

@@ -1,68 +1,30 @@
-#!/bin/bash
-# Run GEMM benchmark with proper workflow
-# Usage: ./run_gemm.sh
+#!/usr/bin/env bash
+# Run a saved GUI GEMM request through the supported Workbench pipeline.
+set -euo pipefail
+SCRIPT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WORKBENCH_ROOT="$SCRIPT_ROOT/workbench"
 
-set -e
-
-# Set M5_PATH to current directory
-export M5_PATH="$(pwd)"
-BENCH="gemm"
-OUTDIR="BM_ARM_OUT/gemm_run"
-
-echo "=== gem5-SALAM GEMM Benchmark ==="
-echo "M5_PATH: $M5_PATH"
-echo "Output dir: $OUTDIR"
-echo ""
-
-# Step 1: Run systembuilder to generate configs
-echo "=== Step 1: Running systembuilder.py ==="
-python3 SALAM-Configurator/systembuilder.py \
-    --sysName "$BENCH" \
-    --benchDir "benchmarks/sys_validation/${BENCH}"
-echo "Config generation complete."
-echo ""
-
-# Step 2: Create output directory
-mkdir -p "$OUTDIR"
-
-# Step 3: Run gem5 simulation
-echo "=== Step 2: Running gem5 simulation ==="
-
-# Debug flags:
-# IOAcc, ClassDetail, CommInterface, ComputeUnit, LLVMInterface,
-# ComputeNode, LLVMRegister, LLVMOp, LLVMParse, LLVMGEP,
-# LLVMRuntime (= ComputeNode + LLVMRegister + LLVMOp + LLVMParse)
-# NoncoherentDma, JDEV
-DEBUG_FLAGS=SALAM_Debug
-
-./build/ARM/gem5.opt \
-    --debug-flags=$DEBUG_FLAGS \
-    --outdir="$OUTDIR" \
-    configs/SALAM/generated/fs_${BENCH}.py \
-    --mem-size=4GB \
-    --mem-type=DDR4_2400_8x8 \
-    --kernel=benchmarks/sys_validation/${BENCH}/sw/main.elf \
-    --disk-image=baremetal/common/fake.iso \
-    --machine-type=VExpress_GEM5_V1 \
-    --dtb-file=none \
-    --bare-metal \
-    --cpu-type=DerivO3CPU \
-    --accpath=benchmarks/sys_validation \
-    --accbench=${BENCH} \
-    --caches \
-    --l2cache
-
-echo ""
-echo "=== Simulation complete ==="
-echo "Terminal output: $OUTDIR/system.terminal"
-echo ""
-cat "$OUTDIR/system.terminal"
-
-if [ -f "$OUTDIR/observability/fu-scheduling-system.${BENCH}_clstr.${BENCH}.invocation-1.json" ]; then
-    echo ""
-    echo "=== Generating Execution Visualizer ==="
-    python3 workbench/visualizer/export_salam_visualizer.py \
-        "$OUTDIR/observability/fu-scheduling-system.${BENCH}_clstr.${BENCH}.invocation-1.json" \
-        "$OUTDIR/visualizer.html"
-    echo "Visualizer HTML ready: $OUTDIR/visualizer.html"
+# The historical direct systembuilder/build/guest-pass path is disabled.
+# It bypassed staged generator repairs, build receipts, generated inputs and
+# independent output checks. Keep its history in Git; use the checked runner.
+if [[ $# -eq 0 ]]; then
+    cat <<'HELP'
+Usage: ./run_gemm.sh --request /absolute/path/to/request.json [--jobs 1..32]
+Use a generated-input GEMM request saved by a Workbench run.
+Settings regenerate/rebuild through the normal pipeline when required.
+Timelines are derived exports; accepted raw evidence is never overwritten.
+A valid workspace.json and verified external runtime are required.
+HELP
+    exit 2
 fi
+
+if [[ -z "${SALAM_PYTHON:-}" ]]; then
+    SALAM_PYTHON="$(cd "$WORKBENCH_ROOT" && python3 -c \
+      'from salam_workbench.toolchain_profile import load_toolchain; print(load_toolchain()["python"])')"
+fi
+if [[ ! -x "$SALAM_PYTHON" ]]; then
+    printf 'Selected Workbench Python is unavailable: %s\n' "$SALAM_PYTHON" >&2
+    exit 2
+fi
+cd "$WORKBENCH_ROOT"
+exec "$SALAM_PYTHON" -B -m salam_workbench.configured_run --benchmark gemm "$@"
