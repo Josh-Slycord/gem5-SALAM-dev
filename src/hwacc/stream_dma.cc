@@ -1,12 +1,38 @@
 //------------------------------------------//
 #include "hwacc/stream_dma.hh"
+#include <algorithm>
+#include <cstring>
 //------------------------------------------//
+
+StreamDma::DmaStats::DmaStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(readStarts, statistics::units::Count::get(),
+               "MM2S stream-DMA channels started"),
+      ADD_STAT(writeStarts, statistics::units::Count::get(),
+               "S2MM stream-DMA channels started"),
+      ADD_STAT(framesRead, statistics::units::Count::get(),
+               "MM2S frames filled from memory"),
+      ADD_STAT(framesWritten, statistics::units::Count::get(),
+               "S2MM frames drained to memory"),
+      ADD_STAT(bytesRead, statistics::units::Byte::get(),
+               "Bytes read by consumers from the MM2S FIFO"),
+      ADD_STAT(bytesWritten, statistics::units::Byte::get(),
+               "Bytes written by producers into the S2MM FIFO"),
+      ADD_STAT(writePackets, statistics::units::Count::get(),
+               "DMA write packets issued to memory"),
+      ADD_STAT(statusReads, statistics::units::Count::get(),
+               "Stream-DMA status register reads completed"),
+      ADD_STAT(active, statistics::units::Ratio::get(),
+               "Fraction of cycles either stream-DMA channel was active")
+{
+    active.flags(statistics::nozero);
+}
 
 StreamDma::StreamDma(const StreamDmaParams &p)
     : DmaDevice(p),
     devname(p.devicename),
-    streamIn(this),
-    streamOut(this),
+    streamIn(this, "stream_in"),
+    streamOut(this, "stream_out"),
     statusIn(this, false),
     statusOut(this, true),
     pioAddr(p.pio_addr),
@@ -25,11 +51,15 @@ StreamDma::StreamDma(const StreamDmaParams &p)
     rdInt(p.rd_int),
     wrInt(p.wr_int),
     tickEvent(this),
-    bandwidth(p.bandwidth) {
+    bandwidth(p.bandwidth),
+    dmaStats(this) {
     readFifo = new DmaReadFifo(dmaPort, rdBufferSize, maxReqSize, maxPending);
-    writeFifo = new DmaWriteFifo(dmaPort, wrBufferSize, maxReqSize, maxPending);
-    mmreg = new uint8_t[32];
-    for (int i=0; i<pioSize; i++)
+    writeFifo = new DmaWriteFifo(
+        dmaPort, wrBufferSize, maxReqSize, maxPending, 0,
+        [this](size_t) { dmaStats.writePackets++; });
+    const Addr mmregSize = std::max<Addr>(pioSize, BUFFER_ACCESS_OFF);
+    mmreg = new uint8_t[mmregSize];
+    for (Addr i = 0; i < mmregSize; i++)
         mmreg[i]=0;
     FLAGS = mmreg;
     CONFIG = (uint16_t *)(mmreg+CONFIG_OFF);
@@ -82,6 +112,7 @@ StreamDma::tick() {
 
     if (!rdRunning && ((*FLAGS&RD_START_MASK)==RD_START_MASK)) {
         rdRunning = true;
+        dmaStats.readStarts++;
         *FLAGS &= ~RD_START_MASK;
         *FLAGS |= RD_RUNNING_MASK;
         readAddr = *RD_ADDR;
@@ -97,6 +128,7 @@ StreamDma::tick() {
 
     if (!wrRunning && ((*FLAGS&WR_START_MASK)==WR_START_MASK)) {
         wrRunning = true;
+        dmaStats.writeStarts++;
         *FLAGS &= ~WR_START_MASK;
         *FLAGS |= WR_RUNNING_MASK;
         writeAddr = *WR_ADDR;
@@ -121,6 +153,7 @@ StreamDma::tick() {
 
     if (rdRunning && !readFifo->isActive()) {
         framesRead++;
+        dmaStats.framesRead++;
         DPRINTF(StreamDma, "Frame %d of %d read\n", framesRead, framesToRead);
         if (readIntFrames != 0) {
             if (framesRead % readIntFrames == 0) {
@@ -141,6 +174,7 @@ StreamDma::tick() {
 
     if (wrRunning && !writeFifo->isActive()) {
         framesWritten++;
+        dmaStats.framesWritten++;
         DPRINTF(StreamDma, "Frame %d of %d written\n", framesWritten, framesToWrite);
         if (writeIntFrames != 0) {
             if (framesWritten % writeIntFrames == 0) {
@@ -160,6 +194,7 @@ StreamDma::tick() {
     }
 
     running = rdRunning || wrRunning;
+    dmaStats.active = running ? 1 : 0;
     if (!tickEvent.scheduled() && running) {
         schedule(tickEvent, nextCycle());
     }
@@ -173,18 +208,19 @@ StreamDma::read(PacketPtr pkt) {
     if (offset < BUFFER_ACCESS_OFF) {
         DPRINTF(DeviceMMR, "The MMR associated with this DMA was read from!\n");
 
-        uint32_t data;
-
-        data = *(uint32_t *)(mmreg+offset);
+        uint32_t data = 0;
 
         switch(pkt->getSize()) {
           case 1:
+            data = *(uint8_t *)(mmreg+offset);
             pkt->set<uint8_t>(data, endian);
             break;
           case 2:
+            data = *(uint16_t *)(mmreg+offset);
             pkt->set<uint16_t>(data, endian);
             break;
           case 4:
+            data = *(uint32_t *)(mmreg+offset);
             pkt->set<uint32_t>(data, endian);
             break;
           default:
@@ -193,11 +229,13 @@ StreamDma::read(PacketPtr pkt) {
         }
     } else {
         DPRINTF(DeviceMMR, "The data buffer associated with this DMA was read from!\n");
+        dmaStats.bytesRead += pkt->getSize();
 
         uint8_t *buff = new uint8_t[pkt->getSize()];
         readFifo->get(buff, pkt->getSize());
-        uint64_t data = *(uint64_t *)buff;
-        delete buff;
+        uint64_t data = 0;
+        std::memcpy(&data, buff, pkt->getSize());
+        delete[] buff;
 
         switch(pkt->getSize()) {
           case 1:
@@ -236,10 +274,11 @@ StreamDma::write(PacketPtr pkt) {
         pkt->writeData(mmreg + offset);
     } else {
         DPRINTF(DeviceMMR, "The data buffer associated with this DMA was written to!\n");
+        dmaStats.bytesWritten += pkt->getSize();
         uint8_t * data = new uint8_t[pkt->getSize()];
         pkt->writeData(data);
         writeFifo->fill(data, pkt->getSize());
-        delete data;
+        delete[] data;
     }
 
     if (!tickEvent.scheduled()) {
@@ -252,11 +291,13 @@ StreamDma::write(PacketPtr pkt) {
 Tick
 StreamDma::streamRead(PacketPtr pkt) {
     DPRINTF(DeviceMMR, "The data buffer associated with this DMA was read from!\n");
+    dmaStats.bytesRead += pkt->getSize();
 
     uint8_t *buff = new uint8_t[pkt->getSize()];
     readFifo->get(buff, pkt->getSize());
-    uint64_t data = *(uint64_t *)buff;
-    delete buff;
+    uint64_t data = 0;
+    std::memcpy(&data, buff, pkt->getSize());
+    delete[] buff;
 
     switch(pkt->getSize()) {
       case 1:
@@ -285,10 +326,11 @@ StreamDma::streamRead(PacketPtr pkt) {
 Tick
 StreamDma::streamWrite(PacketPtr pkt) {
     DPRINTF(DeviceMMR, "The data buffer associated with this DMA was written to!\n");
+    dmaStats.bytesWritten += pkt->getSize();
     uint8_t * data = new uint8_t[pkt->getSize()];
     pkt->writeData(data);
     writeFifo->fill(data, pkt->getSize());
-    delete data;
+    delete[] data;
 
     pkt->makeAtomicResponse();
     return pioDelay;
@@ -299,6 +341,7 @@ StreamDma::status(PacketPtr pkt, bool readStatus) {
 	// Provide a means of reading the current buffer capacity of the stream
 	// Writes to this register do nothing
 	if (pkt->isRead()) {
+        dmaStats.statusReads++;
         uint64_t data;
         if (readStatus) {
             DPRINTF(StreamDma, "The status of the MM2S buffer has been read. Current capacity is %d of %d bytes\n",

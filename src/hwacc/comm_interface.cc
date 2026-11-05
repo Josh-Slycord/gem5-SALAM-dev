@@ -15,6 +15,32 @@ using namespace std;
  * provides a set of memory-mapped registers, as well as master ports for accessing
  * both local busses/SPMs and system memory.
  **************************************************************************************/
+CommInterface::CommStats::CommStats(statistics::Group *parent)
+    : statistics::Group(parent),
+      ADD_STAT(starts, statistics::units::Count::get(),
+               "Accelerator invocations started through MMR"),
+      ADD_STAT(finishes, statistics::units::Count::get(),
+               "Accelerator invocations completed"),
+      ADD_STAT(requests, statistics::units::Count::get(),
+               "Logical memory requests enqueued by the compute unit"),
+      ADD_STAT(attempts, statistics::units::Count::get(),
+               "Timing packet send attempts"),
+      ADD_STAT(accepted, statistics::units::Count::get(),
+               "Timing packets accepted immediately or on retry"),
+      ADD_STAT(responses, statistics::units::Count::get(),
+               "Timing packet responses received"),
+      ADD_STAT(bytes, statistics::units::Byte::get(),
+               "Bytes completed across timing packet responses")
+{
+    using namespace statistics;
+
+    for (auto *vec : {&requests, &attempts, &accepted, &responses, &bytes}) {
+        vec->init(2).flags(total);
+        vec->subname(0, "read");
+        vec->subname(1, "write");
+    }
+}
+
 CommInterface::CommInterface(const CommInterfaceParams &p) :
     BasicPioDevice(p, p.pio_size),
     io_addr(p.pio_addr),
@@ -27,12 +53,14 @@ CommInterface::CommInterface(const CommInterfaceParams &p) :
     use_premap_data(p.premap_data),
     endian(p.system->getGuestByteOrder()),
     debugEnabled(p.enable_debug_msgs),
+    commStats(this),
     masterId(p.system->getRequestorId(this,name())),
     tickEvent(this),
     cacheLineSize(p.cache_line_size),
     clock_period(p.clock_period),
+    processCycles(p.process_cycles),
     reset_spm(p.reset_spm) {
-    processDelay = 1000 * clock_period;
+    processDelay = cyclesToTicks(processCycles);
     FLAG_OFFSET = 0;
     CONFIG_OFFSET = flag_size;
     VAR_OFFSET = CONFIG_OFFSET + config_size;
@@ -66,21 +94,25 @@ CommInterface::MemSidePort::recvReqRetry() {
     if (debug()) DPRINTF(CommInterface, "Got a retry...\n");
     while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
+        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
         outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
         if (!owner->tickEvent.scheduled()) {
-            owner->schedule(owner->tickEvent, curTick() + owner->processDelay);
-            //owner->schedule(owner->tickEvent, owner->nextCycle());
+            owner->schedule(owner->tickEvent, owner->serviceEdge());
         }
     }
 }
 
 void
 CommInterface::MemSidePort::sendPacket(PacketPtr pkt) {
+    const size_t idx = pkt->isWrite() ? 1 : 0;
+    owner->commStats.attempts[idx]++;
     if (isStalled() || !sendTimingReq(pkt)) {
         if (debug()) DPRINTF(CommInterface, "sendTiming failed in sendPacket(pkt->req->getPaddr()=0x%x)\n", (unsigned int)pkt->req->getPaddr());
         setStalled(pkt);
+    } else {
+        owner->commStats.accepted[idx]++;
     }
 }
 
@@ -97,21 +129,25 @@ CommInterface::SPMPort::recvReqRetry() {
     if (debug()) DPRINTF(CommInterface, "Got a retry...\n");
     while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
+        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
         outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
         if (!owner->tickEvent.scheduled()) {
-            owner->schedule(owner->tickEvent, curTick() + owner->processDelay);
-            //owner->schedule(owner->tickEvent, owner->nextCycle());
+            owner->schedule(owner->tickEvent, owner->serviceEdge());
         }
     }
 }
 
 void
 CommInterface::SPMPort::sendPacket(PacketPtr pkt) {
+    const size_t idx = pkt->isWrite() ? 1 : 0;
+    owner->commStats.attempts[idx]++;
     if (isStalled() || !sendTimingReq(pkt)) {
         if (debug()) DPRINTF(CommInterface, "sendTiming failed in sendPacket(pkt->req->getPaddr()=0x%x)\n", (unsigned int)pkt->req->getPaddr());
         setStalled(pkt);
+    } else {
+        owner->commStats.accepted[idx]++;
     }
 }
 
@@ -126,25 +162,31 @@ CommInterface::RegPort::recvReqRetry() {
     assert(!outstandingPkts.empty());
     while (!outstandingPkts.empty() &&
            sendTimingReq(outstandingPkts.front())) {
+        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
         outstandingPkts.pop();
         if (!owner->tickEvent.scheduled()) {
-            owner->schedule(owner->tickEvent, curTick() + owner->processDelay);
+            owner->schedule(owner->tickEvent, owner->serviceEdge());
         }
     }
 }
 
 bool
 CommInterface::RegPort::sendPacket(PacketPtr pkt) {
+    const size_t idx = pkt->isWrite() ? 1 : 0;
+    owner->commStats.attempts[idx]++;
     if (!outstandingPkts.empty() || !sendTimingReq(pkt)) {
         outstandingPkts.push(pkt);
         return false;
     }
+    owner->commStats.accepted[idx]++;
     return true;
 }
 
 void
 CommInterface::recvPacket(PacketPtr pkt) {
 	if (pkt->isRead()) {
+        commStats.responses[0]++;
+        commStats.bytes[0] += pkt->getSize();
         MemoryRequest * readReq = findMemRequest(pkt, true);
         RequestPort * carrier = readReq->getCarrierPort();
         if (MemSidePort * port = dynamic_cast<MemSidePort *>(carrier)) port->readReq = nullptr;
@@ -180,6 +222,8 @@ CommInterface::recvPacket(PacketPtr pkt) {
             clearMemRequest(readReq, true); // Clear the request from the in-flight queue
         }
     } else if (pkt->isWrite()) {
+        commStats.responses[1]++;
+        commStats.bytes[1] += pkt->getSize();
         MemoryRequest * writeReq = findMemRequest(pkt, false);
         RequestPort * carrier = writeReq->getCarrierPort();
         if (MemSidePort * port = dynamic_cast<MemSidePort *>(carrier)) port->writeReq = nullptr;
@@ -206,8 +250,7 @@ CommInterface::recvPacket(PacketPtr pkt) {
     }
     if (!tickEvent.scheduled())
     {
-        schedule(tickEvent, curTick() + processDelay);
-        //schedule(tickEvent, nextCycle());
+        schedule(tickEvent, serviceEdge());
     }
     //if (pkt->req) delete pkt->req;
     delete pkt;
@@ -221,13 +264,13 @@ CommInterface::checkMMR() {
             *mmreg &= 0xfe;
             *mmreg |= 0x02;
             computationNeeded = true;
+            commStats.starts++;
             cu->initialize();
         }
 
         if (processingDone && !tickEvent.scheduled()) {
             processingDone = false;
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     }
 }
@@ -469,8 +512,7 @@ CommInterface::processMemoryRequests() {
     }
     requestsInQueues = readQueue.size() + writeQueue.size();
     if (!tickEvent.scheduled() && requestsInQueues>0) {
-        schedule(tickEvent, curTick() + processDelay);
-        //schedule(tickEvent, nextCycle());
+        schedule(tickEvent, serviceEdge());
     }
 }
 
@@ -515,14 +557,12 @@ CommInterface::tryRead(MemSidePort * port) {
     if (!(readReq->readLeft > 0)) {
         readReq->needToRead = false;
         if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     } else {
         if (!port->isStalled() && !tickEvent.scheduled())
         {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     }
 }
@@ -569,12 +609,10 @@ CommInterface::tryWrite(MemSidePort * port) {
     if (!(writeReq->writeLeft > 0)) {
         writeReq->needToWrite = false;
         if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     } else if (!port->isStalled() && !tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
     }
 }
 
@@ -610,14 +648,12 @@ CommInterface::tryRead(SPMPort * port) {
     if (!(readReq->readLeft > 0)) {
         readReq->needToRead = false;
         if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     } else {
         if (!port->isStalled() && !tickEvent.scheduled())
         {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     }
 }
@@ -664,12 +700,10 @@ CommInterface::tryWrite(SPMPort * port) {
     if (!(writeReq->writeLeft > 0)) {
         writeReq->needToWrite = false;
         if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
         }
     } else if (!port->isStalled() && !tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-            //schedule(tickEvent, nextCycle());
+            schedule(tickEvent, serviceEdge());
     }
 }
 
@@ -699,7 +733,7 @@ CommInterface::tryRead(RegPort * port) {
         return;
     }
     if (!remainingAfter && !tickEvent.scheduled()) {
-        schedule(tickEvent, curTick() + processDelay);
+        schedule(tickEvent, serviceEdge());
     }
 }
 
@@ -741,12 +775,13 @@ CommInterface::tryWrite(RegPort * port) {
         return;
     }
     if (!remainingAfter && !tickEvent.scheduled()) {
-        schedule(tickEvent, curTick() + processDelay);
+        schedule(tickEvent, serviceEdge());
     }
 }
 
 void
 CommInterface::enqueueRead(MemoryRequest * req) {
+    commStats.requests[0]++;
     // One logical request, including the register-bypass route.
     cu->getWorkbenchStatistics().memoryStarted(
         reinterpret_cast<uintptr_t>(req), false, req->length, curTick());
@@ -769,12 +804,13 @@ CommInterface::enqueueRead(MemoryRequest * req) {
         }
     }
     if (!tickEvent.scheduled()) {
-        schedule(tickEvent, curTick() + processDelay);
+        schedule(tickEvent, serviceEdge());
     }
 }
 
 void
 CommInterface::enqueueWrite(MemoryRequest * req) {
+    commStats.requests[1]++;
     // One logical request, including the register-bypass route.
     cu->getWorkbenchStatistics().memoryStarted(
         reinterpret_cast<uintptr_t>(req), true, req->length, curTick());
@@ -797,7 +833,7 @@ CommInterface::enqueueWrite(MemoryRequest * req) {
         }
     }
     if (!tickEvent.scheduled()) {
-        schedule(tickEvent, curTick() + processDelay);
+        schedule(tickEvent, serviceEdge());
     }
 }
 
@@ -806,6 +842,7 @@ CommInterface::finish() {
     *mmreg &= 0xfc;
     *mmreg |= 0x04;
     computationNeeded = false;
+    commStats.finishes++;
     if (int_num>0) {
         int_flag = true;
         gic->sendInt(int_num);
@@ -823,21 +860,23 @@ CommInterface::read(PacketPtr pkt) {
 
     Addr offset = pkt->req->getPaddr() - io_addr;
 
-    uint64_t data;
-
-    data = *(uint64_t *)(mmreg+offset);
+    uint64_t data = 0;
 
     switch(pkt->getSize()) {
       case 1:
+        data = *(uint8_t *)(mmreg+offset);
         pkt->set<uint8_t>(data, endian);
         break;
       case 2:
+        data = *(uint16_t *)(mmreg+offset);
         pkt->set<uint16_t>(data, endian);
         break;
       case 4:
+        data = *(uint32_t *)(mmreg+offset);
         pkt->set<uint32_t>(data, endian);
         break;
       case 8:
+        data = *(uint64_t *)(mmreg+offset);
         pkt->set<uint64_t>(data, endian);
         break;
       default:
@@ -895,22 +934,22 @@ CommInterface::getGlobalVar(unsigned offset, unsigned size) {
     if (use_premap_data) {
         return data_base_ptrs.at(offset/8);
     } else {
-        uint64_t value;
+        uint64_t value = 0;
         switch (size) {
             case 1:
-                value = *(uint64_t *)(uint8_t *)(mmreg + VAR_OFFSET + offset);
+                value = *(uint8_t *)(mmreg + VAR_OFFSET + offset);
                 break;
             case 2:
-                value = *(uint64_t *)(uint16_t *)(mmreg + VAR_OFFSET + offset);
+                value = *(uint16_t *)(mmreg + VAR_OFFSET + offset);
                 break;
             case 4:
-                value = *(uint64_t *)(uint32_t *)(mmreg + VAR_OFFSET + offset);
+                value = *(uint32_t *)(mmreg + VAR_OFFSET + offset);
                 break;
             case 8:
                 value = *(uint64_t *)(mmreg + VAR_OFFSET + offset);
                 break;
             default:
-                panic("Data of size: %d is not supported as a global variable!");
+                panic("Data of size: %d is not supported as a global variable!", size);
         }
         return value;
     }

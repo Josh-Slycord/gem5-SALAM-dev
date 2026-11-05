@@ -1,7 +1,8 @@
 #include "hw_statistics.hh"
 
 HWStatistics::HWStatistics(const HWStatisticsParams &params) :
-    SimObject(params) { 
+    SimObject(params),
+    cycle_tracking(params.cycle_tracking) { 
         
         statBufferSize = 10000;
         statBufferPreDefine = 2;

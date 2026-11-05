@@ -5,9 +5,10 @@
 DmaWriteFifo::DmaWriteFifo(DmaPort &_port, size_t size,
                          unsigned max_req_size,
                          unsigned max_pending,
-                         Request::Flags flags)
+                         Request::Flags flags,
+                         WriteIssuedCallback on_write)
     : maxReqSize(max_req_size), fifoSize(size),
-      reqFlags(flags), port(_port),
+      reqFlags(flags), port(_port), onWriteIssued(std::move(on_write)),
       buffer(size),
       nextAddr(0), endAddr(0)
 {
@@ -147,6 +148,8 @@ DmaWriteFifo::resumeEmptyFunctional()
 
         port.dmaAction(MemCmd::WriteReq, nextAddr, req_size, nullptr,
                        chunk.data(), 0, reqFlags);
+        if (onWriteIssued)
+            onWriteIssued(req_size);
         nextAddr += req_size;
     }
 }
@@ -171,6 +174,8 @@ DmaWriteFifo::resumeEmptyTiming()
         buffer.read(event->data(), req_size);
         port.dmaAction(MemCmd::WriteReq, nextAddr, req_size, event.get(),
                        event->data(), 0, reqFlags);
+        if (onWriteIssued)
+            onWriteIssued(req_size);
         nextAddr += req_size;
         size_pending += req_size;
 

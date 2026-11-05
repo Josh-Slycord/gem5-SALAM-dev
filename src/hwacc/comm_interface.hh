@@ -2,6 +2,7 @@
 #define __HWACC_COMM_INTERFACE_HH__
 
 #include "params/CommInterface.hh"
+#include "base/statistics.hh"
 #include "dev/io_device.hh"
 #include "dev/arm/base_gic.hh"
 #include "hwacc/compute_unit.hh"
@@ -152,11 +153,27 @@ class CommInterface : public BasicPioDevice
         CommInterface *comm;
 
       public:
-        TickEvent(CommInterface *_comm) : Event(CPU_Tick_Pri), comm(_comm) {}
+        TickEvent(CommInterface *_comm) :
+            Event(CPU_Tick_Pri - 1), comm(_comm)
+        {}
         void process() { comm->tick(); }
         virtual const char *description() const { return "CommInterface tick"; }
         bool debug() { return comm->debug(); }
     };
+
+    struct CommStats : public statistics::Group
+    {
+        CommStats(statistics::Group *parent);
+
+        statistics::Scalar starts;
+        statistics::Scalar finishes;
+        statistics::Vector requests;
+        statistics::Vector attempts;
+        statistics::Vector accepted;
+        statistics::Vector responses;
+        statistics::Vector bytes;
+    };
+    CommStats commStats;
 
     std::list<MemoryRequest*> readQueue;
     std::list<MemoryRequest*> writeQueue;
@@ -238,6 +255,9 @@ class CommInterface : public BasicPioDevice
     bool processingDone;
     int processDelay;
     int clock_period;
+    Cycles processCycles;
+
+    Tick serviceEdge() const { return clockEdge(processCycles); }
 
     bool reset_spm;
 
