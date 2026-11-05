@@ -72,8 +72,6 @@ SALAM::Value::initialize(llvm::Value * irval, SALAM::irvmap * irmap) {
         size = irtype->getScalarSizeInBits();
     }
     valueTy = irtype->getTypeID();
-    // Link Return Register
-    if (size>0) addRegister(irtype, true);
 
     std::string tmpStr1;
     llvm::raw_string_ostream ss(tmpStr1);
@@ -84,20 +82,51 @@ SALAM::Value::initialize(llvm::Value * irval, SALAM::irvmap * irmap) {
     llvm::raw_string_ostream ss2(tmpStr2);
     irval->printAsOperand(ss2);
     ir_stub = ss2.str();
+
+    // Intentional no-register values: void results and basic-block labels.
+    // Do not use size==0 here; aggregates also report zero scalar size.
+    if (irtype->isVoidTy() || irtype->isLabelTy()) {
+        return;
+    }
+    addRegister(irtype, true);
 }
 
 void
 SALAM::Value::addRegister(llvm::Type *irtype, bool istracked) {
     if (irtype->isPointerTy()) {
         returnReg = std::make_shared<PointerRegister>(istracked);
-    } else if (irtype->isIntegerTy()) {
-        returnReg = std::make_shared<APIntRegister>(irtype, istracked);
-    } else if (irtype->isFloatingPointTy()) {
-        returnReg = std::make_shared<APFloatRegister>(irtype, istracked);
-    } else {
-        //assert(0); // Type is invalid for a register
-        returnReg = nullptr;
+        return;
     }
+    if (irtype->isIntegerTy()) {
+        const unsigned width = irtype->getIntegerBitWidth();
+        switch (width) {
+            case 1:
+            case 8:
+            case 16:
+            case 32:
+            case 64:
+                returnReg = std::make_shared<APIntRegister>(irtype, istracked);
+                return;
+            default: {
+                std::string type_text;
+                llvm::raw_string_ostream ts(type_text);
+                ts << *irtype;
+                fatal("SALAM does not support LLVM integer type '%s' "
+                      "(bitwidth %u): %s",
+                      ts.str().c_str(), width, ir_string.c_str());
+            }
+        }
+    }
+    if (irtype->isFloatTy() || irtype->isDoubleTy()) {
+        returnReg = std::make_shared<APFloatRegister>(irtype, istracked);
+        return;
+    }
+
+    std::string type_text;
+    llvm::raw_string_ostream ts(type_text);
+    ts << *irtype;
+    fatal("SALAM does not support LLVM value type '%s': %s",
+          ts.str().c_str(), ir_string.c_str());
 }
 
 #if USE_LLVM_AP_VALUES
@@ -201,6 +230,23 @@ SALAM::Value::setRegisterValue(const uint64_t data) {
     #endif
     }
 }
+namespace
+{
+
+// Assemble a value from exactly len bytes of data, which need not be
+// aligned. SALAM targets little-endian ARM.
+uint64_t
+readTargetBytes(const uint8_t *data, size_t len)
+{
+    uint64_t value = 0;
+    for (size_t i = 0; i < len; i++) {
+        value |= uint64_t(data[i]) << (8 * i);
+    }
+    return value;
+}
+
+} // anonymous namespace
+
 void
 SALAM::Value::setRegisterValue(uint8_t * data) {
     if (dbg) DPRINTFS(Runtime, owner, "| Set Register Data - ");
@@ -230,7 +276,7 @@ SALAM::Value::setRegisterValue(uint8_t * data) {
                 setRegisterValue(llvm::APInt(size,
                     llvm::ArrayRef<uint64_t>((uint64_t *)data, bigIntLen)));
             } else {
-                setRegisterValue(llvm::APInt(size, *(uint64_t *)(data)));
+                setRegisterValue(llvm::APInt(size, readTargetBytes(data, getSizeInBytes())));
             }
             break;
         }
@@ -238,19 +284,19 @@ SALAM::Value::setRegisterValue(uint8_t * data) {
         case llvm::Type::FloatTyID:
         {
             if (dbg) DPRINTFS(Runtime, owner, "Float\n");
-            returnReg->writeFloatData(*(uint64_t *)data, (size_t)4);
+            returnReg->writeFloatData(readTargetBytes(data, 4), (size_t)4);
             break;
         }
         case llvm::Type::DoubleTyID:
         {
             if (dbg) DPRINTFS(Runtime, owner, "Double\n");
-            returnReg->writeFloatData(*(uint64_t *)data, (size_t)8);
+            returnReg->writeFloatData(readTargetBytes(data, 8), (size_t)8);
             break;
         }
         case llvm::Type::IntegerTyID:
         {
             if (dbg) DPRINTFS(Runtime, owner, "Integer Type | Size = %d\n", size);
-            returnReg->writeIntData(*(uint64_t *)data,
+            returnReg->writeIntData(readTargetBytes(data, getSizeInBytes()),
                                     (size_t)getSizeInBytes());
             break;
         }
@@ -258,7 +304,7 @@ SALAM::Value::setRegisterValue(uint8_t * data) {
         case llvm::Type::PointerTyID:
         {
             if (dbg) DPRINTFS(Runtime, owner, "Pointer\n");
-            returnReg->writePtrData(*(uint64_t *)data);
+            returnReg->writePtrData(readTargetBytes(data, getSizeInBytes()));
             break;
         }
         default:

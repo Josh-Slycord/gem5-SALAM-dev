@@ -22,8 +22,12 @@ class FunctionalUnits(SimObject):
 	integer_adder = Param.IntegerAdder(Parent.any, "integer_adder functional unit SimObject.")
 	integer_multiplier = Param.IntegerMultiplier(Parent.any, "integer_multiplier functional unit SimObject.")
 
+class FunctionalUnitConfig:
+	"""Common base configuration mixin for SALAM functional unit SimObjects."""
+	pass
+
 #AUTO-GENERATED CLASSES
-class BitRegister(SimObject):
+class BitRegister(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'BitRegister'
 	# gem5-SALAM attached header
@@ -57,7 +61,7 @@ class BitRegister(SimObject):
 	area = Param.Float(5.981433, "Default values set from bit_register.yml")
 	path_delay = Param.Float(1.75, "Default values set from bit_register.yml")
 
-class BitShifter(SimObject):
+class BitShifter(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'BitShifter'
 	# gem5-SALAM attached header
@@ -91,7 +95,7 @@ class BitShifter(SimObject):
 	area = Param.Float(5.981433, "Default values set from bit_shifter.yml")
 	path_delay = Param.Float(1.75, "Default values set from bit_shifter.yml")
 
-class BitwiseOperations(SimObject):
+class BitwiseOperations(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'BitwiseOperations'
 	# gem5-SALAM attached header
@@ -125,7 +129,7 @@ class BitwiseOperations(SimObject):
 	area = Param.Float(5.981433, "Default values set from bitwise_operations.yml")
 	path_delay = Param.Float(1.75, "Default values set from bitwise_operations.yml")
 
-class DoubleAdder(SimObject):
+class DoubleAdder(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'DoubleAdder'
 	# gem5-SALAM attached header
@@ -159,7 +163,7 @@ class DoubleAdder(SimObject):
 	area = Param.Float(5.981433, "Default values set from double_adder.yml")
 	path_delay = Param.Float(1.75, "Default values set from double_adder.yml")
 
-class DoubleDivider(SimObject):
+class DoubleDivider(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'DoubleDivider'
 	# gem5-SALAM attached header
@@ -193,7 +197,7 @@ class DoubleDivider(SimObject):
 	area = Param.Float(5.981433, "Default values set from double_divider.yml")
 	path_delay = Param.Float(1.75, "Default values set from double_divider.yml")
 
-class DoubleMultiplier(SimObject):
+class DoubleMultiplier(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'DoubleMultiplier'
 	# gem5-SALAM attached header
@@ -227,7 +231,7 @@ class DoubleMultiplier(SimObject):
 	area = Param.Float(5.981433, "Default values set from double_multiplier.yml")
 	path_delay = Param.Float(1.75, "Default values set from double_multiplier.yml")
 
-class FloatAdder(SimObject):
+class FloatAdder(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'FloatAdder'
 	# gem5-SALAM attached header
@@ -261,7 +265,7 @@ class FloatAdder(SimObject):
 	area = Param.Float(5.981433, "Default values set from float_adder.yml")
 	path_delay = Param.Float(1.75, "Default values set from float_adder.yml")
 
-class FloatDivider(SimObject):
+class FloatDivider(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'FloatDivider'
 	# gem5-SALAM attached header
@@ -295,7 +299,7 @@ class FloatDivider(SimObject):
 	area = Param.Float(5.981433, "Default values set from float_divider.yml")
 	path_delay = Param.Float(1.75, "Default values set from float_divider.yml")
 
-class FloatMultiplier(SimObject):
+class FloatMultiplier(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'FloatMultiplier'
 	# gem5-SALAM attached header
@@ -329,7 +333,7 @@ class FloatMultiplier(SimObject):
 	area = Param.Float(5.981433, "Default values set from float_multiplier.yml")
 	path_delay = Param.Float(1.75, "Default values set from float_multiplier.yml")
 
-class IntegerAdder(SimObject):
+class IntegerAdder(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'IntegerAdder'
 	# gem5-SALAM attached header
@@ -363,7 +367,7 @@ class IntegerAdder(SimObject):
 	area = Param.Float(5.981433, "Default values set from integer_adder.yml")
 	path_delay = Param.Float(1.75, "Default values set from integer_adder.yml")
 
-class IntegerMultiplier(SimObject):
+class IntegerMultiplier(SimObject, FunctionalUnitConfig):
 	# SimObject type
 	type = 'IntegerMultiplier'
 	# gem5-SALAM attached header

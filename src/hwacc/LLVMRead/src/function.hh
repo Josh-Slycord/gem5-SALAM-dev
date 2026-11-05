@@ -17,6 +17,7 @@ namespace SALAM {
 	public:
 		Function(uint64_t id, gem5::SimObject * owner, bool dbg);
 		void initialize(llvm::Value * irval, irvmap *vmap, SALAM::valueListTy *valueList, std::string topName);
+		void releaseGraphEdges() override;
 		bool isTop() { return top; }
 		void setTop(bool isTop) { top = isTop; }
 		virtual bool isFunction() { return true; }

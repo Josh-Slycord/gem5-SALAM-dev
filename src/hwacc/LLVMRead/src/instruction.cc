@@ -55,6 +55,14 @@ SALAM::Instruction::~Instruction()
 {
 }
 
+void
+SALAM::Instruction::releaseGraphEdges()
+{
+    staticDependencies.clear();
+    dynamicDependencies.clear();
+    dynamicUsers.clear();
+}
+
 SALAM::Instruction::Instruction_Debugger::Instruction_Debugger()
 {
 }
@@ -425,6 +433,16 @@ Br::initialize(llvm::Value * irval,
 }
 
 void
+Br::releaseGraphEdges()
+{
+    condition.reset();
+    defaultDestination.reset();
+    trueDestination.reset();
+    falseDestination.reset();
+    Instruction::releaseGraphEdges();
+}
+
+void
 Br::compute()
 {
     // Br does not use compute. Special handling occurs in the scheduler.
@@ -481,6 +499,14 @@ Switch::getTarget() {
     }
     return defaultDestination;
 #endif
+}
+
+void
+Switch::releaseGraphEdges()
+{
+    cases.clear();
+    defaultDestination.reset();
+    Instruction::releaseGraphEdges();
 }
 
 void
@@ -684,7 +710,9 @@ FAdd::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &result, sizeof(bits));
+            bitcastResult = bits;
             break;
         }
         case 64:
@@ -696,7 +724,7 @@ FAdd::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
             break;
         }
         default:
@@ -841,7 +869,9 @@ FSub::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &result, sizeof(bits));
+            bitcastResult = bits;
             break;
         }
         case 64:
@@ -853,7 +883,7 @@ FSub::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
             break;
         }
         default:
@@ -997,7 +1027,9 @@ FMul::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &result, sizeof(bits));
+            bitcastResult = bits;
             break;
         }
         case 64:
@@ -1009,7 +1041,7 @@ FMul::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
             break;
         }
         default:
@@ -1222,7 +1254,9 @@ FDiv::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &result, sizeof(bits));
+            bitcastResult = bits;
             break;
         }
         case 64:
@@ -1234,7 +1268,7 @@ FDiv::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
             break;
         }
         default:
@@ -1444,24 +1478,26 @@ FRem::compute() {
         {
             float op1 = operands.at(0).getFloatFromReg();
             float op2 = operands.at(1).getFloatFromReg();
-            float result = std::remainderf(op1, op2);
+            float result = std::fmod(op1, op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| (%s) %f % (%s) %f\n",
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            uint32_t bits = 0;
+            std::memcpy(&bits, &result, sizeof(bits));
+            bitcastResult = bits;
             break;
         }
         case 64:
         {
             double op1 = operands.at(0).getDoubleFromReg();
             double op2 = operands.at(1).getDoubleFromReg();
-            double result = std::remainder(op1, op2);
+            double result = std::fmod(op1, op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| (%s) %f % (%s) %f\n",
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            bitcastResult = *(uint64_t *)&result;
+            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
             break;
         }
         default:
@@ -2886,7 +2922,22 @@ ICmp::initialize(llvm::Value * irval,
     llvm::CmpInst * inst = llvm::dyn_cast<llvm::CmpInst>(irval);
     this->predicate = inst->getPredicate();
     if (dbg) DPRINTFS(SALAM_Debug, owner, "Integer Comparison Predicate [%i | %s]\n", this->predicate, inst->getPredicateName(inst->getPredicate()).str());
-
+    // i1 is a valid condition type, but SALAM does not model signed
+    // one-bit ordering comparisons. Reject at graph construction.
+    switch (predicate) {
+        case SALAM::Predicate::ICMP_SGT:
+        case SALAM::Predicate::ICMP_SGE:
+        case SALAM::Predicate::ICMP_SLT:
+        case SALAM::Predicate::ICMP_SLE:
+            if (staticDependencies.at(0)->getSize() == 1 ||
+                staticDependencies.at(1)->getSize() == 1) {
+                fatal("SALAM does not support signed i1 comparisons: %s",
+                      ir_string.c_str());
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 void
@@ -2923,22 +2974,67 @@ ICmp::compute() {
     }
 #else
     if (operands.at(0).hasIntVal() && operands.at(1).hasIntVal()){
-        uint64_t uOp1 = operands.at(0).getUIntRegValue();
-        uint64_t uOp2 = operands.at(1).getUIntRegValue();
-        int64_t  sOp1 = operands.at(0).getSIntRegValue();
-        int64_t  sOp2 = operands.at(1).getSIntRegValue();
-
         switch (predicate) {
-            case SALAM::Predicate::ICMP_EQ: { result = (uOp1 == uOp2); break; }
-            case SALAM::Predicate::ICMP_NE: { result = (uOp1 != uOp2); break; }
-            case SALAM::Predicate::ICMP_UGT: { result = (uOp1 > uOp2); break; }
-            case SALAM::Predicate::ICMP_UGE: { result = (uOp1 >= uOp2); break; }
-            case SALAM::Predicate::ICMP_ULT: { result = (uOp1 < uOp2); break; }
-            case SALAM::Predicate::ICMP_ULE: { result = (uOp1 <= uOp2); break; }
-            case SALAM::Predicate::ICMP_SGT: { result = (sOp1 > sOp2); break; }
-            case SALAM::Predicate::ICMP_SGE: { result = (sOp1 >= sOp2); break; }
-            case SALAM::Predicate::ICMP_SLT: { result = (sOp1 < sOp2); break; }
-            case SALAM::Predicate::ICMP_SLE: { result = (sOp1 <= sOp2); break; }
+            case SALAM::Predicate::ICMP_EQ: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 == uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_NE: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 != uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_UGT: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 > uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_UGE: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 >= uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_ULT: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 < uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_ULE: {
+                uint64_t uOp1 = operands.at(0).getUIntRegValue();
+                uint64_t uOp2 = operands.at(1).getUIntRegValue();
+                result = (uOp1 <= uOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_SGT: {
+                int64_t sOp1 = operands.at(0).getSIntRegValue();
+                int64_t sOp2 = operands.at(1).getSIntRegValue();
+                result = (sOp1 > sOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_SGE: {
+                int64_t sOp1 = operands.at(0).getSIntRegValue();
+                int64_t sOp2 = operands.at(1).getSIntRegValue();
+                result = (sOp1 >= sOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_SLT: {
+                int64_t sOp1 = operands.at(0).getSIntRegValue();
+                int64_t sOp2 = operands.at(1).getSIntRegValue();
+                result = (sOp1 < sOp2);
+                break;
+            }
+            case SALAM::Predicate::ICMP_SLE: {
+                int64_t sOp1 = operands.at(0).getSIntRegValue();
+                int64_t sOp2 = operands.at(1).getSIntRegValue();
+                result = (sOp1 <= sOp2);
+                break;
+            }
             default: break;
         }
     } else if (operands.at(0).hasPtrVal() && operands.at(1).hasPtrVal()) {
@@ -3255,6 +3351,14 @@ Phi::compute() {
 }
 
 void
+Phi::releaseGraphEdges()
+{
+    previousBB.reset();
+    phiArgs.clear();
+    Instruction::releaseGraphEdges();
+}
+
+void
 Phi::setPrevBB(std::shared_ptr<SALAM::BasicBlock> prevBB)
 {
     auto it = phiArgs.find(prevBB);
@@ -3302,10 +3406,31 @@ Call::Call(uint64_t id, gem5::SimObject * owner, bool dbg,
 }
 
 void
+Call::releaseGraphEdges()
+{
+    callee.reset();
+    Instruction::releaseGraphEdges();
+}
+
+void
 Call::initialize(llvm::Value * irval,
                 irvmap * irmap,
                 SALAM::valueListTy * valueList) {
     SALAM::Instruction::initialize(irval, irmap, valueList);
+
+    llvm::CallInst *callInst = llvm::dyn_cast<llvm::CallInst>(irval);
+    assert(callInst);
+    llvm::Function *calledFunction = callInst->getCalledFunction();
+    if (!calledFunction) {
+        fatal("SALAM does not support indirect or unresolved LLVM calls: %s",
+              ir_string.c_str());
+    }
+    if (calledFunction->isDeclaration()) {
+        fatal("SALAM does not support calls to LLVM function declarations "
+              "('%s'): %s",
+              calledFunction->getName().str().c_str(), ir_string.c_str());
+    }
+
     callee = staticDependencies.back();
     staticDependencies.pop_back();
     // ****** //

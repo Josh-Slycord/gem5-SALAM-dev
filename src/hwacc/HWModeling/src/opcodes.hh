@@ -14,7 +14,6 @@ using namespace gem5;
 class InstOpCodes : public SimObject
 {
     public:
-    uint32_t counter_inst;
     uint32_t gep_inst;
     uint32_t phi_inst;
     uint32_t select_inst;
@@ -35,7 +34,6 @@ class InstOpCodes : public SimObject
     uint32_t fptoui_inst;
     uint32_t fptosi_inst;
     uint32_t uitofp_inst;
-    uint32_t sitofp_inst;
     uint32_t ptrtoint_inst;
     uint32_t inttoptr_inst;
     uint32_t bitcast_inst;
@@ -43,18 +41,10 @@ class InstOpCodes : public SimObject
     uint32_t call_inst;
     uint32_t vaarg_inst;
     uint32_t landingpad_inst;
-    uint32_t catchpad_inst;
     uint32_t alloca_inst;
     uint32_t load_inst;
     uint32_t store_inst;
     uint32_t fence_inst;
-    uint32_t cmpxchg_inst;
-    uint32_t atomicrmw_inst;
-    uint32_t extractvalue_inst;
-    uint32_t insertvalue_inst;
-    uint32_t extractelement_inst;
-    uint32_t insertelement_inst;
-    uint32_t shufflevector_inst;
     uint32_t shl_inst;
     uint32_t lshr_inst;
     uint32_t ashr_inst;
@@ -78,6 +68,7 @@ class InstOpCodes : public SimObject
 
     InstOpCodes();
     InstOpCodes(const InstOpCodesParams &p);
+    void clear_usage() { usage.clear(); }
     void update_usage(uint64_t OpCode) { usage[OpCode]++; };
     uint64_t get_usage(uint64_t OpCode) { return usage[OpCode]; }
 
