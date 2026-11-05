@@ -123,12 +123,23 @@ CommInterface::RegPort::recvTimingResp(PacketPtr pkt) {
 
 void
 CommInterface::RegPort::recvReqRetry() {
-    panic("We should not be receiving retries from Register Banks.\n");
+    assert(!outstandingPkts.empty());
+    while (!outstandingPkts.empty() &&
+           sendTimingReq(outstandingPkts.front())) {
+        outstandingPkts.pop();
+        if (!owner->tickEvent.scheduled()) {
+            owner->schedule(owner->tickEvent, curTick() + owner->processDelay);
+        }
+    }
 }
 
-void
+bool
 CommInterface::RegPort::sendPacket(PacketPtr pkt) {
-    sendTimingReq(pkt);
+    if (!outstandingPkts.empty() || !sendTimingReq(pkt)) {
+        outstandingPkts.push(pkt);
+        return false;
+    }
+    return true;
 }
 
 void
@@ -138,6 +149,7 @@ CommInterface::recvPacket(PacketPtr pkt) {
         RequestPort * carrier = readReq->getCarrierPort();
         if (MemSidePort * port = dynamic_cast<MemSidePort *>(carrier)) port->readReq = nullptr;
         if (SPMPort * port = dynamic_cast<SPMPort *>(carrier)) port->readReq = nullptr;
+        if (RegPort * port = dynamic_cast<RegPort *>(carrier)) port->readReq = nullptr;
         if (debug()) DPRINTF(CommInterface, "Done with a read. addr: 0x%x, size: %d\n", pkt->req->getPaddr(), pkt->getSize());
         pkt->writeData(readReq->buffer + (pkt->req->getPaddr() - readReq->beginAddr));
         if (debug()) DPRINTF(CommInterface, "Read:%s\n", readReq->printBuffer());
@@ -172,6 +184,7 @@ CommInterface::recvPacket(PacketPtr pkt) {
         RequestPort * carrier = writeReq->getCarrierPort();
         if (MemSidePort * port = dynamic_cast<MemSidePort *>(carrier)) port->writeReq = nullptr;
         if (SPMPort * port = dynamic_cast<SPMPort *>(carrier)) port->writeReq = nullptr;
+        if (RegPort * port = dynamic_cast<RegPort *>(carrier)) port->writeReq = nullptr;
         if (debug()) DPRINTF(CommInterface, "Done with a write. addr: 0x%x, size: %d\n", pkt->req->getPaddr(), pkt->getSize());
         writeReq->writeDone += pkt->getSize();
         if (!(writeReq->needToWrite)) {
@@ -676,15 +689,17 @@ CommInterface::tryRead(RegPort * port) {
     PacketPtr pkt = new Packet(req, MemCmd::ReadReq);
     pkt->allocate();
     readReq->pkt = pkt;
+    const bool remainingAfter = readReq->readLeft > size;
     readReq->currentReadAddr += size;
     readReq->readLeft -= size;
     if (readReq->readLeft <= 0) readReq->needToRead = false;
-    port->sendPacket(pkt);
-
-    if (!(readReq->readLeft > 0)) {
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-        }
+    // A successful send may synchronously complete and delete readReq.
+    const bool sent = port->sendPacket(pkt);
+    if (!sent) {
+        return;
+    }
+    if (!remainingAfter && !tickEvent.scheduled()) {
+        schedule(tickEvent, curTick() + processDelay);
     }
 }
 
@@ -715,15 +730,18 @@ CommInterface::tryWrite(RegPort * port) {
     uint8_t *pkt_data = (uint8_t *)req->getExtraData();
     pkt->dataDynamic(pkt_data);
     writeReq->pkt = pkt;
+    const bool remainingAfter = writeReq->writeLeft > size;
     writeReq->currentWriteAddr += size;
     writeReq->writeLeft -= size;
     if (writeReq->writeLeft <= 0) writeReq->needToWrite = false;
-    port->sendPacket(pkt);
-
-    if (!(writeReq->writeLeft > 0)) {
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, curTick() + processDelay);
-        }
+    // RegisterBank queues write responses, but a successful send must still
+    // not assume writeReq remains live if a future peer completes it here.
+    const bool sent = port->sendPacket(pkt);
+    if (!sent) {
+        return;
+    }
+    if (!remainingAfter && !tickEvent.scheduled()) {
+        schedule(tickEvent, curTick() + processDelay);
     }
 }
 

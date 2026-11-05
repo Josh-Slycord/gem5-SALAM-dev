@@ -128,11 +128,12 @@ class CommInterface : public BasicPioDevice
 
       private:
         CommInterface *owner;
+        std::queue<PacketPtr> outstandingPkts;
         MemoryRequest *readReq;
         MemoryRequest *writeReq;
       public:
         RegPort(const std::string& name, CommInterface *_owner, PortID id=InvalidPortID) :
-          RequestPort(name, id), owner(_owner) {}
+          RequestPort(name, id), owner(_owner), readReq(nullptr), writeReq(nullptr) {}
         void setReadReq(MemoryRequest * req = nullptr) { readReq = req; }
         void setWriteReq(MemoryRequest * req = nullptr) { writeReq = req; }
       protected:
@@ -141,7 +142,7 @@ class CommInterface : public BasicPioDevice
         virtual void recvRangeChange() { };
         virtual Tick recvAtomic(PacketPtr pkt) {return 0;}
         virtual void recvFunctional(PacketPtr pkt) { };
-        void sendPacket(PacketPtr pkt);
+        bool sendPacket(PacketPtr pkt);
         bool debug() { return owner->debug(); }
     };
 

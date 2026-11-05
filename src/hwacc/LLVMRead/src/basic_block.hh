@@ -38,6 +38,7 @@ namespace SALAM {
       ~BasicBlock();
       virtual bool isBasicBlock() { return true; }
       void initialize(llvm::Value * irval, irvmap *vmap, SALAM::valueListTy *valueList);
+      void releaseGraphEdges() override;
       std::vector<std::shared_ptr<SALAM::Instruction> > * Instructions() { return &instructions; }
       void dump() { if (dbg) bb_dbg->dumper(this); }
       bool validPredecessor(std::shared_ptr<SALAM::BasicBlock> bb) {

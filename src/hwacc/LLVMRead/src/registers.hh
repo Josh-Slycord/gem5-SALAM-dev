@@ -156,6 +156,8 @@ class APIntRegister : public Register
         llvm::APSInt data = llvm::APSInt::getMinValue(1,true);
     #else
         uint64_t data = 0;
+        // Bit width of the LLVM integer type; writes are masked to it.
+        unsigned bits = 64;
     #endif
     public:
         APIntRegister(uint64_t bitwidth,

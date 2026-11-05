@@ -158,6 +158,13 @@ gpu-compute:
         - Matt Poremba <matthew.poremba@amd.com>
         - Matt Sinclair <sinclair@cs.wisc.edu>
 
+hwacc:
+    desc: >-
+        gem5-SALAM hardware accelerator modeling and LLVM IR execution engine
+    status: maintained
+    maintainers:
+        - Josh Slycord <jslycord@uncc.edu>
+
 learning-gem5:
     desc: >-
         The code and configs for the Learning gem5 book
@@ -223,6 +230,13 @@ resources:
         - Bobby R. Bruce <bbruce@ucdavis.edu>
     experts:
         - Jason Lowe-Power <jason@lowepower.com>
+
+salam:
+    desc: >-
+        gem5-SALAM system configuration, configurator tools, and workbench
+    status: maintained
+    maintainers:
+        - Josh Slycord <jslycord@uncc.edu>
 
 scons:
     desc: >-
