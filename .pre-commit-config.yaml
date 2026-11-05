@@ -1,13 +1,36 @@
 # Only maintained workbench code and configuration are checked here.
 # Historical gem5 and SALAM files retain their own provenance and style.
 minimum_pre_commit_version: '3.5.0'
+default_install_hook_types: [pre-commit, commit-msg]
 
-files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md)'
-exclude: '^workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)'
+files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md|MAINTAINERS\.yaml|configs/SALAM/[^/]+\.py|SALAM-Configurator/[^/]+\.py|tools/SALAM-Configurator/[^/]+\.py|src/hwacc/.*\.(py|cc|hh))$'
+exclude: '^(workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)|src/hwacc/HWModeling/(generated/|src/cacti/))'
 
 repos:
   - repo: local
     hooks:
+      - id: gem5-commit-msg-checker
+        name: Check commit message adheres to gem5 guidelines
+        entry: python3 util/git-commit-msg.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+      - id: gem5-git-clang-format
+        name: Run git-clang-format on staged C/C++ changes
+        entry: python3 util/run-git-clang-format.py --pre-commit
+        language: system
+        stages: [pre-commit]
+        pass_filenames: false
+        types_or: [c, c++]
+
+      - id: salam-python-syntax
+        name: Parse SALAM Python configurations and SimObjects
+        entry: check-ast
+        language: system
+        types: [python]
+        files: '^(configs/SALAM/[^/]+|SALAM-Configurator/[^/]+|tools/SALAM-Configurator/[^/]+|src/hwacc/.*)\.py$'
+
       - id: workbench-black
         name: Black on maintained workbench Python
         entry: black --config workbench/pyproject.toml --check --diff
@@ -42,7 +65,7 @@ repos:
         args: [--allow-multiple-documents]
         language: system
         types: [yaml]
-        files: '^(\.github/workflows/ci\.yml|\.pre-commit-config\.yaml|workbench/experiments/.*\.ya?ml)$'
+        files: '^(\.github/workflows/ci\.yml|\.pre-commit-config\.yaml|MAINTAINERS\.yaml|workbench/experiments/.*\.ya?ml)$'
 
       - id: workbench-toml-syntax
         name: Parse workbench formatter settings
@@ -56,6 +79,7 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
+        files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md|MAINTAINERS\.yaml)$'
 
       - id: maintained-trailing-whitespace
         name: No accidental trailing whitespace in maintained text
@@ -63,6 +87,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
         language: system
         types: [text]
+        files: '^(workbench/(salam_workbench/|tests/|scripts/|experiments/|docs/|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docs/CI\.md|MAINTAINERS\.yaml)$'
 
       - id: maintained-line-endings
         name: LF line endings in maintained Python and new CI files

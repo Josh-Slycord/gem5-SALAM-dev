@@ -33,11 +33,37 @@ GEM5_ROOT="${DIR}/.."
 
 cd ${GEM5_ROOT}
 
-if ! command -v pre-commit &> /dev/null
+if command -v pre-commit &> /dev/null
 then
-    echo "Cannot find 'pre-commit'. Please ensure all Python requirements are "
-    echo "installed. This can be done via 'pip install -r requirements.txt'."
-    exit 1
-fi
+    pre-commit install -t pre-commit -t commit-msg
+else
+    echo "'pre-commit' not found; installing native gem5 git hooks into .git/hooks/..."
+    HOOKS_DIR="$(git rev-parse --git-path hooks)"
+    mkdir -p "${HOOKS_DIR}"
+    ln -sf "../../util/git-commit-msg.py" "${HOOKS_DIR}/commit-msg"
+    cat > "${HOOKS_DIR}/pre-commit" << 'EOF'
+#!/usr/bin/env bash
+set -e
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+python3 util/run-git-clang-format.py --pre-commit
+python3 - << 'PY'
+import ast
+import subprocess
+import sys
+from pathlib import Path
 
-pre-commit install -t pre-commit -t commit-msg
+res = subprocess.run(
+    ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+for rel in res.stdout.splitlines():
+    p = Path(rel)
+    if p.suffix == ".py" and p.is_file():
+        ast.parse(p.read_bytes(), filename=rel)
+PY
+EOF
+    chmod +x "${HOOKS_DIR}/pre-commit" "${GEM5_ROOT}/util/git-commit-msg.py"
+fi

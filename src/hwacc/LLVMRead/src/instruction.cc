@@ -546,14 +546,16 @@ Switch::initialize(llvm::Value * irval,
     llvm::SwitchInst * switchInst = llvm::dyn_cast<llvm::SwitchInst>(irval);
     assert(switchInst);
     caseArgs newArgs;
-    for (int i = 2; i < tmpStaticDeps.size();) {
+    for (size_t i = kSwitchFirstCaseOperandIndex; i < tmpStaticDeps.size();) {
         newArgs.first = tmpStaticDeps.at(i); ++i;
         newArgs.second = std::dynamic_pointer_cast<SALAM::BasicBlock>(tmpStaticDeps.at(i)); ++i;
         this->cases.push_back(newArgs);
     }
 
-    staticDependencies.push_back(tmpStaticDeps.front());
-    defaultDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(tmpStaticDeps.at(1));
+    staticDependencies.push_back(
+        tmpStaticDeps.at(kSwitchConditionOperandIndex));
+    defaultDestination = std::dynamic_pointer_cast<SALAM::BasicBlock>(
+        tmpStaticDeps.at(kSwitchDefaultDestOperandIndex));
 }
 
 // std::shared_ptr<SALAM::Value>
@@ -2526,13 +2528,17 @@ UIToFP::compute() {
         case 32:
         {
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            uint32_t bits = 0;
+            std::memcpy(&bits, &tmp, sizeof(bits));
+            setRegisterValue(uint64_t(bits)); // Bitcast for writeback to reg
             break;
         }
         case 64:
         {
             double tmp = (double)opdata; // Cast to double
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            uint64_t bits = 0;
+            std::memcpy(&bits, &tmp, sizeof(bits));
+            setRegisterValue(bits); // Bitcast for writeback to reg
             break;
         }
         default:
@@ -2598,13 +2604,17 @@ SIToFP::compute() {
         case 32:
         {
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            uint32_t bits = 0;
+            std::memcpy(&bits, &tmp, sizeof(bits));
+            setRegisterValue(uint64_t(bits)); // Bitcast for writeback to reg
             break;
         }
         case 64:
         {
             double tmp = (double)opdata; // Cast to double
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            uint64_t bits = 0;
+            std::memcpy(&bits, &tmp, sizeof(bits));
+            setRegisterValue(bits); // Bitcast for writeback to reg
             break;
         }
         default:
@@ -2671,7 +2681,9 @@ FPTrunc::compute() {
         {
             double opdata = operands.front().getDoubleFromReg();
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            uint32_t bits = 0;
+            std::memcpy(&bits, &tmp, sizeof(bits));
+            setRegisterValue(uint64_t(bits)); // Bitcast for writeback to reg
             break;
         }
         default:

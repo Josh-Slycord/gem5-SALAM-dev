@@ -20,13 +20,29 @@ class ClusterCache(Cache):
     tgts_per_mshr = 12
     write_buffers = 8
 
+    def __init__(self, size="32kB", assoc=8, latency=20, mshrs=20, tgts_per_mshr=12, write_buffers=8):
+        super().__init__()
+        self.size = size
+        self.assoc = assoc
+        self.tag_latency = latency
+        self.data_latency = latency
+        self.response_latency = latency
+        self.mshrs = mshrs
+        self.tgts_per_mshr = tgts_per_mshr
+        self.write_buffers = write_buffers
+
 class AccCluster(Platform):
     type = 'AccCluster'
     cxx_header = "hwacc/acc_cluster.hh"
     system = Param.System(Parent.any, "system")
 
-    # System Cache Parameter
+    # System Cache Parameters
     cache_size = Param.String('32kB', "cache size in bytes")
+    cache_assoc = Param.Unsigned(8, "cluster cache associativity")
+    cache_latency = Param.Cycles(20, "cluster cache tag/data/response latency")
+    cache_mshrs = Param.Unsigned(20, "cluster cache MSHRs")
+    cache_tgts_per_mshr = Param.Unsigned(12, "cluster cache targets per MSHR")
+    cache_write_buffers = Param.Unsigned(8, "cluster cache write buffers")
     local_range_min = Param.Unsigned(0x2f000000, "minimal address of local range")
     local_range_max = Param.Unsigned(0x7fffffff, "maximum address of local range")
     external_range_low_min = Param.Unsigned(0x00000000, "minimal address of external range low")
@@ -62,8 +78,14 @@ class AccCluster(Platform):
 
     def _connect_caches(self, system, options, l2coherent, cache_size=0):
         if options.acc_cache and (cache_size!=0):
-            self.cluster_cache = ClusterCache()
-            self.cluster_cache.size = cache_size
+            self.cluster_cache = ClusterCache(
+                size=cache_size,
+                assoc=self.cache_assoc,
+                latency=self.cache_latency,
+                mshrs=self.cache_mshrs,
+                tgts_per_mshr=self.cache_tgts_per_mshr,
+                write_buffers=self.cache_write_buffers,
+            )
 
             if options.l2cache and l2coherent:
                 self.cluster_cache.mem_side = system.tol2bus.cpu_side_ports

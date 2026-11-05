@@ -20,6 +20,12 @@
 class NoncoherentDma : public DmaDevice
 {
   private:
+    static constexpr uint8_t DmaFlagStart = 0x01;
+    static constexpr uint8_t DmaFlagRunning = 0x02;
+    static constexpr uint8_t DmaFlagDone = 0x04;
+    static constexpr uint8_t DmaClearStartMask = 0xfe;
+    static constexpr uint8_t DmaClearRunningMask = 0xfd;
+
     std::string devname;
     DmaReadFifo *memSideReadFifo;
     DmaReadFifo *accSideReadFifo;

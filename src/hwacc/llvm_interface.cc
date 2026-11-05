@@ -1078,7 +1078,7 @@ LLVMInterface::printResults() {
     std::map<uint64_t, uint64_t> totals_reads;
     std::map<uint64_t, uint64_t> totals_writes;
 
-    if (!DTRACE(SALAMResults)) return;
+    if (!debug::SALAMResults) return;
 
     std::cout << "********************************************************************************" << std::endl;
     std::cout << name() << std::endl;

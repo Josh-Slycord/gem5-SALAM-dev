@@ -260,9 +260,9 @@ void
 CommInterface::checkMMR() {
     if (!computationNeeded) {
         if (debug()) DPRINTF(CommInterface, "Checking MMR to see if Run bit set\n");
-        if (*mmreg & 0x01) {
-            *mmreg &= 0xfe;
-            *mmreg |= 0x02;
+        if (*mmreg & MmrStatusRun) {
+            *mmreg &= MmrClearRunMask;
+            *mmreg |= MmrStatusBusy;
             computationNeeded = true;
             commStats.starts++;
             cu->initialize();
@@ -839,8 +839,8 @@ CommInterface::enqueueWrite(MemoryRequest * req) {
 
 void
 CommInterface::finish() {
-    *mmreg &= 0xfc;
-    *mmreg |= 0x04;
+    *mmreg &= MmrClearRunBusyMask;
+    *mmreg |= MmrStatusDone;
     computationNeeded = false;
     commStats.finishes++;
     if (int_num>0) {
@@ -917,7 +917,7 @@ CommInterface::write(PacketPtr pkt) {
 
     pkt->makeAtomicResponse();
 
-    if (((*mmreg & 0x04) == 0x00) && int_flag) {
+    if (((*mmreg & MmrStatusDone) == 0x00) && int_flag) {
         if (int_num > 0)
             gic->clearInt(int_num);
         int_flag = false;

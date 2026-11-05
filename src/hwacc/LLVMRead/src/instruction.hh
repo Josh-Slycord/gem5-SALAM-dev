@@ -235,6 +235,11 @@ typedef std::pair<std::shared_ptr<SALAM::Value>, std::shared_ptr<SALAM::BasicBlo
 typedef std::vector< caseArgs> switchArgs;
 
 class Switch : public Instruction {
+    public:
+        static constexpr size_t kSwitchConditionOperandIndex = 0;
+        static constexpr size_t kSwitchDefaultDestOperandIndex = 1;
+        static constexpr size_t kSwitchFirstCaseOperandIndex = 2;
+
     private:
         std::vector< std::vector<uint64_t> > conditions;
         // conditions.at[0] == base params
