@@ -253,8 +253,6 @@ class CommInterface : public BasicPioDevice
     uint8_t *mmreg;
 
     bool processingDone;
-    int processDelay;
-    int clock_period;
     Cycles processCycles;
 
     Tick serviceEdge() const { return clockEdge(processCycles); }
@@ -290,7 +288,7 @@ class CommInterface : public BasicPioDevice
     bool isCompNeeded() { return computationNeeded; }
 
     uint64_t getGlobalVar(unsigned offset, unsigned size);
-    int getProcessDelay() { return processDelay; }
+    Tick getProcessDelay() const { return cyclesToTicks(processCycles); }
     virtual int getReadPorts()  { return 0; }
     virtual int getWritePorts()  { return 0; }
     virtual int getReadBusWidth()  { return 0; }

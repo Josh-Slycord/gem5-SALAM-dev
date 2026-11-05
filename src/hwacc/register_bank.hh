@@ -100,6 +100,8 @@ class RegisterBank : public AbstractMemory
      * the port where it will be sent as soon as possible.
      */
     void dequeue();
+    void scheduleNextResponse();
+    bool responseInProgress = false;
     EventFunctionWrapper dequeueEvent;
 
     /**

@@ -23,7 +23,7 @@ StreamDma::DmaStats::DmaStats(statistics::Group *parent)
       ADD_STAT(statusReads, statistics::units::Count::get(),
                "Stream-DMA status register reads completed"),
       ADD_STAT(active, statistics::units::Ratio::get(),
-               "Fraction of cycles either stream-DMA channel was active")
+               "Time-weighted active fraction over simulation ticks since native stats reset")
 {
     active.flags(statistics::nozero);
 }

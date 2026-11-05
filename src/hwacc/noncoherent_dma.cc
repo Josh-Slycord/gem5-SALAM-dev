@@ -1,5 +1,7 @@
 //------------------------------------------//
 #include "hwacc/noncoherent_dma.hh"
+#include "hwacc/native_helpers.hh"
+#include "sim/core.hh"
 //------------------------------------------//
 
 NoncoherentDma::DmaStats::DmaStats(statistics::Group *parent)
@@ -13,7 +15,7 @@ NoncoherentDma::DmaStats::DmaStats(statistics::Group *parent)
       ADD_STAT(writePackets, statistics::units::Count::get(),
                "DMA write packets issued"),
       ADD_STAT(active, statistics::units::Ratio::get(),
-               "Fraction of cycles the DMA engine was active")
+               "Time-weighted active fraction over simulation ticks since native stats reset")
 {
     active.flags(statistics::nozero);
 }
@@ -29,11 +31,19 @@ NoncoherentDma::NoncoherentDma(const NoncoherentDmaParams &p)
     maxReqSize(p.max_req_size),
     gic(p.gic),
     intNum(p.int_num),
-    clock_period(p.clock_period),
     processCycles(p.process_cycles),
     tickEvent([this]{tick();}, name()),
     dmaStats(this),
     accPort(this, sys, p.sid, p.ssid) {
+    const auto legacy = gem5::salam::legacyClockTicks(
+        p.clock_period, gem5::sim_clock::as_int::ns);
+    fatal_if(!legacy || clockPeriod() != *legacy,
+        "%s: clock_period must be positive integer ns matching clk_domain",
+        name());
+    fatal_if(!gem5::salam::checkedClockDelay(clockPeriod(),
+                                           uint64_t(processCycles)),
+        "%s: process_cycles must be positive with a representable tick delay",
+        name());
     auto count_write = [this](size_t) { dmaStats.writePackets++; };
     memSideReadFifo = new DmaReadFifo(dmaPort, size_t(bufferSize/2), maxReqSize, maxPending);
     memSideWriteFifo = new DmaWriteFifo(dmaPort, size_t(bufferSize/2), maxReqSize, maxPending, 0, count_write);

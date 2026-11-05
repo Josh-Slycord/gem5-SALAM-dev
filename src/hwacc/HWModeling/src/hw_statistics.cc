@@ -1,8 +1,14 @@
 #include "hw_statistics.hh"
+#include "base/logging.hh"
 
 HWStatistics::HWStatistics(const HWStatisticsParams &params) :
     SimObject(params),
-    cycle_tracking(params.cycle_tracking) { 
+    cycle_tracking(params.cycle_tracking) {
+        fatal_if(cycle_tracking,
+            "%s: legacy cycle_tracking history is unsupported; use native "
+            "statistics and complete invocation/FU JSON. The old buffer "
+            "neither consumed the function samples nor handled growth safely.",
+            name());
         
         statBufferSize = 10000;
         statBufferPreDefine = 2;

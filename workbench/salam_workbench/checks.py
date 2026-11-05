@@ -58,6 +58,7 @@ CONFIG_MODULES = (
     "test_config_contract",
     "test_configurator",
     "test_modern_build_identity",
+    "test_native_clock_binding",
     "test_configurator_review",
     "test_hardware_codegen",
     "test_system_witness",

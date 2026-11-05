@@ -31,7 +31,6 @@ class ComputeUnit : public ClockedObject {
 
 
     TickEvent tickEvent;
-    int clock_period;
 
   public:
     virtual void tick() {}

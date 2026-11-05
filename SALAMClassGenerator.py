@@ -337,9 +337,7 @@ class FunctionalUnitGenerator():
                 self.simobject_file.write("\t" + unit + " = Param." + ''.join(words.capitalize() for words in unit.split('_')))
                 self.simobject_file.write("(Parent.any, \"" + unit + " functional unit SimObject.\")\n")
 
-            self.simobject_file.write("\nclass FunctionalUnitConfig:\n")
-            self.simobject_file.write("\t\"\"\"Common base configuration mixin for SALAM functional unit SimObjects.\"\"\"\n")
-            self.simobject_file.write("\tpass\n")
+            # Keep explicit SimObject Params here; only C++ construction is shared.
             self.simobject_file.write("\n#AUTO-GENERATED CLASSES\n")
 
     def simobject_generator(self, hwmodel):
@@ -348,7 +346,7 @@ class FunctionalUnitGenerator():
         #self.simobject_file = self.directory + '/' + self.alias + '.py'
         #self.simobject_file = self.classname + '.py'
         with open(self.fu_directory, 'a+') as self.simobject_file:
-            self.simobject_file.write("class " + self.classname + "(SimObject, FunctionalUnitConfig):\n")
+            self.simobject_file.write("class " + self.classname + "(SimObject):\n")
             self.simobject_file.write("\t# SimObject type\n")
             self.simobject_file.write("\ttype = '" + self.classname + "'\n")
             self.simobject_file.write("\t# gem5-SALAM attached header\n")
@@ -407,12 +405,10 @@ class FunctionalUnitGenerator():
             self.simobject_file.write("\tcxx_header = \"hwacc/HWModeling/src/instruction_config.hh\"\n\n")
             for inst_name in self.inst_dict['instructions'].keys():
                 self.simobject_file.write("\t" + str(inst_name) + " = Param." + ''.join(words.capitalize() for words in inst_name.split('_')) + "(Parent.any, \"" + str(inst_name) + " instruction SimObject\")\n")
-            self.simobject_file.write("\nclass InstructionConfig:\n")
-            self.simobject_file.write("\t\"\"\"Common base configuration mixin for SALAM instruction SimObjects.\"\"\"\n")
-            self.simobject_file.write("\tpass\n")
+            # Keep explicit SimObject Params here; only C++ construction is shared.
             self.simobject_file.write("\n#AUTO-GENERATED CLASSES\n")
             for inst_name in self.inst_dict['instructions'].keys():
-                self.simobject_file.write("class " + ''.join(words.capitalize() for words in inst_name.split('_')) + "(SimObject, InstructionConfig):\n")
+                self.simobject_file.write("class " + ''.join(words.capitalize() for words in inst_name.split('_')) + "(SimObject):\n")
                 self.simobject_file.write("\t# SimObject type\n")
                 self.simobject_file.write("\ttype = \'" + ''.join(words.capitalize() for words in inst_name.split('_')) + "\'")
                 self.simobject_file.write("\t# gem5-SALAM attached header\n")

@@ -381,3 +381,53 @@ def AccConfig(acc, bench_file, config_file):
 # num_ports = ConfigSectionMap("Memory")['ports']
 # for i in range(int(num_ports)):
 #    acc.spm[i] = spm.spm_ports[i]
+
+
+def configure_native_salam_clocks(root, options, future_cpu=None):
+    """Bind retained integer-ns SALAM settings to real native clock domains.
+
+    Apply supported fixed-CPU overrides before deriving domains. This preserves
+    the old accelerator/DMA periods independently of the system/CPU clocks.
+    Native edge alignment remains intentional and can shift a first interval
+    relative to the historical curTick()+period implementation.
+    """
+    kinds = {"LLVMInterface", "CommInterface", "NoncoherentDma"}
+    objects = [
+        obj for obj in root.descendants()
+        if getattr(obj, "type", None) in kinds
+    ]
+    if not objects:
+        return []
+    if future_cpu is not None:
+        raise ValueError(
+            "Native SALAM clock binding currently requires a fixed CPU; "
+            "CPU-switching configurations need separate qualification"
+        )
+    parameters = list(getattr(options, "param", None) or [])
+    # A clock-domain override would be overwritten by this compatibility
+    # translation. Reject it explicitly rather than accepting a no-op setting.
+    for obj in objects:
+        prefix = obj.path() + ".clk_domain"
+        if any(str(value).lstrip().startswith(prefix) for value in parameters):
+            raise ValueError(
+                "Set " + obj.path() + ".clock_period in integer ns; "
+                "direct SALAM domain replacement is not supported by this adapter"
+            )
+    root.apply_config(parameters)
+    # Materialize before adding clock children; descendants() is a live walk.
+    objects = list(objects)
+    records = []
+    for obj in objects:
+        period_ns = int(obj.clock_period)
+        if not 1 <= period_ns <= 1000000:
+            raise ValueError("SALAM clock_period must be 1..1000000 ns: " + obj.path())
+        obj.clk_domain = SrcClockDomain(
+            clock=str(period_ns) + "ns",
+            voltage_domain=root.system.voltage_domain,
+        )
+        records.append({"object": obj.path(), "clock_period_ns": period_ns})
+    # Simulation.run would otherwise apply the same overrides after binding.
+    # Future CPU creation is explicitly excluded above, so no later target is
+    # hidden by consuming these fixed-CPU parameters once.
+    options.param = []
+    return records

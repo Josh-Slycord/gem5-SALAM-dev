@@ -237,6 +237,172 @@ def _constructor_members(path):
     return set(re.findall(r"_([a-z][a-z0-9_]*)\(params\.\1\)", content))
 
 
+_FU_CONSTRUCTOR_FIELDS = (
+    "alias",
+    "stages",
+    "cycles",
+    "enum_value",
+    "int_size",
+    "int_sign",
+    "int_apmode",
+    "fp_size",
+    "fp_sign",
+    "fp_apmode",
+    "ptr_size",
+    "ptr_sign",
+    "ptr_apmode",
+    "limit",
+    "power_units",
+    "energy_units",
+    "time_units",
+    "area_units",
+    "fu_latency",
+) + FLOAT_FIELDS
+_INST_CONSTRUCTOR_FIELDS = (
+    "functional_unit",
+    "functional_unit_limit",
+    "opcode_num",
+    "runtime_cycles",
+)
+
+
+def _cpp_without_comments(source):
+    # These generated constructor/header templates contain no comment tokens
+    # inside string literals. Fail closed if their shape changes.
+    return re.sub(r"//[^\n]*|/\*.*?\*/", "", source, flags=re.S)
+
+
+def _parameter_arguments(arguments):
+    if not re.fullmatch(
+        r"\s*params\.[a-z][a-z0-9_]*(?:\s*,\s*params\.[a-z][a-z0-9_]*)*\s*",
+        arguments,
+    ):
+        raise ValueError("Generated base arguments are not direct params fields")
+    return tuple(re.findall(r"params\.([a-z][a-z0-9_]*)", arguments))
+
+
+def _generated_constructor_contract(stage, units, instructions):
+    """Witness real field routing through expanded or shared base constructors.
+
+    This is structural generated-source evidence, not a simulator build or a
+    proof that model coefficients are calibrated or used by the scheduler.
+    """
+    results = []
+    for directory, base, names, fields in (
+        ("functionalunits", "FunctionalUnitBase", units, _FU_CONSTRUCTOR_FIELDS),
+        ("instructions", "InstConfigBase", instructions, _INST_CONSTRUCTOR_FIELDS),
+    ):
+        folder = stage / "src/hwacc/HWModeling/generated" / directory
+        header = _cpp_without_comments((folder / "base.hh").read_text())
+        # The value constructor remains the final storage consumer. Check every
+        # field's own initializer, including float coefficients, not just the
+        # presence of a template delegating call.
+        start_type = (
+            r"std::string\s+alias"
+            if directory == "functionalunits"
+            else r"uint32_t\s+functional_unit"
+        )
+        value = re.search(
+            r"\b"
+            + base
+            + r"\s*\(\s*"
+            + start_type
+            + r"\s*,(?P<parameters>.*?)\)\s*:\s*(?P<initializers>.*?)\{\s*\}",
+            header,
+            re.S,
+        )
+        if value is None:
+            raise ValueError("Missing generated value constructor: " + base)
+        declared = (fields[0],) + tuple(
+            re.findall(
+                r"\b(?:std::string|uint32_t|double|bool)\s+([a-z][a-z0-9_]*)",
+                value.group("parameters"),
+            )
+        )
+        if declared != fields:
+            raise ValueError("Generated value constructor field order differs: " + base)
+        stored = re.findall(
+            r"\b_([a-z][a-z0-9_]*)\s*\(\s*([a-z][a-z0-9_]*)\s*\)",
+            value.group("initializers"),
+        )
+        for field in fields:
+            if [argument for member, argument in stored if member == field] != [field]:
+                raise ValueError(
+                    "Generated base field is not stored exactly: " + base + "." + field
+                )
+        if directory == "functionalunits":
+            for field in FLOAT_FIELDS:
+                if not re.search(
+                    r"\bdouble\s+" + field + r"\s*(?:,|$)", value.group("parameters")
+                ):
+                    raise ValueError(
+                        "Generated coefficient parameter is not double: " + field
+                    )
+                if not re.search(r"\bdouble\s+_" + field + r"\s*;", header):
+                    raise ValueError(
+                        "Generated coefficient storage is not double: " + field
+                    )
+                if not re.search(
+                    r"\bdouble\s+get_"
+                    + field
+                    + r"\s*\(\s*\)\s*\{\s*return\s+_"
+                    + field
+                    + r"\s*;\s*\}",
+                    header,
+                ):
+                    raise ValueError(
+                        "Generated coefficient getter is not double: " + field
+                    )
+        delegated = re.search(
+            r"template\s*<\s*typename\s+Params\s*>\s*explicit\s+"
+            + base
+            + r"\s*\(\s*const\s+Params\s*&\s*params\s*\)\s*:\s*"
+            + base
+            + r"\s*\((?P<arguments>.*?)\)\s*\{\s*\}",
+            header,
+            re.S,
+        )
+        if (
+            delegated is not None
+            and _parameter_arguments(delegated.group("arguments")) != fields
+        ):
+            raise ValueError("Shared generated constructor fields differ: " + base)
+        forms = set()
+        for name in names:
+            source = _cpp_without_comments((folder / (name + ".cc")).read_text())
+            call = re.search(
+                r"\b" + base + r"\s*\((?P<arguments>.*?)\)\s*\{\s*\}", source, re.S
+            )
+            if call is None:
+                raise ValueError("Generated subclass has no base consumer: " + name)
+            arguments = call.group("arguments").strip()
+            if arguments == "params":
+                if delegated is None:
+                    raise ValueError(
+                        "Generated subclass delegates to an absent shared constructor: "
+                        + name
+                    )
+                forms.add("shared_params")
+            elif _parameter_arguments(arguments) == fields:
+                forms.add("expanded_params")
+            else:
+                raise ValueError("Generated subclass fields differ: " + name)
+        results.append(
+            {
+                "base": base,
+                "fields": list(fields),
+                "subclasses_checked": len(names),
+                "constructor_forms": sorted(forms),
+                "base_header_sha256": _sha(folder / "base.hh"),
+            }
+        )
+    return {
+        "state": "passed",
+        "scope": "generated C++ constructor field routing",
+        "groups": results,
+    }
+
+
 _OVERRIDE_INTEGER_FIELDS = ("stages", "cycles", "limit", "fu_latency")
 _OVERRIDE_UNIT_FIELDS = (
     "power_units",
@@ -544,6 +710,9 @@ def generate_hardware_code(
             record["build_consumer_issues"].append(
                 "instruction_config.cc constructor members differ from generated instructions"
             )
+        record["constructor_witness"] = _generated_constructor_contract(
+            stage, units, instructions
+        )
         record["gem5_rebuild_required"] = any(
             item["differs_from_engine"] and item["kind"] != "profile_data"
             for item in record["outputs"]

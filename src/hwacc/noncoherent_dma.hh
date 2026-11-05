@@ -35,7 +35,6 @@ class NoncoherentDma : public DmaDevice
     unsigned maxReqSize;
     BaseGic * gic;
     uint32_t intNum;
-    int clock_period;
     Cycles processCycles;
 
     uint8_t * mmreg;

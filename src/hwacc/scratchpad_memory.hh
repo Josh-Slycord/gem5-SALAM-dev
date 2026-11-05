@@ -206,6 +206,7 @@ class ScratchpadMemory : public AbstractMemory
      */
     void dequeue();
     void scheduleNextResponse();
+    bool responseInProgress = false;
 
     // std::vector<EventFunctionWrapper> dequeueEvent;
     EventFunctionWrapper dequeueEvent;

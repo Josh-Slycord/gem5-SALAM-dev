@@ -1,4 +1,5 @@
 #include "instruction.hh"
+#include "hwacc/float_bits.hh"
 
 #include <cmath>
 
@@ -710,9 +711,7 @@ FAdd::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            uint32_t bits = 0;
-            std::memcpy(&bits, &result, sizeof(bits));
-            bitcastResult = bits;
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         case 64:
@@ -724,7 +723,7 @@ FAdd::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         default:
@@ -869,9 +868,7 @@ FSub::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            uint32_t bits = 0;
-            std::memcpy(&bits, &result, sizeof(bits));
-            bitcastResult = bits;
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         case 64:
@@ -883,7 +880,7 @@ FSub::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         default:
@@ -1027,9 +1024,7 @@ FMul::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            uint32_t bits = 0;
-            std::memcpy(&bits, &result, sizeof(bits));
-            bitcastResult = bits;
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         case 64:
@@ -1041,7 +1036,7 @@ FMul::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         default:
@@ -1254,9 +1249,7 @@ FDiv::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            uint32_t bits = 0;
-            std::memcpy(&bits, &result, sizeof(bits));
-            bitcastResult = bits;
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         case 64:
@@ -1268,7 +1261,7 @@ FDiv::compute() {
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         default:
@@ -1478,26 +1471,24 @@ FRem::compute() {
         {
             float op1 = operands.at(0).getFloatFromReg();
             float op2 = operands.at(1).getFloatFromReg();
-            float result = std::fmod(op1, op2);
+            float result = gem5::salam::floatingRemainder(op1, op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| (%s) %f % (%s) %f\n",
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            uint32_t bits = 0;
-            std::memcpy(&bits, &result, sizeof(bits));
-            bitcastResult = bits;
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         case 64:
         {
             double op1 = operands.at(0).getDoubleFromReg();
             double op2 = operands.at(1).getDoubleFromReg();
-            double result = std::fmod(op1, op2);
+            double result = gem5::salam::floatingRemainder(op1, op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| (%s) %f % (%s) %f\n",
                 operands.at(0).getIRStub(), op1,
                 operands.at(1).getIRStub(), op2);
             if (dbg) DPRINTFS(RuntimeCompute, owner, "|| %s = %f\n", ir_stub, result);
-            std::memcpy(&bitcastResult, &result, sizeof(bitcastResult));
+            bitcastResult = gem5::salam::floatingResultBits(result);
             break;
         }
         default:
@@ -2526,13 +2517,13 @@ UIToFP::compute() {
         case 32:
         {
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         case 64:
         {
             double tmp = (double)opdata; // Cast to double
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         default:
@@ -2598,13 +2589,13 @@ SIToFP::compute() {
         case 32:
         {
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         case 64:
         {
             double tmp = (double)opdata; // Cast to double
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         default:
@@ -2671,7 +2662,7 @@ FPTrunc::compute() {
         {
             double opdata = operands.front().getDoubleFromReg();
             float tmp = (float)opdata; // Cast to float
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         default:
@@ -2737,7 +2728,7 @@ FPExt::compute() {
         {
             float opdata = operands.front().getFloatFromReg();
             double tmp = (double)opdata; // Cast to double
-            setRegisterValue(*(uint64_t *)&tmp); // Bitcast for writeback to reg
+            setRegisterValue(gem5::salam::floatingResultBits(tmp));
             break;
         }
         default:

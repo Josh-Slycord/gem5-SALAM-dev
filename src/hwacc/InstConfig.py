@@ -60,12 +60,8 @@ class InstConfig(SimObject):
 	xor_inst = Param.XorInst(Parent.any, "xor_inst instruction SimObject")
 	zext = Param.Zext(Parent.any, "zext instruction SimObject")
 
-class InstructionConfig:
-	"""Common base configuration mixin for SALAM instruction SimObjects."""
-	pass
-
 #AUTO-GENERATED CLASSES
-class Add(SimObject, InstructionConfig):
+class Add(SimObject):
 	# SimObject type
 	type = 'Add'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/add.hh"
@@ -75,7 +71,7 @@ class Add(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(13, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Addrspacecast(SimObject, InstructionConfig):
+class Addrspacecast(SimObject):
 	# SimObject type
 	type = 'Addrspacecast'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/addrspacecast.hh"
@@ -85,7 +81,7 @@ class Addrspacecast(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(50, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Alloca(SimObject, InstructionConfig):
+class Alloca(SimObject):
 	# SimObject type
 	type = 'Alloca'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/alloca.hh"
@@ -95,7 +91,7 @@ class Alloca(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(31, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class AndInst(SimObject, InstructionConfig):
+class AndInst(SimObject):
 	# SimObject type
 	type = 'AndInst'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/and_inst.hh"
@@ -105,7 +101,7 @@ class AndInst(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(28, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Ashr(SimObject, InstructionConfig):
+class Ashr(SimObject):
 	# SimObject type
 	type = 'Ashr'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/ashr.hh"
@@ -115,7 +111,7 @@ class Ashr(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(27, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Bitcast(SimObject, InstructionConfig):
+class Bitcast(SimObject):
 	# SimObject type
 	type = 'Bitcast'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/bitcast.hh"
@@ -125,7 +121,7 @@ class Bitcast(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(49, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Br(SimObject, InstructionConfig):
+class Br(SimObject):
 	# SimObject type
 	type = 'Br'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/br.hh"
@@ -135,7 +131,7 @@ class Br(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(2, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Call(SimObject, InstructionConfig):
+class Call(SimObject):
 	# SimObject type
 	type = 'Call'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/call.hh"
@@ -145,7 +141,7 @@ class Call(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(56, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Fadd(SimObject, InstructionConfig):
+class Fadd(SimObject):
 	# SimObject type
 	type = 'Fadd'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fadd.hh"
@@ -155,7 +151,7 @@ class Fadd(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(14, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(5, "Default instruction runtime cycles.")
 
-class Fcmp(SimObject, InstructionConfig):
+class Fcmp(SimObject):
 	# SimObject type
 	type = 'Fcmp'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fcmp.hh"
@@ -165,7 +161,7 @@ class Fcmp(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(54, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Fdiv(SimObject, InstructionConfig):
+class Fdiv(SimObject):
 	# SimObject type
 	type = 'Fdiv'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fdiv.hh"
@@ -175,7 +171,7 @@ class Fdiv(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(21, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(16, "Default instruction runtime cycles.")
 
-class Fence(SimObject, InstructionConfig):
+class Fence(SimObject):
 	# SimObject type
 	type = 'Fence'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fence.hh"
@@ -185,7 +181,7 @@ class Fence(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(35, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Fmul(SimObject, InstructionConfig):
+class Fmul(SimObject):
 	# SimObject type
 	type = 'Fmul'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fmul.hh"
@@ -195,7 +191,7 @@ class Fmul(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(18, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(4, "Default instruction runtime cycles.")
 
-class Fpext(SimObject, InstructionConfig):
+class Fpext(SimObject):
 	# SimObject type
 	type = 'Fpext'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fpext.hh"
@@ -205,7 +201,7 @@ class Fpext(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(46, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Fptosi(SimObject, InstructionConfig):
+class Fptosi(SimObject):
 	# SimObject type
 	type = 'Fptosi'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fptosi.hh"
@@ -215,7 +211,7 @@ class Fptosi(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(42, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Fptoui(SimObject, InstructionConfig):
+class Fptoui(SimObject):
 	# SimObject type
 	type = 'Fptoui'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fptoui.hh"
@@ -225,7 +221,7 @@ class Fptoui(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(41, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Fptrunc(SimObject, InstructionConfig):
+class Fptrunc(SimObject):
 	# SimObject type
 	type = 'Fptrunc'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fptrunc.hh"
@@ -235,7 +231,7 @@ class Fptrunc(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(45, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Frem(SimObject, InstructionConfig):
+class Frem(SimObject):
 	# SimObject type
 	type = 'Frem'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/frem.hh"
@@ -245,7 +241,7 @@ class Frem(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(24, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(16, "Default instruction runtime cycles.")
 
-class Fsub(SimObject, InstructionConfig):
+class Fsub(SimObject):
 	# SimObject type
 	type = 'Fsub'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/fsub.hh"
@@ -255,7 +251,7 @@ class Fsub(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(16, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(5, "Default instruction runtime cycles.")
 
-class Gep(SimObject, InstructionConfig):
+class Gep(SimObject):
 	# SimObject type
 	type = 'Gep'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/gep.hh"
@@ -265,7 +261,7 @@ class Gep(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(34, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Icmp(SimObject, InstructionConfig):
+class Icmp(SimObject):
 	# SimObject type
 	type = 'Icmp'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/icmp.hh"
@@ -275,7 +271,7 @@ class Icmp(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(53, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Indirectbr(SimObject, InstructionConfig):
+class Indirectbr(SimObject):
 	# SimObject type
 	type = 'Indirectbr'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/indirectbr.hh"
@@ -285,7 +281,7 @@ class Indirectbr(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(4, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Inttoptr(SimObject, InstructionConfig):
+class Inttoptr(SimObject):
 	# SimObject type
 	type = 'Inttoptr'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/inttoptr.hh"
@@ -295,7 +291,7 @@ class Inttoptr(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(48, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Invoke(SimObject, InstructionConfig):
+class Invoke(SimObject):
 	# SimObject type
 	type = 'Invoke'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/invoke.hh"
@@ -305,7 +301,7 @@ class Invoke(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(5, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Landingpad(SimObject, InstructionConfig):
+class Landingpad(SimObject):
 	# SimObject type
 	type = 'Landingpad'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/landingpad.hh"
@@ -315,7 +311,7 @@ class Landingpad(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(66, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Load(SimObject, InstructionConfig):
+class Load(SimObject):
 	# SimObject type
 	type = 'Load'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/load.hh"
@@ -325,7 +321,7 @@ class Load(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(32, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Lshr(SimObject, InstructionConfig):
+class Lshr(SimObject):
 	# SimObject type
 	type = 'Lshr'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/lshr.hh"
@@ -335,7 +331,7 @@ class Lshr(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(26, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Mul(SimObject, InstructionConfig):
+class Mul(SimObject):
 	# SimObject type
 	type = 'Mul'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/mul.hh"
@@ -345,7 +341,7 @@ class Mul(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(17, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class OrInst(SimObject, InstructionConfig):
+class OrInst(SimObject):
 	# SimObject type
 	type = 'OrInst'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/or_inst.hh"
@@ -355,7 +351,7 @@ class OrInst(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(29, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Phi(SimObject, InstructionConfig):
+class Phi(SimObject):
 	# SimObject type
 	type = 'Phi'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/phi.hh"
@@ -365,7 +361,7 @@ class Phi(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(55, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Ptrtoint(SimObject, InstructionConfig):
+class Ptrtoint(SimObject):
 	# SimObject type
 	type = 'Ptrtoint'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/ptrtoint.hh"
@@ -375,7 +371,7 @@ class Ptrtoint(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(47, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Resume(SimObject, InstructionConfig):
+class Resume(SimObject):
 	# SimObject type
 	type = 'Resume'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/resume.hh"
@@ -385,7 +381,7 @@ class Resume(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(6, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Ret(SimObject, InstructionConfig):
+class Ret(SimObject):
 	# SimObject type
 	type = 'Ret'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/ret.hh"
@@ -395,7 +391,7 @@ class Ret(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(1, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Sdiv(SimObject, InstructionConfig):
+class Sdiv(SimObject):
 	# SimObject type
 	type = 'Sdiv'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/sdiv.hh"
@@ -405,7 +401,7 @@ class Sdiv(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(20, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Select(SimObject, InstructionConfig):
+class Select(SimObject):
 	# SimObject type
 	type = 'Select'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/select.hh"
@@ -415,7 +411,7 @@ class Select(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(57, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Sext(SimObject, InstructionConfig):
+class Sext(SimObject):
 	# SimObject type
 	type = 'Sext'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/sext.hh"
@@ -425,7 +421,7 @@ class Sext(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(40, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Shl(SimObject, InstructionConfig):
+class Shl(SimObject):
 	# SimObject type
 	type = 'Shl'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/shl.hh"
@@ -435,7 +431,7 @@ class Shl(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(25, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Srem(SimObject, InstructionConfig):
+class Srem(SimObject):
 	# SimObject type
 	type = 'Srem'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/srem.hh"
@@ -445,7 +441,7 @@ class Srem(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(23, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Store(SimObject, InstructionConfig):
+class Store(SimObject):
 	# SimObject type
 	type = 'Store'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/store.hh"
@@ -455,7 +451,7 @@ class Store(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(33, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Sub(SimObject, InstructionConfig):
+class Sub(SimObject):
 	# SimObject type
 	type = 'Sub'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/sub.hh"
@@ -465,7 +461,7 @@ class Sub(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(15, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class SwitchInst(SimObject, InstructionConfig):
+class SwitchInst(SimObject):
 	# SimObject type
 	type = 'SwitchInst'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/switch_inst.hh"
@@ -475,7 +471,7 @@ class SwitchInst(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(3, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Trunc(SimObject, InstructionConfig):
+class Trunc(SimObject):
 	# SimObject type
 	type = 'Trunc'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/trunc.hh"
@@ -485,7 +481,7 @@ class Trunc(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(38, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Udiv(SimObject, InstructionConfig):
+class Udiv(SimObject):
 	# SimObject type
 	type = 'Udiv'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/udiv.hh"
@@ -495,7 +491,7 @@ class Udiv(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(19, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Uitofp(SimObject, InstructionConfig):
+class Uitofp(SimObject):
 	# SimObject type
 	type = 'Uitofp'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/uitofp.hh"
@@ -505,7 +501,7 @@ class Uitofp(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(43, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Unreachable(SimObject, InstructionConfig):
+class Unreachable(SimObject):
 	# SimObject type
 	type = 'Unreachable'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/unreachable.hh"
@@ -515,7 +511,7 @@ class Unreachable(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(7, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class Urem(SimObject, InstructionConfig):
+class Urem(SimObject):
 	# SimObject type
 	type = 'Urem'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/urem.hh"
@@ -525,7 +521,7 @@ class Urem(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(22, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Vaarg(SimObject, InstructionConfig):
+class Vaarg(SimObject):
 	# SimObject type
 	type = 'Vaarg'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/vaarg.hh"
@@ -535,7 +531,7 @@ class Vaarg(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(60, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(0, "Default instruction runtime cycles.")
 
-class XorInst(SimObject, InstructionConfig):
+class XorInst(SimObject):
 	# SimObject type
 	type = 'XorInst'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/xor_inst.hh"
@@ -545,7 +541,7 @@ class XorInst(SimObject, InstructionConfig):
 	opcode_num = Param.UInt32(30, "Default instruction llvm enum opcode value.")
 	runtime_cycles = Param.UInt32(1, "Default instruction runtime cycles.")
 
-class Zext(SimObject, InstructionConfig):
+class Zext(SimObject):
 	# SimObject type
 	type = 'Zext'	# gem5-SALAM attached header
 	cxx_header = "hwacc/HWModeling/generated/instructions/zext.hh"

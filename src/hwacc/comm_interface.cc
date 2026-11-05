@@ -3,6 +3,8 @@
 #include "mem/packet.hh"
 #include "mem/packet_access.hh"
 #include "sim/system.hh"
+#include "hwacc/native_helpers.hh"
+#include "sim/core.hh"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,10 +59,17 @@ CommInterface::CommInterface(const CommInterfaceParams &p) :
     masterId(p.system->getRequestorId(this,name())),
     tickEvent(this),
     cacheLineSize(p.cache_line_size),
-    clock_period(p.clock_period),
     processCycles(p.process_cycles),
     reset_spm(p.reset_spm) {
-    processDelay = cyclesToTicks(processCycles);
+    const auto legacy = gem5::salam::legacyClockTicks(
+        p.clock_period, gem5::sim_clock::as_int::ns);
+    fatal_if(!legacy || clockPeriod() != *legacy,
+        "%s: clock_period must be positive integer ns matching clk_domain",
+        name());
+    fatal_if(!gem5::salam::checkedClockDelay(clockPeriod(),
+                                           uint64_t(processCycles)),
+        "%s: process_cycles must be positive with a representable tick delay",
+        name());
     FLAG_OFFSET = 0;
     CONFIG_OFFSET = flag_size;
     VAR_OFFSET = CONFIG_OFFSET + config_size;
@@ -92,9 +101,13 @@ CommInterface::MemSidePort::recvReqRetry() {
     assert(outstandingPkts.size());
 
     if (debug()) DPRINTF(CommInterface, "Got a retry...\n");
-    while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
+    while (!outstandingPkts.empty()) {
+        // A synchronous response may delete the packet during sendTimingReq.
+        const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        if (!sendTimingReq(outstandingPkts.front()))
+            break;
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
-        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
+        owner->commStats.accepted[direction]++;
         outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
@@ -127,9 +140,13 @@ CommInterface::SPMPort::recvReqRetry() {
     assert(outstandingPkts.size());
 
     if (debug()) DPRINTF(CommInterface, "Got a retry...\n");
-    while (outstandingPkts.size() && sendTimingReq(outstandingPkts.front())) {
+    while (!outstandingPkts.empty()) {
+        // A synchronous response may delete the packet during sendTimingReq.
+        const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        if (!sendTimingReq(outstandingPkts.front()))
+            break;
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
-        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
+        owner->commStats.accepted[direction]++;
         outstandingPkts.pop();
         // TODO: This should just signal the engine that the packet completed
         // engine should schedule tick as necessary. Need a test case
@@ -160,9 +177,12 @@ CommInterface::RegPort::recvTimingResp(PacketPtr pkt) {
 void
 CommInterface::RegPort::recvReqRetry() {
     assert(!outstandingPkts.empty());
-    while (!outstandingPkts.empty() &&
-           sendTimingReq(outstandingPkts.front())) {
-        owner->commStats.accepted[outstandingPkts.front()->isWrite() ? 1 : 0]++;
+    while (!outstandingPkts.empty()) {
+        // A synchronous response may delete the packet during sendTimingReq.
+        const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        if (!sendTimingReq(outstandingPkts.front()))
+            break;
+        owner->commStats.accepted[direction]++;
         outstandingPkts.pop();
         if (!owner->tickEvent.scheduled()) {
             owner->schedule(owner->tickEvent, owner->serviceEdge());
@@ -594,7 +614,7 @@ CommInterface::tryWrite(MemSidePort * port) {
     if (debug()) DPRINTF(CommInterface, "totalLength: %d, writeLeft: %d\n", writeReq->totalLength, writeReq->writeLeft);
     if (debug()) DPRINTF(CommInterface, "Trying to write to addr: 0x%016x, %d bytes, data 0x%08x through port: %s\n",
         writeReq->currentWriteAddr, size,
-        *((uint64_t*)(&(writeReq->buffer[writeReq->totalLength-writeReq->writeLeft]))),
+        gem5::salam::debugBytePrefix(data, size),
         port->name());
 
     PacketPtr pkt = new Packet(req, MemCmd::WriteReq);
@@ -685,7 +705,7 @@ CommInterface::tryWrite(SPMPort * port) {
     if (debug()) DPRINTF(CommInterface, "totalLength: %d, writeLeft: %d\n", writeReq->totalLength, writeReq->writeLeft);
     if (debug()) DPRINTF(CommInterface, "Trying to write to addr: 0x%016x, %d bytes, data 0x%08x through port: %s\n",
         writeReq->currentWriteAddr, size,
-        *((uint64_t*)(&(writeReq->buffer[writeReq->totalLength-writeReq->writeLeft]))),
+        gem5::salam::debugBytePrefix(data, size),
         port->name());
 
     PacketPtr pkt = new Packet(req, MemCmd::WriteReq);
@@ -757,7 +777,7 @@ CommInterface::tryWrite(RegPort * port) {
     if (debug()) DPRINTF(CommInterface, "totalLength: %d, writeLeft: %d\n", writeReq->totalLength, writeReq->writeLeft);
     if (debug()) DPRINTF(CommInterface, "Trying to write to addr: 0x%016x, %d bytes, data 0x%08x through port: %s\n",
         writeReq->currentWriteAddr, size,
-        *((uint64_t*)(&(writeReq->buffer[writeReq->totalLength-writeReq->writeLeft]))),
+        gem5::salam::debugBytePrefix(data, size),
         port->name());
 
     PacketPtr pkt = new Packet(req, MemCmd::WriteReq);

@@ -419,5 +419,10 @@ if not args.bare_metal and not args.dtb_filename:
             )
             sys.generateDtb(sys.workload.dtb_filename)
 
+# The generated accelerator module imports this source-bound configuration
+# helper. Derive native domains after scalar overrides and before instantiate.
+from HWAccConfig import configure_native_salam_clocks
+
+configure_native_salam_clocks(root, args, FutureClass)
 Simulation.setWorkCountOptions(test_sys, args)
 Simulation.run(args, root, test_sys, FutureClass)

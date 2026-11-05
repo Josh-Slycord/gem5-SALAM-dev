@@ -9,8 +9,8 @@ class HWStatistics(SimObject):
     cxx_header = "hwacc/HWModeling/src/hw_statistics.hh"
     cycle_tracking = Param.Bool(
         False,
-        "Record per-cycle queue/FU snapshots; disabled by default because the "
-        "history is unbounded unless consumed"
+        "Unsupported legacy cycle-history switch; True is rejected. Use native "
+        "gem5 statistics and invocation/FU JSON instead"
     )
     ### --- Do Not Modify Below This Line --- ###
     ### Templates

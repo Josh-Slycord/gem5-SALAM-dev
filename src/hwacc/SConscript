@@ -1,5 +1,10 @@
 Import('*')
 
+# Pure helpers remain testable without enabling SALAM or adding LLVM.
+GTest('response_queue.test', 'tests/response_queue.test.cc')
+GTest('float_bits.test', 'tests/float_bits.test.cc')
+GTest('native_helpers.test', 'native_helpers.test.cc')
+
 if env["CONF"]["USE_ARM_ISA"] and env.get("WITH_SALAM", False):
 
     # LLVM is a dependency of the retained SALAM implementation only.  Do not

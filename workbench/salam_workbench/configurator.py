@@ -147,6 +147,10 @@ def validate_spec(data):
                 raise ValueError("Parameters must be named scalar values")
             if isinstance(value, float) and not math.isfinite(value):
                 raise ValueError("Nonfinite parameter")
+            if name == "clock_period" and (
+                type(value) is not int or not 1 <= value <= 1000000
+            ):
+                raise ValueError("SALAM clock_period must be 1..1000000 integer ns")
     cache_keys = {
         "assoc",
         "tag_latency",

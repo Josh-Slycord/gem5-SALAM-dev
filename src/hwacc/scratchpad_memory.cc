@@ -1,4 +1,5 @@
 #include "hwacc/scratchpad_memory.hh"
+#include "hwacc/response_queue.hh"
 #include "base/random.hh"
 #include "base/trace.hh"
 #include "mem/packet.hh"
@@ -348,20 +349,13 @@ ScratchpadMemory::recvTimingReq(PacketPtr pkt, PortID recvPort, bool validateAcc
 
         Tick when_to_send = curTick() + receive_delay + getLatency();
 
-        // typically this should be added at the end, so start the
-        // insertion sort with the last element, also make sure not to
-        // re-order in front of some existing packet with the same
-        // address, the latter is important as this memory effectively
-        // hands out exclusive copies (shared is not asserted)
-        auto i = packetQueue.end();
-        --i;
-        while (i != packetQueue.begin() && when_to_send < i->tick &&
-               !i->pkt->matchAddr(pkt))
-            --i;
-
-        // emplace inserts the element before the position pointed to by
-        // the iterator, so advance it one step
-        packetQueue.emplace(++i, pkt, when_to_send, idx);
+        const bool pinHead = responseInProgress ||
+            (!packetQueue.empty() &&
+             retryResp[packetQueue.front().origin]);
+        auto position = gem5::salam::responseInsertionPosition(
+            packetQueue, when_to_send, pinHead,
+            [pkt](const auto &entry) { return entry.pkt->matchAddr(pkt); });
+        packetQueue.emplace(position, pkt, when_to_send, idx);
 
         scheduleNextResponse();
     } else {
@@ -397,10 +391,12 @@ ScratchpadMemory::dequeue()
     assert(!packetQueue.empty());
     DeferredPacket deferred_pkt = packetQueue.front();
     PortID idx = deferred_pkt.origin;
+    responseInProgress = true;
     if (idx == 0)
         retryResp[idx] = !port.sendTimingResp(deferred_pkt.pkt);
     else
         retryResp[idx] = !spm_ports[idx-1]->sendTimingResp(deferred_pkt.pkt);
+    responseInProgress = false;
 
     if (!retryResp[idx]) {
         packetQueue.pop_front();
@@ -417,12 +413,20 @@ ScratchpadMemory::dequeue()
 void
 ScratchpadMemory::scheduleNextResponse()
 {
-    if (packetQueue.empty() || dequeueEvent.scheduled() ||
-        retryResp[packetQueue.front().origin]) {
+    auto when = gem5::salam::nextResponseTime(
+        packetQueue, curTick(), responseInProgress,
+        [this](const auto &entry) { return retryResp[entry.origin]; });
+    if (!when) {
+        if (dequeueEvent.scheduled()) {
+            deschedule(dequeueEvent);
+        }
         return;
     }
-
-    schedule(dequeueEvent, std::max(packetQueue.front().tick, curTick()));
+    if (!dequeueEvent.scheduled()) {
+        schedule(dequeueEvent, *when);
+    } else if (dequeueEvent.when() != *when) {
+        reschedule(dequeueEvent, *when);
+    }
 }
 
 Tick

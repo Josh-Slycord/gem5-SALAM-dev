@@ -4,6 +4,7 @@
 #include "base/output.hh"
 #include "llvm/Support/raw_ostream.h"
 #include "sim/core.hh"
+#include "hwacc/native_helpers.hh"
 #include <set>
 
 // SALAM_FU_SCHEDULER_V1: pool admission is the only FU capacity check.
@@ -14,12 +15,15 @@ LLVMInterface::LLVMInterface(const LLVMInterfaceParams &p):
     topName(p.top_name),
     scheduling_threshold(p.sched_threshold),
     fuTraceEventLimit(p.fu_trace_event_limit),
-    clock_period(p.clock_period),
     execStats(this),
     lockstep(p.lockstep_mode),
     fuSchedulingPool(p.fu_trace_event_limit) {
     // if (DTRACE(Trace)) DPRINTF(Runtime, "Trace: %s \n", __PRETTY_FUNCTION__);
-    clock_period = clock_period * 1000;
+    const auto legacy = gem5::salam::legacyClockTicks(
+        p.clock_period, gem5::sim_clock::as_int::ns);
+    fatal_if(!legacy || clockPeriod() != *legacy,
+        "%s: clock_period must be positive integer ns matching clk_domain; "
+        "configure the native domain before instantiate()", name());
     dbg = comm->debug();
 }
 
@@ -27,8 +31,13 @@ LLVMInterface::ExecStats::ExecStats(LLVMInterface *owner)
     : statistics::Group(owner),
       ADD_STAT(invocations, statistics::units::Count::get(),
                "Accelerator invocations started"),
+      ADD_STAT(completedInvocations, statistics::units::Count::get(),
+               "Accelerator invocations completed since native statistics reset"),
+      ADD_STAT(invocationTicks, statistics::units::Tick::get(),
+               "Sum of completed invocation durations in simulation ticks"),
       ADD_STAT(cycles, statistics::units::Cycle::get(),
-               "Compute passes while running"),
+               "Compute passes including the immediate initial pass; "
+               "matches direct interface_tick_calls, not elapsed ticks / period"),
       ADD_STAT(cycleCategories, statistics::units::Cycle::get(),
                "Compute passes by what they did: issued an operation, had "
                "one denied a functional unit, waited for memory, waited "
@@ -928,9 +937,7 @@ LLVMInterface::initialize() {
     if (dbg) DPRINTF(LLVMInterface, "Initializing LLVM Runtime Engine!\n");
     execStats.invocations++;
     pass = PassEvents();
-    const uint64_t periodTicks =
-        clockPeriod() > 0 ? static_cast<uint64_t>(clockPeriod())
-                          : (clock_period > 0 ? static_cast<uint64_t>(clock_period) : 0);
+    const uint64_t periodTicks = static_cast<uint64_t>(clockPeriod());
     workbenchStats.begin(comm->getName(), curTick(),
         periodTicks,
         gem5::sim_clock::Frequency);
@@ -1024,6 +1031,8 @@ LLVMInterface::finalize() {
     simStop = std::chrono::high_resolution_clock::now();
     simTotal = simStop - timeStart;
     workbenchStats.end(curTick());
+    execStats.completedInvocations++;
+    execStats.invocationTicks += curTick() - fuStartTick;
     if (fuSchedulingPool.outstanding() != 0)
         panic("FU scheduling invocation ended with %u outstanding leases",
               fuSchedulingPool.outstanding());
@@ -1103,81 +1112,21 @@ LLVMInterface::printResults() {
    //hw->hw_statistics->print();
 
 
-    auto findFuByAlias = [this](const std::string &alias) -> FunctionalUnitBase * {
-        if (!hw || !hw->functional_units)
-            return nullptr;
-        for (auto *fu : hw->functional_units->functional_unit_list) {
-            if (fu && fu->get_alias() == alias)
-                return fu;
+    std::cout << "\nConfigured FU coefficients (uncalibrated model inputs; "
+                 "no aggregate power/area claim)\n";
+    for (auto *fu : hw->functional_units->functional_unit_list) {
+        if (!fu) {
+            continue;
         }
-        return nullptr;
-    };
-
-    auto *adder_fu = findFuByAlias("integer_adder");
-    auto *bitwise_fu = findFuByAlias("bitwise_operations");
-    auto *multiplier_fu = findFuByAlias("integer_multiplier");
-    auto *register_fu = findFuByAlias("bit_register");
-
-    const double adder_unit_area = adder_fu ? adder_fu->get_area() : 1.794430e+02;
-    const double adder_unit_leak = adder_fu ? adder_fu->get_leakage_power() : 2.380803e-03;
-    const double adder_unit_dyn =
-        adder_fu ? (adder_fu->get_internal_power() + adder_fu->get_switch_power())
-                 : (8.115300e-03 + 6.162853e-03);
-
-    const double bitwise_unit_area = bitwise_fu ? bitwise_fu->get_area() : 5.036996e+01;
-    const double bitwise_unit_leak = bitwise_fu ? bitwise_fu->get_leakage_power() : 6.111633e-04;
-    const double bitwise_unit_dyn =
-        bitwise_fu ? (bitwise_fu->get_internal_power() + bitwise_fu->get_switch_power())
-                   : (1.680942e-03 + 1.322420e-03);
-
-    const double mul_unit_area = multiplier_fu ? multiplier_fu->get_area() : 4.595000e+03;
-    const double mul_unit_leak = multiplier_fu ? multiplier_fu->get_leakage_power() : 4.817683e-02;
-    const double mul_unit_dyn =
-        multiplier_fu ? (multiplier_fu->get_internal_power() + multiplier_fu->get_switch_power())
-                      : (5.725752e-01 + 8.662890e-01);
-
-    const double reg_unit_area = register_fu ? register_fu->get_area() : 5.981433e+00;
-    const double reg_unit_leak = register_fu ? register_fu->get_leakage_power() : 7.395312e-05;
-    const double reg_unit_dyn =
-        register_fu ? (register_fu->get_internal_power() + register_fu->get_switch_power())
-                    : (1.322600e-03 + 1.792126e-04);
-
-    double adder_area = (hw->opcodes->get_usage(13) + hw->opcodes->get_usage(20) + hw->opcodes->get_usage(15)) * adder_unit_area;
-    double adder_reads = (totals_reads[13] + totals_reads[15]);
-    double adder_writes = (totals_writes[13] + totals_writes[15]);
-    double adder_power_static = adder_reads * adder_unit_leak;
-    double adder_power_dynamic = adder_writes * adder_unit_dyn;
-
-    double bitwise_area = (hw->opcodes->get_usage(29) + hw->opcodes->get_usage(30) + hw->opcodes->get_usage(25) + hw->opcodes->get_usage(26) + hw->opcodes->get_usage(27) + hw->opcodes->get_usage(28)) * bitwise_unit_area;
-    double bitwise_reads = (totals_reads[25] + totals_reads[26] + totals_reads[27] + totals_reads[28] + totals_reads[29] + totals_reads[30]);
-    double bitwise_writes = (totals_writes[25] + totals_writes[26] + totals_writes[27] + totals_writes[28] + totals_writes[29] + totals_writes[30]);
-    double bitwise_power_static = bitwise_reads * bitwise_unit_leak;
-    double bitwise_power_dynamic = bitwise_writes * bitwise_unit_dyn;
-
-    double multiplier_area = (hw->opcodes->get_usage(17) + hw->opcodes->get_usage(19) + hw->opcodes->get_usage(20)) * mul_unit_area;
-    double multiplier_reads = totals_reads[17] + totals_reads[19] + totals_reads[20];
-    double multiplier_writes = totals_writes[17] + totals_writes[19] + totals_writes[20];
-    double multiplier_power_static = multiplier_reads * mul_unit_leak;
-    double multiplier_power_dynamic = multiplier_writes * mul_unit_dyn;
-
-    double reg_area = hw->opcodes->get_usage(34) * 32 * reg_unit_area;
-    double reg_reads = totals_reads[34] * 32;
-    double reg_writes = totals_writes[34] * 32;
-    double register_power_static = reg_reads * reg_unit_leak;
-    double register_power_dynamic = reg_writes * reg_unit_dyn;
-
-    double total_area = adder_area + bitwise_area + multiplier_area + reg_area;
-    double total_power_static = adder_power_static + bitwise_power_static + multiplier_power_static + register_power_static;
-    double total_power_dynamic = adder_power_dynamic + bitwise_power_dynamic + multiplier_power_dynamic + register_power_dynamic;
-
-    std::cout << "Total Area (Uncalibrated FU Estimate): " << total_area;
-    std::cout << "\nTotal Power Static (Uncalibrated FU Estimate): " << total_power_static << "\n";
-    std::cout << "\nTotal Power Dynamic (Uncalibrated FU Estimate): " << total_power_dynamic << "\n";
+        std::cout << fu->get_alias() << ": area=" << fu->get_area()
+                  << ", leakage=" << fu->get_leakage_power()
+                  << ", internal=" << fu->get_internal_power()
+                  << ", switching=" << fu->get_switch_power() << "\n";
+    }
 
     // if (DTRACE(Trace)) DPRINTF(Runtime, "Trace: %s \n", __PRETTY_FUNCTION__);
-    Tick cycle_time = (clockPeriod() > 0 ? clockPeriod() : clock_period) / 1000;
-    if (cycle_time == 0)
-        cycle_time = 1;
+    const double cycle_time =
+        double(clockPeriod()) / gem5::sim_clock::as_float::ns;
 
     auto hwTimingMS = std::chrono::duration_cast<std::chrono::milliseconds>(hwTime);
     auto hwHours = std::chrono::duration_cast<std::chrono::hours>(hwTimingMS);
@@ -1261,7 +1210,7 @@ LLVMInterface::printResults() {
     std::cout << "             Computation Time:      " << computeHours.count() << "h " << computeMins.count() << "m " << computeSecs.count() << "s " << computeMS.count() << "ms" << std::endl;
     std::cout << "   System Clock:                    " << 1.0/(cycle_time) << "GHz" << std::endl;
     std::cout << "   Runtime:                         " << cycle << " cycles" << std::endl;
-    std::cout << "   Runtime:                         " << (cycle*cycle_time*(1e-3)) << " us" << std::endl;
+    std::cout << "   Runtime:                         " << double(curTick() - fuStartTick) / gem5::sim_clock::as_float::us << " us" << std::endl;
     std::cout << "   Stalls:                          " << stalls << " cycles" << std::endl;
     std::cout << "   Executed Nodes:                  " << (cycle-stalls-1) << " cycles" << std::endl;
     std::cout << std::endl;
