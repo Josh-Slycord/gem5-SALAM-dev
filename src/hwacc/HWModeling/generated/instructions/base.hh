@@ -1,6 +1,7 @@
 #ifndef __HWMODEL_INST_CONFIG_BASE_HH__
 #define __HWMODEL_INST_CONFIG_BASE_HH__
 
+#include <cstdint>
 #include <map>
 #include <iostream>
 #include <cstdlib>
@@ -16,6 +17,10 @@ class InstConfigBase
 		uint32_t _runtime_cycles = 0;
 	public:
 		InstConfigBase() = default;
+		template <typename Params>
+		explicit InstConfigBase(const Params &params) :
+			InstConfigBase(params.functional_unit, params.functional_unit_limit,
+				params.opcode_num, params.runtime_cycles) { }
 		InstConfigBase( uint32_t functional_unit,
 							uint32_t functional_unit_limit,
 							uint32_t opcode_num,
