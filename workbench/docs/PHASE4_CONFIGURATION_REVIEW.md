@@ -30,6 +30,15 @@ regeneration also passed for all ten shipped system-validation benchmark
 configurations through both builders. These checks do not establish numerical
 simulator correctness.
 
+## Variant configuration identity
+
+Cached hardware variants now hash the Python runtime configuration and system
+builder sources separately from compiled engine identity. Changing the central
+Simulation.run clock stage invalidates the variant key. Reuse also verifies the
+copied configuration bytes and exact saved fingerprint inputs, and copying must
+match the selected configuration identity before a new build starts. Generated
+per-request configuration outputs are excluded from this source fingerprint.
+
 ## Deliberately deferred or unresolved
 
 The final snapshot's new `AccCluster.cache_*` Params are deferred. Generated
@@ -54,4 +63,4 @@ differ in case. The relative-path repair does not qualify the full MobileNet
 workload or resolve that older profile naming mismatch.
 
 Local detailed evidence is saved in
-`/home/jslycord/projects/salam-phase4-config-evidence-20261105/validation.json`.
+`/home/jslycord/projects/salam-phase4-config-final-evidence-20261105/validation.json`.

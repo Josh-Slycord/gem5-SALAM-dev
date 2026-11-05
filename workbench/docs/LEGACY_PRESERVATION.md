@@ -26,6 +26,25 @@ The local all-ref bundle has SHA-256
 An independent bare restore passed full object verification and reproduced all
 saved refs. The remote branch was fetched back and its published head verified.
 
+## Exact recovery bundles offsite
+
+The [private recovery package](https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/recovery-bundles-20261105)
+at commit **1f38236cc9c507df4de0faffd0334de8551c7b0e** now contains the exact
+standalone all-ref bundle and both Gemini incremental bundles, their manifests,
+independent restore proof, and stable preservation-task helper scripts.
+Every published blob was fetched into a separate object database and checked
+against its original bytes, SHA-256 and Git mode.
+
+The Gemini bundles require prerequisite commit
+**91fcf24bc60cda21a4d5fb6a480a60a5060d58fe**, retained through the private final
+Gemini source-history branch. The intermediate and final Gemini histories were
+rewritten independently, so both bundles are preserved. Detailed restore
+instructions and full inventories are in that package.
+
+This closes the exact bundle-copy gap. It does not claim that ignored raw
+results, detailed traces, simulator builds, the broader recovery corpus, or
+cloud documents have all been backed up offsite.
+
 ## What was missing from the integrated tree
 
 Comparison was against qualified checkpoint
