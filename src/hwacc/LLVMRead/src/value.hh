@@ -10,6 +10,7 @@
 #include "llvm/ADT/APFloat.h"
 #include <llvm-c/Core.h>
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <vector>
@@ -68,14 +69,20 @@ class Value
         Value(const SALAM::Value &copy_val);
         Value(std::shared_ptr<SALAM::Value> copy_val);
 
+    private:
+        inline static std::atomic<int64_t> active_instances{0};
+
     public:
+        static int64_t active_count() { return active_instances.load(); }
+        static void reset_active_count() { active_instances.store(0); }
+
         /** Class Constructor.
          * @param id 
          */
         Value(uint64_t id, gem5::SimObject * _owner, bool _dbg);
         Value& operator = (Value &copy_val);
         bool operator == (const Value &v) { return uid == v.uid; }
-        ~Value();
+        virtual ~Value();
         // Drop shared_ptr edges into the SALAM graph. Containers that own
         // the nodes call this before they release those nodes.
         virtual void releaseGraphEdges() {}

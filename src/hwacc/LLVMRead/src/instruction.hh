@@ -50,12 +50,18 @@ class Instruction : public Value
         bool launched = false;
         bool committed = false;
         bool isready = false;
+    private:
+        inline static std::atomic<int64_t> active_instances{0};
+
     public:
+        static int64_t active_count() { return active_instances.load(); }
+        static void reset_active_count() { active_instances.store(0); }
+        Instruction(const Instruction &other);
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg); //
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode); //
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles); //
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles, uint64_t functional_unit); //
-        ~Instruction(); //
+        virtual ~Instruction() override; //
         void releaseGraphEdges() override;
         bool operator == (const std::shared_ptr<SALAM::Instruction> inst) const { return this->getUID() == inst->getUID(); }
         bool operator != (const std::shared_ptr<SALAM::Instruction> inst) const { return !operator==(inst); }

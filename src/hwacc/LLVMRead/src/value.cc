@@ -6,6 +6,7 @@
 #include "sim/sim_object.hh"
 
 SALAM::Value::Value(uint64_t id, gem5::SimObject * _owner, bool _dbg) {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     uid = id;
     size = 0;
     owner = _owner;
@@ -14,11 +15,13 @@ SALAM::Value::Value(uint64_t id, gem5::SimObject * _owner, bool _dbg) {
 
 SALAM::Value::~Value()
 {
+    active_instances.fetch_sub(1, std::memory_order_relaxed);
 }
 
 // copy constructor
 SALAM::Value::Value(const Value &copy_val)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     uid = copy_val.uid;
     returnReg = copy_val.returnReg;
     valueTy = copy_val.valueTy;
@@ -31,6 +34,7 @@ SALAM::Value::Value(const Value &copy_val)
 
 SALAM::Value::Value(std::shared_ptr<SALAM::Value> copy_val)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     uid = copy_val->getUID();
     returnReg = copy_val->getReg();
     valueTy = copy_val->getType();

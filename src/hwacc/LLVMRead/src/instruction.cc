@@ -19,6 +19,7 @@ namespace SALAM
 SALAM::Instruction::Instruction(uint64_t id, gem5::SimObject * owner, bool dbg) :
                          Value(id, owner, dbg)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     currentCycle = 0;
 }
 
@@ -27,6 +28,7 @@ SALAM::Instruction::Instruction(uint64_t id, gem5::SimObject * owner, bool dbg,
                          Value(id, owner, dbg),
                          llvmOpCode(OpCode)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     currentCycle = 0;
 }
 
@@ -37,6 +39,7 @@ SALAM::Instruction::Instruction(uint64_t id, gem5::SimObject * owner, bool dbg,
                          llvmOpCode(OpCode),
                          cycleCount(cycles)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     currentCycle = 0;
 }
 
@@ -49,11 +52,31 @@ SALAM::Instruction::Instruction(uint64_t id, gem5::SimObject * owner, bool dbg,
                          cycleCount(cycles),
                          functional_unit(fu)
 {
+    active_instances.fetch_add(1, std::memory_order_relaxed);
     currentCycle = 0;
+}
+
+SALAM::Instruction::Instruction(const Instruction &other) :
+    Value(other),
+    llvmOpCode(other.llvmOpCode),
+    cycleCount(other.cycleCount),
+    currentCycle(other.currentCycle),
+    functional_unit(other.functional_unit),
+    hw_interface(other.hw_interface),
+    staticDependencies(other.staticDependencies),
+    operands(other.operands),
+    running(other.running),
+    inst_dbg(other.inst_dbg),
+    launched(other.launched),
+    committed(other.committed),
+    isready(other.isready)
+{
+    active_instances.fetch_add(1, std::memory_order_relaxed);
 }
 
 SALAM::Instruction::~Instruction()
 {
+    active_instances.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void

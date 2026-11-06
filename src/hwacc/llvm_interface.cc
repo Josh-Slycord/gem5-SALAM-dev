@@ -1077,6 +1077,10 @@ LLVMInterface::finalize() {
     }
     functions.clear();
     values.clear();
+    DPRINTF(Runtime, "Quiescent graph teardown: surviving instructions=%ld, values=%ld\n",
+            SALAM::Instruction::active_count(), SALAM::Value::active_count());
+    assert(SALAM::Instruction::active_count() == 0);
+    assert(SALAM::Value::active_count() == 0);
     comm->finish();
 }
 
