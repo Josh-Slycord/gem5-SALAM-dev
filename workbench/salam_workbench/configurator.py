@@ -931,6 +931,19 @@ def wire_runtime(workspace, spec, evidence):
     )
     ast.parse(text)
     fs.write_text(text)
+    return {
+        "request": _record(request),
+        "modules": [
+            dict(
+                staged=_record(workspace / "configs/SALAM" / destination),
+                selected=_record(PROJECT / "salam_workbench" / source),
+            )
+            for source, destination in (
+                ("configurator_runtime.py", "workbench_runtime.py"),
+                ("system_witness.py", "workbench_system_witness.py"),
+            )
+        ],
+    }
 
 
 def effective_system_configuration(spec):
@@ -1077,6 +1090,7 @@ def run_configuration(
     _save(directory / "configuration.json", result)
     try:
         spec = validate_spec(json.loads(spec_path.read_text(encoding="utf-8-sig")))
+        native = spec.get("builder", "generated") == "native"
         result["system_configuration"] = effective_system_configuration(spec)
         from .fu_capability import inspect_fu_capability, validate_limit_parameters
 
@@ -1094,28 +1108,39 @@ def run_configuration(
         result["stage"] = "source_staging"
         workspace = directory / "workspace"
         result["staging"] = stage_configuration(engine, workspace, spec)
-        from .topology_adapter import adapt_staged_configpaths
+        if native:
+            result["configpath_adapter"] = {
+                "state": "not_required",
+                "referenced_inputs": [],
+                "reason": "Native model explicitly rejects ConfigPath inputs",
+            }
+            result["registerbank_adapter"] = {
+                "state": "not_required",
+                "reason": "Native model explicitly rejects RegisterBank inputs",
+            }
+        else:
+            from .topology_adapter import adapt_staged_configpaths
 
-        result["configpath_adapter"] = adapt_staged_configpaths(
-            engine,
-            workspace,
-            spec["benchmark"],
-            receipt_path=directory / "configpath-adapter.json",
-            source_config_relative=spec.get(
-                "config", spec["benchmark"] + "/config.yml"
-            ),
-        )
-        result["staging"]["inputs"].extend(
-            result["configpath_adapter"]["referenced_inputs"]
-        )
-        from .registerbank_adapter import adapt_configured_registerbanks
+            result["configpath_adapter"] = adapt_staged_configpaths(
+                engine,
+                workspace,
+                spec["benchmark"],
+                receipt_path=directory / "configpath-adapter.json",
+                source_config_relative=spec.get(
+                    "config", spec["benchmark"] + "/config.yml"
+                ),
+            )
+            result["staging"]["inputs"].extend(
+                result["configpath_adapter"]["referenced_inputs"]
+            )
+            from .registerbank_adapter import adapt_configured_registerbanks
 
-        result["registerbank_adapter"] = adapt_configured_registerbanks(
-            workspace,
-            spec["benchmark"],
-            source_engine=engine,
-            receipt_path=directory / "registerbank-adapter.json",
-        )
+            result["registerbank_adapter"] = adapt_configured_registerbanks(
+                workspace,
+                spec["benchmark"],
+                source_engine=engine,
+                receipt_path=directory / "registerbank-adapter.json",
+            )
         config = workspace / spec["benchmark"] / "config.yml"
         contract = analyze_configuration(
             config,
@@ -1128,45 +1153,58 @@ def run_configuration(
                 "Configuration contract rejected: " + repr(contract["issues"])
             )
         result["required_actions"] = contract["required_actions"]
-        result["stage"] = "topology_generation"
         base = spec.get("base_address", "0x10020000")
         env = _environment(workspace)
-        result["commands"].append(
-            _command(
-                [
-                    PYTHON,
-                    "-B",
-                    "SALAM-Configurator/systembuilder.py",
-                    "--sysName",
-                    spec["name"],
-                    "--benchDir",
-                    spec["benchmark"],
-                    "--output-dir",
-                    str(workspace),
-                    "--base-address",
-                    str(base),
-                ],
+        native_generation = None
+        if native:
+            from .native_generation import inspect_outputs, prepare_headers
+
+            result["stage"] = "normalized_header_generation"
+            native_generation = prepare_headers(workspace, spec, directory)
+            result["generated"] = inspect_outputs(
+                workspace, spec, directory, native_generation
+            )
+            result["native_generation"] = native_generation
+        else:
+            result["stage"] = "topology_generation"
+            base = spec.get("base_address", "0x10020000")
+            env = _environment(workspace)
+            result["commands"].append(
+                _command(
+                    [
+                        PYTHON,
+                        "-B",
+                        "SALAM-Configurator/systembuilder.py",
+                        "--sysName",
+                        spec["name"],
+                        "--benchDir",
+                        spec["benchmark"],
+                        "--output-dir",
+                        str(workspace),
+                        "--base-address",
+                        str(base),
+                    ],
+                    workspace,
+                    directory,
+                    "generate",
+                    env,
+                    120,
+                )
+            )
+            result["generated"] = inspect_generated(workspace, spec)
+            generated_contract = analyze_configuration(
+                config,
                 workspace,
-                directory,
-                "generate",
-                env,
-                120,
+                generated_root=workspace,
+                base_address=int(str(base), 0),
+                system_name=spec["name"],
             )
-        )
-        result["generated"] = inspect_generated(workspace, spec)
-        generated_contract = analyze_configuration(
-            config,
-            workspace,
-            generated_root=workspace,
-            base_address=int(str(base), 0),
-            system_name=spec["name"],
-        )
-        _save(directory / "contract-generated.json", generated_contract)
-        if not generated_contract["valid"]:
-            raise ValueError(
-                "Generated configuration contract rejected: "
-                + repr(generated_contract["issues"])
-            )
+            _save(directory / "contract-generated.json", generated_contract)
+            if not generated_contract["valid"]:
+                raise ValueError(
+                    "Generated configuration contract rejected: "
+                    + repr(generated_contract["issues"])
+                )
         from .build_inputs import rebind_cluster_header
 
         result["cluster_header_adapter"] = rebind_cluster_header(
@@ -1195,7 +1233,8 @@ def run_configuration(
                 else LEGACY_WRITEFILE_ABI,
             )
             _save(directory / "benchmark-inputs.json", result["benchmark_inputs"])
-        wire_runtime(workspace, spec, directory)
+        if not native:
+            wire_runtime(workspace, spec, directory)
         if is_modern(load_toolchain(PROJECT)):
             from .ir_toolchain import adapt_ir_toolchain
 
@@ -1254,7 +1293,26 @@ def run_configuration(
             directory / "build-input-witness.json",
             result["build_input_witness"],
         )
-        result["generated_after_build"] = inspect_generated(workspace, spec)
+        if native:
+            from .native_generation import finalize_wrapper
+
+            result["stage"] = "normalized_wrapper_generation"
+            native_generation = finalize_wrapper(
+                workspace, spec, directory, native_generation
+            )
+            from .native_generation import bind_runtime
+
+            native_generation = bind_runtime(
+                workspace, spec, directory, native_generation
+            )
+            result["generated_after_build"] = inspect_outputs(
+                workspace, spec, directory, native_generation, final=True
+            )
+            result["native_generation"] = json.loads(
+                (directory / "native-generation.json").read_text()
+            )
+        else:
+            result["generated_after_build"] = inspect_generated(workspace, spec)
         result["state"], result["stage"] = "prepared", "complete"
         if simulate:
             result["stage"] = "simulator_identity"
@@ -1269,6 +1327,13 @@ def run_configuration(
             ]
             if "benchmark_input" in spec:
                 required.append("simulator/salam-results.txt")
+            if native:
+                required.extend(
+                    [
+                        "simulator/native_factory.json",
+                        "simulator/native_configuration.json",
+                    ]
+                )
             fu_artifacts = []
             if capability.get("supported"):
                 for cluster in contract["components"]["clusters"]:
@@ -1359,6 +1424,16 @@ def run_configuration(
                 result["numerical_correctness"] = "independent_full_output_passed"
             result["stage"] = "effective_configuration"
             ini = Path(run["run_directory"]) / "simulator/config.ini"
+            if native:
+                from .native_generation import witness_factory_binding
+
+                result["native_generation_binding"] = witness_factory_binding(
+                    workspace, native_generation, ini.parent
+                )
+                _save(
+                    directory / "native-generation-binding.json",
+                    result["native_generation_binding"],
+                )
             if fu_artifacts:
                 from .fu_experiments import inspect_fu_invocation
 
@@ -1407,10 +1482,14 @@ def run_configuration(
             effective = analyze_configuration(
                 config,
                 workspace,
-                generated_root=workspace,
+                generated_root=None if native else workspace,
                 base_address=int(str(spec.get("base_address", "0x10020000")), 0),
                 system_name=spec["name"],
             )
+            if native:
+                effective["witnesses"]["generated"] = inspect_outputs(
+                    workspace, spec, directory, native_generation, final=True
+                )
             effective = witness_layered_contract(effective, ini, applied)
             _save(directory / "contract-effective.json", effective)
             if (

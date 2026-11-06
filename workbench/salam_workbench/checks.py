@@ -63,6 +63,11 @@ CONFIG_MODULES = (
     "test_native_factory",
     "test_native_builder_integration",
     "test_native_gemm_checks",
+    "test_native_codegen",
+    "test_native_wrapper",
+    "test_native_bound_model",
+    "test_native_generation_study",
+    "test_native_generation_integration",
     "test_configurator_review",
     "test_hardware_codegen",
     "test_system_witness",
@@ -123,6 +128,7 @@ def source_identity(project, engine=None, tier="fast"):
         "verify_numpy_outputs.py",
         "verify_native_gemm.py",
         "run_native_gemm.py",
+        "run_native_generation.py",
     ):
         independent_checker = project / "scripts" / name
         if independent_checker.is_file():

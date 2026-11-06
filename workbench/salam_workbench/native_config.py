@@ -13,6 +13,7 @@ import hashlib
 import json
 import keyword
 import re
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -178,6 +179,41 @@ class NormalizedConfiguration:
     def sha256(self):
         return hashlib.sha256(self._canonical_json.encode()).hexdigest()
 
+    def layout_dict(self):
+        """Return the source-bound layout contract without IR build evidence.
+
+        Only LLVM IR dependency content/size/state is excluded. Configuration
+        bytes, declaration/default values, hardware controls, paths, addresses
+        and provenance remain. This is not a portable or binary identity.
+        """
+        result = self.to_dict()
+        for dependency in result["dependencies"]:
+            if dependency["kind"] == "llvm_ir":
+                for field in ("sha256", "bytes", "state"):
+                    dependency.pop(field, None)
+        return result
+
+    def layout_json(self, *, indent=2):
+        """Serialize the layout projection deterministically."""
+        if indent is None:
+            return json.dumps(
+                self.layout_dict(),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        return (
+            json.dumps(
+                self.layout_dict(), sort_keys=True, indent=indent, allow_nan=False
+            )
+            + "\n"
+        )
+
+    @property
+    def layout_sha256(self):
+        """Fingerprint unchanged topology/configuration across an IR build."""
+        return hashlib.sha256(self.layout_json(indent=None).encode()).hexdigest()
+
     @property
     def model_sha256(self):
         return self.sha256
@@ -231,12 +267,19 @@ def _class_params(tree, name):
 
 
 class _Normalizer:
-    def __init__(self, config_path, engine_root, base_address):
+    def __init__(self, config_path, engine_root, base_address, require_ir=True):
         self.root = Path(engine_root).resolve()
         self.config = Path(config_path).resolve()
         self.provenance = []
         self.dependencies = {}
         self.memory_sources = {}
+        if type(require_ir) is not bool:
+            self.fail(
+                "invalid_ir_requirement",
+                "require_ir must be a boolean",
+                self.config,
+            )
+        self.require_ir = require_ir
         if not self.root.is_dir():
             self.fail("missing_engine", "Engine root is not a directory", self.config)
         self.contained(self.config, self.config)
@@ -544,10 +587,35 @@ class _Normalizer:
             )
         resolved = (self.root / value).resolve()
         self.contained(resolved, source, key, destination)
-        if not resolved.is_file():
+        try:
+            metadata = resolved.stat()
+        except FileNotFoundError:
+            if self.require_ir:
+                self.fail(
+                    "missing_dependency",
+                    "Requested file does not exist",
+                    source,
+                    key,
+                    destination,
+                )
+            self.dependencies[self.relative(resolved)] = {
+                "path": self.relative(resolved),
+                "kind": "llvm_ir",
+                "state": "unbuilt",
+            }
+            return str(resolved)
+        except OSError as error:
+            self.fail(
+                "unreadable_dependency",
+                "Cannot inspect the requested IR path: " + str(error),
+                source,
+                key,
+                destination,
+            )
+        if not stat.S_ISREG(metadata.st_mode):
             self.fail(
                 "missing_dependency",
-                "Requested file does not exist",
+                "Requested IR path is not a regular file",
                 source,
                 key,
                 destination,
@@ -1466,14 +1534,24 @@ class _Normalizer:
         }
 
 
-def normalize_configuration(config_path, engine_root, *, base_address=None):
+def normalize_configuration(
+    config_path, engine_root, *, base_address=None, require_ir=True
+):
     """Validate and normalize the first native configuration route.
 
     Paths must remain within engine_root. No source file is modified and no
     configuration Python is executed. ConfigPath, stream/cache/register
     devices and additional YAML documents are deliberately unsupported.
+
+    The default requires every LLVM IR input to exist and records its hash.
+    Preparation-only callers may pass require_ir=False before compilation:
+    contained future IR paths remain explicit unbuilt dependencies without
+    invented hashes. Compare layout_sha256 again after the build, then use
+    fresh default-strict normalization before simulator construction.
     """
-    result = _Normalizer(config_path, engine_root, base_address).normalize()
+    result = _Normalizer(
+        config_path, engine_root, base_address, require_ir=require_ir
+    ).normalize()
     return NormalizedConfiguration(
         json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
     )

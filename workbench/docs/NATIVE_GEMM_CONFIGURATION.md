@@ -63,10 +63,11 @@ normalizer and passes --salam-builder=native, --salam-config and
 --salam-base-address. Arbitrary system options cannot override these managed
 fields.
 
-Preparation still uses the retained generator for guest headers and the
-full-system wrapper. Native accelerator construction does not execute its
-generated topology module. The study archives that module and its Python
-cache before launching the direct path, which still succeeds.
+Native preparation now generates headers and the full-system wrapper from
+the normalized model, with layout checks across compilation and a verified
+runtime snapshot binding. See [normalized generation](NATIVE_GENERATION.md)
+for the newer nine-case qualification. The first factory-only study below
+remains preserved as its earlier checkpoint.
 
 The pure model is usable independently:
 
@@ -116,7 +117,7 @@ Saved pairs can be checked independently:
 python workbench/scripts/verify_native_gemm.py --retained-run /path/to/generated-run --direct-run /path/to/native-run --fixture /path/to/fixture-1.json --fixture /path/to/fixture-2.json --expected-period-ns 10 --expected-mul-limit 1 --expected-mul-cycles 16 --receipt /path/to/new-comparison.json
 ~~~
 
-## Final qualification
+## Factory-only qualification (2026-11-05)
 
 All eight pairs passed: 16 positive simulator processes, 32 launches and 2,048
 observed values checked. Each setting repeats the two input fixtures; these
@@ -163,6 +164,6 @@ the final positive-case counts.
 ## Remaining scope
 
 Generic Params, native SCons profile generation, a stdlib board, normalized
-header/offline consumers, additional device/topology types and a GUI builder
+offline consumers, additional device/topology types and a GUI builder
 selector remain subsequent slices. This qualification does not establish
 calibrated PPA, whole-engine leak freedom, forced backpressure or drain coverage.

@@ -84,7 +84,7 @@ def command(argv, cwd, out, name, env):
     return record
 
 
-def prepare(engine, receipt, directory, case, *, corrupt=False):
+def prepare(engine, receipt, directory, case, *, corrupt=False, builder="generated"):
     directory.mkdir(parents=True, exist_ok=False)
     fixtures = [make_fixture("gemm", "seeded", seed) for seed in (11, 29)]
     if reference_outputs(fixtures[0]) == reference_outputs(fixtures[1]):
@@ -107,7 +107,8 @@ def prepare(engine, receipt, directory, case, *, corrupt=False):
         "schema_version": 1,
         "name": "native_gemm",
         "benchmark": "benchmarks/sys_validation/gemm",
-        "base_address": "0x10020000",
+        "base_address": case.get("base_address", "0x10020000"),
+        "builder": builder,
         "configuration_documents": documents,
         "system": {"cpu-clock": "2GHz", "sys-clock": "1GHz", "cacheline_size": 64},
         "parameters": {
@@ -208,14 +209,13 @@ def prepare(engine, receipt, directory, case, *, corrupt=False):
     return workspace, spec, fixture_paths
 
 
-def launch(engine, workspace, spec, directory, builder, *, required=True):
+def launch(engine, workspace, spec, directory, builder, *, required=True, kernel=None):
     selected = dict(spec, builder=builder)
     args = simulator_args(engine, workspace, selected)
     sw = workspace / spec["benchmark"] / "sw"
+    kernel_path = Path(kernel) if kernel is not None else sw / "main-native.elf"
     args = [
-        "--kernel=" + str(sw / "main-native.elf")
-        if item.startswith("--kernel=")
-        else item
+        "--kernel=" + str(kernel_path) if item.startswith("--kernel=") else item
         for item in args
     ]
     env = _environment(workspace)
@@ -224,6 +224,8 @@ def launch(engine, workspace, spec, directory, builder, *, required=True):
         for path in workspace.rglob("*")
         if path.is_file() and "__pycache__" not in path.parts
     ]
+    if kernel_path not in inputs:
+        inputs.append(kernel_path)
     artifacts = [
         "simulator/config.ini",
         "simulator/stats.txt",

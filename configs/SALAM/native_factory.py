@@ -9,6 +9,8 @@ before Simulation.run applies its final scalar overrides.
 import hashlib
 import json
 import os
+import re
+import stat
 import sys
 from pathlib import Path
 
@@ -343,7 +345,73 @@ def _build_clusters(options, system, model):
     return record
 
 
-def makeHWAcc(options, system):
+def _verify_expected_model(
+    model, engine, expected_model_path, expected_model_sha256, expected_layout_sha256
+):
+    """Check a generated binding against fresh source normalization.
+
+    Saved JSON never becomes a construction authority. The trusted model
+    still comes from normalize_configuration immediately before this check.
+    """
+    values = (expected_model_path, expected_model_sha256, expected_layout_sha256)
+    if all(value is None for value in values):
+        return None
+    if any(value is None for value in values):
+        raise ValueError(
+            "Native model binding requires path, semantic and layout hashes"
+        )
+    for digest in values[1:]:
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("Invalid expected native model hash")
+    path = Path(expected_model_path)
+    if not path.is_absolute() or path.resolve(strict=True) != path:
+        raise ValueError("Native model snapshot must be a regular contained path")
+    path.relative_to(engine)
+    if not stat.S_ISREG(path.lstat().st_mode) or path.stat().st_size > 16 * 1024**2:
+        raise ValueError("Native model snapshot is not bounded regular data")
+
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("Duplicate native model snapshot key")
+            result[key] = value
+        return result
+
+    def invalid_constant(value):
+        raise ValueError("Nonfinite native model snapshot value: " + value)
+
+    raw = path.read_bytes()
+    document = json.loads(
+        raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=invalid_constant
+    )
+    canonical = json.dumps(
+        document, sort_keys=True, separators=(",", ":"), allow_nan=False
+    )
+    semantic = hashlib.sha256(canonical.encode()).hexdigest()
+    if semantic != expected_model_sha256:
+        raise ValueError("Native model snapshot semantic hash differs from wrapper")
+    if model.sha256 != expected_model_sha256 or document != model.to_dict():
+        raise ValueError("Fresh normalized configuration differs from generated model")
+    if model.layout_sha256 != expected_layout_sha256:
+        raise ValueError("Fresh normalized layout differs from generated headers")
+    return {
+        "path": str(path),
+        "file_sha256": hashlib.sha256(raw).hexdigest(),
+        "semantic_sha256": semantic,
+        "layout_sha256": model.layout_sha256,
+        "verified_against_fresh_sources": True,
+    }
+
+
+def makeHWAcc(
+    options,
+    system,
+    *,
+    expected_model_path=None,
+    expected_model_sha256=None,
+    expected_layout_sha256=None,
+):
     """Entry point selected by --salam-builder=native in the retained runner."""
     import m5
 
@@ -382,8 +450,16 @@ def makeHWAcc(options, system):
         engine,
         base_address=getattr(options, "salam_base_address", 0x10020000),
     )
+    binding = _verify_expected_model(
+        model,
+        engine,
+        expected_model_path,
+        expected_model_sha256,
+        expected_layout_sha256,
+    )
     model = _model_dict(model)
     receipt = _build_clusters(options, system, model)
+    receipt["generation_binding"] = binding
     outdir = Path(m5.options.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     model_path = outdir / "native_configuration.json"

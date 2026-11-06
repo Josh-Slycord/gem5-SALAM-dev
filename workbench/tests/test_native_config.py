@@ -50,9 +50,9 @@ class NativeConfigurationTests(unittest.TestCase):
             self.config.write_text(text)
         return normalize_configuration(self.config, self.root, **kwargs)
 
-    def reject(self, text, code):
+    def reject(self, text, code, **kwargs):
         with self.assertRaises(ConfigurationError) as caught:
-            self.normalize(text)
+            self.normalize(text, **kwargs)
         error = caught.exception
         self.assertEqual(error.code, code, str(error))
         self.assertEqual(error.source, str(self.config))
@@ -500,6 +500,182 @@ class NativeConfigurationTests(unittest.TestCase):
         )
         self.assertNotEqual(text, self.original)
         self.reject(text, "unsupported_pio_master")
+
+    def future_ir_config(self):
+        return self.original.replace("/hw/", "/hw/future/")
+
+    def test_default_mode_still_requires_ir_before_instantiation(self):
+        self.reject(self.future_ir_config(), "missing_dependency")
+        self.reject(self.future_ir_config(), "missing_dependency", require_ir=True)
+
+    def test_preparation_records_unbuilt_ir_without_hashes_or_writes(self):
+        self.config.write_text(self.future_ir_config())
+        before = {
+            p.relative_to(self.root).as_posix(): p.read_bytes()
+            for p in self.root.rglob("*")
+            if p.is_file()
+        }
+        model = self.normalize(require_ir=False).to_dict()
+        unresolved = [d for d in model["dependencies"] if d["kind"] == "llvm_ir"]
+        self.assertEqual(len(unresolved), 2)
+        self.assertEqual(
+            {d["path"] for d in unresolved},
+            {
+                "benchmarks/sys_validation/gemm/hw/future/top.ll",
+                "benchmarks/sys_validation/gemm/hw/future/gemm.ll",
+            },
+        )
+        for dependency in unresolved:
+            self.assertEqual(dependency["state"], "unbuilt")
+            self.assertNotIn("sha256", dependency)
+            self.assertNotIn("bytes", dependency)
+        after = {
+            p.relative_to(self.root).as_posix(): p.read_bytes()
+            for p in self.root.rglob("*")
+            if p.is_file()
+        }
+        self.assertEqual(before, after)
+        self.assertFalse((self.config.parent / "hw/future").exists())
+
+    def test_preparation_and_finished_ir_share_layout_not_full_identity(self):
+        self.config.write_text(self.future_ir_config())
+        prepared = self.normalize(require_ir=False)
+        directory = self.config.parent / "hw/future"
+        directory.mkdir()
+        for name in ("top", "gemm"):
+            (directory / (name + ".ll")).write_text(
+                "define void @{}() {{ ret void }}\n".format(name)
+            )
+        finished = self.normalize()
+        self.assertEqual(prepared.layout_dict(), finished.layout_dict())
+        self.assertEqual(prepared.layout_sha256, finished.layout_sha256)
+        self.assertEqual(prepared.layout_json(), finished.layout_json())
+        self.assertNotEqual(prepared.sha256, finished.sha256)
+        for dependency in finished.to_dict()["dependencies"]:
+            if dependency["kind"] == "llvm_ir":
+                self.assertNotIn("state", dependency)
+                self.assertEqual(
+                    dependency["sha256"],
+                    hashlib.sha256(
+                        (self.root / dependency["path"]).read_bytes()
+                    ).hexdigest(),
+                )
+
+    def test_preparation_of_built_ir_keeps_existing_strict_model_identity(self):
+        strict = self.normalize()
+        prepared = self.normalize(require_ir=False)
+        self.assertEqual(strict.to_json(), prepared.to_json())
+        self.assertEqual(strict.sha256, prepared.sha256)
+        for dependency in prepared.to_dict()["dependencies"]:
+            self.assertIn("sha256", dependency)
+            self.assertIn("bytes", dependency)
+            self.assertNotIn("state", dependency)
+
+    def test_layout_excludes_changed_ir_bytes_but_full_identity_detects_them(self):
+        first = self.normalize()
+        ir = self.config.parent / "hw/gemm.ll"
+        ir.write_text(ir.read_text() + "; changed build output\n")
+        second = self.normalize()
+        self.assertEqual(first.layout_sha256, second.layout_sha256)
+        self.assertNotEqual(first.sha256, second.sha256)
+
+    def test_layout_retains_configuration_hardware_and_type_identity(self):
+        original = self.normalize(require_ir=False)
+        moved = self.normalize(
+            self.original.replace("PIOSize: 25", "PIOSize: 64"),
+            require_ir=False,
+        )
+        self.assertNotEqual(original.layout_sha256, moved.layout_sha256)
+        hardware = self.normalize(
+            self.original
+            + (
+                "    functional_units:\n"
+                "      integer_multiplier:\n"
+                "        limit: 1\n"
+            ),
+            require_ir=False,
+        )
+        self.assertNotEqual(original.layout_sha256, hardware.layout_sha256)
+        self.config.write_text(self.original)
+        declaration = self.root / "src/hwacc/FunctionalUnits.py"
+        declaration.write_text(
+            "# An explicit declaration-source change.\n" + declaration.read_text()
+        )
+        changed_type = self.normalize(require_ir=False)
+        self.assertNotEqual(original.layout_sha256, changed_type.layout_sha256)
+
+    def test_layout_retains_normalized_paths_and_is_detached(self):
+        original = self.normalize()
+        redirected = self.normalize(self.future_ir_config(), require_ir=False)
+        self.assertNotEqual(original.layout_sha256, redirected.layout_sha256)
+        projection = redirected.layout_dict()
+        projection["clusters"][0]["name"] = "modified"
+        self.assertEqual(redirected.layout_dict()["clusters"][0]["name"], "gemm_clstr")
+        self.assertEqual(
+            json.loads(redirected.layout_json(indent=None)),
+            redirected.layout_dict(),
+        )
+        self.assertEqual(
+            redirected.layout_dict()["source"],
+            redirected.to_dict()["source"],
+        )
+        self.assertEqual(
+            redirected.layout_dict()["typed_abi"],
+            redirected.to_dict()["typed_abi"],
+        )
+
+    def test_preparation_still_rejects_unsafe_future_ir_paths(self):
+        for value in (
+            "../future.ll",
+            "/tmp/future.ll",
+            "benchmarks/../future.ll",
+        ):
+            self.reject(
+                self.original.replace(
+                    "benchmarks/sys_validation/gemm/hw/top.ll", value
+                ),
+                "unsafe_path",
+                require_ir=False,
+            )
+        link = self.config.parent / "hw/future_link"
+        link.symlink_to(
+            self.root.parent / (self.root.name + "-absent"),
+            target_is_directory=True,
+        )
+        self.reject(
+            self.original.replace("hw/top.ll", "hw/future_link/top.ll"),
+            "unsafe_path",
+            require_ir=False,
+        )
+
+    def test_preparation_rejects_non_file_targets_and_blocked_ancestors(self):
+        directory_target = self.config.parent / "hw/directory.ll"
+        directory_target.mkdir()
+        self.reject(
+            self.original.replace("hw/top.ll", "hw/directory.ll"),
+            "missing_dependency",
+            require_ir=False,
+        )
+        blocker = self.config.parent / "hw/not_a_directory"
+        blocker.write_text("A regular file cannot be a future IR directory.\n")
+        self.reject(
+            self.original.replace("hw/top.ll", "hw/not_a_directory/top.ll"),
+            "unreadable_dependency",
+            require_ir=False,
+        )
+
+    def test_preparation_does_not_bypass_configuration_validation(self):
+        self.reject(
+            self.future_ir_config().replace(
+                "functional_unit_limit: 0", "functional_unit_limit: 2", 1
+            ),
+            "unsupported_instruction_cap",
+            require_ir=False,
+        )
+        for invalid in (None, "false", 0, 1):
+            with self.assertRaises(ConfigurationError) as caught:
+                self.normalize(require_ir=invalid)
+            self.assertEqual(caught.exception.code, "invalid_ir_requirement")
 
 
 if __name__ == "__main__":

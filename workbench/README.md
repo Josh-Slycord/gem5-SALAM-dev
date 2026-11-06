@@ -153,3 +153,5 @@ The original WSL engines and recovered research archives are preserved. Official
 ## Native GEMM configuration
 
 An opt-in normalized configuration and direct factory preserve the current typed C++ interfaces. See [native GEMM configuration and qualification](docs/NATIVE_GEMM_CONFIGURATION.md) for selection, the independent retained/direct study, supported topology and evidence.
+
+The [normalized header/wrapper generation checkpoint](docs/NATIVE_GENERATION.md) adds a common layout/model contract, real generation parity, relocation and compiler/runtime failure controls.
