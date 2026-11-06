@@ -12,6 +12,7 @@ from salam_workbench.hardware_codegen import (
     _INST_CONSTRUCTOR_FIELDS,
     FLOAT_FIELDS,
     _class_patch,
+    _generator_patch,
     _generated_constructor_contract,
     generate_hardware_code,
 )
@@ -85,6 +86,72 @@ class HardwareCodegenTests(unittest.TestCase):
                 ),
                 capable=True,
             )
+
+    def test_canonical_class_template_accepted_as_is(self):
+        source = "\n".join(
+            [r"\t" + name + " = Param.Float(" for name in FLOAT_FIELDS]
+            + [
+                "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)",
+                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
+                r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
+                r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
+                "FU occupancy underflow",
+            ]
+        )
+        patched = _class_patch(source, capable=True)
+        self.assertEqual(patched, source)
+
+    def test_unexpected_class_template_rejected(self):
+        corrupted = "\n".join(
+            [r"\t" + FLOAT_FIELDS[0] + " = Param.Float("]
+            + [r"\t" + name + " = Param.UInt32(" for name in FLOAT_FIELDS[1:]]
+            + ["self.inst_dict['instructions'][inst_name]['functional_unit_limit']"]
+        )
+        with self.assertRaisesRegex(
+            ValueError, "neither recognized legacy nor canonical"
+        ):
+            _class_patch(corrupted)
+
+    def test_generator_template_legacy_and_canonical_handling(self):
+        legacy = (
+            "self.fu_list = os.listdir(self.yaml_dir)\n"
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')\n"
+        )
+        patched_legacy = _generator_patch(
+            legacy, "40nm_model", "5ns", "default_profile"
+        )
+        self.assertIn("sorted(os.listdir(self.yaml_dir))", patched_legacy)
+        self.assertIn(
+            "model='40nm_model', latency='5ns', profile='default_profile'",
+            patched_legacy,
+        )
+
+        canonical = (
+            "self.fu_list = sorted(os.listdir(self.yaml_dir))\n"
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+            "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)\n"
+        )
+        # Defaults accept as-is
+        accepted = _generator_patch(
+            canonical, "40nm_model", "5ns", "default_profile"
+        )
+        self.assertEqual(accepted, canonical)
+
+        # Overrides patch target values
+        patched_override = _generator_patch(
+            canonical, "28nm_model", "2ns", "fast_profile"
+        )
+        self.assertIn(
+            "model='28nm_model', latency='2ns', profile='fast_profile'",
+            patched_override,
+        )
+
+        # Unexpected template raises ValueError
+        corrupted = "self.fu_list = custom_listing\n"
+        with self.assertRaisesRegex(
+            ValueError, "neither recognized legacy nor canonical"
+        ):
+            _generator_patch(corrupted, "40nm_model", "5ns", "default_profile")
 
     def test_profile_alias_mismatch_stops_before_generator_runs(self):
         for filename in (

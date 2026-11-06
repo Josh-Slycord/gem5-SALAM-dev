@@ -83,18 +83,83 @@ def _replace_once(text, original, replacement, label):
     return text.replace(original, replacement, 1)
 
 
+def _detect_generator_template(text):
+    legacy_fu = "self.fu_list = os.listdir(self.yaml_dir)" in text
+    legacy_hw = (
+        "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')"
+        in text
+    )
+    canon_fu = "self.fu_list = sorted(os.listdir(self.yaml_dir))" in text
+    canon_hw = (
+        "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+        "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)"
+        in text
+    )
+    if legacy_fu and legacy_hw:
+        return "legacy"
+    if canon_fu and canon_hw:
+        return "canonical"
+    raise ValueError(
+        "HWProfileGenerator template is neither recognized legacy nor canonical"
+    )
+
+
+def _detect_class_template(text):
+    has_uint32 = all(
+        r"\t" + name + " = Param.UInt32(" in text for name in FLOAT_FIELDS
+    )
+    has_float = all(
+        r"\t" + name + " = Param.Float(" in text for name in FLOAT_FIELDS
+    )
+    has_legacy_limit = (
+        "self.inst_dict['instructions'][inst_name]['functional_unit_limit']" in text
+    )
+    has_canon_limit = (
+        "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)"
+        in text
+    )
+    if has_uint32 and has_legacy_limit:
+        return "legacy"
+    if has_float and has_canon_limit:
+        return "canonical"
+    raise ValueError(
+        "SALAMClassGenerator template is neither recognized legacy nor canonical"
+    )
+
+
 def _patch(stage, filename, transform, patches):
     path = stage / filename
     before = path.read_text(encoding="utf-8")
+    template_form = "unknown"
+    if filename == "HWProfileGenerator.py":
+        template_form = _detect_generator_template(before)
+    elif filename == "SALAMClassGenerator.py":
+        template_form = _detect_class_template(before)
+
     after = transform(before)
     if before == after:
+        if template_form == "canonical":
+            patches.append(
+                {
+                    "relative_path": filename,
+                    "template_form": "canonical",
+                    "source_sha256": hashlib.sha256(before.encode()).hexdigest(),
+                    "patched_sha256": _sha(path),
+                    "applied": False,
+                    "unified_diff": "",
+                }
+            )
+            return
         raise ValueError("No change to staged generator: " + filename)
+
     path.write_text(after, encoding="utf-8")
     patches.append(
         {
             "relative_path": filename,
+            "template_form": template_form,
             "source_sha256": hashlib.sha256(before.encode()).hexdigest(),
             "patched_sha256": _sha(path),
+            "applied": True,
             "unified_diff": "".join(
                 difflib.unified_diff(
                     before.splitlines(True),
@@ -176,60 +241,87 @@ def _expected_outputs(units, instructions):
 
 
 def _generator_patch(text, model, period, profile):
-    text = _replace_once(
-        text,
-        "self.fu_list = os.listdir(self.yaml_dir)",
-        "self.fu_list = sorted(os.listdir(self.yaml_dir))",
-        "deterministic functional unit order",
-    )
-    return _replace_once(
-        text,
-        "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')",
-        "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
-        "model={!r}, latency={!r}, profile={!r})".format(model, period, profile),
-        "selected hardware profile",
-    )
+    template_form = _detect_generator_template(text)
+    if template_form == "legacy":
+        text = _replace_once(
+            text,
+            "self.fu_list = os.listdir(self.yaml_dir)",
+            "self.fu_list = sorted(os.listdir(self.yaml_dir))",
+            "deterministic functional unit order",
+        )
+        return _replace_once(
+            text,
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')",
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+            "model={!r}, latency={!r}, profile={!r})".format(model, period, profile),
+            "selected hardware profile",
+        )
+    else:  # canonical
+        target = (
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+            "model={!r}, latency={!r}, profile={!r})".format(model, period, profile)
+        )
+        current = (
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+            "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)"
+        )
+        if (model, period, profile) != ("40nm_model", "5ns", "default_profile"):
+            text = text.replace(current, target, 1)
+        return text
 
 
 def _class_patch(text, *, capable=False):
-    for name in FLOAT_FIELDS:
+    template_form = _detect_class_template(text)
+    if template_form == "legacy":
+        for name in FLOAT_FIELDS:
+            text = _replace_once(
+                text,
+                r"\t" + name + " = Param.UInt32(",
+                r"\t" + name + " = Param.Float(",
+                "fractional " + name,
+            )
         text = _replace_once(
             text,
-            r"\t" + name + " = Param.UInt32(",
-            r"\t" + name + " = Param.Float(",
-            "fractional " + name,
+            "self.inst_dict['instructions'][inst_name]['functional_unit_limit']",
+            "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)",
+            "optional instruction limit default",
         )
-    text = _replace_once(
-        text,
-        "self.inst_dict['instructions'][inst_name]['functional_unit_limit']",
-        "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)",
-        "optional instruction limit default",
-    )
-    if capable:
-        required = (
-            r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
-            r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
-            r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
-            "FU occupancy underflow",
-        )
-        if any(text.count(item) != 1 for item in required):
-            raise ValueError("Capable FU generator lacks an exact scheduler repair")
-    else:
-        text = _replace_once(
-            text,
-            r'self.base_header_file.write("\t\tuint64_t _in_use;\n\n")',
-            r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
-            "initialized active unit count",
-        )
-        available_line = r'self.base_header_file.write("\t\tbool is_available() { return (_in_use >= _available); }\n")'
-        getter_line = r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")'
-        text = _replace_once(
-            text,
-            available_line,
-            getter_line + "\n            " + available_line,
-            "active unit count getter",
-        )
-    return text
+        if capable:
+            required = (
+                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
+                r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
+                r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
+                "FU occupancy underflow",
+            )
+            if any(text.count(item) != 1 for item in required):
+                raise ValueError("Capable FU generator lacks an exact scheduler repair")
+        else:
+            text = _replace_once(
+                text,
+                r'self.base_header_file.write("\t\tuint64_t _in_use;\n\n")',
+                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
+                "initialized active unit count",
+            )
+            available_line = r'self.base_header_file.write("\t\tbool is_available() { return (_in_use >= _available); }\n")'
+            getter_line = r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")'
+            text = _replace_once(
+                text,
+                available_line,
+                getter_line + "\n            " + available_line,
+                "active unit count getter",
+            )
+        return text
+    else:  # canonical
+        if capable:
+            required = (
+                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
+                r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
+                r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
+                "FU occupancy underflow",
+            )
+            if any(text.count(item) != 1 for item in required):
+                raise ValueError("Capable FU generator lacks an exact scheduler repair")
+        return text
 
 
 def _constructor_members(path):
@@ -612,6 +704,11 @@ def generate_hardware_code(
             lambda source: _class_patch(source, capable=capable),
             record["script_patches"],
         )
+        record["generator_templates"] = {
+            patch["relative_path"]: patch["template_form"]
+            for patch in record["script_patches"]
+            if "template_form" in patch
+        }
         environment = {
             "PATH": "/usr/bin:/bin",
             "PYTHONNOUSERSITE": "1",

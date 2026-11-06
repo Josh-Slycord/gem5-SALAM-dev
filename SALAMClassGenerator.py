@@ -372,17 +372,17 @@ class FunctionalUnitGenerator():
             self.simobject_file.write("\ttime_units = Param.String(\"" + str(self.hwmodel.time_units) + "\", \"Default values set from " + self.alias + ".yml\")\n")
             self.simobject_file.write("\tarea_units = Param.String(\"" + str(self.hwmodel.area_units) + "\", \"Default values set from " + self.alias + ".yml\")\n")
             self.simobject_file.write("\tfu_latency = Param.UInt32(" + str(self.hwmodel.fu_latency) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tinternal_power = Param.UInt32(" + str(self.hwmodel.internal_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tswitch_power = Param.UInt32(" + str(self.hwmodel.switch_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tdynamic_power = Param.UInt32(" + str(self.hwmodel.dynamic_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tdynamic_energy = Param.UInt32(" + str(self.hwmodel.dynamic_energy) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tleakage_power = Param.UInt32(" + str(self.hwmodel.leakage_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tarea = Param.UInt32(" + str(self.hwmodel.area) + ", \"Default values set from " + self.alias + ".yml\")\n")
-            self.simobject_file.write("\tpath_delay = Param.UInt32(" + str(self.hwmodel.path_delay) + ", \"Default values set from " + self.alias + ".yml\")\n\n")
+            self.simobject_file.write("\tinternal_power = Param.Float(" + str(self.hwmodel.internal_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tswitch_power = Param.Float(" + str(self.hwmodel.switch_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tdynamic_power = Param.Float(" + str(self.hwmodel.dynamic_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tdynamic_energy = Param.Float(" + str(self.hwmodel.dynamic_energy) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tleakage_power = Param.Float(" + str(self.hwmodel.leakage_power) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tarea = Param.Float(" + str(self.hwmodel.area) + ", \"Default values set from " + self.alias + ".yml\")\n")
+            self.simobject_file.write("\tpath_delay = Param.Float(" + str(self.hwmodel.path_delay) + ", \"Default values set from " + self.alias + ".yml\")\n\n")
 
     def instruction_simobject(self, instruction):
         self.functional_unit = instruction['functional_unit']
-        self.functional_unit_limit = instruction['functional_unit_limit']
+        self.functional_unit_limit = instruction.get('functional_unit_limit', 0)
         self.opcode_num = instruction['opcode_num']
         self.runtime_cycles = instruction['runtime_cycles']
 
@@ -415,7 +415,7 @@ class FunctionalUnitGenerator():
                 self.simobject_file.write("\tcxx_header = \"hwacc/HWModeling/generated/instructions/" + str(inst_name) + ".hh\"\n")
                 self.simobject_file.write("\t# Instruction params\n")
                 self.simobject_file.write("\tfunctional_unit = Param.UInt32(" + str(self.inst_dict['instructions'][inst_name]['functional_unit']) + ", \"Default functional unit assignment.\")\n")
-                self.simobject_file.write("\tfunctional_unit_limit = Param.UInt32(" + str(self.inst_dict['instructions'][inst_name]['functional_unit_limit']) + ", \"Default functional unit limit.\")\n")
+                self.simobject_file.write("\tfunctional_unit_limit = Param.UInt32(" + str(self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)) + ", \"Default functional unit limit.\")\n")
                 self.simobject_file.write("\topcode_num = Param.UInt32(" + str(self.inst_dict['instructions'][inst_name]['opcode_num']) + ", \"Default instruction llvm enum opcode value.\")\n")
                 self.simobject_file.write("\truntime_cycles = Param.UInt32(" + str(self.inst_dict['instructions'][inst_name]['runtime_cycles']) + ", \"Default instruction runtime cycles.\")\n\n")
 
