@@ -1,0 +1,1183 @@
+{
+  "schema_version": 1,
+  "kind": "salam_track_a_current_pr2429_source_comparison",
+  "audit_local_date": "2026-11-05",
+  "created_utc": "2026-11-06T00:57:45.267266+00:00",
+  "source_snapshot_created_utc": "2026-11-06T00:43:57.010515+00:00",
+  "status": "source_audit_complete_no_runtime_requalification",
+  "pinned_refs": {
+    "ours": {
+      "repository_url": "https://github.com/Josh-Slycord/gem5-SALAM-dev",
+      "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+      "source_root": "/home/jslycord/projects/gem5-salam-track-a"
+    },
+    "pr2429": {
+      "repository_url": "https://github.com/akanksha-sc/gem5.git",
+      "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+      "source_root": "/home/jslycord/projects/salam-track-a-references-20261105/pr2429",
+      "archive_sha256": "9db2c4c692803af4815144eb3ccccb7fbaed901922561206c50a92754aa9d287",
+      "file_count": 11316
+    },
+    "upstream_develop": {
+      "repository_url": "https://github.com/gem5/gem5.git",
+      "commit": "1754a3b1789c6fd616124f89116b8258600e8b85",
+      "source_root": "/home/jslycord/projects/salam-track-a-references-20261105/upstream-develop",
+      "archive_sha256": "e0c4b987b2ed1183d0336be0710cea9fc48c044ed513a3f9b95fb7f3d264ae63",
+      "file_count": 11075
+    }
+  },
+  "provenance": {
+    "pr_url": "https://github.com/gem5/gem5/pull/2429",
+    "manifests": [
+      "/home/jslycord/projects/salam-track-a-references-20261105/pr2429-manifest.json",
+      "/home/jslycord/projects/salam-track-a-references-20261105/upstream-develop-manifest.json"
+    ],
+    "review_threads": "/mnt/d/kb_local_chatGPT/salam/track-a-20261105/review-threads/batch-01.json through batch-09.json",
+    "review_metadata_caveat": "Resolved/unresolved/outdated thread metadata does not prove current code passes or fails. Decisions above derive from pinned actual source. Discussion URLs are reviewer-question traceability, not runtime evidence.",
+    "inspection": "Pinned source reads, exact line checks and Git blob/tree metadata only. Comparison is source-only; no simulator builds/runs or production edits performed. No pushes or official repository mutations.",
+    "confidence_limit": "High confidence for cited source behavior/declarations. No new runtime or physical-power accuracy qualification; test source presence does not mean tests passed."
+  },
+  "decisions": [
+    {
+      "id": "A01",
+      "area": "Shared parser and direct cluster factory",
+      "decision": "adapt",
+      "finding": "Current PR already embeds the normalized workload reader and directly constructs SimObjects. Its native path does not require per-benchmark generated Python. Paths are relative to the declaring YAML and recursive SysPath includes reject.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "configs/SALAM/HWAcc.py",
+          "line": 61,
+          "end_line": 93,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/SALAM/HWAcc.py#L61",
+          "sha256": "ec374db7f705cb9251262965f41df807ea80e5d78d19532a3c78341f43804070",
+          "git_blob": "4dce97062895d2b5092932cb93f74ee0559d4131"
+        },
+        {
+          "side": "ours",
+          "path": "configs/SALAM/HWAccConfig.py",
+          "line": 117,
+          "end_line": 172,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/SALAM/HWAccConfig.py#L117",
+          "sha256": "e227eaeda609a29c950ffcd080b28934e2f47b662b32a3687cafa8666b913faf",
+          "git_blob": "abda2255f9f492e6cf2eb1ea19db19cd08da2ee1"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 64,
+          "end_line": 103,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L64",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/SALAM-Configurator/config_parser.py",
+          "line": 54,
+          "end_line": 79,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/SALAM-Configurator/config_parser.py#L54",
+          "sha256": "d0073557caec026219cdf32be2616fd176cf72ff11054bedc2c4da21d113cc3c",
+          "git_blob": "cdb5856383bba4d01dcd0252cdf4f4a7925a62b7"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/python/SConscript",
+          "line": 256,
+          "end_line": 267,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/SConscript#L256",
+          "sha256": "a07ca9c260eb2032c8f32cb148384132e47a5347b07636b57ec116832ff60d49",
+          "git_blob": "608dafc316c32d107a6b4b78a2760bbb62b43d81"
+        }
+      ],
+      "dependency_change_impact": "Adopt this architecture with an adapter for current workbench YAML, leaf IR paths, class names and address allocation; schema compatibility is not automatic.",
+      "preserved_invariants": "Every accepted field has an active consumer or a pre-instantiation error; source/effective input identities stay recorded.",
+      "required_validation": "Roundtrip current GEMM YAML; unknown-field/missing/include-cycle negatives; inspect config.ini and independently check numeric output.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548509",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A02",
+      "area": "Bare-metal standard-library board",
+      "decision": "adapt",
+      "finding": "PR SALAMArmBoard uses ArmFsWorkload, explicit ELF setter and direct attachment. It requires a classic hierarchy exposing membus and bypasses Linux-specific ArmBoard pre-instantiation setup.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "configs/common/Simulation.py",
+          "line": 684,
+          "end_line": 697,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/common/Simulation.py#L684",
+          "sha256": "00b7a1a817f78deb586d310b3cbdc228227f5d360383aba177a39740837215d9",
+          "git_blob": "86312336ab9d9d0b05e5b3802b0e368af2f4ffe9"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/ComputeUnit.py",
+          "line": 7,
+          "end_line": 12,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/ComputeUnit.py#L7",
+          "sha256": "0d480107c9ea3ebd1e388d20ed919b6ce28ab8146546f675e2ebd0a29ec463e9",
+          "git_blob": "679899c94416851d13f0f5895c7d6856018f6a77"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/board.py",
+          "line": 52,
+          "end_line": 114,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/board.py#L52",
+          "sha256": "e8c64d501153b21c87901c2a1122f204e406d3a1ee7a095a3e4feeb7006db480",
+          "git_blob": "f9b765e29ddc6b2aabff4406401f335f4d565724"
+        },
+        {
+          "side": "pr2429",
+          "path": "configs/example/gem5_library/salam/arm-baremetal-salam.py",
+          "line": 82,
+          "end_line": 104,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/configs/example/gem5_library/salam/arm-baremetal-salam.py#L82",
+          "sha256": "01ede2bbc2cafd910dabe6e58eded983d308479aabef9066cacbb54f3aabd3df",
+          "git_blob": "5c5413726b3aa4fa6c326d29d330089201686072"
+        }
+      ],
+      "dependency_change_impact": "Add a separate native GEMM route using current engine first. The lifecycle override is version-sensitive; validate against pinned develop. Keep legacy runner available.",
+      "preserved_invariants": "Fixed CPU/single system scope; same ELF/exit transport/independent output checks; qualified checkpoint untouched.",
+      "required_validation": "Actual board instantiate and config.ini wiring, clocks, ELF; real seeded GEMM plus deliberate corruption; final scalar override precedence.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951546390",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A03",
+      "area": "Single profile data module and SCons dependency graph",
+      "decision": "adopt",
+      "finding": "PR generates only _salam_profile.py, declares config/instruction/FU/generator/power-parser inputs and embeds data in the variant build. This is a cleaner target than our generated typed wrapper graph and temporary text patching.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/SConscript",
+          "line": 61,
+          "end_line": 68,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/SConscript#L61",
+          "sha256": "7da744d902595a092dbf91b9074a839f5aed57f2cd979edaad80e7c9d4b6c848",
+          "git_blob": "2222e75aac8476d09b9626fb22f57db8a1bb890a"
+        },
+        {
+          "side": "ours",
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 165,
+          "end_line": 206,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/workbench/salam_workbench/hardware_codegen.py#L165",
+          "sha256": "b8a6f8e7637c5d2ec832a338a049061c0e8ac9e8d4d8f1832e0e6586faf70cc8",
+          "git_blob": "fa2f8d52f9b231b10ff9f0638b72d5fd4621dda7"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/hw_generator/SALAMGeneratedSources.py",
+          "line": 135,
+          "end_line": 150,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/hw_generator/SALAMGeneratedSources.py#L135",
+          "sha256": "b657853d1c94e54835c35076bf040da6d2c584cd6ac433c5aa9dae3bc1a98bc4",
+          "git_blob": "3706b4d973d5d25e46e12636dc803f7c379606b9"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/SConscript",
+          "line": 64,
+          "end_line": 109,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/SConscript#L64",
+          "sha256": "95f6233947ffae1923bb40b66ca21bd5f2c1348c2bf6e1c548fffd1796513e09",
+          "git_blob": "f02e18ca0cc7e5d4977173bdf535fa58ca57c5b5"
+        }
+      ],
+      "dependency_change_impact": "Adopt variant-local declared generation, coupled to A04 generic ABI conversion. Do not remove wrapper outputs while C++ includes require them. This exact PR still selects profile data at build time; it is not unrestricted hot reload.",
+      "preserved_invariants": "Determinism, content hashes, rebuild provenance and capability checks; fractional PPA stays floating point.",
+      "required_validation": "Clean/out-of-tree build; edit every input category and verify rebuild; isolated profiles do not contaminate; unchanged input stable.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3909484005",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A04",
+      "area": "Generic FU/instruction Params ABI",
+      "decision": "adapt",
+      "finding": "PR uses generic FunctionalUnit/InstructionConfig entries with vector Params and camelCase getters. Ours uses FunctionalUnitBase/InstConfigBase, generated typed members and snake_case getters. Upstream Python data objects alone cannot satisfy our C++ ABI.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/src/functional_units.hh",
+          "line": 4,
+          "end_line": 50,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/src/functional_units.hh#L4",
+          "sha256": "97d40d2a1fdcc88c5c4d7f4b2aa55cc8f52b67eb19be884d7dab98e373aef61a",
+          "git_blob": "5c028a0b309915a657063c7ffc32221ad4b4a006"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/src/instruction_config.hh",
+          "line": 4,
+          "end_line": 73,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/src/instruction_config.hh#L4",
+          "sha256": "88949b2363208ee59e8aad876d63b12c936f704cc4c4a801d1982dd70e4b1ccd",
+          "git_blob": "52eaae140b50bee485ea2ba3345cbdac13858f46"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/src/hw_interface.hh",
+          "line": 9,
+          "end_line": 39,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/src/hw_interface.hh#L9",
+          "sha256": "f7605c88c820aae3e4baa1ea0ae44c1e5877966a5dda4b9872c62912b14de06f",
+          "git_blob": "e2e30e3cc9985f0efccd72ce6e66d48a691d5487"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 948,
+          "end_line": 960,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L948",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/FunctionalUnits.py",
+          "line": 52,
+          "end_line": 103,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/FunctionalUnits.py#L52",
+          "sha256": "7c65436b9e890ab5054f6eeb5270d0fe24f7ef0058d3249ab8106873b3475b40",
+          "git_blob": "0b721250f902f8b35606dff221a3cdabdcb0cf7c"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/InstConfig.py",
+          "line": 50,
+          "end_line": 80,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/InstConfig.py#L50",
+          "sha256": "14a9c86c2316f1f50a39e51b9ae8e466a2740f3369fb0c0fc457610d15584789",
+          "git_blob": "72552059e9b2bd2e13e9d70e240ad81fd2771337"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/HWModeling/functional_units.hh",
+          "line": 54,
+          "end_line": 75,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/HWModeling/functional_units.hh#L54",
+          "sha256": "fb08d6575ce3a71aa74f84cbb9e28bcabe24ea8a940e5ab9d42d3f4f312d67fc",
+          "git_blob": "64fdaac164faa3234378b729778eae9f80297ab8"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/HWModeling/hw_interface.hh",
+          "line": 72,
+          "end_line": 89,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/HWModeling/hw_interface.hh#L72",
+          "sha256": "9eb7de2584c93510f8b01deb00cae4dd53a905c1340c318e819d2bd228b46df3",
+          "git_blob": "b7941c1c3ae54f5ec420c698b4c591b02b442bf1"
+        }
+      ],
+      "dependency_change_impact": "Own C++ changes: generic entries/constructors, vectors/ownership, lookup/getter adaptation, HWInterface Params/includes, LLVMInterface iteration and SCons. Preserve scheduler semantics; retire old wrapper dependency graph only after no consumers remain.",
+      "preserved_invariants": "Unknown/duplicate ID rejection; opcode mapping; no live occupancy at start/end; complete FU trace/replay.",
+      "required_validation": "Pure mapping/accessor fixtures then actual SimObject ownership/config.ini, old/new GEMM numeric and trace parity, finite/unlimited sweeps.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548839",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A05",
+      "area": "Zero FU limit semantics",
+      "decision": "reject",
+      "finding": "Actual PR C++ resolves limit=0 to one instance per reachable static instruction and uses that finite pool. Our pool treats limit=0 as no occupancy cap. This is a scheduling change, not configuration cleanup.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/fu_scheduling_pool.hh",
+          "line": 118,
+          "end_line": 140,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/fu_scheduling_pool.hh#L118",
+          "sha256": "56e9f3cb0e6a86b8d35d0d34a0472e5fedb8dfe6722b2508d30baac87ce353c9",
+          "git_blob": "a71f49b515be3717f187efa7d455d1ffe6b123f3"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 948,
+          "end_line": 960,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L948",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/FunctionalUnits.py",
+          "line": 57,
+          "end_line": 62,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/FunctionalUnits.py#L57",
+          "sha256": "7c65436b9e890ab5054f6eeb5270d0fe24f7ef0058d3249ab8106873b3475b40",
+          "git_blob": "0b721250f902f8b35606dff221a3cdabdcb0cf7c"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1519,
+          "end_line": 1597,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1519",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        }
+      ],
+      "dependency_change_impact": "Reject implicit replacement. Keep unlimited=0 for existing profiles. A future static_graph sizing mode needs a named policy and schema migration.",
+      "preserved_invariants": "Finite/unlimited behavior; per-instruction cap=0 means no extra requested cap, not exemption from a finite FU cap.",
+      "required_validation": "Caps 0/1/2/4 with enough ready dynamic operations to distinguish static sizing from unlimited; independent complete lease replay with zero outstanding.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548839",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A06",
+      "area": "Pipelined initiation interval",
+      "decision": "defer",
+      "finding": "PR pool assigns per-instance nextIssue and allows overlap for interval>0; zero is unpipelined. Our current pool is nonpipelined occupancy capacity. PR YAML omits interval to mean zero; explicit interval must be >=1.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/fu_scheduling_pool.hh",
+          "line": 4,
+          "end_line": 6,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/fu_scheduling_pool.hh#L4",
+          "sha256": "56e9f3cb0e6a86b8d35d0d34a0472e5fedb8dfe6722b2508d30baac87ce353c9",
+          "git_blob": "a71f49b515be3717f187efa7d455d1ffe6b123f3"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/fu_scheduling_pool.hh",
+          "line": 118,
+          "end_line": 158,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/fu_scheduling_pool.hh#L118",
+          "sha256": "56e9f3cb0e6a86b8d35d0d34a0472e5fedb8dfe6722b2508d30baac87ce353c9",
+          "git_blob": "a71f49b515be3717f187efa7d455d1ffe6b123f3"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/HWModeling/fu_pool.cc",
+          "line": 76,
+          "end_line": 109,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/HWModeling/fu_pool.cc#L76",
+          "sha256": "a6316ad67eb48e7f0fc39cd2f7f947186bd724652bfc442b40511493f5c6f495",
+          "git_blob": "f51fe3675cc2204c495a3d5d30586679655648e8"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1591,
+          "end_line": 1597,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1591",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/hw_generator/SALAMGeneratedSources.py",
+          "line": 454,
+          "end_line": 462,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/hw_generator/SALAMGeneratedSources.py#L454",
+          "sha256": "b657853d1c94e54835c35076bf040da6d2c584cd6ac433c5aa9dae3bc1a98bc4",
+          "git_blob": "3706b4d973d5d25e46e12636dc803f7c379606b9"
+        }
+      ],
+      "dependency_change_impact": "Defer until native configuration parity. Requires per-instance accounting, tick conversion, completion leases and richer independent replay.",
+      "preserved_invariants": "Logging budget never changes scheduling; throughput separated from operation latency; grant/deny/release audit retained.",
+      "required_validation": "Long-latency overlap microkernel; expected admission ticks for intervals 1/2 and unpipelined; overflow and relaunch controls.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548839",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A07",
+      "area": "Active latency versus descriptive metadata",
+      "decision": "adapt",
+      "finding": "Both engines execute instruction latency from CycleCounts. PR labels FU stages/cycles/datatype fields descriptive and rejects obsolete instruction-profile runtime_cycles/functional_unit_limit. Workload runtime_cycles remains active. Our existing _apply_cycle_counts path is active.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "configs/SALAM/HWAccConfig.py",
+          "line": 274,
+          "end_line": 305,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/SALAM/HWAccConfig.py#L274",
+          "sha256": "e227eaeda609a29c950ffcd080b28934e2f47b662b32a3687cafa8666b913faf",
+          "git_blob": "abda2255f9f492e6cf2eb1ea19db19cd08da2ee1"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 1338,
+          "end_line": 1365,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L1338",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/generated/functionalunits/base.hh",
+          "line": 113,
+          "end_line": 126,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/generated/functionalunits/base.hh#L113",
+          "sha256": "afb9cf1d8e86f49d0bceab167e31822e936f6cde2d35498c0b6a7d5a2b280654",
+          "git_blob": "697fb8809dfafd4f2ea9352ccafadb77879ccad1"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/FunctionalUnits.py",
+          "line": 64,
+          "end_line": 77,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/FunctionalUnits.py#L64",
+          "sha256": "7c65436b9e890ab5054f6eeb5270d0fe24f7ef0058d3249ab8106873b3475b40",
+          "git_blob": "0b721250f902f8b35606dff221a3cdabdcb0cf7c"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 325,
+          "end_line": 343,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L325",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/SALAM-Configurator/config_parser.py",
+          "line": 715,
+          "end_line": 730,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/SALAM-Configurator/config_parser.py#L715",
+          "sha256": "d0073557caec026219cdf32be2616fd176cf72ff11054bedc2c4da21d113cc3c",
+          "git_blob": "cdb5856383bba4d01dcd0252cdf4f4a7925a62b7"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/hw_generator/SALAMGeneratedSources.py",
+          "line": 242,
+          "end_line": 267,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/hw_generator/SALAMGeneratedSources.py#L242",
+          "sha256": "b657853d1c94e54835c35076bf040da6d2c584cd6ac433c5aa9dae3bc1a98bc4",
+          "git_blob": "3706b4d973d5d25e46e12636dc803f7c379606b9"
+        }
+      ],
+      "dependency_change_impact": "Adopt one latency path with honest labels; move active legacy runtime cycles into workload overrides; remove only redundant generated storage; reject unsupported nonzero instruction caps; preserve name normalization.",
+      "preserved_invariants": "GUI latency reaches actual CycleCounts; descriptive metadata is not presented as execution control.",
+      "required_validation": "Latency sweep changes real issue/completion ticks while numeric output stays equal; reject unsupported nonzero memory/immediate-terminator latencies.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548509",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A08",
+      "area": "Native compute/fabric clocks and final overrides",
+      "decision": "adapt",
+      "finding": "PR creates Compute/Fabric native domains and binds accelerator versus local bus/DMA/memory; compute scheduling uses clockEdge. Our native engine already uses clockEdge but requires retained integer-ns clock_period to match clk_domain after final scalar overrides.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "configs/SALAM/HWAccConfig.py",
+          "line": 391,
+          "end_line": 448,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/SALAM/HWAccConfig.py#L391",
+          "sha256": "e227eaeda609a29c950ffcd080b28934e2f47b662b32a3687cafa8666b913faf",
+          "git_blob": "abda2255f9f492e6cf2eb1ea19db19cd08da2ee1"
+        },
+        {
+          "side": "ours",
+          "path": "configs/common/Simulation.py",
+          "line": 684,
+          "end_line": 697,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/configs/common/Simulation.py#L684",
+          "sha256": "00b7a1a817f78deb586d310b3cbdc228227f5d360383aba177a39740837215d9",
+          "git_blob": "86312336ab9d9d0b05e5b3802b0e368af2f4ffe9"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 22,
+          "end_line": 26,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L22",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 494,
+          "end_line": 495,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L494",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 106,
+          "end_line": 163,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L106",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 247,
+          "end_line": 248,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L247",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/SALAM-Configurator/workload_config.py",
+          "line": 514,
+          "end_line": 539,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/SALAM-Configurator/workload_config.py#L514",
+          "sha256": "d150b509a7a50d681c08b157dbe3cd8fecab6552c79f9786c9623f9efcc23474",
+          "git_blob": "013872559445f3a18e8c768fc3c36a4b75d8b925"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1241,
+          "end_line": 1254,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1241",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        },
+        {
+          "side": "pr2429",
+          "path": "configs/example/gem5_library/salam/arm-baremetal-salam.py",
+          "line": 98,
+          "end_line": 104,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/configs/example/gem5_library/salam/arm-baremetal-salam.py#L98",
+          "sha256": "01ede2bbc2cafd910dabe6e58eded983d308479aabef9066cacbb54f3aabd3df",
+          "git_blob": "5c5413726b3aa4fa6c326d29d330089201686072"
+        }
+      ],
+      "dependency_change_impact": "Adapt direct native domains while reconciling legacy clocks only after scalar overrides. First slice keeps integer-ns constraints; arbitrary frequencies need replacing our constructor checks in LLVMInterface/CommInterface/DMA and separate qualification.",
+      "preserved_invariants": "Edge alignment and no duplicate same-edge pass; independent actor clocks; reset semantics; CPU switching/distributed roots remain unqualified.",
+      "required_validation": "Existing 10/3 ns plus nonaligned launches; independent Compute/Fabric sweeps; config.ini; conflicting override negatives; repeated launches around native reset.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951549136",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A09",
+      "area": "Provenance-aware physical characterization",
+      "decision": "defer",
+      "finding": "PR has source JSON, implementation IDs, signatures, physical units/geometry and incomplete-coverage policy for PPA accounting. Our SALAMPowerModel C++ is an empty constructor; legacy coefficients elsewhere are not an interchangeable calibrated model.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/src/salam_power_model.cc",
+          "line": 1,
+          "end_line": 4,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/src/salam_power_model.cc#L1",
+          "sha256": "889f77010db6903126e35da4d5149fb12b0d8d35f0fecc204f3374244b023320",
+          "git_blob": "75a175657c0b1bbf6cf05ad5a27db14014411a5d"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/HWModeling/generated/functionalunits/base.hh",
+          "line": 32,
+          "end_line": 60,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/HWModeling/generated/functionalunits/base.hh#L32",
+          "sha256": "afb9cf1d8e86f49d0bceab167e31822e936f6cde2d35498c0b6a7d5a2b280654",
+          "git_blob": "697fb8809dfafd4f2ea9352ccafadb77879ccad1"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/SALAMPowerModel.py",
+          "line": 51,
+          "end_line": 105,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/SALAMPowerModel.py#L51",
+          "sha256": "994975011650d262658c64e0b73b8fa9938538aa10ea1575e8e8f59bbd3e47c8",
+          "git_blob": "2f58c1f3fa07164fa6f7102d6e45c9927cd8ce7f"
+        },
+        {
+          "side": "pr2429",
+          "path": "util/SALAM-tools/hw_generator/SALAMGeneratedSources.py",
+          "line": 466,
+          "end_line": 498,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/util/SALAM-tools/hw_generator/SALAMGeneratedSources.py#L466",
+          "sha256": "b657853d1c94e54835c35076bf040da6d2c584cd6ac433c5aa9dae3bc1a98bc4",
+          "git_blob": "3706b4d973d5d25e46e12636dc803f7c379606b9"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 289,
+          "end_line": 305,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L289",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        }
+      ],
+      "dependency_change_impact": "Defer full migration after configuration/FU parity. Adopt units/provenance/coverage vocabulary; never turn legacy configured coefficients into calibrated results by renaming. C++ event accounting, memory observers and inventory are required.",
+      "preserved_invariants": "Unknown is not zero; configured uncalibrated coefficients remain labeled; observer cannot change numerical execution.",
+      "required_validation": "Synthetic energy ledger; missing/mixed units/geometry negatives; observer enabled/disabled execution parity; source hashes/coverage visible.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951548839",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A10",
+      "area": "LLVM support and dependency policy",
+      "decision": "reject",
+      "finding": "Ours explicitly checks LLVM major 14 and typed-pointer IR. PR lists LLVM 11-20 for suffixed executable discovery, but explicit LLVM_CONFIG or PATH llvm-config is not major-version checked by configure_llvm_for_salam. Link flags/ABI-disable macros do not prove our engine supports that range.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/SConscript",
+          "line": 19,
+          "end_line": 41,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/SConscript#L19",
+          "sha256": "7da744d902595a092dbf91b9074a839f5aed57f2cd979edaad80e7c9d4b6c848",
+          "git_blob": "2222e75aac8476d09b9626fb22f57db8a1bb890a"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/LLVMRead/src/value.cc",
+          "line": 67,
+          "end_line": 108,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/LLVMRead/src/value.cc#L67",
+          "sha256": "045c63f6571003ca78264545a66d3a7dd5dd570b3653cf35404861b9b6621a93",
+          "git_blob": "212fce8519a1b309054efbd7a91984c49ec11768"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "SConstruct",
+          "line": 466,
+          "end_line": 554,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/SConstruct#L466",
+          "sha256": "acb97e0b682462d2236c3ef038bc2ebcb91ff7ca537806e9f2c84c91992d34f8",
+          "git_blob": "17247e5152e3901b38d53dde66101cfa96109490"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/LLVMRead/value.cc",
+          "line": 162,
+          "end_line": 206,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/LLVMRead/value.cc#L162",
+          "sha256": "c6a358ae3baaac4d766f5e967a24e07894c5c671bea1bc19eb5eac8b3874778f",
+          "git_blob": "6d0c5a0cd39aa6898855dc780a1f2db94ccb1c4e"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/LLVMRead/instruction.cc",
+          "line": 1939,
+          "end_line": 1972,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/LLVMRead/instruction.cc#L1939",
+          "sha256": "75d786957e8ccaaeaeec1a9ebe483587c4de383332bf32908620f4ee6d8faeea",
+          "git_blob": "0435a02fe2ffe3db155bfe785271fc000eeba44d"
+        }
+      ],
+      "dependency_change_impact": "Reject blanket version broadening and LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING transplant. Keep optional LLVM14 gate until each toolchain/IR is tested. PR DataLayout handling is promising but spans value/register/GEP/cast/comparison semantics, not a header-only import.",
+      "preserved_invariants": "Ordinary gem5 has no LLVM dependency; actionable wrong/missing version errors; gem5 compiler/exception policy preserved; unsupported types fail closed.",
+      "required_validation": "Non-SALAM build without LLVM; missing/wrong LLVM negatives; exact executable/version/link flags recorded; compiler/IR/pointer/type/address-space matrix.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r2252731328",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A11",
+      "area": "Unsupported IR rejected in actual engine",
+      "decision": "adapt",
+      "finding": "PR rejects atomics including atomic load/store and FenceInst before opcode dispatch, and rejects recursion while constructing graph. Ours has explicit unsupported-opcode fatal, but atomic load/store use ordinary Load/Store opcodes and are not rejected by that switch alone.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 1309,
+          "end_line": 1337,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L1309",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 1380,
+          "end_line": 1390,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L1380",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 776,
+          "end_line": 782,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L776",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1659,
+          "end_line": 1688,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1659",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1891,
+          "end_line": 1898,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1891",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        }
+      ],
+      "dependency_change_impact": "Plan own C++ pre-dispatch atomic/Fence rejection and explicit bounded recursion checks; compare existing unconditional CFG guard before transplant. Workbench preflight supplements, not substitutes for, native boundary checks. No implementation in this audit.",
+      "preserved_invariants": "Actual simulator negative modules exit nonzero with IR context; rejected IR cannot proceed to numeric oracle.",
+      "required_validation": "Assembler-valid atomic load/store/RMW/cmpxchg/fence; direct/indirect recursion policy; unsupported scalar/vector/aggregate modules through native and GUI routes.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951549752",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A12",
+      "area": "Native metrics and direct invocation evidence",
+      "decision": "adapt",
+      "finding": "PR has execution/per-unit native stats and quiescence assertion. Ours additionally emits invocation JSON/full FU JSON and resettable completedInvocations/invocationTicks. Whole-file engine replacement would change observable contracts.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 30,
+          "end_line": 62,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L30",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 1034,
+          "end_line": 1079,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L1034",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/fu_scheduling_pool.hh",
+          "line": 161,
+          "end_line": 197,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/fu_scheduling_pool.hh#L161",
+          "sha256": "56e9f3cb0e6a86b8d35d0d34a0472e5fedb8dfe6722b2508d30baac87ce353c9",
+          "git_blob": "a71f49b515be3717f187efa7d455d1ffe6b123f3"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/salam/HWModeling/hw_interface.hh",
+          "line": 115,
+          "end_line": 129,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/HWModeling/hw_interface.hh#L115",
+          "sha256": "9eb7de2584c93510f8b01deb00cae4dd53a905c1340c318e819d2bd228b46df3",
+          "git_blob": "b7941c1c3ae54f5ec420c698b4c591b02b442bf1"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 186,
+          "end_line": 203,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L186",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1286,
+          "end_line": 1312,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1286",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        }
+      ],
+      "dependency_change_impact": "Adapt native stats patterns without losing direct JSON/replay contract. Keep pass counts distinct from elapsed duration, tick-weighted averages distinct from pass-sampled ones, and specify native-reset versus invocation-file lifetime.",
+      "preserved_invariants": "No output-banner-only pass; no overwritten invocation files; zero outstanding leases; reset does not erase independent invocation evidence.",
+      "required_validation": "Two launches with native reset; reconcile full numeric output, JSON/native complete/tick counters and independent FU replay; truncation explicit.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951549007",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A13",
+      "area": "Queue safety and object-lifetime preservation",
+      "decision": "reject",
+      "finding": "Our response helper pins blocked/in-callback heads and avoids iterator underflow; CommInterface snapshots packet direction before ownership transfer. Both engines explicitly release graph edges on finalize. Front-end migration does not justify whole-engine/device overwrite.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "src/hwacc/response_queue.hh",
+          "line": 13,
+          "end_line": 47,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/response_queue.hh#L13",
+          "sha256": "22a8aedb091a37b7ef1699d89ab0f2753ba9e85ea5860b0c8f46f105adc6bc7c",
+          "git_blob": "23e3f34f8574b3112361ac0363083ec722ab1a5e"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/comm_interface.cc",
+          "line": 103,
+          "end_line": 111,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/comm_interface.cc#L103",
+          "sha256": "ae252b77c1abb95213fe20ace623aeda8c428237f69d4d0c57e6c467ffa123fa",
+          "git_blob": "af20681121d4899b7a405ce6b857915941361b2e"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/comm_interface.cc",
+          "line": 142,
+          "end_line": 150,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/comm_interface.cc#L142",
+          "sha256": "ae252b77c1abb95213fe20ace623aeda8c428237f69d4d0c57e6c467ffa123fa",
+          "git_blob": "af20681121d4899b7a405ce6b857915941361b2e"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 1072,
+          "end_line": 1079,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/llvm_interface.cc#L1072",
+          "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+          "git_blob": "5639acce6902d36902fddac77576e8160536c206"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "src/python/gem5/salam/cluster.py",
+          "line": 285,
+          "end_line": 308,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/python/gem5/salam/cluster.py#L285",
+          "sha256": "55680a205b49b4763631ef5283be3944f2f8902d2a0affcb45971ec5e148718f",
+          "git_blob": "07507116e291c046ce5031f295f487834124e2ee"
+        },
+        {
+          "side": "pr2429",
+          "path": "src/salam/llvm_interface.cc",
+          "line": 1294,
+          "end_line": 1311,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/src/salam/llvm_interface.cc#L1294",
+          "sha256": "9db34085c83465159d738e803d816a87f17e5d6d02dbf74eea16d558846fc3c1",
+          "git_blob": "c3259a4d24929a83a87e31711600a116938348ec"
+        }
+      ],
+      "dependency_change_impact": "Reject wholesale engine/device replacement. Review upstream hunks separately with behavior tests; preserve queue, float conversion, clock-overflow and teardown repairs. Helper tests do not prove all real SimObject backpressure/drain cases.",
+      "preserved_invariants": "Response ordering, retry/callback packet lifetime, bounded float conversion/clock guards, fresh graph per invocation.",
+      "required_validation": "Helper regressions plus actual SimObject forced request/response backpressure, synchronous callbacks and bypass/drain/lifetime cases as separate gates.",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    },
+    {
+      "id": "A14",
+      "area": "Native TestLib and evidence reconciliation",
+      "decision": "adopt",
+      "finding": "PR contains TestLib suites, board wiring assertions and expected-suite checker rejecting missing/skipped/zero tests. Source presence is useful design evidence, not proof these tests passed in this audit or with our engine.",
+      "ours": [
+        {
+          "side": "ours",
+          "path": "workbench/docs/UPSTREAM_READINESS.md",
+          "line": 104,
+          "end_line": 109,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/workbench/docs/UPSTREAM_READINESS.md#L104",
+          "sha256": "a676b035e9608cb25d8b86bd3cc5b717857fa4b8f53a940e40b76161dca30f8e",
+          "git_blob": "97f0a6188788f2322a2279eb44e77a85b3844320"
+        },
+        {
+          "side": "ours",
+          "path": "src/hwacc/SConscript",
+          "line": 3,
+          "end_line": 6,
+          "commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+          "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/blob/f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb/src/hwacc/SConscript#L3",
+          "sha256": "7da744d902595a092dbf91b9074a839f5aed57f2cd979edaad80e7c9d4b6c848",
+          "git_blob": "2222e75aac8476d09b9626fb22f57db8a1bb890a"
+        }
+      ],
+      "upstream": [
+        {
+          "side": "pr2429",
+          "path": "tests/gem5/salam/README.md",
+          "line": 3,
+          "end_line": 26,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/tests/gem5/salam/README.md#L3",
+          "sha256": "9350e507afcff0ae42975343c79bc8c67f6addeb500b71b262c71c5abedcc9d3",
+          "git_blob": "37355414ea20dc25f47b67d14d3206500710444c"
+        },
+        {
+          "side": "pr2429",
+          "path": "tests/gem5/salam/test_salam_stdlib.py",
+          "line": 80,
+          "end_line": 115,
+          "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+          "url": "https://github.com/akanksha-sc/gem5/blob/b4ff9f5aaa0e4d3df9bf503df2212a278eb59645/tests/gem5/salam/test_salam_stdlib.py#L80",
+          "sha256": "0714d41ba7b76c91e14e8a56d690f8bd211a4654d6299264390881711dc9e0ef",
+          "git_blob": "c7dfc15b1f5efb2d686f4689f4379a3fb8e32875"
+        }
+      ],
+      "dependency_change_impact": "Adopt suite/results reconciliation and actual board config assertions alongside independent numerical/negative workbench checks. Label helper/SimObject/full-simulation evidence separately; custom profiles require isolated builds/default restoration.",
+      "preserved_invariants": "No passing zero-test run; exact binary/source/profile identity; source-only findings never upgrade runtime qualification.",
+      "required_validation": "Enumerate expected IDs; run bounded suites then reconcile XML; injected missing-suite/incorrect-output controls fail.",
+      "reviewer_discussion_url": "https://github.com/gem5/gem5/pull/2429#discussion_r3951546390",
+      "confidence": "high_for_cited_source_behavior",
+      "validation_state": "source_traced_not_new_runtime_tested"
+    }
+  ],
+  "minimal_native_gemm_route": [
+    {
+      "order": 1,
+      "task": "Freeze compatibility mapping",
+      "details": "First slice keeps current generated FU/instruction ABI and LLVM14 gate. Normalize GEMM workload, profile references, addresses/ports, leaf IR and actor clocks. Every accepted field maps to a consumer or rejects."
+    },
+    {
+      "order": 2,
+      "task": "Build narrow direct factory",
+      "details": "Use PR parser/factory organization but create our current CommInterface, LLVMInterface, HWInterface, CycleCounts, FunctionalUnits, HWStatistics, InstConfig, InstOpCodes, SALAMPowerModel and SimulatorConfig children. Match existing wiring/address/IR contracts. Fixed compiled unit set initially; new arbitrary units need later ABI migration."
+    },
+    {
+      "order": 3,
+      "task": "Add native bare-metal GEMM route",
+      "details": "Adapt board pattern with explicit ELF, classic cache/membus/GIC and final override-to-clock reconciliation. Keep old runner. No C++ rewrite is intrinsically needed for existing typed objects, supported scalar IR and integer-ns clocks."
+    },
+    {
+      "order": 4,
+      "task": "Qualify real parity before generic conversion",
+      "details": "Old and direct routes: same seeded GEMM, independent full output and deliberate corruption, config.ini mapping, caps 0/1/2/4, latency sweep, 10/3 ns clocks, two launches/native reset, direct/native metrics and full FU lease replay."
+    },
+    {
+      "order": 5,
+      "task": "Convert generic Params and declared profile generation",
+      "details": "Then own C++/Params/header/SCons conversion A03/A04 without static-count zero or new initiation intervals; preserve trace/native stats. Only retire legacy dependency graph after complete consumer search and explicit compatibility decision."
+    },
+    {
+      "order": 6,
+      "task": "Separate behavior changes",
+      "details": "Atomic/recursion engine fail-closed hardening, pipeline intervals, static sizing, arbitrary clocks, LLVM expansion and characterized PPA each need separately declared semantics and tests."
+    }
+  ],
+  "own_cpp_change_plan": [
+    {
+      "phase": "first_native_GEMM",
+      "required": "No intrinsic C++ changes for factory restricted to existing compiled typed objects, supported LLVM14 scalar IR and integer-ns clocks; existing required children and scalar/domain checks must be satisfied."
+    },
+    {
+      "phase": "generic_profile_migration",
+      "required": "Generic FU/instruction entries, constructors/vector ownership, HWInterface Params/includes/getters, LLVMInterface iteration/lookup, SCons registration; preserve scheduling/JSON/stats."
+    },
+    {
+      "phase": "engine_boundary_hardening",
+      "required": "Pre-dispatch atomic load/store/Fence rejection and explicit bounded recursion handling in llvm_interface.cc."
+    },
+    {
+      "phase": "later_semantics",
+      "required": "Per-instance initiation interval and independent replay; optional named static-graph sizing; replacement of legacy actor clock consistency checks for arbitrary frequency support."
+    },
+    {
+      "phase": "later_IR_support",
+      "required": "DataLayout-aware value/register/GEP/cast/comparison handling and tested compiler/IR matrix before widening LLVM versions."
+    }
+  ],
+  "clean_upstream_candidate_scope": {
+    "base_commit": "1754a3b1789c6fd616124f89116b8258600e8b85",
+    "method": "Fresh candidate on pinned upstream develop; no whole-fork or whole-PR merge.",
+    "first_slice_include": [
+      "optional SALAM opt-in registration and bounded LLVM14 dependency handling",
+      "required compute/communications/memory engine and correctness helpers",
+      "CycleCounts/FU/InstConfig/HWInterface dependencies required by that engine",
+      "native Group metrics and bounded test-visible observation/replay contract",
+      "one direct parser/factory and bare-metal native GEMM example",
+      "small deterministic workload and numerical/negative TestLib fixtures"
+    ],
+    "keep_external_or_defer": [
+      "Workbench GUI/server/report packaging remains in user fork initially",
+      "full benchmark corpus, historical experiments and generated outputs",
+      "legacy generated-code front ends unless a documented transition needs them",
+      "physical PPA migration, initiation intervals and static-graph zero sizing",
+      "LLVM version expansion, Ruby/distributed/CPU-switch configurations"
+    ],
+    "reviewer_questions": [
+      "Does ordinary gem5 build and run without LLVM or SALAM imports?",
+      "Can native GEMM run without checkout-specific sys.path/import/generated-module assumptions?",
+      "Do all accepted settings reach active consumers or fail explicitly?",
+      "Which numeric/IR/memory/scheduling/clock limitations fail closed?",
+      "Are workloads deterministic, licensed, small and covered by expected-suite reconciliation?",
+      "Are native stats reset/units/lifetime and port/retry/drain responsibilities documented?"
+    ],
+    "license_discussion": "https://github.com/gem5/gem5/pull/2429#discussion_r3909457012",
+    "notice": "Preserve source attribution and every required license/copyright notice. Do not infer new ownership. Scope is a proposal, not approval to delete legacy code."
+  },
+  "tree_scope": {
+    "ours_tracked_blob_count": 13133,
+    "ours_vs_pinned_develop": {
+      "added": 2083,
+      "removed": 25,
+      "changed": 486,
+      "identical": 10564,
+      "by_scope": {
+        "added": {
+          "other": 274,
+          ".github/": 3,
+          "benchmarks/": 1347,
+          "configs/": 8,
+          "ext/": 3,
+          "src/hwacc/": 259,
+          "src/": 1,
+          "util/": 1,
+          "workbench/": 187
+        },
+        "removed": {
+          "ext/": 13,
+          "src/": 12
+        },
+        "changed": {
+          ".github/": 19,
+          "other": 419,
+          "configs/": 4,
+          "ext/": 1,
+          "src/": 37,
+          "util/": 6
+        }
+      },
+      "method": "Tracked path and Git blob identity; no rename detection, line count or ancestry inference."
+    },
+    "pr2429_vs_pinned_develop": {
+      "added": 241,
+      "removed": 0,
+      "changed": 8,
+      "identical": 11067,
+      "by_scope": {
+        "added": {
+          "configs/": 48,
+          "src/": 85,
+          "other": 90,
+          "util/": 18
+        },
+        "removed": {},
+        "changed": {
+          ".github/": 2,
+          "other": 3,
+          "src/": 3
+        }
+      },
+      "method": "Tracked path and Git blob identity; no rename detection, line count or ancestry inference."
+    },
+    "caveat": "Ours/current-develop delta includes unrelated upstream drift. It is neither patch scope nor an ahead/behind commit count."
+  },
+  "open_gaps": [
+    "No configuration migration or production edits implemented in Track A.",
+    "No current-PR/proposed native-GEMM build or simulation executed. Existing qualification remains independently scoped.",
+    "Full field-by-field schema compatibility belongs to companion consumer inventories. This comparison traces architecture and selected active contracts.",
+    "Pipelined/static sizing need explicit new policies and independent traces if adopted.",
+    "Actual SimObject forced backpressure, bypass/drain/lifetime, external-call and full IR semantics remain bounded gaps.",
+    "No whole-file review of all upstream devices/algorithms and no whole-PR quality/support claim."
+  ]
+}

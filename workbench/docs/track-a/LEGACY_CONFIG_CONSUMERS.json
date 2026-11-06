@@ -1,0 +1,2505 @@
+{
+  "schema_version": 1,
+  "kind": "salam_track_a_legacy_configuration_consumer_audit",
+  "baseline_commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+  "branch": "codex/native-gem5-milestone",
+  "source_root": "/home/jslycord/projects/gem5-salam-track-a",
+  "claim_boundary": "Source inspection only. No production code edits, configuration generation, builds, simulations, official repository mutations or new runtime qualification. Source acceptance, storage and generated assignments are not behavioral proof.",
+  "scope": [
+    "root and tools SALAM-Configurator parsers/builders/templates",
+    "root and tools/hw_generator profile, argument and class generators",
+    "root and tools/cacti-SALAM offline characterization consumers",
+    "Workbench GUI producer/import, path/bank adapters, structural contract, scalar runtime and system witnesses"
+  ],
+  "record_count": 56,
+  "records": [
+    {
+      "id": "L001",
+      "input_pattern": "documents[*].acc_cluster[*].Name",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 1
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 257
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 265
+        },
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 105
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 284
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 324
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 347
+        }
+      ],
+      "semantics": "Each YAML document is processed as a cluster. The root generator gathers Name/DMA/Accelerator entries; device generation is ordered all DMAs, then all accelerators. Names become Python attributes/function identifiers; accelerator names are lowercased.",
+      "defaults": "None in raw generator; Workbench requires exactly one Python-safe cluster name and checks case-insensitive duplicates.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Strict Workbench structure; raw generator ignores unrelated root/list keys.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Raw tools parser supports SysPath/HWPath recursion, while checked Workbench accepts only Name/DMA/Accelerator cluster items."
+      ]
+    },
+    {
+      "id": "L002",
+      "input_pattern": "base_address / --base-address / implicit cluster address allocation",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 535
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 124
+        },
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 285
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 54
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 155
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 157
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 847
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 117
+        }
+      ],
+      "semantics": "Root CLI permits a custom initial address. DMA MMIO consumes padded21 bytes (Stream32+status4); accelerator PIOSize and memory Size are padded using size+(64-size%64), so already aligned sizes still advance another64. Next cluster adds another alignment step.",
+      "defaults": "0x10020000 initial; raw maximum0x13ffffff warning only.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench enforces64-byte alignment in0x10020000..0x13ffffff and rejects computed end>=0x14000000.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Padding is historical behavior, not conventional round-up; preserve or explicitly version it."
+      ]
+    },
+    {
+      "id": "L003",
+      "input_pattern": "acc_cluster[*].DMA[*].Name / Type",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 274
+        }
+      ],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 23
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 56
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 469
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 415
+        }
+      ],
+      "semantics": "Raw parser dispatches Type by substring NonCoherent or Stream and lowercases device names. An unrecognized DMA type has no explicit else rejection in the raw dispatch. Checked contract requires exact NonCoherent and safe unique names.",
+      "defaults": "No raw YAML default.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Raw accepts a wider spelling space; checked Stream path is deliberately unsupported pending a simulator witness.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Do not label Stream impossible: source generator support exists but checked acceptance is withheld."
+      ]
+    },
+    {
+      "id": "L004",
+      "input_pattern": "acc_cluster[*].DMA[*].BufferSize / MaxReqSize (NonCoherent)",
+      "category": "defaults",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 8
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 275
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 37
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 50
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 513
+        },
+        {
+          "path": "src/hwacc/NoncoherentDma.py",
+          "line": 13
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 431
+        }
+      ],
+      "semantics": "Raw parser directly indexes both keys and generated assignments set NoncoherentDma.buffer_size and max_req_size. Constructor defaults64/4 do not rescue missing YAML because indexing occurs before construction.",
+      "defaults": "Template calls both optional; raw constructor64/4; native SimObject1024/Parent.cache_line_size; actual YAML must supply values on this route.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench requires positive UInt32 values and MaxReqSize<=BufferSize.",
+      "disposition": "normalize_across_consumumers",
+      "unresolved": [
+        "Default family must be explicit in native factory; do not silently choose one of three conflicting layers."
+      ]
+    },
+    {
+      "id": "L005",
+      "input_pattern": "acc_cluster[*].DMA[*].InterruptNum",
+      "category": "defaults",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 14
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 282
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 41
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 500
+        }
+      ],
+      "consumer": [
+        {
+          "path": "src/hwacc/NoncoherentDma.py",
+          "line": 17
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 472
+        }
+      ],
+      "semantics": "When YAML omits InterruptNum, generated NoncoherentDma constructor omits int_num, exposing native default200. Omission is not IRQ disabling.",
+      "defaults": "Raw Dma.int_num=None; native NoncoherentDma.int_num=200.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench validates and witnesses only an explicitly supplied interrupt; omitted native200 is not inserted into expected_effective.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Record and test omitted default separately from explicit IRQ0/200; no simulator proof in this audit."
+      ]
+    },
+    {
+      "id": "L006",
+      "input_pattern": "acc_cluster[*].DMA[*].PIOMaster",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 10
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 281
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 25
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 478
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 516
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 448
+        }
+      ],
+      "semantics": "Raw comma-splits without stripping whitespace; LocalBus is normalized case-insensitively by substring to local_bus for DMA, then generates named bus.mem_side_ports -> DMA.pio. Missing field leaves an empty connection list.",
+      "defaults": "Raw missing=[]; Workbench validation uses get(...,'LocalBus') when absent.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench accepts only literal LocalBus, yet omitted field is accepted by its default without generating the same connection.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Require explicit LocalBus or materialize canonical default before generation; compare ports, not merely config scalar values."
+      ]
+    },
+    {
+      "id": "L007",
+      "input_pattern": "acc_cluster[*].DMA[*].BufferSize (Stream)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 21
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 81
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 123
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 437
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 444
+        },
+        {
+          "path": "src/hwacc/StreamDma.py",
+          "line": 15
+        },
+        {
+          "path": "src/hwacc/StreamDma.py",
+          "line": 21
+        }
+      ],
+      "semantics": "Raw Stream DMA BufferSize is passed as StreamDma.size and emitted as stream_size (interface width), not read_buffer_size/write_buffer_size capacity. It also emits max_pending=pioSize32 and pio_delay1ns.",
+      "defaults": "Template labels BufferSize optional; raw directly indexes it. Native stream_size8, max_pending8, pio_delay100ns are replaced by generated values.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench rejects Stream DMA pending independent witness.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Potentially misleading name: do not interpret this field as native buffer storage size."
+      ]
+    },
+    {
+      "id": "L008",
+      "input_pattern": "acc_cluster[*].DMA[*].ReadInt / WriteInt",
+      "category": "defaults",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 23
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 69
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 446
+        },
+        {
+          "path": "src/hwacc/StreamDma.py",
+          "line": 26
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 424
+        }
+      ],
+      "semantics": "Raw Stream DMA separately emits rd_int/wr_int only if given. Native omitted defaults210/211 remain. Checked NonCoherent rejects these stream-only interrupt fields.",
+      "defaults": "Stream rd_int210 / wr_int211; no IRQ-disable sentinel established.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Source-supported stream route but checked unsupported as a whole; inappropriate NonCoherent fields fail explicitly.",
+      "disposition": "unsupported_checked_route",
+      "unresolved": []
+    },
+    {
+      "id": "L009",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Name / IrPath",
+      "category": "paths",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 28
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 288
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 161
+        },
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 171
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 303
+        },
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 313
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 168
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 577
+        }
+      ],
+      "semantics": "Root generator constructs literal M5_PATH+'/'+IrPath and passes it to AccConfig. Tools generator prefixes benchmark working_dir+'/'+IrPath instead, so identical relative text has different bases. Accelerator lowercasing and HW lookup by IR basename impose another identity constraint.",
+      "defaults": "irPath initializedNone; missing causes later code-generation failure rather than a semantic default.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench requires safe relative .ll, no absolute/backslash/colon/dot segments; requires IR stem==lowercase accelerator name.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Normalize paths from declared source root; preserve originating dialect. Do not treat paths relative to YAML by assumption."
+      ]
+    },
+    {
+      "id": "L010",
+      "input_pattern": "acc_cluster[*].Accelerator[*].ConfigPath (raw root dialect)",
+      "category": "paths",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 30
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 143
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 163
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 304
+        }
+      ],
+      "semantics": "Root parser initializes configPath to the topology configFile and its ConfigPath handling is commented out; AccConfig sees the primary YAML. Template still describes ConfigPath required and illustrates .ini.",
+      "defaults": "Primary topology configFile wins regardless of raw ConfigPath.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Raw field is ignored, not implemented. Checked route accepts it only with verified staged adapter.",
+      "disposition": "ignored_raw_field",
+      "unresolved": [
+        "Old .ini reference is unsupported by current YAML consumer, not a path alias to adopt."
+      ]
+    },
+    {
+      "id": "L011",
+      "input_pattern": "acc_cluster[*].Accelerator[*].ConfigPath (Workbench adapter)",
+      "category": "paths",
+      "producer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 294
+        }
+      ],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/topology_adapter.py",
+          "line": 24
+        },
+        {
+          "path": "workbench/salam_workbench/topology_adapter.py",
+          "line": 34
+        },
+        {
+          "path": "workbench/salam_workbench/topology_adapter.py",
+          "line": 118
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 235
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 871
+        }
+      ],
+      "semantics": "Source-bound staged parser patch activates ConfigPath; it resolves strictly contained portable benchmarks/... or configs/... YAML and copies/source-hashes external files. One mapping must contain nonempty hw_config keyed by IR stem. Primary same-name hardware is rejected as shadowed.",
+      "defaults": "Absent -> primary topology config; present -> explicit external YAML.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Fail-closed parser-anchor/source checks; no production parser mutation.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Native factory should replace staged textual patch with shared typed path contract; .ini remains rejected."
+      ]
+    },
+    {
+      "id": "L012",
+      "input_pattern": "acc_cluster[*].SysPath / HWPath (tools dialect)",
+      "category": "paths",
+      "producer": [
+        {
+          "path": "tools/SALAM-Configurator/template.yml",
+          "line": 1
+        }
+      ],
+      "transform": [
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 72
+        },
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 78
+        },
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 85
+        },
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 93
+        }
+      ],
+      "consumer": [
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 120
+        }
+      ],
+      "semantics": "Tools systembuilder recursively opens SysPath as working_dir+raw; HWPath is similarly prefixed. SysPath cannot mix device definitions, HWPath alone rejected. Inherited hw_path may default to parent YAML.",
+      "defaults": "working_dir is benchmark directory; parent_path main YAML fallback.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "No shared checked Workbench support for these keys; raw string concatenation lacks containment/type schema.",
+      "disposition": "unsupported_checked_route",
+      "unresolved": [
+        "Keep distinct from accelerator ConfigPath and HWPath; recursive cycles and exact multi-document semantics need future fixtures."
+      ]
+    },
+    {
+      "id": "L013",
+      "input_pattern": "acc_cluster[*].Accelerator[*].HWPath (tools dialect)",
+      "category": "paths",
+      "producer": [],
+      "transform": [
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 154
+        },
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 173
+        }
+      ],
+      "consumer": [
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 315
+        }
+      ],
+      "semantics": "Tools parser allows per-accelerator HWPath override; value is assigned verbatim and emitted as hw_config. Unlike cluster HWPath, this override is not prefixed by working_dir.",
+      "defaults": "Inherited cluster hw_config_path.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Not accepted in checked root-dialect contract.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Require explicit base semantics; do not rename HWPath to ConfigPath without preserving resolution."
+      ]
+    },
+    {
+      "id": "L014",
+      "input_pattern": "acc_cluster[*].Accelerator[*].PIOSize",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 33
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 289
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 153
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 313
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 535
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 575
+        }
+      ],
+      "semantics": "Required raw field allocates padded MMIO and feeds CommInterface.pio_size; generated address header follows allocation. It is not the unpadded requested size after generation.",
+      "defaults": "No usable raw default; GUI historical32 versus Workbench loaded fallback1.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench positive UInt32; generated/effective checks compare padded PIO size.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": []
+    },
+    {
+      "id": "L015",
+      "input_pattern": "acc_cluster[*].Accelerator[*].PIOMaster / LocalSlaves",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 34
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 292
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 165
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 171
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 340
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 354
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 543
+        }
+      ],
+      "semantics": "Raw comma-separated PIOMaster routes .pio to LocalBus.mem_side_ports or named accelerator.local; LocalSlaves routes .local to LocalBus.cpu_side_ports or named device.pio. Accelerator LocalBus matching is case-sensitive substring, unlike DMA normalization.",
+      "defaults": "Missing connection fields -> empty lists, no generated edge.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Checked allows only literal LocalBus for PIOMaster/default, LocalSlaves None/LocalBus; default PIOMaster acceptance does not materialize raw connection.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Resolve reference existence, whitespace, cardinality and role explicitly; do not infer that acceptance proves connectivity."
+      ]
+    },
+    {
+      "id": "L016",
+      "input_pattern": "acc_cluster[*].Accelerator[*].StreamIn / StreamOut",
+      "category": "topology",
+      "producer": [],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 167
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 369
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 374
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 557
+        }
+      ],
+      "semantics": "Comma-separated names emit accelerator.stream connections to peer.stream_in/stream_out, lowercasing peer names.",
+      "defaults": "Absent -> no stream connections.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Checked contract rejects supplied fields pending separate actual-simulator witness.",
+      "disposition": "unsupported_checked_route",
+      "unresolved": [
+        "Retain this producer/consumer path in migration inventory rather than deleting it as unused."
+      ]
+    },
+    {
+      "id": "L017",
+      "input_pattern": "acc_cluster[*].Accelerator[*].InterruptNum / Debug",
+      "category": "defaults",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 32
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 295
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 173
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 307
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 383
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 567
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 617
+        }
+      ],
+      "semantics": "Explicit InterruptNum enters CommInterface.int_num; absence leaves native default. Debug emitted as enable_debug_msgs, defaultFalse.",
+      "defaults": "Raw intNumNone / DebugFalse.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench interrupt UInt32 and Debug strict bool; scalar effective expectations recorded.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Absence must retain native default identity; this audit does not substitute interrupt-disabled semantics."
+      ]
+    },
+    {
+      "id": "L018",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Name / Type",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 39
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 306
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 184
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 194
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 539
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 586
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 663
+        }
+      ],
+      "semantics": "Raw Variable constructor recognizes exact SPM, Stream, RegisterBank, Cache; allocation uses substring checks in separate branch. Name is lowercased for most generated objects; Cache path preserves Name case.",
+      "defaults": "No valid generic Type default in raw parser; Workbench editor defaults SPM.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Checked admits only SPM/RegisterBank and safe unique identifiers; Stream/Cache source routes require witnesses.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Exact enum must replace split substring/exact matching. Normalize cache name casing intentionally."
+      ]
+    },
+    {
+      "id": "L019",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Size (SPM/RegisterBank/Cache)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 41
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 307
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 194
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 206
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 638
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 699
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 727
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 698
+        }
+      ],
+      "semantics": "SPM/RegisterBank create AddrRange(addr,addr+Size), update next address with historical64B padding; Cache Size becomes L1Cache(size='<Size>B') and consumes no local address.",
+      "defaults": "Missing Size becomesNone and later fails; no documented implicit memory size here.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench positive UInt32 for checked memory types; enforces global aperture.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Preserve range end semantics exactly until fixture comparison establishes intended extent."
+      ]
+    },
+    {
+      "id": "L020",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Ports (SPM)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 42
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 308
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 546
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 553
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 676
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 683
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 707
+        }
+      ],
+      "semantics": "Default owning-accelerator PortedConnection count is Ports; generated loop repeats vector .spm -> .spm_ports bindings; public .port attaches LocalBus.",
+      "defaults": "Raw default1; offline CACTI lacks this default.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench validates positive UInt32 but does not add a separate expected_effective port-count entry for SPM.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Port cardinality and actual peers need explicit source/generated/effective witness in future native path."
+      ]
+    },
+    {
+      "id": "L021",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Connections (SPM)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 52
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 312
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 555
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 683
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 730
+        }
+      ],
+      "semantics": "Comma-delimited name:count tokens add extra private SPM peers. Raw split does not strip whitespace; int(count) used. Repeated names and absent target names are not independently resolved by parser.",
+      "defaults": "Absent -> only owning accelerator connection.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench syntax validates stripped tokens and positive counts but does not validate target existence or add SPM effective peer expectations.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Validator strips tokens for syntax while raw generation preserves leading peer whitespace; canonicalize once before both."
+      ]
+    },
+    {
+      "id": "L022",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].ReadyMode / ResetOnRead / ReadOnInvalid / WriteOnValid (SPM)",
+      "category": "defaults",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 43
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 313
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 548
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 643
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 651
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 717
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 820
+        }
+      ],
+      "semantics": "SPM assignments route to ready_mode, reset_on_scratchpad_read, read_on_invalid, write_on_valid. conf_table_reported is separately hardcodedFalse.",
+      "defaults": "False / True / False / True.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench strict bool and effective scalar expectations for all four; raw parser accepts any stringifiable value.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": []
+    },
+    {
+      "id": "L023",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Ports / Connections (RegisterBank)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 67
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 308
+        }
+      ],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/registerbank_adapter.py",
+          "line": 17
+        },
+        {
+          "path": "workbench/salam_workbench/registerbank_adapter.py",
+          "line": 37
+        },
+        {
+          "path": "workbench/salam_workbench/registerbank_adapter.py",
+          "line": 67
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 580
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 712
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 688
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 782
+        },
+        {
+          "path": "src/hwacc/RegisterBank.py",
+          "line": 9
+        }
+      ],
+      "semantics": "Raw bank ignores Ports, gives owner1 connection and emits one reg->reg_port binding for each Connections token regardless count. Staged Workbench adapter changes owner count/loops using exact source/AST anchors.",
+      "defaults": "Raw owner count1; staged Ports default1.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench requires staged adapter when Ports present or counts!=1; native compiled bank scalar private port rejects total private connections!=1 even with adapter.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Generator multiplicity is not native multiport memory support; distinguish the load_port from private reg_port."
+      ]
+    },
+    {
+      "id": "L024",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].ReadyMode / ResetOnRead / ReadOnInvalid / WriteOnValid (RegisterBank)",
+      "category": "validation_gap",
+      "producer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 313
+        }
+      ],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 572
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 672
+        }
+      ],
+      "semantics": "Raw bank never reads scratchpad ready controls; simply preserving these keys does not implement semantics.",
+      "defaults": "None.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench explicitly rejects these misplaced fields as unconsumed_register_field.",
+      "disposition": "unsupported_field",
+      "unresolved": []
+    },
+    {
+      "id": "L025",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].StreamSize / BufferSize / InCon / OutCon (Stream)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 58
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 184
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 563
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 603
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 617
+        }
+      ],
+      "semantics": "Raw StreamBuffer width/capacity use StreamSize/BufferSize. InCon/OutCon lowercased; connects peer.stream to .stream_in/out. Status and stream MMIO allocations are generated.",
+      "defaults": "Template labels sizes optional; raw consumes StreamSize before construction and stringifies missing BufferSize, so optional comments are not a usable default contract.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Workbench rejects Stream memory type pending real witness.",
+      "disposition": "unsupported_checked_route",
+      "unresolved": [
+        "Stream alignment/status addresses and producer/consumer direction need distinct fixtures."
+      ]
+    },
+    {
+      "id": "L026",
+      "input_pattern": "acc_cluster[*].Accelerator[*].Var[*].Size (Cache) / accelerator_cache.*",
+      "category": "cache",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/template.yml",
+          "line": 69
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 79
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 855
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 724
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 870
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 664
+        }
+      ],
+      "semantics": "Raw Cache Variable creates per-accelerator L1Cache, connects mem_side to coherency_bus and cpu_side to owner.local. Template L1 assoc2/latencies2/mshrs4/targets20. Workbench accelerator_cache patches these six generated class defaults only if Cache Var present.",
+      "defaults": "assoc2; tag/data/response_latency2; mshrs4; tgts_per_mshr20.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Spec validation accepts positive integers, but configuration contract rejects Cache memory type before this checked pipeline can qualify; code existence is not a tested GUI feature.",
+      "disposition": "unsupported_checked_route",
+      "unresolved": [
+        "Separate this per-accelerator L1 cache from AccCluster.cluster_cache and CPU caches."
+      ]
+    },
+    {
+      "id": "L027",
+      "input_pattern": "system.acc_cache / AccCluster.cache_size / _connect_caches(cache_size,l2coherent)",
+      "category": "cache",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 79
+        }
+      ],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 251
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 259
+        }
+      ],
+      "consumer": [
+        {
+          "path": "src/hwacc/AccCluster.py",
+          "line": 29
+        },
+        {
+          "path": "src/hwacc/AccCluster.py",
+          "line": 51
+        },
+        {
+          "path": "src/hwacc/AccCluster.py",
+          "line": 63
+        }
+      ],
+      "semantics": "Cluster cache exists only if options.acc_cache AND explicit method cache_size!=0. Generated call sets l2coherent=False and supplies no cache_size, so branch is dormant. Param cache_size32kB is not automatically passed to method; topology local/external ranges are computed but bridge helper is not invoked here.",
+      "defaults": "AccCluster.cache_size32kB; _connect_caches cache_size0; coherenceFalse in generator.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Scalar parameter existence alone does not prove topology effectiveness.",
+      "disposition": "default_literal_dormant",
+      "unresolved": [
+        "Native factory must choose cache placement and constructor-time routing explicitly; post-construction scalar changes do not retroactively add cache/bridge objects."
+      ]
+    },
+    {
+      "id": "L028",
+      "input_pattern": "system.* in Workbench JSON spec",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 41
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 123
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 920
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 926
+        },
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 312
+        }
+      ],
+      "semantics": "Default system dictionary merged with requested keys; sorted entries become --key forTrue, omittedFalse, or --key=value. Strict top-level spec keys but only syntax/reserved/scalar checks for system keys, not an allowlist.",
+      "defaults": "4GB DDR4_2400_8x8; VExpress_GEM5_V1; dtb none; bare-metalTrue; DerivO3CPU; caches/l2cacheTrue.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Unknown syntactically valid system option can reach gem5 argparse and fail there; no assurance every accepted request is meaningful.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Underscore/hyphen system keys remain distinct during default merging and CLI emission; witness later replaces underscore for comparison. Detect conflicts before CLI."
+      ]
+    },
+    {
+      "id": "L029",
+      "input_pattern": "system.cpu-type / legacy CPU aliases",
+      "category": "normalization",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/toolchain_profile.py",
+          "line": 147
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/system_witness.py",
+          "line": 250
+        }
+      ],
+      "semantics": "On modern toolchain only, DerivO3CPU/O3CPU->ArmO3CPU; TimingSimpleCPU->ArmTimingSimpleCPU; AtomicSimpleCPU->ArmAtomicSimpleCPU; MinorCPU->ArmMinorCPU. Records requested and effective values.",
+      "defaults": "Depends on selected toolchain, not YAML model period.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Source transformation with explicit receipt, runtime still needs class witness.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": []
+    },
+    {
+      "id": "L030",
+      "input_pattern": "system.mem-size / mem-type / machine-type / num-cpus / caches / l2cache / cacheline-size / l1i-size / l1d-size / l2-size / l1i-assoc / l1d-assoc / l2-assoc / sys-clock / cpu-clock / mem-channels / mem-ranks / dtb-file",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 110
+        },
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 125
+        },
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 133
+        },
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 230
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/system_witness.py",
+          "line": 239
+        },
+        {
+          "path": "workbench/salam_workbench/system_witness.py",
+          "line": 376
+        },
+        {
+          "path": "workbench/salam_workbench/system_witness.py",
+          "line": 404
+        }
+      ],
+      "semantics": "Legacy fs template delegates native Options, CPU/Mem/CacheConfig. Host witness compares INI sizes/classes/clock/cache structure and requires live runtime capture for platform/DRAM class. Unmapped options yield partial, not passed.",
+      "defaults": "Native defaults and Workbench defaults are separate layers.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Witness mappings are present in source; no new simulation performed by this audit.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "bare-metal and other accepted common/FS options currently lack explicit witness mappings and can leave system state partial."
+      ]
+    },
+    {
+      "id": "L031",
+      "input_pattern": "GUI snapshot.system",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 537
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 566
+        }
+      ],
+      "semantics": "Current Workbench editor accepts only mem-size,mem-type,cpu-clock,sys-clock; broader CLI/native options remain outside these widgets.",
+      "defaults": "Blank/None widget values removed, inherited pipeline defaults remain.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Explicit GUI allowlist; not equivalent to all configurator JSON system capabilities.",
+      "disposition": "supported_source_path",
+      "unresolved": []
+    },
+    {
+      "id": "L032",
+      "input_pattern": "parameters.<system.object>.<compiled_scalar>",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 135
+        },
+        {
+          "path": "workbench/salam_workbench/configurator_runtime.py",
+          "line": 29
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/configurator_runtime.py",
+          "line": 39
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 943
+        }
+      ],
+      "semantics": "Spec accepts named finite scalar values. Runtime traverses live SimObjects and requires declared nonprivate scalar _params, rejects SimObject/vector replacement, asks gem5 to convert, and rejects fractional values routed to integer descriptors. Writes applied receipt before instantiate.",
+      "defaults": "No general default substitution; obj native/current value unless explicitly overridden.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Host name/type validation plus actual live descriptor conversion and later config.ini witness. Scalar acceptance is not proof C++ uses a stored parameter for desired behavior.",
+      "disposition": "supported_source_path",
+      "unresolved": [
+        "Structural changes belong in factory/topology path; late scalar overrides may miss constructor-copied state."
+      ]
+    },
+    {
+      "id": "L033",
+      "input_pattern": "parameters.*.clock_period",
+      "category": "clock",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 150
+        },
+        {
+          "path": "configs/SALAM/HWAccConfig.py",
+          "line": 437
+        }
+      ],
+      "consumer": [
+        {
+          "path": "src/hwacc/NoncoherentDma.py",
+          "line": 18
+        },
+        {
+          "path": "configs/SALAM/HWAccConfig.py",
+          "line": 440
+        }
+      ],
+      "semantics": "Integer nanoseconds legacy actor parameter1..1,000,000; dedicated native clock domains assigned after final overrides by retained HWAccConfig helper. Distinct from profile selection period.",
+      "defaults": "Actor default e.g.NoncoherentDma10ns; profile generator selection5ns.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Spec and native helper range checks. Native build/run witness still required for changes.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "New native factory should call equivalent actor-domain finalization without common/Simulation global hook."
+      ]
+    },
+    {
+      "id": "L034",
+      "input_pattern": "legacy GUI hw_config.*.instructions.<and|or|xor|switch> / symbolic functional_unit",
+      "category": "normalization",
+      "producer": [
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 673
+        }
+      ],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/configuration_import.py",
+          "line": 14
+        },
+        {
+          "path": "workbench/salam_workbench/configuration_import.py",
+          "line": 74
+        },
+        {
+          "path": "workbench/salam_workbench/configuration_import.py",
+          "line": 110
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 922
+        }
+      ],
+      "semantics": "Import-only canonicalization maps aliases and/or/xor/switch to *_inst via current runtime registry; symbolic functional_unit to compiled enum_value. Rejects unknown symbol and collisions, retains unrelated fields and original source hash.",
+      "defaults": "Integer mapping values retained unchanged.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Pure in-memory dialect transform; does not run generator/build/simulator.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Keep canonical instruction alias separate from CycleCounts and/or/xor key alias route."
+      ]
+    },
+    {
+      "id": "L035",
+      "input_pattern": "root HWProfileGenerator / tools/hw_generator HWProfileGenerator selection",
+      "category": "offline_profile",
+      "producer": [
+        {
+          "path": "SALAMArgs.py",
+          "line": 3
+        },
+        {
+          "path": "tools/hw_generator/SALAMArgs.py",
+          "line": 3
+        }
+      ],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 9
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 9
+        },
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 87
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 87
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 178
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 20
+        }
+      ],
+      "semantics": "Both copies share behavior (only trailing whitespace differences observed): model40nm_model, HWModel latency default10ns, default_profile, benchfolder benchmarks/sys_validation. Main forcibly latency5ns; HWArgs only bench; raw os.listdir unsorted. Workbench selects root script files, staged patches sort and inject requested model/period/profile.",
+      "defaults": "HWModel10ns vs CLI actual5ns.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Profile selection must be explicit; current Workbench stage is isolated and source-hashed.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Duplicate copies remain distinct paths; tools maintenance cannot be assumed to update root pipeline."
+      ]
+    },
+    {
+      "id": "L036",
+      "input_pattern": "functional_unit.parameters.alias / stages / cycles / enum_value / limit",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 36
+        },
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 57
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 36
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 57
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 135
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 355
+        },
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 368
+        },
+        {
+          "path": "tools/hw_generator/SALAMClassGenerator.py",
+          "line": 355
+        }
+      ],
+      "semantics": "Both HWModel copies directly require these profile keys; generated defaults set aliasString and numeric UInt32 stages/cycles/enum/limit. Workbench verifies alias matches directory. Regeneration emits C++/SimObjects and requires simulator rebuild.",
+      "defaults": "Profile literals, no raw field fallback.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Stored/generated contract separate from scheduler activity; runtime consumption covered by core audit.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": []
+    },
+    {
+      "id": "L037",
+      "input_pattern": "functional_unit.parameters.datatypes.{integer,floating_point,pointer}.{size,sign,APMode}",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 40
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 40
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 359
+        },
+        {
+          "path": "tools/hw_generator/SALAMClassGenerator.py",
+          "line": 359
+        }
+      ],
+      "semantics": "Raw profile reader requires all9 fields; generator emits size/sign Strings and apmode Bool. Presence in generated C++ storage is not evidence of arbitrary LLVM precision execution.",
+      "defaults": "Profile literals.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Source-required producer fields; no inference that metadata changes numerics.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Native profile schema must preserve exact APMode capitalization versus generated lowercase field names."
+      ]
+    },
+    {
+      "id": "L038",
+      "input_pattern": "functional_unit.parameters.instructions[] / instructions.<opcode>.functional_unit",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 49
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 49
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 178
+        }
+      ],
+      "consumer": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 54
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 54
+        }
+      ],
+      "semantics": "During profile generation both HWModel copies mutate inst_list.yml: each supported instruction except literal any/none gets FU enum_value. Multiple FU assignments overwrite in directory traversal order; Workbench sorts traversal but has not established semantic conflict rejection here.",
+      "defaults": "any/none skipped, original instruction mapping retained.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Mutation occurs in staged copy in checked pipeline; raw generator would modify supplied benchmark instruction file.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Detect overlapping FU instruction membership before factory creation; deterministic last-wins is not conflict validation."
+      ]
+    },
+    {
+      "id": "L039",
+      "input_pattern": "functional_unit.power_model.units.{power,energy,time,area} / latency",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 63
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 63
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 370
+        },
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 374
+        },
+        {
+          "path": "tools/hw_generator/SALAMClassGenerator.py",
+          "line": 370
+        }
+      ],
+      "semantics": "Both readers require unit labels and latency. Generator emits labelsString and fu_latencyUInt32. This is profile characterization data rather than live actor period or measured run power.",
+      "defaults": "Profile literals.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "No synthesis provenance/calibration proven by these consumers.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": []
+    },
+    {
+      "id": "L040",
+      "input_pattern": "functional_unit.power_model.{internal_power,switch_power,dynamic_power,dynamic_energy,leakage_power,area,path_delay}",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 69
+        },
+        {
+          "path": "tools/hw_generator/HWProfileGenerator.py",
+          "line": 69
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 194
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 375
+        },
+        {
+          "path": "tools/hw_generator/SALAMClassGenerator.py",
+          "line": 375
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 284
+        }
+      ],
+      "semantics": "Raw duplicated class generators emit7 fractional characterization fields asUInt32. Checked staged class patch usesFloat for exactly those7; integer fu_latency is separate. Generated-source constructor audit checks routing, not power calibration.",
+      "defaults": "Profile literals; no universally valid zero/measurement default.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Must preserve staged float fix or replace generator with typed native data.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Model coefficients must not be promoted to observed run energy or calibrated estimates."
+      ]
+    },
+    {
+      "id": "L041",
+      "input_pattern": "instructions.<opcode>.functional_unit_limit / opcode_num / runtime_cycles (offline inst_list)",
+      "category": "offline_profile",
+      "producer": [],
+      "transform": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 383
+        },
+        {
+          "path": "workbench/salam_workbench/hardware_codegen.py",
+          "line": 202
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAMClassGenerator.py",
+          "line": 390
+        },
+        {
+          "path": "tools/hw_generator/SALAMClassGenerator.py",
+          "line": 383
+        }
+      ],
+      "semantics": "Raw instruction generator requires all four fields including functional_unit. Workbench staged patch defaults missing functional_unit_limit to0. Logical runtime hw_config overrides and static generated inst_list are separate input families.",
+      "defaults": "Only staged functional_unit_limit fallback0; other generated fields required.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Per-instruction nonzero limit remains unsupported by scheduler, unlike FU-level limit. Core audit contains C++ trace.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Do not infer missing runtime_cycles uses FU cycles: channels differ."
+      ]
+    },
+    {
+      "id": "L042",
+      "input_pattern": "hw_config.<ir_stem>.instructions.* / functional_units.*",
+      "category": "runtime_yaml",
+      "producer": [
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 647
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 447
+        }
+      ],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 857
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 882
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 901
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 932
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 1008
+        }
+      ],
+      "semantics": "Checked contract selects hardware per accelerator; recognizes hw_config.name as string metadata; rejects unused accelerator hardware, unknown registries and unconsumed field names. Runtime logical instructions allow functional_unit, functional_unit_limit, opcode_num, runtime_cycles; FUs allow cycles/limit.",
+      "defaults": "Missing orNone accelerator settings leave compiled defaults.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Runtime generated profile schema is not this narrower override schema.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Do not flatten FU profile metadata/power fields into runtime override block."
+      ]
+    },
+    {
+      "id": "L043",
+      "input_pattern": "cacti-SALAM / tools/cacti-SALAM: Var[*].Type / Name / Size / Ports",
+      "category": "offline_cacti",
+      "producer": [],
+      "transform": [
+        {
+          "path": "cacti-SALAM/cactiWrapper.py",
+          "line": 24
+        },
+        {
+          "path": "tools/cacti-SALAM/cactiWrapper.py",
+          "line": 24
+        }
+      ],
+      "consumer": [
+        {
+          "path": "cacti-SALAM/cactiWrapper.py",
+          "line": 39
+        },
+        {
+          "path": "cacti-SALAM/cactiWrapper.py",
+          "line": 42
+        },
+        {
+          "path": "tools/cacti-SALAM/cactiWrapper.py",
+          "line": 44
+        }
+      ],
+      "semantics": "Byte-identical wrappers inspect only mem_object[1][0], i.e.first Var element in each discovered list. Only exact SPM included; other first objects printed as 'Streaming Buffer'. Requires explicit Ports; clamps Size<2048 to2048 in loaded dict then invokes external cactiStats. Produces append CSV, not runtime SimObject assignments.",
+      "defaults": "Minimum modeled Size2048; unlike runtime Ports default1 there is no Ports fallback.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "No duplicate-key/schema/range checks; no all-Var traversal. No CACTI run performed.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Offline result coverage incomplete for lists>1; no automatic link from CSV to runtime power established."
+      ]
+    },
+    {
+      "id": "L044",
+      "input_pattern": "cactiStats.sh fixed characterization parameters",
+      "category": "offline_cacti",
+      "producer": [],
+      "transform": [
+        {
+          "path": "cacti-SALAM/cactiStats.sh",
+          "line": 3
+        },
+        {
+          "path": "tools/cacti-SALAM/cactiStats.sh",
+          "line": 3
+        }
+      ],
+      "consumer": [
+        {
+          "path": "cacti-SALAM/cactiStats.sh",
+          "line": 12
+        },
+        {
+          "path": "cacti-SALAM/cactiStats.sh",
+          "line": 56
+        }
+      ],
+      "semantics": "Shell consumesSize/Ports arguments then fixes line64,assoc1,banks1,tech45,output width512,temp300, and many objective/wire choices; runs ext/mcpat/cacti under M5_PATH.",
+      "defaults": "Technology45nm versus FU profile name40nm_model; independent assumptions.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Fixed literals are offline model inputs, not mutable runtime YAML keys.",
+      "disposition": "default_literal",
+      "unresolved": [
+        "Record model compatibility and area/energy units before combining characterization outputs."
+      ]
+    },
+    {
+      "id": "L045",
+      "input_pattern": "unknown root / cluster / accelerator / Var keys",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 271
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 152
+        }
+      ],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 537
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 63
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 643
+        }
+      ],
+      "semantics": "Raw generator only tests recognized keys and generally ignores extras; Variable kwargs reads known names without rejecting unknowns. Checked _keys rejects unknown root and individual scalar-map keys, but accepted Var set is not Type-specific.",
+      "defaults": "No generic warning in raw parser.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Strict checked validator is useful but not a universal dialect schema.",
+      "disposition": "validation_gap",
+      "unresolved": []
+    },
+    {
+      "id": "L046",
+      "input_pattern": "SPM/RegisterBank with StreamSize / BufferSize / InCon / OutCon",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 643
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 540
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 572
+        }
+      ],
+      "semantics": "Checked Var accepted-key set contains Stream-only fields even when accepted Type is SPM/RegisterBank; neither corresponding raw branch reads them. Current checks reject bank SPM controls but not these stream fields on nonstream types.",
+      "defaults": "Ignored raw field values.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Source-visible consumer mismatch; no runtime acceptance proof claimed.",
+      "disposition": "validation_gap",
+      "unresolved": [
+        "Add per-Type key partition or explicit unconsumed_field diagnostics before native route."
+      ]
+    },
+    {
+      "id": "L047",
+      "input_pattern": "repeated Accelerator field across list mappings (e.g.PIOSize twice)",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 152
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 496
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 533
+        }
+      ],
+      "semantics": "YAML loader rejects duplicate mapping keys, but fields repeated across separate Accelerator list items remain legal YAML. Contract fields.update collapses repeats while raw parser processes each occurrence (PIOSize can allocate twice, PIOMaster extends).",
+      "defaults": "Last-value wins in contract vs repeated side effects in generator.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "No explicit cross-list duplicate-field rejection found on these source paths.",
+      "disposition": "validation_gap",
+      "unresolved": [
+        "Canonicalizer should reject duplicate scalar fields across Accelerator list entries before comparing generated/effective output."
+      ]
+    },
+    {
+      "id": "L048",
+      "input_pattern": "ConfigPath / IrPath portable path shape disagreement",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/topology_adapter.py",
+          "line": 61
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 168
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 235
+        }
+      ],
+      "semantics": "Contract IrPath rejects unsafe segments but is less restrictive than topology adapter portable regex and benchmarks/configs base requirement. Contract external suffix is case-sensitive while adapter lowercases suffix. PyPath normalization can mask dot components in some checks; adapter split-based rejection is stricter.",
+      "defaults": "No implicit canonical path rewrite.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Different entry points can reject the same input differently; stage adapter is intentionally fail-closed.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "A shared parser must produce one normalized relative path plus provenance, with explicit legacy base."
+      ]
+    },
+    {
+      "id": "L049",
+      "input_pattern": "configuration contract behavioral_limits literal",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 1264
+        },
+        {
+          "path": "src/hwacc/llvm_interface.cc",
+          "line": 912
+        },
+        {
+          "path": "src/hwacc/HWModeling/generated/functionalunits/base.hh",
+          "line": 140
+        }
+      ],
+      "semantics": "Result initialization still states 'Current C++ hasFunctionalUnit() returns false' in behavioral_limits. That literal can disagree with dynamic source-capability inspection and current retained scheduler; it is report text, not a gate.",
+      "defaults": "Hardcoded stale legacy statement.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Flag as stale reporting rather than using it as current scheduler evidence.",
+      "disposition": "stale_literal",
+      "unresolved": [
+        "Root core audit must provide current C++ authority; no production edit in Track A."
+      ]
+    },
+    {
+      "id": "L050",
+      "input_pattern": "gem5-SALAM-gui legacy config_generator output vs checked Workbench editor",
+      "category": "producer_gap",
+      "producer": [
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 594
+        }
+      ],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 265
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 550
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/configurator_gui_bridge.py",
+          "line": 151
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 559
+        }
+      ],
+      "semantics": "Legacy GUI emits DMA/accelerator basic keys and symbolic FU mappings but omits PIOMaster, memories, many interrupt/topology fields in its simple gather routine. Current Workbench editor preserves raw loaded fields and renders memory/PIO/config inputs; checked GUI prepare explicitly records editor_form_appliedFalse and simulation_requestedFalse.",
+      "defaults": "Legacy DMA maxreq128/buffer256 and PIO32 widget defaults are producer literals, not shared schema.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Distinguish prepare-only receipt from apply-and-run request; legacy UI validation is not simulator verification.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Preserve raw form provenance and staged consumer checks across new native factory."
+      ]
+    },
+    {
+      "id": "L051",
+      "input_pattern": "GUI trace_event_limit -> parameters.*.llvm_interface.fu_trace_event_limit",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 579
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 594
+        }
+      ],
+      "semantics": "GUI optional budget mapped to each accelerator llvm_interface compiled scalar after source-supported marker check.",
+      "defaults": "Absent->native default; range1..4194304.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Control is distinct from benchmark configuration; it changes bounded trace output, not FU capacity.",
+      "disposition": "supported_source_path",
+      "unresolved": []
+    },
+    {
+      "id": "L052",
+      "input_pattern": "system.{kernel,disk-image,accpath,accbench,outdir,command-line-file,script,restore-with-cpu,checkpoint-dir}",
+      "category": "system",
+      "producer": [],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 51
+        }
+      ],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 123
+        },
+        {
+          "path": "workbench/salam_workbench/configurator.py",
+          "line": 934
+        },
+        {
+          "path": "SALAM-Configurator/fs_template.py",
+          "line": 78
+        }
+      ],
+      "semantics": "Workbench rejects these reserved system keys and supplies kernel,disk-image,accpath,accbench from staged benchmark and engine paths. Template declares accpath/accbench but external generation remains responsible for literal IR/config bindings.",
+      "defaults": "Staged sw/main.elf; engine baremetal/common/fake.iso; benchmark parent/name.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Reserved keys cannot override pipeline artifact paths via system spec.",
+      "disposition": "supported_source_path",
+      "unresolved": []
+    },
+    {
+      "id": "L053",
+      "input_pattern": "duplicate YAML mapping keys in legacy benchmark files",
+      "category": "validation_gap",
+      "producer": [],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 20
+        },
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 215
+        },
+        {
+          "path": "HWProfileGenerator.py",
+          "line": 25
+        }
+      ],
+      "semantics": "Companion census found 122 duplicate mapping-key occurrences across seven legacy files: 16 Debug, eight instructions containers and 98 repeated opcode members. Every repeated value node serializes identically (122 equal, zero different); no conflicting-value change is demonstrated. Retained duplicate syntax is migration ambiguity and hygiene, not 122 distinct broken controls. Workbench _Loader rejects duplicate keys; raw PyYAML loaders collapse repeated keys before consumer logic.",
+      "defaults": "Identical retained duplicate values do not establish a general overwrite/default policy.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Raw-load versus strict-load semantics diverge. Serialized equality is source comparison, not execution equivalence; no simulator was rerun.",
+      "disposition": "normalization_gap",
+      "unresolved": [
+        "Preserve original bytes; reject or document deliberate duplicate-syntax cleanup. Do not inflate occurrence counts into distinct broken-control counts."
+      ]
+    },
+    {
+      "id": "L054",
+      "input_pattern": "Var.Address / Var.AccName / Var.StatusAddress (generator-injected)",
+      "category": "topology",
+      "producer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 180
+        },
+        {
+          "path": "tools/SALAM-Configurator/config_parser.py",
+          "line": 190
+        }
+      ],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 547
+        },
+        {
+          "path": "SALAM-Configurator/parser.py",
+          "line": 568
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 643
+        }
+      ],
+      "semantics": "Parser copies each authored Var map and overwrites Address and AccName from allocation/current accelerator; Stream additionally injects StatusAddress. These kwargs are consumer inputs but not user-editable topology YAML keys in checked schema.",
+      "defaults": "Derived from sequential allocator and ownership; not authored defaults.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "Checked Var allowlist does not accept these internal keys. Explicit source values are overwritten in raw parser.",
+      "disposition": "derived_internal_field",
+      "unresolved": [
+        "Typed factory should keep derived allocation/ownership separate from authored fields and report the transformation."
+      ]
+    },
+    {
+      "id": "L055",
+      "input_pattern": "benchmarks/comprehensive_test/config_{full,cache,stream}.yml: M5_PATH / benchmark / clusterN.{Dma,Acc,Spm,StreamDma,StreamBuffer,ClusterCache} / gui_publisher / system / debug_flags",
+      "category": "legacy_orphan_dialect",
+      "producer": [
+        {
+          "path": "benchmarks/comprehensive_test/config_full.yml",
+          "line": 15
+        },
+        {
+          "path": "benchmarks/comprehensive_test/config_full.yml",
+          "line": 23
+        },
+        {
+          "path": "benchmarks/comprehensive_test/config_full.yml",
+          "line": 396
+        },
+        {
+          "path": "benchmarks/comprehensive_test/config_full.yml",
+          "line": 1054
+        },
+        {
+          "path": "benchmarks/comprehensive_test/config_cache.yml",
+          "line": 19
+        },
+        {
+          "path": "benchmarks/comprehensive_test/config_stream.yml",
+          "line": 198
+        }
+      ],
+      "transform": [],
+      "consumer": [
+        {
+          "path": "SALAM-Configurator/systembuilder.py",
+          "line": 271
+        },
+        {
+          "path": "tools/SALAM-Configurator/systembuilder.py",
+          "line": 70
+        },
+        {
+          "path": "workbench/salam_workbench/config_contract.py",
+          "line": 324
+        }
+      ],
+      "semantics": "These examples use a different YAML shape from acc_cluster and include explicit pio_addr/pio_size, read_ports/write_ports, MaxPendingReads/MaxPendingWrites, local_range_start/end, cache/use_cache, lowercase ready_mode/reset_on_read, publisher configuration and kernel/disk/cpu_type system metadata. The audited current raw builders select acc_cluster, and checked contract rejects these root keys. Implementation-source spelling search found no reader for gui_publisher, MaxPendingReads/MaxPendingWrites or these named variant filenames. No demonstrated translator into the active topology route was located.",
+      "defaults": "YAML literals are retained authored values, not current simulator defaults.",
+      "validation_state": "source_only",
+      "confidence": "bounded_source_search",
+      "validation": "Unsupported input shape on audited routes; no runtime launch attempted. This does not prove no historical/external consumer ever existed.",
+      "disposition": "unresolved_legacy_dialect",
+      "unresolved": [
+        "Do not interpret descriptive 'all features enabled' comments or native-looking key names as proof of constructed objects.",
+        "Keep YAML M5_PATH metadata separate from the actively consumed environment variable of the same name. Find or write an explicitly reviewed importer before admitting this dialect."
+      ]
+    },
+    {
+      "id": "L056",
+      "input_pattern": "GUI global.memory.{base_address,alignment} / hw_config.<accelerator>.cycle_time",
+      "category": "normalization",
+      "producer": [
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 635
+        },
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 646
+        }
+      ],
+      "transform": [
+        {
+          "path": "workbench/salam_workbench/gui_editor_qt.py",
+          "line": 521
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 373
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 391
+        }
+      ],
+      "consumer": [
+        {
+          "path": "gem5-SALAM-gui/src/gui/config_generator.py",
+          "line": 912
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 526
+        },
+        {
+          "path": "workbench/salam_workbench/gui_editor.py",
+          "line": 568
+        }
+      ],
+      "semantics": "Legacy GUI produces and reloads global.memory metadata, and the current checked editor loads its base/alignment into widgets. Checked rendering validates/removes that metadata from consumer YAML; explicit snapshot base_address becomes pipeline request and alignment must equal 64. Legacy hw_config.cycle_time is recognized and removed: it never reached generated model on the old route. Current model/period/profile selection comes from explicit live hardware_profile snapshot instead.",
+      "defaults": "Loaded base default 0x10020000; alignment 64; explicit current profile selection replaces legacy cycle_time metadata.",
+      "validation_state": "source_only",
+      "confidence": "high_source_trace",
+      "validation": "GUI metadata has current consumers and transformation; it is not an active raw runtime override or an unconditionally orphaned field.",
+      "disposition": "normalize_across_consumers",
+      "unresolved": [
+        "Keep metadata-to-request conversion source-hashed; do not silently treat old cycle_time numeric labels as live clock_period controls."
+      ]
+    }
+  ],
+  "limitations": [
+    "This inventory groups related concrete fields and patterns; it is not the separate exhaustive YAML occurrence census.",
+    "Runtime C++ scheduling/numeric/profile consumption is covered by the companion core audit; cross-references here do not replace it.",
+    "Unmatched custom scripts and external historical archives outside this isolated worktree have not been re-executed or broadly audited.",
+    "No newly passing simulations or recovered historical characterization provenance are claimed."
+  ],
+  "companion_census": {
+    "scope": "Root-agent tracked SALAM/workbench YAML census; counts are mapping occurrences, not active controls",
+    "tracked_yaml_files": 276,
+    "mapping_key_occurrences": 56186,
+    "normalized_patterns": 348,
+    "duplicate_mapping_key_occurrences": 122,
+    "duplicate_files": 7,
+    "parse_errors": 0,
+    "source": "Companion YAML inventory generated by root task; see configuration audit index for durable inventory location",
+    "duplicate_effects": {
+      "equal_serialized_values": 122,
+      "different_serialized_values": 0,
+      "interpretation": "No conflicting-value change demonstrated; duplicate syntax migration ambiguity/hygiene."
+    },
+    "duplicate_effects_evidence": "/mnt/d/kb_local_chatGPT/salam/track-a-20261105/inventory/DUPLICATE_EFFECTS.json"
+  },
+  "source_snapshot": {
+    "HWProfileGenerator.py": {
+      "sha256": "b639604e46d10e9c468620f4610a3299aa84ef9d367df77aca44d7ccb4b3551a",
+      "line_count": 109
+    },
+    "SALAM-Configurator/fs_template.py": {
+      "sha256": "0b513a7b1e031ee62ca1d3a1de88d228fdd49f144ac89f92f30d3f59cf1b00e0",
+      "line_count": 423
+    },
+    "SALAM-Configurator/parser.py": {
+      "sha256": "62e2e67deefa536cd9e6df5037467936e53c2c0a7906fe21a06faf7a569c329d",
+      "line_count": 744
+    },
+    "SALAM-Configurator/systembuilder.py": {
+      "sha256": "3580f2fd33289a476f39be541e5684efa17b72882c3872748d79bf10f8d7014b",
+      "line_count": 595
+    },
+    "SALAM-Configurator/template.yml": {
+      "sha256": "ef75b7b2742bec7a360f9be8060b0ef681b2ee1b2234cb4afe8700fdad0101d4",
+      "line_count": 73
+    },
+    "SALAMArgs.py": {
+      "sha256": "96dec93c13d413cec81df3c3798245d0365c48585eaecf65c27f23e837bb11d9",
+      "line_count": 6
+    },
+    "SALAMClassGenerator.py": {
+      "sha256": "15cc1d46675352bff67a0493d27f0e4cd3bb352cc25d263da76d3fca966944a6",
+      "line_count": 604
+    },
+    "benchmarks/comprehensive_test/config_cache.yml": {
+      "sha256": "b2e9e60f6ec562aff814bcd3704aa3c1be9b4318edc76d847984f41cb1c7f3e4",
+      "line_count": 876
+    },
+    "benchmarks/comprehensive_test/config_full.yml": {
+      "sha256": "615b835d078bf1a23579af79961d832e8974ea317dff4d3ecb6079ccebe7486d",
+      "line_count": 1077
+    },
+    "benchmarks/comprehensive_test/config_stream.yml": {
+      "sha256": "db2c8119785c05973b7864657baf8d5fe765d7ade0d408fda92e41f51023ae25",
+      "line_count": 1007
+    },
+    "cacti-SALAM/cactiStats.sh": {
+      "sha256": "ece1176ef9d6c595459964db8fbc94642f2184e57a9b868c66a79a8b61af7a9f",
+      "line_count": 113
+    },
+    "cacti-SALAM/cactiWrapper.py": {
+      "sha256": "c9b7e5e223bc94e593e58ac5167c5780a12e59a57f59349e64f2f097a3c6071e",
+      "line_count": 79
+    },
+    "configs/SALAM/HWAccConfig.py": {
+      "sha256": "e227eaeda609a29c950ffcd080b28934e2f47b662b32a3687cafa8666b913faf",
+      "line_count": 448
+    },
+    "gem5-SALAM-gui/src/gui/config_generator.py": {
+      "sha256": "674f7cc8dfbe28e32a74f5f47a66e609a1e69f2205219e938d71d72673c0dc6d",
+      "line_count": 940
+    },
+    "src/hwacc/AccCluster.py": {
+      "sha256": "37ea0e2a75246105476b8ebdcca740ff32da46bac98e53090a87117e83538124",
+      "line_count": 85
+    },
+    "src/hwacc/HWModeling/generated/functionalunits/base.hh": {
+      "sha256": "afb9cf1d8e86f49d0bceab167e31822e936f6cde2d35498c0b6a7d5a2b280654",
+      "line_count": 148
+    },
+    "src/hwacc/NoncoherentDma.py": {
+      "sha256": "402e60b9a9348d11e63d2f4d658f4ec96ac5b4a4e8789f4bdd1a05f8dd89fadd",
+      "line_count": 19
+    },
+    "src/hwacc/RegisterBank.py": {
+      "sha256": "db87f57c7442eb0d49991f26f0efc96d6763b3e2e9d91d009f3d624e0bb06dda",
+      "line_count": 11
+    },
+    "src/hwacc/StreamDma.py": {
+      "sha256": "c387b8d1a5cfb6493b0bafef1ff3cb54371c4b7ba5dc19a08bca11cf0fc33d01",
+      "line_count": 29
+    },
+    "src/hwacc/llvm_interface.cc": {
+      "sha256": "24a84054ff93722e79e56f8f92b21fc7277e042c0b8632c0ffb985f9a86097bc",
+      "line_count": 1393
+    },
+    "tools/SALAM-Configurator/config_parser.py": {
+      "sha256": "6ed3dc5f7b07f0c24a75b6d363c199145301fb7b0bdd523d57c50f9757978209",
+      "line_count": 620
+    },
+    "tools/SALAM-Configurator/systembuilder.py": {
+      "sha256": "717dae72485652b4fb2d619de07d232e93d60e022b22ccbcc5470b29e31e0cd3",
+      "line_count": 354
+    },
+    "tools/SALAM-Configurator/template.yml": {
+      "sha256": "0b81d7b83ecfb76acb7cbd28b117657efe36f6f29ded49b25ebe849fa0b8f0c7",
+      "line_count": 73
+    },
+    "tools/cacti-SALAM/cactiStats.sh": {
+      "sha256": "baeb91616dd90a22d978edf8078f1d41c5510c47988508987fad1026da8920fd",
+      "line_count": 111
+    },
+    "tools/cacti-SALAM/cactiWrapper.py": {
+      "sha256": "c7a2fda7e50c2611964dee85841e223d38c8e2930f8bb694af478fb688240ff6",
+      "line_count": 78
+    },
+    "tools/hw_generator/HWProfileGenerator.py": {
+      "sha256": "6290fc7373deab1ac80f6ee97edc94e86e3dc8beb1e53c47a0050e1d2fe1d65d",
+      "line_count": 109
+    },
+    "tools/hw_generator/SALAMArgs.py": {
+      "sha256": "96dec93c13d413cec81df3c3798245d0365c48585eaecf65c27f23e837bb11d9",
+      "line_count": 6
+    },
+    "tools/hw_generator/SALAMClassGenerator.py": {
+      "sha256": "15cc1d46675352bff67a0493d27f0e4cd3bb352cc25d263da76d3fca966944a6",
+      "line_count": 604
+    },
+    "workbench/salam_workbench/config_contract.py": {
+      "sha256": "e2db40b0cdd5ea3ec91a42bf9cc0ddff08008fbbd70f4991ae5fad595cf16f5f",
+      "line_count": 1325
+    },
+    "workbench/salam_workbench/configuration_import.py": {
+      "sha256": "128d9a5d4f066340a4710b65b8fa3388a585ecbf5987913eca560d9687aa7108",
+      "line_count": 148
+    },
+    "workbench/salam_workbench/configurator.py": {
+      "sha256": "d03a1ec371e211561710ad3144157f3e22272ec55ace527fb5e986df93308aa4",
+      "line_count": 1542
+    },
+    "workbench/salam_workbench/configurator_gui_bridge.py": {
+      "sha256": "8a1dc9a1c382dfa9dc26f86fc3a07577a00d0643ae533df023364d5e08115deb",
+      "line_count": 490
+    },
+    "workbench/salam_workbench/configurator_runtime.py": {
+      "sha256": "bebc86ca5c451b93674afc2bd8890677cb737e80a733fe05d892cd4754c6eec3",
+      "line_count": 92
+    },
+    "workbench/salam_workbench/gui_editor.py": {
+      "sha256": "f3fd90ba8e97fe2ebc22eedc372e88385ea91f61c2c4fe5f5828df4d655fae3a",
+      "line_count": 605
+    },
+    "workbench/salam_workbench/gui_editor_qt.py": {
+      "sha256": "ea758b85826bf1249ee3bb30f90078c3d8239727809c3184cb663b58261559c3",
+      "line_count": 1124
+    },
+    "workbench/salam_workbench/hardware_codegen.py": {
+      "sha256": "b8a6f8e7637c5d2ec832a338a049061c0e8ac9e8d4d8f1832e0e6586faf70cc8",
+      "line_count": 733
+    },
+    "workbench/salam_workbench/registerbank_adapter.py": {
+      "sha256": "8f1494f5ce58d5ebb5eeaab504dbcd9ab274d1095347a9fe6ad0ebfde935121a",
+      "line_count": 310
+    },
+    "workbench/salam_workbench/system_witness.py": {
+      "sha256": "3c043b45769ec2fd136149ce8e0370cc4120f18dd0f68b84f766ce973b92a73a",
+      "line_count": 413
+    },
+    "workbench/salam_workbench/toolchain_profile.py": {
+      "sha256": "a058b06e229217a7b927e89842eaf9df0751fbc9b9fbda3571fc17e0be0eb243",
+      "line_count": 330
+    },
+    "workbench/salam_workbench/topology_adapter.py": {
+      "sha256": "faea2078350bce3d738cb06ad4296a25a3fca2b943c6c4c36d0f7d7029b3133c",
+      "line_count": 307
+    }
+  },
+  "search_evidence": {
+    "legacy_orphan_dialect": {
+      "terms": [
+        "gui_publisher",
+        "MaxPendingReads",
+        "MaxPendingWrites",
+        "local_range_start",
+        "config_full.yml",
+        "config_cache.yml",
+        "config_stream.yml"
+      ],
+      "file_extensions": [
+        "py",
+        "cc",
+        "hh",
+        "sh"
+      ],
+      "scope": "Repository implementation source search excluding workbench/docs, tests and visualizer; no exact matches to these producer/dialect spellings in implementation sources.",
+      "interpretation": "Bounded negative search only, supplemented by root-key dispatch and strict-schema references. No claim about unavailable historical or external readers."
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "format": "salam-track-a-audit-validation/v1",
+  "created_utc": "2026-11-06T01:07:44.876452+00:00",
+  "state": "passed",
+  "validation_kind": "Documentation, pinned source references, observed-key accounting and protection guards; no simulator execution.",
+  "counts": {
+    "json_files": 5,
+    "line_references": 2945,
+    "sha256_references": 475,
+    "git_blob_references": 77,
+    "core_consumer_records": 59,
+    "legacy_consumer_records": 56,
+    "direct_parameter_declarations": 761
+  },
+  "distinct_source_files_read": 376,
+  "yaml_files": 276,
+  "yaml_key_occurrences": 56186,
+  "yaml_patterns": 348,
+  "errors": [],
+  "protected": {
+    "source": "/home/jslycord/projects/gem5-salam-gemini-integration",
+    "head": "bcb4fad6b39b23ea671c79eca1a86ff9d883c209",
+    "clean": true,
+    "tag_target": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+    "qualified_binary": "/home/jslycord/projects/salam-gemini-integration-20261105/engine/build/ARM/gem5.opt",
+    "binary_sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91"
+  },
+  "change_scope": "Only workbench/docs/track-a/* in isolated branch; external audit scripts/evidence in D:/kb_local_chatGPT/salam/track-a-20261105.",
+  "limits": [
+    "Reference existence/line/hash validation does not prove every source interpretation.",
+    "No new runtime, numerical, GUI, native default-build or toolchain compatibility claim.",
+    "Qualified binary and source/tag guards are narrower than a recursive filesystem snapshot."
+  ]
+}

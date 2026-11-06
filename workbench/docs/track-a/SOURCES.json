@@ -1,0 +1,363 @@
+{
+  "format": "salam-track-a-source-index/v1",
+  "created_utc": "2026-11-06T01:07:38.750784+00:00",
+  "audit_local_date": "2026-11-05 America/New_York",
+  "baseline_commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+  "audit_branch": "codex/native-gem5-milestone",
+  "source_only": true,
+  "protected_checkpoint_tag": "gem5-26-integration-checkpoint-20261105",
+  "protected_source": "/home/jslycord/projects/gem5-salam-gemini-integration",
+  "protected_runtime": "/home/jslycord/projects/salam-gemini-integration-20261105",
+  "official_repository_writes": false,
+  "references": [
+    {
+      "name": "pr2429",
+      "repository_url": "https://github.com/akanksha-sc/gem5.git",
+      "commit": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+      "source_root": "/home/jslycord/projects/salam-track-a-references-20261105/pr2429",
+      "archive": "/home/jslycord/projects/salam-track-a-references-20261105/pr2429.tar",
+      "archive_sha256": "9db2c4c692803af4815144eb3ccccb7fbaed901922561206c50a92754aa9d287",
+      "file_count": 11316
+    },
+    {
+      "name": "upstream-develop",
+      "repository_url": "https://github.com/gem5/gem5.git",
+      "commit": "1754a3b1789c6fd616124f89116b8258600e8b85",
+      "source_root": "/home/jslycord/projects/salam-track-a-references-20261105/upstream-develop",
+      "archive": "/home/jslycord/projects/salam-track-a-references-20261105/upstream-develop.tar",
+      "archive_sha256": "e0c4b987b2ed1183d0336be0710cea9fc48c044ed513a3f9b95fb7f3d264ae63",
+      "file_count": 11075
+    }
+  ],
+  "yaml_census": {
+    "counts": {
+      "yaml_files": 276,
+      "key_occurrences": 56186,
+      "normalized_patterns": 348,
+      "issues": 122,
+      "issues_by_kind": {
+        "duplicate_mapping_key": 122
+      },
+      "files_by_top_directory": {
+        "SALAM-Configurator": 1,
+        "benchmarks": 248,
+        "src": 23,
+        "tools": 1,
+        "workbench": 3
+      }
+    },
+    "scopes": [
+      "benchmarks",
+      "configs/SALAM",
+      "SALAM-Configurator",
+      "tools/SALAM-Configurator",
+      "src/hwacc",
+      "tools/hw_generator",
+      "workbench"
+    ],
+    "source_commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+    "inventory_evidence": "D:/kb_local_chatGPT/salam/track-a-20261105/inventory",
+    "not_a_count_of_effective_controls": true
+  },
+  "review_thread_snapshot": {
+    "source": "https://github.com/gem5/gem5/pull/2429",
+    "returned_threads": 132,
+    "returned_comments": 203,
+    "resolved_threads": 122,
+    "unresolved_threads": 10,
+    "claim_boundary": "Returned snapshot metadata; unresolved/outdated labels do not establish current code behavior.",
+    "unresolved": [
+      {
+        "id": "PRRT_kwDOAaJ7Zs6bDVHS",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "util/SALAM-docs/README_SALAM.md",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3827697361",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3878020307",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3930836269"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6dA2qs",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "util/SALAM-docs/README_SALAM.md",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3876717234",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3930842723",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3984422730"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6eUPM_",
+        "is_resolved": false,
+        "is_outdated": false,
+        "path": "configs/SALAM/HWAcc.py",
+        "line": 15,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3909457012",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3937109421"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6eUTa3",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "src/salam/HWModeling/functional_units/float_divider.cc",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3909484005",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3937117492",
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3963083807"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6f_B1K",
+        "is_resolved": false,
+        "is_outdated": false,
+        "path": "configs/SALAM/fs.py",
+        "line": 119,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3951546390"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6f_CIl",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "util/SALAM-tools/SALAM-Configurator/config_parser.py",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3951548509"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6f_CL2",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "src/salam/InstConfig.py",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3951548839"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6f_CNd",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "src/salam/llvm_interface.cc",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3951549007"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6f_COo",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "src/salam/CommInterface.py",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3951549136"
+        ]
+      },
+      {
+        "id": "PRRT_kwDOAaJ7Zs6hTcyl",
+        "is_resolved": false,
+        "is_outdated": true,
+        "path": "util/SALAM-docs/README_SALAM.md",
+        "line": null,
+        "comment_urls": [
+          "https://github.com/gem5/gem5/pull/2429#discussion_r3984995472"
+        ]
+      }
+    ]
+  },
+  "external_evidence_root_windows": "D:/kb_local_chatGPT/salam/track-a-20261105",
+  "external_evidence_root_wsl": "/mnt/d/kb_local_chatGPT/salam/track-a-20261105",
+  "external_evidence_files": [
+    {
+      "path": "REFERENCE_SNAPSHOTS.json",
+      "sha256": "7455f1f664d33acfc0c393b66816fcab458b342dbbb325b00af99c9e5ba65080",
+      "bytes": 1107
+    },
+    {
+      "path": "TRACK_A_START.json",
+      "sha256": "ada18bdbade3f26f6c71db6ed1f2409e2c5147d08887d9c742b46fbf9ad33cce",
+      "bytes": 1692
+    },
+    {
+      "path": "assemble_readme.py",
+      "sha256": "8ae0b59af6e887666c828190daa9a3245f3c05f8d6037c5e9cec20a2c9adf905",
+      "bytes": 6439
+    },
+    {
+      "path": "audit_duplicate_values.py",
+      "sha256": "6a142a8ebb4ef286661537c3db1a5c5d9bad4780421c21e2470f4e08221c2502",
+      "bytes": 2897
+    },
+    {
+      "path": "audit_yaml_inventory.py",
+      "sha256": "7eea24c4b5803332c61e3e44cec3e38b480f7ef2cde4dc7eaa8565f3bbb8bdac",
+      "bytes": 8041
+    },
+    {
+      "path": "fix_review_metadata_check.py",
+      "sha256": "7ed347a26168b0b1091c48a4315f488281b9c7ff91b319228a13a8480101a399",
+      "bytes": 793
+    },
+    {
+      "path": "inventory/DUPLICATE_EFFECTS.json",
+      "sha256": "293397d35719c3dd3a56af404d1e9f3537e64b9725bae2d45ca761008acb8c93",
+      "bytes": 80564
+    },
+    {
+      "path": "inventory/FILES.json",
+      "sha256": "f6758af706faecfbaf61fb131988971ac710b27a2e28bdf0f55fd067579f13bc",
+      "bytes": 80170
+    },
+    {
+      "path": "inventory/ISSUES.json",
+      "sha256": "2a9e9aec5ee43a3344eff6ef89a7d6124496ba20a3b0611dfe14f17c9019aad4",
+      "bytes": 27088
+    },
+    {
+      "path": "inventory/OCCURRENCES.json",
+      "sha256": "690356925b2845d7a5f41ab7ca3e645202ecc109e94bf8a7756df20d47a3cb1c",
+      "bytes": 16858355
+    },
+    {
+      "path": "inventory/PATTERNS.json",
+      "sha256": "fbd07ff7a00c3c56827a3c434c5c77ec94fb4dbf6826c02d3d70b2cb62012f37",
+      "bytes": 339620
+    },
+    {
+      "path": "inventory/SUMMARY.json",
+      "sha256": "0f3b8bb7716650685bc9ac39743cd464f517e0acf86d9eea8cac48073af1963b",
+      "bytes": 1560
+    },
+    {
+      "path": "link_core_coverage.py",
+      "sha256": "5f0d31de04d8c59a74b870e6fc230ca3d7b538ec5366b3094ddc0d976889a220",
+      "bytes": 3063
+    },
+    {
+      "path": "map_observed_keys.py",
+      "sha256": "599af3380fddeee36d2e986d49c8df02982795d509f7dd13b1d7a03e5730f93c",
+      "bytes": 5302
+    },
+    {
+      "path": "refine_upstream_scope.py",
+      "sha256": "93253ac8fc92988c7a1fceaa8804b4842558ca9d304696889585a7d769d95d0b",
+      "bytes": 1499
+    },
+    {
+      "path": "review-threads/batch-01.json",
+      "sha256": "132498171d8b1c8494642d364dd0553696d3862581d9457ecf47be76aeb82f1e",
+      "bytes": 11600
+    },
+    {
+      "path": "review-threads/batch-02.json",
+      "sha256": "7356a9f41807071f09a655360c99e74648cbd72441a86ba67faf0559837b50f0",
+      "bytes": 11629
+    },
+    {
+      "path": "review-threads/batch-03.json",
+      "sha256": "1fb13dabb9a304b6543521201f9dbb08f271afad3dd4e47f693084f60151cd1f",
+      "bytes": 11317
+    },
+    {
+      "path": "review-threads/batch-04.json",
+      "sha256": "80ec1545ca885cd130a3067dd970eb374a7483088000ee581e80dedeef794db2",
+      "bytes": 11955
+    },
+    {
+      "path": "review-threads/batch-05.json",
+      "sha256": "a72892a82d24a58628ecd7c749f6b4f51c386124c2d9a23606d7df468283bc3f",
+      "bytes": 11877
+    },
+    {
+      "path": "review-threads/batch-06.json",
+      "sha256": "a24dfd53aced5074e18b4c503a4a24f178c124b63ba0d192c0313daaae6ee5ff",
+      "bytes": 11678
+    },
+    {
+      "path": "review-threads/batch-07.json",
+      "sha256": "624951497986243866445fb1e9792e5af1547850a9f00ddaf47bbe8c8a6bd9e4",
+      "bytes": 11952
+    },
+    {
+      "path": "review-threads/batch-08.json",
+      "sha256": "efc3f7be9e73509624a151af07aea28b724529f16bd6d784ef1c885bdf94cb2f",
+      "bytes": 11343
+    },
+    {
+      "path": "review-threads/batch-09.json",
+      "sha256": "121bb07e56b9f1b4dc0c3d9bfe5d9052d16758206a8cc868d225f0bcb4d8c6a9",
+      "bytes": 11010
+    },
+    {
+      "path": "snapshot_references.py",
+      "sha256": "680f2967b6e55a2806f7a65c85ad0acbf76465cb5b592ec1c3766e048f80f390",
+      "bytes": 2510
+    },
+    {
+      "path": "supplement_checks.py",
+      "sha256": "219e7617eddb831658b8422befe502bb52bf77180809cd8d1173647263cdba7a",
+      "bytes": 2426
+    },
+    {
+      "path": "validate_audit.py",
+      "sha256": "a666e083769db38ea5ae3b7514f95abde6a3413eccf95a14a4630bab2fb9405b",
+      "bytes": 9462
+    },
+    {
+      "path": "validate_upstream_comparison.py",
+      "sha256": "f63443bfe861cb670cc603a787d05ffc89f82a60a016dfddda3b0c4f258147cd",
+      "bytes": 1573
+    },
+    {
+      "path": "write-legacy-consumer-audit.py",
+      "sha256": "ceffa535fcc9f5802bde23ec6e2bedfef2e690c3757b61e0db2ad4cf35759e6a",
+      "bytes": 7147
+    },
+    {
+      "path": "write_next_slice.py",
+      "sha256": "de26d8250799b439e65647c881b695f99c0569232678819c348b637573efbb86",
+      "bytes": 5055
+    },
+    {
+      "path": "write_semantic_contract.py",
+      "sha256": "38e12b203278b5ee5d0f3423dbee2bb1416d2e656866ae146401e4b04ae7dc07",
+      "bytes": 8118
+    },
+    {
+      "path": "write_source_index.py",
+      "sha256": "e5662ec4c6808aa44b337cba915bc6b4c8b4f39aabce02a685873bfcf4d4acfb",
+      "bytes": 3784
+    },
+    {
+      "path": "write_upstream_comparison.py",
+      "sha256": "eedfcfbea459a6a2d8e410378213a58da8f32b41b7436266faae52c5f3d9e971",
+      "bytes": 29343
+    }
+  ],
+  "reproduction": {
+    "python": "/home/jslycord/.venvs/salam26-20261030/bin/python",
+    "yaml": "6.0.3",
+    "census": "audit_yaml_inventory.py --repo /home/jslycord/projects/gem5-salam-track-a --revision f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb --output <new evidence directory>",
+    "duplicate_analysis": "audit_duplicate_values.py",
+    "coverage": "map_observed_keys.py, followed by independently reviewed wording in assemble_readme.py",
+    "validation": "validate_audit.py",
+    "limits": "Scripts are saved evidence tools, not production simulator interfaces; coverage links are curated source-audit judgments."
+  },
+  "limits": [
+    "No new simulator build or launch; no new numerical or GUI pass claim.",
+    "Census excludes external/generated runtime and CLI-only configuration; the grouped source records supplement it.",
+    "Snapshot source files are preserved independently; no official source/ref is mutated.",
+    "Licensing obligations and calibrated physical-model interpretation remain unqualified."
+  ]
+}
