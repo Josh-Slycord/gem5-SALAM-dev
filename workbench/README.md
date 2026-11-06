@@ -149,3 +149,7 @@ Use the workbench's `hardware_codegen` / configurator entry points for generatio
 Prior checkpoints cover fixed GEMM, BFS, Needleman–Wunsch, FFT and stencil3d datasets with independent checks. Generated-input GUI acceptance additionally covers GEMM integer multiplication, FFT double multiplication and stencil integer addition, including compiled profile probes and active FU capacities. The GUI can apply supported configuration groups, but every possible topology, hardware profile and benchmark combination has not been validated. Memory/control resource admission, pipelined FUs, nonzero per-instruction caps and a clean-host appliance remain open work.
 
 The original WSL engines and recovered research archives are preserved. Official TeCSAR repositories are read-only reference sources; this fork is the publication and integration target.
+
+## Native GEMM configuration
+
+An opt-in normalized configuration and direct factory preserve the current typed C++ interfaces. See [native GEMM configuration and qualification](docs/NATIVE_GEMM_CONFIGURATION.md) for selection, the independent retained/direct study, supported topology and evidence.

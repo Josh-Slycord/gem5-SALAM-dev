@@ -58,6 +58,9 @@ RESERVED_OPTIONS = {
     "script",
     "restore-with-cpu",
     "checkpoint-dir",
+    "salam-builder",
+    "salam-config",
+    "salam-base-address",
 }
 
 
@@ -86,6 +89,7 @@ def validate_spec(data):
         "import_format",
         "configuration_documents",
         "benchmark_input",
+        "builder",
     }
     if (
         not isinstance(data, dict)
@@ -93,6 +97,8 @@ def validate_spec(data):
         or data.get("schema_version") != 1
     ):
         raise ValueError("Unsupported configuration specification or unknown fields")
+    if data.get("builder", "generated") not in ("generated", "native"):
+        raise ValueError("builder must be generated or native")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", data.get("name", "")):
         raise ValueError("name must be a Python identifier")
     benchmark = _relative(data.get("benchmark"))
@@ -704,6 +710,16 @@ def stage_configuration(engine, workspace, spec):
     # The contract examines the actual declarations and C++ consumer too.
     files.update((engine / "src/hwacc").glob("*.py"))
     files.add(engine / "src/hwacc/LLVMRead/src/instruction.hh")
+    # Native construction uses the same pure model module as the host.
+    # Stage it with the run so the simulator never imports a moving checkout.
+    if (engine / "configs/SALAM/native_factory.py").is_file():
+        for name in ("__init__.py", "native_config.py"):
+            module = engine / "workbench/salam_workbench" / name
+            if not module.is_file():
+                raise ValueError(
+                    "Native builder model module is missing: " + str(module)
+                )
+            files.add(module)
     from .fu_capability import capability_source_paths
 
     files.update(engine / relative for relative in capability_source_paths(engine))
@@ -937,6 +953,12 @@ def simulator_args(engine, workspace, spec):
         "--accpath=" + str((workspace / spec["benchmark"]).parent),
         "--accbench=" + Path(spec["benchmark"]).name,
     ]
+    if spec.get("builder", "generated") == "native":
+        args += [
+            "--salam-builder=native",
+            "--salam-config=" + str(workspace / spec["benchmark"] / "config.yml"),
+            "--salam-base-address=" + str(spec.get("base_address", "0x10020000")),
+        ]
     return args
 
 

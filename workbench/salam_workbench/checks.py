@@ -59,6 +59,10 @@ CONFIG_MODULES = (
     "test_configurator",
     "test_modern_build_identity",
     "test_native_clock_binding",
+    "test_native_config",
+    "test_native_factory",
+    "test_native_builder_integration",
+    "test_native_gemm_checks",
     "test_configurator_review",
     "test_hardware_codegen",
     "test_system_witness",
@@ -115,9 +119,19 @@ def source_identity(project, engine=None, tier="fast"):
             if "__pycache__" not in path.parts
         )
     sources.extend(project.glob("requirements*.txt"))
-    independent_checker = project / "scripts/verify_numpy_outputs.py"
-    if independent_checker.is_file():
-        sources.append(independent_checker)
+    for name in (
+        "verify_numpy_outputs.py",
+        "verify_native_gemm.py",
+        "run_native_gemm.py",
+    ):
+        independent_checker = project / "scripts" / name
+        if independent_checker.is_file():
+            sources.append(independent_checker)
+    sources.extend(
+        path
+        for path in (project / "experiments/native_gemm").rglob("*")
+        if path.is_file() and path.suffix in (".cpp", ".h")
+    )
     sources.extend(
         path
         for path in (project / "experiments/breadth/overlays").rglob("*")

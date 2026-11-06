@@ -20,7 +20,11 @@ its develop base is pinned separately in the evidence index.
 | InstConfigBase.runtime_cycles | Separately stored value; storage alone does not schedule latency. | Do not switch to it accidentally during generic-Params migration. |
 | FU cycles / stages / datatype metadata | Stored/model metadata with bounded no-consumer findings in the audit. | Do not promise initiation-interval or pipeline behavior from these fields. |
 
-Memory/control/call paths keep their separate zero-cycle and scheduling\nrestrictions; a forwarded CycleCounts value is not proof that arbitrary\nnonzero latency is supported for every LLVM opcode.\n\nThe authoritative FU path is LLVMInterface::tryAcquireFU/releaseFU into
+Memory/control/call paths keep their separate zero-cycle and scheduling
+restrictions; a forwarded CycleCounts value is not proof that arbitrary
+nonzero latency is supported for every LLVM opcode.
+
+The authoritative FU path is LLVMInterface::tryAcquireFU/releaseFU into
 FUSchedulingPool. The retained Instruction::hasFunctionalUnit returns false;
 reactivating the old HWInterface accounting path would risk dual accounting.
 Zero occupancy at invocation start and balanced leases at completion are

@@ -1,1 +1,4 @@
 *.py
+
+# Hand-written native factory; generated topology modules stay ignored.
+!native_factory.py

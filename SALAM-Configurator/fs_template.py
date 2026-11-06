@@ -47,12 +47,11 @@ import os
 import sys
 
 import m5
+from gem5.isas import ISA
 from m5.defines import buildEnv
 from m5.objects import *
 from m5.util import addToPath, fatal, warn
 from m5.util.fdthelper import *
-
-from gem5.isas import ISA
 
 if not buildEnv.get("USE_ARM_ISA", False):
     fatal("The generated SALAM full-system configuration requires an ARM build")
@@ -60,23 +59,33 @@ if not buildEnv.get("USE_ARM_ISA", False):
 addToPath("../")
 addToPath("../../")
 
-from ruby import Ruby
-
+from common import CacheConfig, CpuConfig, MemConfig, ObjectList, Options, Simulation
+from common.Benchmarks import *
+from common.Caches import *
 from common.FSConfig import *
 from common.SysPaths import *
-from common.Benchmarks import *
-from common import Simulation
-from common import CacheConfig
-from common import CpuConfig
-from common import MemConfig
-from common import ObjectList
-from common.Caches import *
-from common import Options
-import TEMPLATE
+from ruby import Ruby
+
 
 # Add hardware accelerator options for gem5-SALAM
 def addHWAccOptions(parser):
     parser.add_argument("--acc_cache", action="store_true")
+    parser.add_argument(
+        "--salam-builder",
+        choices=("generated", "native"),
+        default="generated",
+        help="SALAM topology construction path; native currently supports GEMM.",
+    )
+    parser.add_argument(
+        "--salam-config",
+        help="Contained topology YAML required by the native builder.",
+    )
+    parser.add_argument(
+        "--salam-base-address",
+        type=lambda value: int(value, 0),
+        default=0x10020000,
+        help="Native SALAM aperture base; must match the compiled guest header.",
+    )
     parser.add_argument(
         "--accpath",
         action="store",
@@ -231,7 +240,14 @@ def build_test_system(np):
 
         MemConfig.config_mem(args, test_sys)
 
-    TEMPLATE.makeHWAcc(args, test_sys)
+    if args.salam_builder == "native":
+        from native_factory import makeHWAcc as make_native_hwacc
+
+        make_native_hwacc(args, test_sys)
+    else:
+        import TEMPLATE
+
+        TEMPLATE.makeHWAcc(args, test_sys)
 
     if ObjectList.is_kvm_cpu(TestCPUClass) or ObjectList.is_kvm_cpu(FutureClass):
         # Assign KVM CPUs to their own event queues / threads. This
