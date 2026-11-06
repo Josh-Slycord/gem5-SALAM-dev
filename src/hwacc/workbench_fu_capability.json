@@ -4,7 +4,7 @@
   "scope": "scalar_compute",
   "semantics": "nonpipelined_issue_to_completion",
   "source_files": {
-    "SALAMClassGenerator.py": "15cc1d46675352bff67a0493d27f0e4cd3bb352cc25d263da76d3fca966944a6",
+    "SALAMClassGenerator.py": "21d1be062b239345abda3a629041d81bc49897e76497e3c014b971ac87b80f7c",
     "src/hwacc/HWModeling/generated/functionalunits/base.hh": "afb9cf1d8e86f49d0bceab167e31822e936f6cde2d35498c0b6a7d5a2b280654",
     "src/hwacc/HWModeling/generated/instructions/base.hh": "5f27a7a28eba13c368a7a6805d1aeb56468a3f360cae50a94cba8997812d2f85",
     "src/hwacc/HWModeling/src/functional_units.cc": "0820157a5c9ea379b7e2cc6a8234eeb645e7df990a6ed5f1d80b29ef3ed63cfe",

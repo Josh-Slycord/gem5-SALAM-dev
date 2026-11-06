@@ -14,7 +14,7 @@ class HWModel():
         self.profile = profile
         self.yaml_dir = benchfolder + '/' + benchname + '/configs/hw_interface/functional_units/' + model + '/' + latency + '/' + profile
         self.inst_list_yaml = benchfolder + '/' + benchname + '/configs/hw_interface/instructions/inst_list.yml'
-        self.fu_list = os.listdir(self.yaml_dir)
+        self.fu_list = sorted(os.listdir(self.yaml_dir))
         self.inst_list = []
 
     def get_fu_list(self):
@@ -84,7 +84,7 @@ if not os.path.exists('src/hwacc/HWModeling/generated/instructions'):
     os.makedirs('src/hwacc/HWModeling/generated/instructions')
 
 benchmark_args = HWArgs()
-generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')
+generate_hw_models = HWModel(benchname=benchmark_args.bench, model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)
 fu_file_generator = FunctionalUnitGenerator(fu_directory="src/hwacc/FunctionalUnits.py")
 fu_file_generator.initialize_functional_unit_base_header_file()
 fu_file_generator.initalize_fu_list_header(generate_hw_models.get_fu_list())
