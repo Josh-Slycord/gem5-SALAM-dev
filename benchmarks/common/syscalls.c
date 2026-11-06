@@ -39,12 +39,24 @@ void gem5_print(const char *s) {
 
 int _write_r (struct _reent *r, int file, char * ptr, int len)
 {
-    r = r;
-    file = file;
-    ptr = ptr;
-
-    gem5_print(ptr);
-
+    (void)file;
+    if (len < 0) {
+        if (r != NULL)
+            r->_errno = EINVAL;
+        errno = EINVAL;
+        return -1;
+    }
+    if (len == 0)
+        return 0;
+    if (ptr == NULL) {
+        if (r != NULL)
+            r->_errno = EFAULT;
+        errno = EFAULT;
+        return -1;
+    }
+    // newlib writes length-delimited buffers; bytes after len may be stale.
+    for (int i = 0; i < len; ++i)
+        *UART0DR = (unsigned int)(unsigned char)ptr[i];
     return len;
 }
 

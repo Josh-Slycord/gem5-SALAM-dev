@@ -23,10 +23,19 @@ SHAPES = {
 }
 _WRITE_BODY = """int _write_r (struct _reent *r, int file, char * ptr, int len)
 {
-    (void)r;
     (void)file;
-    if (len < 0 || (ptr == NULL && len > 0)) {
+    if (len < 0) {
+        if (r != NULL)
+            r->_errno = EINVAL;
         errno = EINVAL;
+        return -1;
+    }
+    if (len == 0)
+        return 0;
+    if (ptr == NULL) {
+        if (r != NULL)
+            r->_errno = EFAULT;
+        errno = EFAULT;
         return -1;
     }
     // newlib writes length-delimited buffers; bytes after len may be stale.
@@ -46,20 +55,28 @@ _ARM_EXIT_BODY = """static void m5_exit(void)
 
 
 def repair_uart_write(source):
-    """Repair only the known recovered newlib write-hook implementation."""
-    matches = list(re.finditer(r"int\s+_write_r\s*\([^)]*\)\s*\{[^{}]*\}", source))
-    if len(matches) != 1:
-        raise ValueError("Staged UART write hook has changed")
-    match = matches[0]
+    """Repair the legacy newlib write hook or verify the canonical bounded hook."""
     expected = (
         "int_write_r(struct_reent*r,intfile,char*ptr,intlen)"
         "{r=r;file=file;ptr=ptr;gem5_print(ptr);returnlen;}"
     )
+    newline = "\r\n" if "\r\n" in source else "\n"
+    canonical = _WRITE_BODY.replace("\n", newline)
+    if (
+        source.count(canonical) == 1
+        and len(re.findall(r"\bint\s+_write_r\s*\(", source)) == 1
+        and expected not in re.sub(r"\s+", "", source)
+    ):
+        return source
+    matches = list(re.finditer(r"int\s+_write_r\s*\([^)]*\)\s*\{[^{}]*\}", source))
+    if len(matches) != 1:
+        raise ValueError("Staged UART write hook has changed")
+    match = matches[0]
     if re.sub(r"\s+", "", match.group()) != expected:
         raise ValueError(
             "Staged UART write hook is not the known unbounded implementation"
         )
-    return source[: match.start()] + _WRITE_BODY + source[match.end() :]
+    return source[: match.start()] + canonical + source[match.end() :]
 
 
 def repair_arm_exit(source):
