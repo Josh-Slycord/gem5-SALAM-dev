@@ -141,6 +141,32 @@ _CONFIGURATION_REQUIRED = (
 )
 
 
+_NATIVE_CONFIGURATION_REQUIRED = (
+    "workbench/salam_workbench/__init__.py",
+    "workbench/salam_workbench/native_config.py",
+)
+
+
+def _native_configuration_sources(base):
+    """Select the package sources staged whenever the native factory exists."""
+    if not (base / "configs/SALAM/native_factory.py").is_file():
+        return ()
+    sources = []
+    for relative in _NATIVE_CONFIGURATION_REQUIRED:
+        path = base / relative
+        if any(part.is_symlink() for part in (path, *path.parents) if part != base):
+            raise ValueError(
+                "Symlinked hardware variant native configuration source: " + relative
+            )
+        if not path.is_file():
+            raise ValueError(
+                "Missing hardware variant native configuration source: " + relative
+            )
+        path.resolve(strict=True).relative_to(base)
+        sources.append(path)
+    return tuple(sources)
+
+
 def _configuration_hashes(base):
     """Bind copied runtime configuration, separately from compiled C++ inputs."""
     base = Path(base).resolve(strict=True)
@@ -155,6 +181,7 @@ def _configuration_hashes(base):
             raise ValueError(
                 "Missing hardware variant configuration source: " + relative
             )
+    files.update(_native_configuration_sources(base))
     result = {}
     for path in sorted(files):
         if path.is_symlink():
@@ -191,12 +218,27 @@ def _link_plan(base):
 
 
 def _copy_engine(base, variant, links):
+    native_sources = _native_configuration_sources(base)
+    native_hashes = {path.relative_to(base): _sha(path) for path in native_sources}
     shutil.copytree(
         str(base),
         str(variant),
         symlinks=True,
         ignore=lambda parent, names: _SKIP_COPY & set(names),
     )
+    # Keep workbench evidence/results excluded; copy only native runtime inputs.
+    for relative in native_hashes:
+        destination = variant / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(base / relative, destination)
+    current_native = {
+        path.relative_to(base): _sha(path)
+        for path in _native_configuration_sources(base)
+    }
+    if current_native != native_hashes or any(
+        _sha(variant / relative) != digest for relative, digest in native_hashes.items()
+    ):
+        raise ValueError("Native configuration source changed during variant copy")
     history = variant / ".workbench-link-history"
     for relative, entry in links.items():
         if entry["absolute"]:
