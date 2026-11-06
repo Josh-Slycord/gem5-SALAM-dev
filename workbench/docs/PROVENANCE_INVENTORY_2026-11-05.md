@@ -1,3 +1,9 @@
+> **Historical Gemini inventory - unverified pin and attribution.**
+>
+> The original rows below are retained as evidence. Their auditor combined commit-pinned paths/history with working-tree bytes: 300 of 301 hashes match the claimed f3f437a29b pin, while syscalls.c records the later B1 bytes. Origin classifications and blanket rights notes below are unverified original assertions, not adopted ownership or licensing conclusions.
+>
+> The original JSON/Markdown bytes remain in Git commit 3c3f594d9bcc222e00226424d7f6c946c7746641. Use the corrected v2 auditor with an explicit accepted integration commit and newly named output files.
+
 # Candidate Upstream Provenance & License Inventory
 
 **Audit Snapshot Date:** 5 November 2026  

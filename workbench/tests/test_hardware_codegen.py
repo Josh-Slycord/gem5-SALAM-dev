@@ -12,8 +12,8 @@ from salam_workbench.hardware_codegen import (
     _INST_CONSTRUCTOR_FIELDS,
     FLOAT_FIELDS,
     _class_patch,
-    _generator_patch,
     _generated_constructor_contract,
+    _generator_patch,
     generate_hardware_code,
 )
 
@@ -132,9 +132,7 @@ class HardwareCodegenTests(unittest.TestCase):
             "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)\n"
         )
         # Defaults accept as-is
-        accepted = _generator_patch(
-            canonical, "40nm_model", "5ns", "default_profile"
-        )
+        accepted = _generator_patch(canonical, "40nm_model", "5ns", "default_profile")
         self.assertEqual(accepted, canonical)
 
         # Overrides patch target values
@@ -152,6 +150,116 @@ class HardwareCodegenTests(unittest.TestCase):
             ValueError, "neither recognized legacy nor canonical"
         ):
             _generator_patch(corrupted, "40nm_model", "5ns", "default_profile")
+
+    def test_duplicate_or_mixed_generator_templates_are_rejected(self):
+        legacy_lines = [
+            "self.fu_list = os.listdir(self.yaml_dir)",
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')",
+        ]
+        canonical_lines = [
+            "self.fu_list = sorted(os.listdir(self.yaml_dir))",
+            "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
+            "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)",
+        ]
+        invalid = [
+            "\n".join(lines + [duplicate])
+            for lines in (legacy_lines, canonical_lines)
+            for duplicate in lines
+        ]
+        invalid += [
+            "\n".join(legacy_lines + canonical_lines),
+            "\n".join(legacy_lines + [canonical_lines[0]]),
+            "\n".join(canonical_lines + [legacy_lines[1]]),
+        ]
+        for source in invalid:
+            for selection in (
+                ("40nm_model", "5ns", "default_profile"),
+                ("28nm_model", "2ns", "fast_profile"),
+            ):
+                with self.subTest(source=source, selection=selection):
+                    with self.assertRaisesRegex(
+                        ValueError, "neither recognized legacy nor canonical"
+                    ):
+                        _generator_patch(source, *selection)
+
+    def test_duplicate_class_parameter_or_limit_templates_are_rejected(self):
+        for param_type, limit in (
+            (
+                "UInt32",
+                "self.inst_dict['instructions'][inst_name]['functional_unit_limit']",
+            ),
+            (
+                "Float",
+                "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)",
+            ),
+        ):
+            fields = [
+                r"\t" + name + " = Param." + param_type + "(" for name in FLOAT_FIELDS
+            ]
+            source = "\n".join(fields + [limit])
+            for duplicate in (fields[0], limit):
+                with self.subTest(param_type=param_type, duplicate=duplicate):
+                    with self.assertRaisesRegex(
+                        ValueError, "neither recognized legacy nor canonical"
+                    ):
+                        _class_patch(source + "\n" + duplicate)
+
+    def test_canonical_scheduler_checks_do_not_depend_on_capability_marker(self):
+        initialized = r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")'
+        getter = r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")'
+        available = r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")'
+        source = "\n".join(
+            [r"\t" + name + " = Param.Float(" for name in FLOAT_FIELDS]
+            + [
+                "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)",
+                initialized,
+                getter,
+                available,
+                "FU occupancy underflow",
+            ]
+        )
+        self.assertEqual(_class_patch(source, capable=False), source)
+        mutations = [
+            source.replace(initialized, ""),
+            source.replace(getter, ""),
+            source.replace(
+                "_available == 0 || _in_use < _available",
+                "_in_use >= _available",
+            ),
+            source.replace("FU occupancy underflow", ""),
+            source + "\n" + initialized,
+        ]
+        for broken in mutations:
+            for capable in (False, True):
+                with self.subTest(capable=capable, broken=broken):
+                    with self.assertRaisesRegex(ValueError, "exact scheduler repair"):
+                        _class_patch(broken, capable=capable)
+
+    def test_actual_canonical_templates_preserve_default_and_profile_selection(self):
+        root = Path(__file__).resolve().parents[2]
+        generator = (root / "HWProfileGenerator.py").read_text()
+        classes = (root / "SALAMClassGenerator.py").read_text()
+        self.assertEqual(_class_patch(classes, capable=True), classes)
+        self.assertEqual(_class_patch(classes, capable=False), classes)
+        self.assertEqual(
+            _generator_patch(generator, "40nm_model", "5ns", "default_profile"),
+            generator,
+        )
+        changed = _generator_patch(generator, "28nm_model", "2ns", "fast_profile")
+        self.assertEqual(
+            changed.count("model='28nm_model', latency='2ns', profile='fast_profile'"),
+            1,
+        )
+        self.assertNotIn("model=benchmark_args.model", changed)
+        for filename in (
+            "HWProfileGenerator.py",
+            "SALAMClassGenerator.py",
+            "SALAMArgs.py",
+        ):
+            self.assertEqual(
+                (root / filename).read_bytes(),
+                (root / "tools/hw_generator" / filename).read_bytes(),
+            )
 
     def test_profile_alias_mismatch_stops_before_generator_runs(self):
         for filename in (

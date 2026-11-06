@@ -39,6 +39,8 @@ FAST_MODULES = (
     "test_observability_report",
     "test_offline_viewer",
     "test_provenance",
+    "test_candidate_provenance",
+    "test_guest_uart_verifier",
     "test_regression",
     "test_regression_negative",
     "test_release",
@@ -129,6 +131,8 @@ def source_identity(project, engine=None, tier="fast"):
         "verify_native_gemm.py",
         "run_native_gemm.py",
         "run_native_generation.py",
+        "verify_guest_uart.py",
+        "audit_candidate_provenance.py",
     ):
         independent_checker = project / "scripts" / name
         if independent_checker.is_file():

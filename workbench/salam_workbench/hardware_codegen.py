@@ -84,46 +84,54 @@ def _replace_once(text, original, replacement, label):
 
 
 def _detect_generator_template(text):
-    legacy_fu = "self.fu_list = os.listdir(self.yaml_dir)" in text
-    legacy_hw = (
-        "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')"
-        in text
+    legacy = (
+        "self.fu_list = os.listdir(self.yaml_dir)",
+        "generate_hw_models = HWModel(benchname=benchmark_args.bench, latency='5ns')",
     )
-    canon_fu = "self.fu_list = sorted(os.listdir(self.yaml_dir))" in text
-    canon_hw = (
+    canonical = (
+        "self.fu_list = sorted(os.listdir(self.yaml_dir))",
         "generate_hw_models = HWModel(benchname=benchmark_args.bench, "
-        "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)"
-        in text
+        "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)",
     )
-    if legacy_fu and legacy_hw:
+    counts = tuple(text.count(token) for token in legacy + canonical)
+    if counts == (1, 1, 0, 0):
         return "legacy"
-    if canon_fu and canon_hw:
+    if counts == (0, 0, 1, 1):
         return "canonical"
     raise ValueError(
-        "HWProfileGenerator template is neither recognized legacy nor canonical"
+        "HWProfileGenerator template is neither recognized legacy nor canonical; "
+        "selection and ordering templates must each occur exactly once"
     )
 
 
 def _detect_class_template(text):
-    has_uint32 = all(
-        r"\t" + name + " = Param.UInt32(" in text for name in FLOAT_FIELDS
+    uint32 = tuple(
+        text.count(r"\t" + name + " = Param.UInt32(") for name in FLOAT_FIELDS
     )
-    has_float = all(
-        r"\t" + name + " = Param.Float(" in text for name in FLOAT_FIELDS
+    floating = tuple(
+        text.count(r"\t" + name + " = Param.Float(") for name in FLOAT_FIELDS
     )
-    has_legacy_limit = (
-        "self.inst_dict['instructions'][inst_name]['functional_unit_limit']" in text
+    legacy_limit = text.count(
+        "self.inst_dict['instructions'][inst_name]['functional_unit_limit']"
     )
-    has_canon_limit = (
+    canonical_limit = text.count(
         "self.inst_dict['instructions'][inst_name].get('functional_unit_limit', 0)"
-        in text
     )
-    if has_uint32 and has_legacy_limit:
+    if (
+        all(count == 1 for count in uint32)
+        and not any(floating)
+        and (legacy_limit, canonical_limit) == (1, 0)
+    ):
         return "legacy"
-    if has_float and has_canon_limit:
+    if (
+        all(count == 1 for count in floating)
+        and not any(uint32)
+        and (legacy_limit, canonical_limit) == (0, 1)
+    ):
         return "canonical"
     raise ValueError(
-        "SALAMClassGenerator template is neither recognized legacy nor canonical"
+        "SALAMClassGenerator template is neither recognized legacy nor canonical; "
+        "parameter templates must each occur exactly once"
     )
 
 
@@ -266,8 +274,20 @@ def _generator_patch(text, model, period, profile):
             "model=benchmark_args.model, latency=benchmark_args.latency, profile=benchmark_args.profile)"
         )
         if (model, period, profile) != ("40nm_model", "5ns", "default_profile"):
-            text = text.replace(current, target, 1)
+            text = _replace_once(text, current, target, "selected hardware profile")
         return text
+
+
+def _require_scheduler_template(text):
+    """Check generator integrity; do not grant engine scheduling capability."""
+    required = (
+        r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
+        r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
+        r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
+        "FU occupancy underflow",
+    )
+    if any(text.count(item) != 1 for item in required):
+        raise ValueError("FU generator lacks an exact scheduler repair")
 
 
 def _class_patch(text, *, capable=False):
@@ -287,15 +307,9 @@ def _class_patch(text, *, capable=False):
             "optional instruction limit default",
         )
         if capable:
-            required = (
-                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
-                r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
-                r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
-                "FU occupancy underflow",
-            )
-            if any(text.count(item) != 1 for item in required):
-                raise ValueError("Capable FU generator lacks an exact scheduler repair")
+            _require_scheduler_template(text)
         else:
+            # Preserve the explicitly supported historical repair route.
             text = _replace_once(
                 text,
                 r'self.base_header_file.write("\t\tuint64_t _in_use;\n\n")',
@@ -310,18 +324,11 @@ def _class_patch(text, *, capable=False):
                 getter_line + "\n            " + available_line,
                 "active unit count getter",
             )
-        return text
-    else:  # canonical
-        if capable:
-            required = (
-                r'self.base_header_file.write("\t\tuint64_t _in_use = 0;\n\n")',
-                r'self.base_header_file.write("\t\tuint64_t get_in_use() { return _in_use; }\n")',
-                r'self.base_header_file.write("\t\tbool is_available() { return (_available == 0 || _in_use < _available); }\n")',
-                "FU occupancy underflow",
-            )
-            if any(text.count(item) != 1 for item in required):
-                raise ValueError("Capable FU generator lacks an exact scheduler repair")
-        return text
+    else:
+        # A missing/untrusted capability marker must not weaken validation
+        # of canonical source. This check does not turn capability back on.
+        _require_scheduler_template(text)
+    return text
 
 
 def _constructor_members(path):

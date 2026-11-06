@@ -1,4 +1,26 @@
 {
+  "validation_status": {
+    "state": "historical_unverified_mixed_tree_inventory",
+    "source": "Gemini Track B commit 3c3f594d9bcc222e00226424d7f6c946c7746641",
+    "reason": "Original tool selected pinned paths/history but read working-tree content.",
+    "independent_pin_check": {
+      "rows": 301,
+      "matching_pinned_sha256": 300,
+      "mismatches": [
+        {
+          "path": "benchmarks/common/syscalls.c",
+          "declared_sha256": "385a6d45b478fa810287cf555c88593a487eb61aee844b790f20f831b1a6e2ce",
+          "pinned_f3_blob_sha256": "0ba33af8e40b9f23e944db67ed5784ffa924fef6a0c2792226b58fbeaed27b77"
+        }
+      ]
+    },
+    "attribution": "Original heuristic labels and rights notes retained as unverified assertions.",
+    "legal_clearance": "Not performed; this inventory is not a rights decision.",
+    "original_json_sha256": "485566670186ef7d3aaa04ef77ec326e028b50f1f6d622ce8777a223780c97b9",
+    "original_md_sha256": "d769fb35823d92bace09793132c53b57a8d2bed937936eeb4160fad65ec2a646",
+    "original_bytes_preserved_in_git_commit": "3c3f594d9bcc222e00226424d7f6c946c7746641",
+    "replacement": "Generate a newly named v2 inventory at the accepted integration commit."
+  },
   "summary": {
     "pinned_commit": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
     "total_candidate_files": 301,

@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-3-Clause
-"""Generate commit-pinned provenance and license inventory for candidate upstream files."""
+"""Inventory exact Git blobs and observed notices, without assigning rights.
+
+Paths, contents, sizes, modes and duplicate-copy facts all come from one
+resolved commit. Worktree files never supply candidate content. Path history
+and token/name classifications are explicitly unverified origin hints;
+they are not copyright ownership, governing-license or clearance decisions.
+"""
 import argparse
 import hashlib
 import json
-import os
 import re
 import subprocess
-import sys
 from collections import Counter
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-
+DEFAULT_COMMIT = "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb"
 CANDIDATE_PREFIXES = (
     "src/hwacc",
     "configs/SALAM",
@@ -25,291 +29,446 @@ CANDIDATE_PREFIXES = (
     "HWProfileGenerator.py",
     "SALAMArgs.py",
 )
-
-SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*#\n\r]+)")
+SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\r\n]+)")
 COPYRIGHT_RE = re.compile(
-    r"(?:Copyright\s+(?:\([cC]\)\s*)?(?:[0-9]{4}(?:-[0-9]{4})?,\s*)*(?:[^\n\r*#/]+))",
+    r"(?:Copyright\s+(?:\([cC]\)\s*)?"
+    r"(?:[0-9]{4}(?:-[0-9]{4})?,\s*)*(?:[^\n\r*#/]+))",
     re.IGNORECASE,
+)
+HINT_DESCRIPTIONS = {
+    "cacti_path_hint": "Path mentions CACTI; source origin and rights unverified",
+    "kaiserslautern_text_hint": "Observed name/place token; origin and rights unverified",
+    "fork_specific_path_hint": "Known fork-specific path spelling; authorship unverified",
+    "pr2429_author_or_subject_hint": "Path-history name/subject hint; authorship unverified",
+    "fork_author_name_hint": "Path-history author-name hint; source authorship unverified",
+    "salam_text_hint": "Text mentions SALAM/UNCC; original ownership unverified",
+    "gem5_text_hint": "Text mentions gem5/UC Regents; governing terms unverified",
+    "no_hint": "No selected heuristic matched; attribution remains unverified",
+}
+OPEN_NOTES = (
+    "Observed SPDX strings and copyright notices are transcribed evidence, "
+    "not governing-license or compatibility determinations.",
+    "A path-history author or file-introduction commit does not establish "
+    "original source authorship or copyright ownership.",
+    "Heuristic origin hints may describe mixed or derived files and must "
+    "not be used as legal attribution or clearance.",
+    "No blanket UNCC BSD/MIT scope, university ownership, CACTI ownership, "
+    "or maintainer commitment is inferred by this scan.",
+    "Root licenses and source-specific obligations require separate "
+    "evidence review; absence of a per-file tag does not mean no license.",
 )
 
 
-def file_sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        while chunk := f.read(65536):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _git(repo_root, *args):
+    return subprocess.check_output(
+        [
+            "git",
+            "--literal-pathspecs",
+            "--no-optional-locks",
+            "-c",
+            "core.fsmonitor=false",
+            "-C",
+            str(repo_root),
+            *args,
+        ],
+        stderr=subprocess.PIPE,
+    )
+
+
+def _resolve_commit(repo_root, requested):
+    value = (
+        _git(
+            repo_root,
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            str(requested) + "^{commit}",
+        )
+        .decode("ascii")
+        .strip()
+    )
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value):
+        raise ValueError("Git did not resolve an immutable commit identity")
+    return value
+
+
+def _tree_entries(repo_root, commit):
+    entries = {}
+    for raw in _git(repo_root, "ls-tree", "-r", "-z", "--full-tree", commit).split(
+        b"\0"
+    ):
+        if not raw:
+            continue
+        metadata, path = raw.split(b"\t", 1)
+        mode, kind, object_id = metadata.decode("ascii").split()
+        name = path.decode("utf-8", errors="surrogateescape")
+        entries[name] = {"mode": mode, "type": kind, "object": object_id}
+    return entries
 
 
 def get_git_file_log(repo_root, rel_path, pinned_commit):
-    try:
-        # First commit
-        earliest_raw = subprocess.check_output(
-            ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "log", "--reverse", "--format=%H|%an|%ae|%ad|%s", "--date=iso", pinned_commit, "--", rel_path],
-            cwd=str(repo_root),
-            stderr=subprocess.DEVNULL,
-        ).decode("utf-8", errors="replace").strip().splitlines()
-        
-        # Latest commit
-        latest_raw = subprocess.check_output(
-            ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "log", "-n", "1", "--format=%H|%an|%ae|%ad|%s", "--date=iso", pinned_commit, "--", rel_path],
-            cwd=str(repo_root),
-            stderr=subprocess.DEVNULL,
-        ).decode("utf-8", errors="replace").strip().splitlines()
-
-        count_raw = subprocess.check_output(
-            ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "rev-list", "--count", pinned_commit, "--", rel_path],
-            cwd=str(repo_root),
-            stderr=subprocess.DEVNULL,
-        ).decode("utf-8", errors="replace").strip()
-
-        commit_count = int(count_raw) if count_raw.isdigit() else 0
-        earliest = earliest_raw[0].split("|") if earliest_raw else []
-        latest = latest_raw[0].split("|") if latest_raw else []
-
-        return {
-            "commit_count": commit_count,
-            "earliest_commit": {
-                "hash": earliest[0] if len(earliest) > 0 else None,
-                "author": earliest[1] if len(earliest) > 1 else None,
-                "email": earliest[2] if len(earliest) > 2 else None,
-                "date": earliest[3] if len(earliest) > 3 else None,
-                "subject": earliest[4] if len(earliest) > 4 else None,
-            },
-            "latest_commit": {
-                "hash": latest[0] if len(latest) > 0 else None,
-                "author": latest[1] if len(latest) > 1 else None,
-                "email": latest[2] if len(latest) > 2 else None,
-                "date": latest[3] if len(latest) > 3 else None,
-                "subject": latest[4] if len(latest) > 4 else None,
-            },
-        }
-    except Exception as e:
-        return {"error": str(e), "commit_count": 0}
+    """Report path-scoped Git records; do not claim rename/original authorship."""
+    raw = _git(
+        repo_root,
+        "log",
+        "--reverse",
+        "-z",
+        "--format=%H%x00%an%x00%ae%x00%aI%x00%s",
+        pinned_commit,
+        "--",
+        rel_path,
+    )
+    framed = raw[:-1] if raw.endswith(b"\0") else raw
+    fields = framed.split(b"\0") if framed else []
+    if len(fields) % 5:
+        raise ValueError("Unexpected Git path-history record framing")
+    records = []
+    for offset in range(0, len(fields), 5):
+        record = [
+            value.decode("utf-8", errors="replace")
+            for value in fields[offset : offset + 5]
+        ]
+        records.append(
+            dict(zip(("hash", "author", "email", "date", "subject"), record))
+        )
+    return {
+        "commit_count": len(records),
+        "history_scope": "git_log_for_current_path_at_pinned_commit",
+        "renames_followed": False,
+        "original_authorship_established": False,
+        "earliest_commit": records[0] if records else {},
+        "latest_commit": records[-1] if records else {},
+    }
 
 
 def classify_provenance(rel_path, earliest_author, earliest_subject, content):
+    """Return only an unverified search hint; never infer ownership or a license."""
     lower_path = rel_path.lower()
     lower_author = (earliest_author or "").lower()
     lower_subject = (earliest_subject or "").lower()
-
+    lower_content = content.lower()
     if "cacti" in lower_path:
-        return "third_party_cacti"
-    if "kaiserslautern" in content.lower() or "matthias jung" in content.lower():
-        return "third_party_kaiserslautern"
-    if any(k in lower_path for k in ["response_queue.hh", "float_bits.hh", "fu_scheduling_pool.test.cc", "verify_native_stats.py", "native_helpers", "guest_uart_regression"]):
-        return "fork_addition"
+        return "cacti_path_hint"
+    if "kaiserslautern" in lower_content or "matthias jung" in lower_content:
+        return "kaiserslautern_text_hint"
+    if any(
+        token in lower_path
+        for token in (
+            "response_queue.hh",
+            "float_bits.hh",
+            "fu_scheduling_pool.test.cc",
+            "verify_native_stats.py",
+            "native_helpers",
+            "guest_uart_regression",
+        )
+    ):
+        return "fork_specific_path_hint"
     if "akanksha" in lower_author or "akanksha" in lower_subject:
-        return "pr2429_akanksha"
-    if any(k in lower_author for k in ["josh", "slycord"]):
-        return "fork_addition"
-    if any(k in content.lower() for k in ["charlotte", "uncc", "salam"]):
-        return "uncc_salam"
-    if any(k in content.lower() for k in ["regents of the university of california", "gem5"]):
-        return "gem5_core_or_derived"
-    return "unresolved_attribution"
+        return "pr2429_author_or_subject_hint"
+    if any(token in lower_author for token in ("josh", "slycord")):
+        return "fork_author_name_hint"
+    if any(token in lower_content for token in ("charlotte", "uncc", "salam")):
+        return "salam_text_hint"
+    if any(
+        token in lower_content
+        for token in (
+            "regents of the university of california",
+            "gem5",
+        )
+    ):
+        return "gem5_text_hint"
+    return "no_hint"
 
 
-def audit_files(repo_root=REPO_ROOT, pinned_commit="f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb"):
+def _notices(data, regular):
+    if not regular:
+        return "", None, [], "not_scanned_symlink_or_nonregular"
+    try:
+        content = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return "", None, [], "not_scanned_non_utf8"
+    match = SPDX_RE.search(content)
+    expression = match.group(1).split("*/", 1)[0].strip() if match else None
+    notices = []
+    for match in COPYRIGHT_RE.finditer(content[:4096]):
+        value = re.sub(r"^[\s*#/]+", "", match.group(0)).strip()
+        if len(value) > 9 and value not in notices:
+            notices.append(value)
+    return content, expression, notices, "utf8_blob_notice_scan"
+
+
+def audit_files(repo_root=REPO_ROOT, pinned_commit=DEFAULT_COMMIT):
     repo_root = Path(repo_root).resolve(strict=True)
-    all_files = subprocess.check_output(
-        ["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "ls-tree", "-r", "--name-only", pinned_commit],
-        cwd=str(repo_root),
-    ).decode("utf-8").splitlines()
-
-    candidate_files = [
-        f for f in all_files
-        if any(f == p or f.startswith(p + "/") for p in CANDIDATE_PREFIXES)
-    ]
-
-    inventory = []
-    classifications = Counter()
-    missing_spdx_list = []
-    missing_copyright_list = []
-    duplicate_copies = []
-
-    for rel_path in sorted(candidate_files):
-        abs_path = repo_root / rel_path
-        if not abs_path.is_file():
+    commit = _resolve_commit(repo_root, pinned_commit)
+    tree = _tree_entries(repo_root, commit)
+    candidates = {
+        path: entry
+        for path, entry in tree.items()
+        if any(
+            path == prefix or path.startswith(prefix + "/")
+            for prefix in CANDIDATE_PREFIXES
+        )
+    }
+    inventory, duplicates = [], []
+    for rel_path, entry in sorted(candidates.items()):
+        if entry["type"] != "blob":
+            inventory.append(
+                {
+                    "path": rel_path,
+                    "git_object": entry["object"],
+                    "git_mode": entry["mode"],
+                    "git_type": entry["type"],
+                    "validation_status": "non_blob_entry_not_content_audited",
+                    "attribution_status": "unverified",
+                    "rights_status": "not_evaluated",
+                }
+            )
             continue
-
-        try:
-            content = abs_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            content = ""
-
-        # Extract SPDX
-        spdx_match = SPDX_RE.search(content)
-        spdx_id = spdx_match.group(1).strip() if spdx_match else None
-
-        # Extract Copyright notices
-        copyright_matches = [m.group(0).strip() for m in COPYRIGHT_RE.finditer(content[:4096])]
-        # Clean up lines
-        cleaned_copyrights = []
-        for cr in copyright_matches:
-            # strip leading comment characters
-            cr_clean = re.sub(r"^[\s*#/]+", "", cr).strip()
-            if len(cr_clean) > 9 and cr_clean not in cleaned_copyrights:
-                cleaned_copyrights.append(cr_clean)
-
-        git_log = get_git_file_log(repo_root, rel_path, pinned_commit)
-        earliest_author = (git_log.get("earliest_commit") or {}).get("author")
-        earliest_subject = (git_log.get("earliest_commit") or {}).get("subject")
-
-        prov_class = classify_provenance(rel_path, earliest_author, earliest_subject, content)
-        classifications[prov_class] += 1
-
+        data = _git(repo_root, "cat-file", "blob", entry["object"])
+        regular = entry["mode"] in ("100644", "100755")
+        content, expression, notices, scan = _notices(data, regular)
+        history = get_git_file_log(repo_root, rel_path, commit)
+        earliest = history["earliest_commit"]
+        hint = classify_provenance(
+            rel_path, earliest.get("author"), earliest.get("subject"), content
+        )
         flags = []
-        if not spdx_id:
-            flags.append("missing_spdx")
-            missing_spdx_list.append(rel_path)
-        if not cleaned_copyrights:
-            flags.append("missing_copyright")
-            missing_copyright_list.append(rel_path)
-
-        # Duplicate copy checks
-        if rel_path.startswith("SALAM-Configurator/") and (repo_root / ("tools/" + rel_path)).is_file():
-            flags.append("duplicate_in_tools_salam_configurator")
-            duplicate_copies.append((rel_path, "tools/" + rel_path))
-        if rel_path in ("SALAMClassGenerator.py", "HWProfileGenerator.py", "SALAMArgs.py") and (repo_root / f"tools/hw_generator/{rel_path}").is_file():
-            flags.append("duplicate_in_tools_hw_generator")
-            duplicate_copies.append((rel_path, f"tools/hw_generator/{rel_path}"))
-
-        entry = {
-            "path": rel_path,
-            "bytes": abs_path.stat().st_size,
-            "sha256": file_sha256(abs_path),
-            "spdx_id": spdx_id,
-            "copyright_notices": cleaned_copyrights,
-            "provenance_class": prov_class,
-            "git_log": git_log,
-            "flags": flags,
-        }
-        inventory.append(entry)
-
+        if scan != "utf8_blob_notice_scan":
+            flags.append(scan)
+        else:
+            if not expression:
+                flags.append("no_spdx_tag_detected")
+            if not notices:
+                flags.append("no_copyright_notice_detected_in_first_4096_chars")
+        duplicate = None
+        if rel_path.startswith("SALAM-Configurator/"):
+            duplicate = "tools/" + rel_path
+        elif rel_path in (
+            "SALAMClassGenerator.py",
+            "HWProfileGenerator.py",
+            "SALAMArgs.py",
+        ):
+            duplicate = "tools/hw_generator/" + rel_path
+        if duplicate in tree:
+            pair = {
+                "first": rel_path,
+                "second": duplicate,
+                "same_git_object": entry["object"] == tree[duplicate]["object"],
+            }
+            duplicates.append(pair)
+            flags.append("corresponding_tree_path_exists")
+        inventory.append(
+            {
+                "path": rel_path,
+                "bytes": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "git_blob": entry["object"],
+                "git_mode": entry["mode"],
+                "git_type": entry["type"],
+                "notice_scan": scan,
+                "spdx_expression": expression,
+                "copyright_notices": notices,
+                "provenance_hint": hint,
+                "attribution_status": "unverified",
+                "rights_status": "not_evaluated",
+                "git_log": history,
+                "flags": flags,
+            }
+        )
+    blobs = [item for item in inventory if "sha256" in item]
+    text = [item for item in blobs if item["notice_scan"] == "utf8_blob_notice_scan"]
+    hints = Counter(item["provenance_hint"] for item in blobs)
     summary = {
-        "pinned_commit": pinned_commit,
-        "total_candidate_files": len(inventory),
-        "classification_breakdown": dict(classifications),
-        "spdx_present": sum(1 for e in inventory if e["spdx_id"] is not None),
-        "spdx_missing": len(missing_spdx_list),
-        "copyright_present": sum(1 for e in inventory if e["copyright_notices"]),
-        "copyright_missing": len(missing_copyright_list),
-        "duplicate_copies_count": len(duplicate_copies),
-        "unresolved_ownership_notes": [
-            "Original UNCC SALAM repository (2018-2022) had blanket or implicit BSD/MIT-style licensing across many generated and core files without per-file SPDX-License-Identifier tags.",
-            "Files under tools/cacti-SALAM retain third-party CACTI (HP Labs) heritage with distinct licensing terms.",
-            "Files under benchmarks/common (syscalls.c, Makefile) originate from TU Kaiserslautern bare-metal ARM test suites (Matthias Jung, Frederik Lauer).",
-            "Duplicated configurator scripts exist in both root (SALAM-Configurator/) and tools/ (tools/SALAM-Configurator/, tools/hw_generator/).",
-            "This inventory establishes current file provenance and identified gaps; it does not constitute legal clearance or assign maintainer commitments."
-        ]
+        "requested_revision": str(pinned_commit),
+        "pinned_commit": commit,
+        "source_of_all_candidate_bytes": "git_blob_at_resolved_commit",
+        "worktree_content_consulted": False,
+        "candidate_prefixes": list(CANDIDATE_PREFIXES),
+        "total_candidate_entries": len(inventory),
+        "total_candidate_files": len(blobs),
+        "text_files_notice_scanned": len(text),
+        "unscanned_non_blob_entries": len(inventory) - len(blobs),
+        "heuristic_hint_breakdown": dict(sorted(hints.items())),
+        "spdx_present": sum(item["spdx_expression"] is not None for item in text),
+        "spdx_not_detected": sum(item["spdx_expression"] is None for item in text),
+        "copyright_present": sum(bool(item["copyright_notices"]) for item in text),
+        "copyright_not_detected": sum(not item["copyright_notices"] for item in text),
+        "corresponding_tree_paths": duplicates,
+        "duplicate_path_pairs": len(duplicates),
+        "byte_identical_duplicate_pairs": sum(
+            item["same_git_object"] for item in duplicates
+        ),
+        "unresolved_ownership_notes": list(OPEN_NOTES),
+    }
+    return {
+        "schema_version": 2,
+        "kind": "candidate_git_blob_notice_inventory",
+        "validation_status": {
+            "blob_identity": "verified_against_resolved_git_objects",
+            "attribution": "unverified_heuristic_hints_only",
+            "governing_license": "not_determined",
+            "legal_clearance": "not_performed",
+            "history": "path_scoped_without_rename_following",
+        },
+        "summary": summary,
+        "files": inventory,
     }
 
-    return {"summary": summary, "files": inventory}
+
+def _cell(value):
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
 
-def render_markdown_report(audit_result):
+def _code(value):
+    tick = chr(96)
+    return tick + _cell(value).replace(tick, "'") + tick
+
+
+def render_markdown_report(
+    audit_result, inventory_name="PROVENANCE_INVENTORY_CURRENT.json"
+):
     summary = audit_result["summary"]
-    files = audit_result["files"]
-
     lines = [
-        "# Candidate Upstream Provenance & License Inventory",
+        "# Candidate Git-blob notices and provenance hints",
         "",
-        f"**Audit Snapshot Date:** 5 November 2026  ",
-        f"**Pinned Code Commit:** `{summary['pinned_commit']}` (`gem5-26-integration-checkpoint-20261105`)  ",
-        f"**Candidate Scope:** Simulator core (`src/hwacc/`), configurations (`configs/SALAM/`), configurators (`SALAM-Configurator/`, `tools/`), generators, and bare-metal runtime (`benchmarks/common/`).",
+        "**Resolved source commit:** " + _code(summary["pinned_commit"]),
         "",
-        "> [!IMPORTANT]",
-        "> This audit is an initial commit-pinned inventory of file origins, copyright headers, and license tags. It identifies provenance facts and open gaps; it does not constitute legal license clearance or assert maintainer commitments.",
+        "All listed content, byte counts, modes and hashes come from that "
+        "commit's Git objects. Dirty, missing, untracked or symlinked worktree "
+        "copies do not supply candidate content.",
         "",
-        "## Summary Metrics",
+        "> Origin hints are unverified search aids. Git path authors are not "
+        "asserted copyright holders, and detected notices do not establish "
+        "governing terms or legal clearance.",
         "",
-        f"- **Total candidate files audited:** {summary['total_candidate_files']}",
-        f"- **Files with explicit SPDX tags:** {summary['spdx_present']} / {summary['total_candidate_files']} ({summary['spdx_missing']} missing)",
-        f"- **Files with copyright notices:** {summary['copyright_present']} / {summary['total_candidate_files']} ({summary['copyright_missing']} missing)",
-        f"- **Duplicate tree copies flagged:** {summary['duplicate_copies_count']}",
+        "## Recorded scope",
         "",
-        "### Provenance Classification Breakdown",
+        "Candidate prefixes: "
+        + ", ".join(_code(p) for p in summary["candidate_prefixes"]),
         "",
-        "| Classification | File Count | Description |",
-        "|---|---|---|",
+        "- Candidate tree entries: " + str(summary["total_candidate_entries"]),
+        "- Content-audited Git blobs: " + str(summary["total_candidate_files"]),
+        "- UTF-8 files scanned for notices: "
+        + str(summary["text_files_notice_scanned"]),
+        "- SPDX strings detected: " + str(summary["spdx_present"]),
+        "- Copyright strings detected in the first 4096 characters: "
+        + str(summary["copyright_present"]),
+        "- Corresponding root/tools path pairs: "
+        + str(summary["duplicate_path_pairs"])
+        + " ("
+        + str(summary["byte_identical_duplicate_pairs"])
+        + " identical Git objects)",
+        "",
+        "These counts describe detected evidence. A missing per-file tag is "
+        "not a finding that a file is unlicensed.",
+        "",
+        "## Unverified heuristic hints",
+        "",
+        "| Hint | Count | Meaning |",
+        "| --- | --- | --- |",
     ]
-
-    descriptions = {
-        "uncc_salam": "Original UNC Charlotte SALAM research files (Sam Rogers et al.)",
-        "gem5_core_or_derived": "Mainline gem5 SimObject bases or direct derivatives (UC Regents, AMD, ARM)",
-        "pr2429_akanksha": "Upstream gem5 PR #2429 author additions (@akanksha-sc)",
-        "third_party_cacti": "CACTI memory model tooling (HP Labs / third-party)",
-        "third_party_kaiserslautern": "Bare-metal ARM runtime support (TU Kaiserslautern)",
-        "fork_addition": "New files authored in this fork (Josh-Slycord/gem5-SALAM-dev)",
-        "unresolved_attribution": "Files with ambiguous, mixed, or missing authorship records",
-    }
-
-    for cat, count in sorted(summary["classification_breakdown"].items()):
-        lines.append(f"| `{cat}` | {count} | {descriptions.get(cat, '')} |")
-
-    lines.extend([
-        "",
-        "## Open Licensing, Attribution & Maintainer Boundaries",
-        "",
-    ])
-    for note in summary["unresolved_ownership_notes"]:
-        lines.append(f"- {note}")
-
-    lines.extend([
-        "",
-        "## High-Priority Candidate Files Entering Upstream Series",
-        "",
-        "| Path | Bytes | SHA-256 (Prefix) | SPDX | Provenance Class | Earliest Author | Flags |",
-        "|---|---|---|---|---|---|---|",
-    ])
-
-    # Prioritize non-generated C++, Python SimObjects, and Configurator scripts
-    priority_files = [
-        f for f in files
-        if not "/generated/" in f["path"] and f["path"].endswith((".cc", ".hh", ".py", ".c", ".h"))
-    ]
-
-    for f in priority_files:
-        sha_short = f["sha256"][:12]
-        spdx_str = f"`{f['spdx_id']}`" if f["spdx_id"] else "**MISSING**"
-        earliest_author = (f["git_log"].get("earliest_commit") or {}).get("author") or "Unknown"
-        flags_str = ", ".join(f["flags"]) if f["flags"] else "Clean"
-        lines.append(f"| `{f['path']}` | {f['bytes']} | `{sha_short}` | {spdx_str} | `{f['provenance_class']}` | {earliest_author} | {flags_str} |")
-
-    lines.extend([
-        "",
-        "## Complete Inventory Reference",
-        "",
-        "The full machine-readable inventory with per-file commit hashes and copyright strings is recorded in [PROVENANCE_INVENTORY_2026-11-05.json](PROVENANCE_INVENTORY_2026-11-05.json).",
-        "",
-    ])
-
+    for hint, count in summary["heuristic_hint_breakdown"].items():
+        lines.append(
+            "| {} | {} | {} |".format(
+                _code(hint), count, _cell(HINT_DESCRIPTIONS[hint])
+            )
+        )
+    lines.extend(["", "## Unresolved rights and attribution", ""])
+    lines.extend("- " + note for note in summary["unresolved_ownership_notes"])
+    lines.extend(
+        [
+            "",
+            "Path-history records use the current filename without rename following. "
+            "They record Git metadata at the pin, not verified file creation or "
+            "original authorship.",
+            "",
+            "## Candidate blob inventory",
+            "",
+            "| Path | Bytes | SHA-256 | Observed SPDX text | Unverified hint | Earliest reported path-commit author | Flags |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for item in audit_result["files"]:
+        if "sha256" not in item:
+            lines.append(
+                "| {} | - | - | Not scanned | Non-blob entry | - | {} |".format(
+                    _code(item["path"]), _cell(item["validation_status"])
+                )
+            )
+            continue
+        author = item["git_log"]["earliest_commit"].get("author") or "No path record"
+        lines.append(
+            "| {} | {} | {} | {} | {} | {} | {} |".format(
+                _code(item["path"]),
+                item["bytes"],
+                _code(item["sha256"]),
+                _code(item["spdx_expression"])
+                if item["spdx_expression"]
+                else "Not detected",
+                _code(item["provenance_hint"]),
+                _cell(author),
+                _cell(", ".join(item["flags"])) or "No scanner flags",
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "The complete machine-readable record is ["
+            + _cell(inventory_name)
+            + "]("
+            + inventory_name.replace(" ", "%20")
+            + ").",
+            "",
+            "Symlink blobs are hashed as stored link data and are never followed. "
+            "Non-UTF-8 blobs retain their identity but receive no text attribution "
+            "scan. Detected SPDX expressions are raw strings, not validated license "
+            "expressions or compatibility judgments.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", default=str(REPO_ROOT))
-    parser.add_argument("--commit", default="f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb")
-    parser.add_argument("--output-json", default=str(REPO_ROOT / "workbench/docs/PROVENANCE_INVENTORY_2026-11-05.json"))
-    parser.add_argument("--output-md", default=str(REPO_ROOT / "workbench/docs/PROVENANCE_INVENTORY_2026-11-05.md"))
-    args = parser.parse_args()
-
+    parser.add_argument("--commit", default=DEFAULT_COMMIT)
+    parser.add_argument(
+        "--output-json",
+        default=str(REPO_ROOT / "workbench/docs/PROVENANCE_INVENTORY_CURRENT.json"),
+    )
+    parser.add_argument(
+        "--output-md",
+        default=str(REPO_ROOT / "workbench/docs/PROVENANCE_INVENTORY_CURRENT.md"),
+    )
+    args = parser.parse_args(argv)
     result = audit_files(args.repo_root, args.commit)
-    
-    Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output_json, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-
-    md_content = render_markdown_report(result)
-    with open(args.output_md, "w", encoding="utf-8") as f:
-        f.write(md_content)
-
-    print(f"Wrote JSON inventory to {args.output_json}")
-    print(f"Wrote Markdown report to {args.output_md}")
-    print(f"Total candidate files audited: {result['summary']['total_candidate_files']}")
+    json_path, md_path = Path(args.output_json), Path(args.output_md)
+    for path in (json_path, md_path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    md_path.write_text(
+        render_markdown_report(result, json_path.name),
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(
+        json.dumps(
+            {
+                "pinned_commit": result["summary"]["pinned_commit"],
+                "candidate_blobs": result["summary"]["total_candidate_files"],
+                "attribution": "unverified_hints_only",
+                "output_json": str(json_path),
+                "output_md": str(md_path),
+            }
+        )
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
