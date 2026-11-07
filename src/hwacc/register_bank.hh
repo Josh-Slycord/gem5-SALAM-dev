@@ -110,6 +110,7 @@ class RegisterBank : public AbstractMemory
      * Calls dequeue() to send packet responses.
      */
     void delta();
+    void tryCompleteDrain();
     EventFunctionWrapper deltaEvent;
 
   public:

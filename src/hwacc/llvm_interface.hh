@@ -41,7 +41,11 @@
 #include "hwacc/compute_unit.hh"
 #include "params/LLVMInterface.hh"
 
+class SalamLifecycleTester;
+
 class LLVMInterface : public ComputeUnit {
+    friend class SalamLifecycleTester;
+
   public:
     enum OpClass
     {
@@ -108,7 +112,7 @@ class LLVMInterface : public ComputeUnit {
     void countCycleCategory();
     void sampleOccupancy();
 
-    bool running;
+    bool running = false;
     bool loadOpScheduled;
     bool storeOpScheduled;
     bool compOpScheduled;
@@ -238,6 +242,7 @@ class LLVMInterface : public ComputeUnit {
     void startup();
     void initialize();
     void finalize();
+    DrainState drain() override;
     void debug(uint64_t flags);
     bool getLockstepStatus() { return lockstep; }
     void readCommit(MemoryRequest *req);

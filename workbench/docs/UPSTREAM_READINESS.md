@@ -20,6 +20,19 @@ constructor form. The current source fixture has **742 tests with zero skips**
 fingerprints and earlier native/clock/reset proof remain unchanged.
 Final consolidated GUI evidence is linked in the integration checkpoint.
 
+## SimObject lifecycle follow-up (7 November 2026)
+
+The isolated lifecycle work adds production drain and callback-order fixes,
+opt-in real-SimObject fixtures, independent overlapping accelerator restarts,
+and deliberately failing numerical/ownership controls. See the
+[lifecycle regression](SIMOBJECT_PROTOCOL_TESTS.md) for reproducible commands
+and bounded claims, and the
+[dated validation record](SIMOBJECT_LIFECYCLE_VALIDATION_2026-11-07.md) for
+actual outcomes. These additions do not revise the historical upstream
+review inventory or replace the preserved qualified checkpoint. Checkpoint
+serialization/restore, full-engine sanitizer coverage and remaining port
+protocols are still separate gates.
+
 ## Provenance and interpretation
 
 - Upstream PR author: `akanksha-sc`; branch `gem5-salam-develop`.

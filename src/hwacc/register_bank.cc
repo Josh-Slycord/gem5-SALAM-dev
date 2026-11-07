@@ -207,17 +207,16 @@ RegisterBank::dequeue()
 
         if (!packetQueue.empty()) {
             scheduleNextResponse();
-        } else if (drainState() == DrainState::Draining) {
-            DPRINTF(Drain, "Draining of ScratchpadMemory complete\n");
-            signalDrainDone();
         }
     }
+    tryCompleteDrain();
 }
 
 void
 RegisterBank::delta()
 {
     std::memcpy(pmemAddr, deltaAddr, range.size());
+    tryCompleteDrain();
 }
 
 void
@@ -261,10 +260,17 @@ RegisterBank::getPort(const std::string &if_name, PortID idx)
 DrainState
 RegisterBank::drain()
 {
-    if (!packetQueue.empty()) {
-        DPRINTF(Drain, "ScratchpadMemory Queue has requests, waiting to drain\n");
+    if (!packetQueue.empty() || deltaEvent.scheduled() ||
+        dequeueEvent.scheduled() || retryResp || responseInProgress) {
         return DrainState::Draining;
-    } else {
-        return DrainState::Drained;
     }
+    return DrainState::Drained;
+}
+
+void
+RegisterBank::tryCompleteDrain()
+{
+    if (drainState() == DrainState::Draining &&
+        drain() == DrainState::Drained)
+        signalDrainDone();
 }

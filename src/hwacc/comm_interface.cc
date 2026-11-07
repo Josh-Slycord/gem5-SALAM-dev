@@ -104,6 +104,7 @@ CommInterface::MemSidePort::recvReqRetry() {
     while (!outstandingPkts.empty()) {
         // A synchronous response may delete the packet during sendTimingReq.
         const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        owner->commStats.attempts[direction]++;
         if (!sendTimingReq(outstandingPkts.front()))
             break;
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
@@ -120,8 +121,12 @@ CommInterface::MemSidePort::recvReqRetry() {
 void
 CommInterface::MemSidePort::sendPacket(PacketPtr pkt) {
     const size_t idx = pkt->isWrite() ? 1 : 0;
+    if (isStalled()) {
+        setStalled(pkt);
+        return;
+    }
     owner->commStats.attempts[idx]++;
-    if (isStalled() || !sendTimingReq(pkt)) {
+    if (!sendTimingReq(pkt)) {
         if (debug()) DPRINTF(CommInterface, "sendTiming failed in sendPacket(pkt->req->getPaddr()=0x%x)\n", (unsigned int)pkt->req->getPaddr());
         setStalled(pkt);
     } else {
@@ -143,6 +148,7 @@ CommInterface::SPMPort::recvReqRetry() {
     while (!outstandingPkts.empty()) {
         // A synchronous response may delete the packet during sendTimingReq.
         const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        owner->commStats.attempts[direction]++;
         if (!sendTimingReq(outstandingPkts.front()))
             break;
         if (debug()) DPRINTF(CommInterface, "Unblocked, sent blocked packet.\n");
@@ -159,8 +165,12 @@ CommInterface::SPMPort::recvReqRetry() {
 void
 CommInterface::SPMPort::sendPacket(PacketPtr pkt) {
     const size_t idx = pkt->isWrite() ? 1 : 0;
+    if (isStalled()) {
+        setStalled(pkt);
+        return;
+    }
     owner->commStats.attempts[idx]++;
-    if (isStalled() || !sendTimingReq(pkt)) {
+    if (!sendTimingReq(pkt)) {
         if (debug()) DPRINTF(CommInterface, "sendTiming failed in sendPacket(pkt->req->getPaddr()=0x%x)\n", (unsigned int)pkt->req->getPaddr());
         setStalled(pkt);
     } else {
@@ -180,6 +190,7 @@ CommInterface::RegPort::recvReqRetry() {
     while (!outstandingPkts.empty()) {
         // A synchronous response may delete the packet during sendTimingReq.
         const size_t direction = outstandingPkts.front()->isWrite() ? 1 : 0;
+        owner->commStats.attempts[direction]++;
         if (!sendTimingReq(outstandingPkts.front()))
             break;
         owner->commStats.accepted[direction]++;
@@ -193,8 +204,12 @@ CommInterface::RegPort::recvReqRetry() {
 bool
 CommInterface::RegPort::sendPacket(PacketPtr pkt) {
     const size_t idx = pkt->isWrite() ? 1 : 0;
+    if (!outstandingPkts.empty()) {
+        outstandingPkts.push(pkt);
+        return false;
+    }
     owner->commStats.attempts[idx]++;
-    if (!outstandingPkts.empty() || !sendTimingReq(pkt)) {
+    if (!sendTimingReq(pkt)) {
         outstandingPkts.push(pkt);
         return false;
     }
@@ -460,8 +475,8 @@ CommInterface::processMemoryRequests() {
                 it = readQueue.erase(it);
                 if (port->readReq && port->readReq->needToRead) {
                     if (debug()) DPRINTF(CommInterfaceQueues, "Trying read on available memory port\n");
-                    tryRead(port);
                     accRdQ.push_back(port->readReq);
+                    tryRead(port);
                     // if (!port->readReq->needToRead)
                     //     port->readReq = NULL;
                 }
@@ -472,8 +487,8 @@ CommInterface::processMemoryRequests() {
                 it = readQueue.erase(it);
                 if (port->readReq && port->readReq->needToRead) {
                     if (debug()) DPRINTF(CommInterfaceQueues, "Trying read on available memory port\n");
-                    tryRead(port);
                     accRdQ.push_back(port->readReq);
+                    tryRead(port);
                     // if (!port->readReq->needToRead)
                     //     port->readReq = NULL;
                 }
@@ -505,8 +520,8 @@ CommInterface::processMemoryRequests() {
                 it = writeQueue.erase(it);
                 if (port->writeReq && port->writeReq->needToWrite) {
                     if (debug()) DPRINTF(CommInterfaceQueues, "Trying write on available memory port\n");
-                    tryWrite(port);
                     accWrQ.push_back(port->writeReq);
+                    tryWrite(port);
                     // if (!port->writeReq->needToWrite)
                     //     port->writeReq = NULL;
                 }
@@ -517,8 +532,8 @@ CommInterface::processMemoryRequests() {
                 it = writeQueue.erase(it);
                 if (port->writeReq && port->writeReq->needToWrite) {
                     if (debug()) DPRINTF(CommInterfaceQueues, "Trying write on available memory port\n");
-                    tryWrite(port);
                     accWrQ.push_back(port->writeReq);
+                    tryWrite(port);
                     // if (!port->writeReq->needToWrite)
                     //     port->writeReq = NULL;
                 }
@@ -543,6 +558,7 @@ CommInterface::tick() {
     requestsInQueues = readQueue.size() + writeQueue.size();
     if (requestsInQueues > 0)
         processMemoryRequests();
+    tryCompleteDrain();
 }
 
 void
@@ -568,23 +584,15 @@ CommInterface::tryRead(MemSidePort * port) {
     PacketPtr pkt = new Packet(req, MemCmd::ReadReq);
     pkt->allocate();
     readReq->pkt = pkt;
-    port->sendPacket(pkt);
-
     readReq->currentReadAddr += size;
-
     readReq->readLeft -= size;
-
-    if (!(readReq->readLeft > 0)) {
-        readReq->needToRead = false;
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-        }
-    } else {
-        if (!port->isStalled() && !tickEvent.scheduled())
-        {
-            schedule(tickEvent, serviceEdge());
-        }
-    }
+    const bool remaining = readReq->readLeft > 0;
+    readReq->needToRead = remaining;
+    // A response may arrive inside sendTimingReq and delete readReq.
+    // All logical state must be visible before crossing that boundary.
+    port->sendPacket(pkt);
+    if (!tickEvent.scheduled() && (!remaining || !port->isStalled()))
+        schedule(tickEvent, serviceEdge());
 }
 
 void
@@ -621,19 +629,14 @@ CommInterface::tryWrite(MemSidePort * port) {
     uint8_t *pkt_data = (uint8_t *)req->getExtraData();
     pkt->dataDynamic(pkt_data);
     writeReq->pkt = pkt;
-    port->sendPacket(pkt);
-
     writeReq->currentWriteAddr += size;
     writeReq->writeLeft -= size;
-
-    if (!(writeReq->writeLeft > 0)) {
-        writeReq->needToWrite = false;
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-        }
-    } else if (!port->isStalled() && !tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-    }
+    const bool remaining = writeReq->writeLeft > 0;
+    writeReq->needToWrite = remaining;
+    // The completion callback may free writeReq during this send.
+    port->sendPacket(pkt);
+    if (!tickEvent.scheduled() && (!remaining || !port->isStalled()))
+        schedule(tickEvent, serviceEdge());
 }
 
 void
@@ -659,23 +662,15 @@ CommInterface::tryRead(SPMPort * port) {
     PacketPtr pkt = new Packet(req, MemCmd::ReadReq);
     pkt->allocate();
     readReq->pkt = pkt;
-    port->sendPacket(pkt);
-
     readReq->currentReadAddr += size;
-
     readReq->readLeft -= size;
-
-    if (!(readReq->readLeft > 0)) {
-        readReq->needToRead = false;
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-        }
-    } else {
-        if (!port->isStalled() && !tickEvent.scheduled())
-        {
-            schedule(tickEvent, serviceEdge());
-        }
-    }
+    const bool remaining = readReq->readLeft > 0;
+    readReq->needToRead = remaining;
+    // A response may arrive inside sendTimingReq and delete readReq.
+    // All logical state must be visible before crossing that boundary.
+    port->sendPacket(pkt);
+    if (!tickEvent.scheduled() && (!remaining || !port->isStalled()))
+        schedule(tickEvent, serviceEdge());
 }
 
 void
@@ -712,19 +707,14 @@ CommInterface::tryWrite(SPMPort * port) {
     uint8_t *pkt_data = (uint8_t *)req->getExtraData();
     pkt->dataDynamic(pkt_data);
     writeReq->pkt = pkt;
-    port->sendPacket(pkt);
-
     writeReq->currentWriteAddr += size;
     writeReq->writeLeft -= size;
-
-    if (!(writeReq->writeLeft > 0)) {
-        writeReq->needToWrite = false;
-        if (!tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-        }
-    } else if (!port->isStalled() && !tickEvent.scheduled()) {
-            schedule(tickEvent, serviceEdge());
-    }
+    const bool remaining = writeReq->writeLeft > 0;
+    writeReq->needToWrite = remaining;
+    // The completion callback may free writeReq during this send.
+    port->sendPacket(pkt);
+    if (!tickEvent.scheduled() && (!remaining || !port->isStalled()))
+        schedule(tickEvent, serviceEdge());
 }
 
 void
@@ -872,6 +862,7 @@ CommInterface::finish() {
             port->setReadyStatus(false);
         }
     }
+    tryCompleteDrain();
 }
 
 Tick
@@ -1069,3 +1060,58 @@ CommInterface::clearMemRequest(MemoryRequest * req, bool isRead) {
 
 void
 CommInterface::startup() {}
+
+bool
+CommInterface::hasPendingWork() const
+{
+    if (computationNeeded || tickEvent.scheduled() || !readQueue.empty() ||
+        !writeQueue.empty() || !accRdQ.empty() || !accWrQ.empty()) {
+        return true;
+    }
+    for (const auto *port : localPorts) {
+        if (port && (!port->outstandingPkts.empty() || port->readReq ||
+                     port->writeReq)) {
+            return true;
+        }
+    }
+    for (const auto *port : globalPorts) {
+        if (port && (!port->outstandingPkts.empty() || port->readReq ||
+                     port->writeReq)) {
+            return true;
+        }
+    }
+    for (const auto *port : streamPorts) {
+        if (port && (!port->outstandingPkts.empty() || port->readReq ||
+                     port->writeReq)) {
+            return true;
+        }
+    }
+    for (const auto *port : spmPorts) {
+        if (port && (!port->outstandingPkts.empty() || port->readReq ||
+                     port->writeReq)) {
+            return true;
+        }
+    }
+    for (const auto *port : regPorts) {
+        if (port && (!port->outstandingPkts.empty() || port->readReq ||
+                     port->writeReq)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+DrainState
+CommInterface::drain()
+{
+    // Keep servicing the finite current invocation and its responses.
+    // Draining must never discard a blocked request or a scheduled tick.
+    return hasPendingWork() ? DrainState::Draining : DrainState::Drained;
+}
+
+void
+CommInterface::tryCompleteDrain()
+{
+    if (drainState() == DrainState::Draining && !hasPendingWork())
+        signalDrainDone();
+}

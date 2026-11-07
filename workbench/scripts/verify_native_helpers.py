@@ -87,7 +87,7 @@ def main(argv=None):
     excluded = ["src/hwacc/fu_scheduling_pool.test.cc"]
     if generated is not None:
         sources.append(root / excluded.pop())
-    expected_tests = 28 if generated is not None else 24
+    expected_tests = 30 if generated is not None else 26
     gtest = root / "ext/googletest/googletest"
     translation_units = sources + [
         gtest / "src/gtest-all.cc",

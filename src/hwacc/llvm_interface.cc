@@ -1078,6 +1078,11 @@ LLVMInterface::finalize() {
     functions.clear();
     values.clear();
     comm->finish();
+    if (drainState() == DrainState::Draining) {
+        panic_if(drain() != DrainState::Drained,
+                 "LLVM finalized with pending invocation state");
+        signalDrainDone();
+    }
 }
 
 void
@@ -1390,4 +1395,16 @@ LLVMInterface::createInstruction(llvm::Instruction * inst, uint64_t id) {
                   ss.str().c_str());
         }
     }
+}
+
+DrainState
+LLVMInterface::drain()
+{
+    if (running || tickEvent.scheduled() || !activeFunctions.empty() ||
+        !globalReadQueue.empty() || !globalWriteQueue.empty() ||
+        !functions.empty() || !values.empty() ||
+        fuSchedulingPool.outstanding() != 0) {
+        return DrainState::Draining;
+    }
+    return DrainState::Drained;
 }

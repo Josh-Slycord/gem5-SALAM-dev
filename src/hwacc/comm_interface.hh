@@ -15,8 +15,12 @@
 #include <queue>
 #include <vector>
 
+class SalamLifecycleTester;
+
 class CommInterface : public BasicPioDevice
 {
+    friend class SalamLifecycleTester;
+
   protected:
     static constexpr uint8_t MmrStatusRun = 0x01;
     static constexpr uint8_t MmrStatusBusy = 0x02;
@@ -273,6 +277,14 @@ class CommInterface : public BasicPioDevice
     CommInterface(const CommInterfaceParams &p);
 
     void startup();
+
+    DrainState drain() override;
+
+  private:
+    bool hasPendingWork() const;
+    void tryCompleteDrain();
+
+  public:
 
     virtual Tick read(PacketPtr pkt);
 

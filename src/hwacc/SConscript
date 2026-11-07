@@ -53,6 +53,15 @@ if env["CONF"]["USE_ARM_ISA"] and env.get("WITH_SALAM", False):
     SimObject('StreamBuffer.py', sim_objects=['StreamBuffer'])
     SimObject('RegisterBank.py', sim_objects=['RegisterBank'])
 
+    # Opt-in production SimObject protocol/lifetime fixtures.
+    if ARGUMENTS.get('SALAM_PROTOCOL_TESTS', '0') == '1':
+        SimObject('tests/SalamLifecycleTester.py',
+                  sim_objects=['SalamLifecycleTester'])
+        Source('tests/lifecycle_tester.cc')
+        SimObject('tests/SalamRegisterBankTester.py',
+                  sim_objects=['SalamRegisterBankTester'])
+        Source('tests/register_bank_tester.cc')
+
     #LLVMInterface
     SimObject('ComputeUnit.py', sim_objects=['ComputeUnit'])
     SimObject('LLVMInterface.py', sim_objects=['LLVMInterface'])
