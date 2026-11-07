@@ -33,6 +33,17 @@ review inventory or replace the preserved qualified checkpoint. Checkpoint
 serialization/restore, full-engine sanitizer coverage and remaining port
 protocols are still separate gates.
 
+## Attribution correction (7 November 2026)
+
+[Specific original-source credit](../../SALAM_CREDITS.md) now identifies
+fourteen verified Akanksha Chaudhari source commits adapted in the retained
+reviewer phases. The [origin map](provenance/SALAM_SOURCE_ORIGINS.json) and
+[correction record](SALAM_ATTRIBUTION_CORRECTION_2026-11-07.md) distinguish
+original implementation, retained adaptations, subsequent fixes and unresolved
+leads. This is a forward documentation correction: existing commits/notices
+and qualified checkpoints remain intact. It does not close repository-wide
+licensing, exhaustive authorship or upstream-acceptance gates.
+
 ## Provenance and interpretation
 
 - Upstream PR author: `akanksha-sc`; branch `gem5-salam-develop`.

@@ -10,6 +10,16 @@ gem5-SALAM models custom accelerators from LLVM IR inside the gem5 system simula
 
 **[Start with the workbench guide](workbench/README.md)** · [Scheduling results](workbench/docs/FU_SCHEDULING_RESULTS.md) · [Windows, Docker and VM options](workbench/docs/PACKAGING.md)
 
+## Contributors and source provenance
+
+This fork builds on gem5, the TeCSAR-UNCC gem5-SALAM framework and their
+contributors. The retained reviewer-integration series adapts specific
+upstream-development implementations by **Akanksha Chaudhari**. Original
+source authors, full commit IDs, partial-port boundaries and subsequent
+fork adaptations are recorded in [SALAM credits](SALAM_CREDITS.md) and the
+[source-by-source attribution correction](workbench/docs/SALAM_ATTRIBUTION_CORRECTION_2026-11-07.md).
+Existing source notices and original histories are preserved.
+
 ## What works now
 
 - Live Qt configuration editing through generation, optional simulator rebuild and actual guest execution.
