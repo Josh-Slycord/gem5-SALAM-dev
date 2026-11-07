@@ -178,3 +178,20 @@ Concrete sources:
 `https://www.mail-archive.com/gem5-dev%40gem5.org/`,
 `https://www.mail-archive.com/gem5-users%40gem5.org/`, and
 `https://www.gem5.org/`.
+
+## External contribution provenance
+
+Before incorporating external code, record its repository, immutable source
+SHA, recorded author, changed paths/hunks and local adaptation scope. Review
+actual code, including deletions, rather than assigning origin from a subject,
+API name, design similarity or an agent's claim. Use the existing SALAM source
+origin map for known imports and explicitly label unverified leads.
+
+For unchanged imported patches, preserve original Author metadata (for
+example, `git cherry-pick -x` retains it and records the source SHA). For
+adaptations or aggregate integrations, explicitly credit source authors and
+full SHAs and distinguish integration/validation work from original code.
+Do not fabricate `Co-authored-by`, `Signed-off-by`, endorsement or copyright
+holder information. Preserve existing notices and licenses. New evidence of
+an omission should receive a visible corrective record; do not rewrite shared
+history or move saved checkpoint refs without the user's explicit direction.

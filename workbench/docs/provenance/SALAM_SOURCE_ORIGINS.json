@@ -1,0 +1,697 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_salam_source_attribution",
+  "review_date": "2026-11-07",
+  "inspected_fork_revision": "e33b9a0d4b2f5a22b89c4bf1d4ed4b34f5db3f9d",
+  "inspected_upstream_snapshot": "b4ff9f5aaa0e4d3df9bf503df2212a278eb59645",
+  "upstream_screened_total_commits": 113,
+  "upstream_screened_non_merge_commits": 102,
+  "live_pr_snapshot": {
+    "number": 2429,
+    "head": "70e05ff81c13951d90a22c332929753be8b7b3ca",
+    "commits": 132,
+    "head_repository": "akanksha-sc/gem5",
+    "state": "open",
+    "merged": false
+  },
+  "known_source_author_credit": "Akanksha Chaudhari",
+  "verified_source_commits": [
+    {
+      "upstream_sha": "5c1077e5c606625475c413fb26a110988fc2589c",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-09T15:32:06-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: Correct frem execution semantics",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/5c1077e5c606625475c413fb26a110988fc2589c",
+      "source_files": [
+        "src/salam/LLVMRead/instruction.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/instruction.cc:1481,1495",
+      "contribution": "FRem truncation-toward-zero remainder semantics",
+      "classification": "scoped adaptation",
+      "boundary": "Float/double std::fmod substitutions; adjacent memcpy changes are separate. Later floatingRemainder/float_bits refactoring preserves this semantic fix.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "412c56e4044672b8ef0cd65c7d94a3800511f6859ad0484cd157706553cfdd2c",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "5c1077e5c606625475c413fb26a110988fc2589c"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "f84e0a19dff1a35193d2749d2ad2cc74c6e26730",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-18T14:20:29-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: fix RegPort request lifetime",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/f84e0a19dff1a35193d2749d2ad2cc74c6e26730",
+      "source_files": [
+        "src/salam/comm_interface.cc",
+        "src/salam/comm_interface.hh"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "comm_interface.cc:125,137,692,733,749,777; comm_interface.hh:145",
+      "contribution": "RegPort request lifetime and retry handling",
+      "classification": "scoped adaptation",
+      "boundary": "Retry queue, send-result handling, pointer clearing and remainingAfter guards adapted to the retained ABI. Later packet-ownership, send-attempt and drain changes remain separate.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "4e250c2fbf0911bad7f6014dcd331750947c68312aa25f9e61d926edd005f1c4",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "f84e0a19dff1a35193d2749d2ad2cc74c6e26730"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "cb334503c1330066ac3a48538e2681231d9247d5",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-18T14:22:25-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: follow scratchpad response retry ordering",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/cb334503c1330066ac3a48538e2681231d9247d5",
+      "source_files": [
+        "src/salam/scratchpad_memory.cc",
+        "src/salam/scratchpad_memory.hh"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "scratchpad_memory.cc:418,436; scratchpad_memory.hh",
+      "contribution": "Scratchpad response-head and retry ordering",
+      "classification": "scoped adaptation",
+      "boundary": "Distinctive scheduleNextResponse and retry-reset scheduling hunks. Later shared response-queue/reentrancy changes remain separate.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "28f0296fdb80a086a89018a35f5905980cf27682d09060729a2b0caf7a4d8f0e",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "cb334503c1330066ac3a48538e2681231d9247d5"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "773419b2dde83e8d5e611fcd7ee75f99253afdbf",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-30T11:14:01-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: release static execution graph cycles",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/773419b2dde83e8d5e611fcd7ee75f99253afdbf",
+      "source_files": [
+        "src/salam/LLVMRead/basic_block.cc",
+        "src/salam/LLVMRead/basic_block.hh",
+        "src/salam/LLVMRead/function.cc",
+        "src/salam/LLVMRead/function.hh",
+        "src/salam/LLVMRead/instruction.cc",
+        "src/salam/LLVMRead/instruction.hh",
+        "src/salam/LLVMRead/value.hh",
+        "src/salam/llvm_interface.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/{basic_block,function,instruction,value}.{cc,hh}; llvm_interface.cc:867",
+      "contribution": "Static execution-graph reference release",
+      "classification": "scoped adaptation",
+      "boundary": "releaseGraphEdges APIs/method bodies and finalization calls, adapted field/layout names. This credits the static cycle-release implementation, not all lifetime, ownership or later drain work.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "c7f4c8ab8dfd10df52fd846922087a688bd65fa417b77847101921fe21c887b0",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "773419b2dde83e8d5e611fcd7ee75f99253afdbf"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "3cddf5c6aec651f8353a4f487683048f59d622fa",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-24T12:00:24-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: fix DMA write bypass",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/3cddf5c6aec651f8353a4f487683048f59d622fa",
+      "source_files": [
+        "src/salam/dma_write_fifo.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "dma_write_fifo.cc:126",
+      "contribution": "DMA write-side functional bypass",
+      "classification": "scoped adaptation",
+      "boundary": "DmaWriteFifo::resumeEmptyFunctional body, chunk buffering, comments and debug string.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "17f970c8e9fb97dc400753ca2468b8df442e5ae3995e88b59fd78f99a04dd4a5",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "3cddf5c6aec651f8353a4f487683048f59d622fa"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "432f50d8ee5633e5eab50572a9cd55f17a169b78",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-12T22:29:27-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: read ICmp operands by predicate",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/432f50d8ee5633e5eab50572a9cd55f17a169b78",
+      "source_files": [
+        "src/salam/LLVMRead/instruction.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/instruction.cc:2917,2944",
+      "contribution": "Predicate-specific ICmp operands",
+      "classification": "scoped adaptation",
+      "boundary": "Signed-i1 rejection and signed/unsigned operand strategy; legacy formatting expanded.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "90ae61ca1189fc1150eb34e4faec381846a0bee4b821039eb5ba966da202c2ff",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "432f50d8ee5633e5eab50572a9cd55f17a169b78"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "a9bfa096701fc5eb435aefce2fd25c8ab041dc4d",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-09T15:56:24-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: remove uninitialized opcode usage identifiers",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/a9bfa096701fc5eb435aefce2fd25c8ab041dc4d",
+      "source_files": [
+        "src/salam/HWModeling/opcodes.cc",
+        "src/salam/HWModeling/opcodes.hh"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "HWModeling/src/opcodes.cc:5; HWModeling/src/opcodes.hh:14",
+      "contribution": "Removal of uninitialized opcode identifiers",
+      "classification": "scoped adaptation",
+      "boundary": "Ten identifiers and ten associated usage entries removed; verified deletion hunks.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "9d78833d8b9ee9aa160bd48ee73c1d0c925661a7e5641a45d1c25130cbf06112",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "a9bfa096701fc5eb435aefce2fd25c8ab041dc4d"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "6de0a5d7c358b3c5d5a98c9aaefb63ad7d682b95",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-10T21:38:30-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: reject unsupported LLVM opcodes",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/6de0a5d7c358b3c5d5a98c9aaefb63ad7d682b95",
+      "source_files": [
+        "src/salam/llvm_interface.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "llvm_interface.cc:1243",
+      "contribution": "Unsupported LLVM opcode diagnostics",
+      "classification": "scoped adaptation",
+      "boundary": "Fatal diagnostic with rendered IR and raw_ostream include. The preexisting constrained-FU guard is separate.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "693a49637a1a4a6dd2408d5e57c8870ff4411820e0b70e7fd640822fb799304f",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "6de0a5d7c358b3c5d5a98c9aaefb63ad7d682b95"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "c81a0c9ede3acbede1b47da70c6f4fae8ac9354f",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-11T11:19:07-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: reject unsupported LLVM value types",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/c81a0c9ede3acbede1b47da70c6f4fae8ac9354f",
+      "source_files": [
+        "src/salam/LLVMRead/value.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/value.cc:67,95",
+      "contribution": "LLVM value/register type validation",
+      "classification": "scoped adaptation",
+      "boundary": "Allowed-width switch, intentional void/label handling and diagnostics; formatting adapted.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "3a03122e528e7e6aeb5ef18991b48eae4327551cc73a64543d59e5359a6a310e",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "c81a0c9ede3acbede1b47da70c6f4fae8ac9354f"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "0d502bdad85c26506eb647cc361643cbc19b1494",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-11T15:07:24-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: reject unsupported LLVM call targets",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/0d502bdad85c26506eb647cc361643cbc19b1494",
+      "source_files": [
+        "src/salam/LLVMRead/instruction.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/instruction.cc:3416",
+      "contribution": "Unsupported LLVM call-target rejection",
+      "classification": "scoped adaptation",
+      "boundary": "Call::initialize rejects indirect/unresolved and declaration-only call targets.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "c1469f8d874e050c51c8690cdb61d27a6f1bfa0b1fdf65a899b0e0008ca7966d",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "0d502bdad85c26506eb647cc361643cbc19b1494"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "8bcc3deb45a3b11bf45bf3503cd34fa7a13dea2d",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-09-11T15:01:37-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: skip LLVM declarations in loop analysis",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/8bcc3deb45a3b11bf45bf3503cd34fa7a13dea2d",
+      "source_files": [
+        "src/salam/llvm_interface.cc"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "llvm_interface.cc:601",
+      "contribution": "Function-declaration skip in loop analysis",
+      "classification": "scoped adaptation",
+      "boundary": "Four-line declaration-skip hunk and its explanatory comment.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "07465dda275d19a32d4effbc1ae67576ffcfc0f76493eb8386991597fadde131",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "8bcc3deb45a3b11bf45bf3503cd34fa7a13dea2d"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "032d6e1a92f7545dd7f6aa84c0f3a0a4feb825e7",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-10-26T11:13:56-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: Correct scalar execution and memory dependencies",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/032d6e1a92f7545dd7f6aa84c0f3a0a4feb825e7",
+      "source_files": [
+        ".github/workflows/ci-tests.yaml",
+        "configs/SALAM/HWAcc.py",
+        "src/salam/HWModeling/cycle_counts.cc",
+        "src/salam/LLVMRead/instruction.cc",
+        "src/salam/LLVMRead/instruction.hh",
+        "src/salam/LLVMRead/mem_request.hh",
+        "src/salam/LLVMRead/registers.cc",
+        "src/salam/LLVMRead/registers.hh",
+        "src/salam/LLVMRead/value.cc",
+        "src/salam/LLVMRead/value.test.cc",
+        "src/salam/SConscript",
+        "src/salam/hw_profiles/default/instructions/inst_list.yml",
+        "src/salam/llvm_interface.cc",
+        "src/salam/llvm_interface.hh",
+        "tests/gem5/salam/check_salam_results.py",
+        "tests/gem5/salam/harness/Makefile",
+        "tests/gem5/salam/harness/config.yml",
+        "tests/gem5/salam/harness/hw/Makefile",
+        "tests/gem5/salam/harness/kernels/call_load.c",
+        "tests/gem5/salam/harness/kernels/call_nested.c",
+        "tests/gem5/salam/harness/kernels/call_return.c",
+        "tests/gem5/salam/harness/kernels/call_void.c",
+        "tests/gem5/salam/harness/kernels/i1_sext.ll.in",
+        "tests/gem5/salam/harness/kernels/i1_trunc.ll.in",
+        "tests/gem5/salam/harness/kernels/load_store.c",
+        "tests/gem5/salam/harness/kernels/narrow_load.c",
+        "tests/gem5/salam/harness/kernels/order_raw.c",
+        "tests/gem5/salam/harness/kernels/order_unresolved.c",
+        "tests/gem5/salam/harness/kernels/order_war.c",
+        "tests/gem5/salam/harness/kernels/order_waw.c",
+        "tests/gem5/salam/harness/kernels/phi_rotate.c",
+        "tests/gem5/salam/harness/kernels/phi_swap.c",
+        "tests/gem5/salam/harness/kernels/pointer_load.c",
+        "tests/gem5/salam/harness/kernels/pointer_store.c",
+        "tests/gem5/salam/harness/kernels/sanity.c",
+        "tests/gem5/salam/harness/kernels/store_overlap.c",
+        "tests/gem5/salam/harness/kernels/store_twice.c",
+        "tests/gem5/salam/harness/sw/Makefile",
+        "tests/gem5/salam/harness/sw/bench.h",
+        "tests/gem5/salam/harness/sw/main.c",
+        "tests/gem5/salam/salam_testlib.py",
+        "tests/gem5/salam/test_salam_kernels.py",
+        "tests/gem5/salam/test_salam_profile.py",
+        "tests/pyunit/util/pyunit_salam_hwpath.py",
+        "tests/pyunit/util/pyunit_salam_workload_config.py",
+        "util/SALAM-docs/Building_and_Integrating_Accelerators.md",
+        "util/SALAM-tools/SALAM-Configurator/config_parser.py",
+        "util/SALAM-tools/SALAM-Configurator/template.yml",
+        "util/SALAM-tools/SALAM-Configurator/workload_config.py"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "LLVMRead/src/value.cc:239,251; llvm_interface.cc:33",
+      "contribution": "Bounded register reads and entry-PHI handling",
+      "classification": "partial larger patch",
+      "boundary": "readTargetBytes helper/bounded reads and PHI snapshot/queue blocks. Other scalar, call and memory-dependency changes in the larger original commit are not established as imported.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "4da00e4d0f52e8d9e1dce1f101d0aa2a14d4d12d24230097036b2012c3c6bb74",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "032d6e1a92f7545dd7f6aa84c0f3a0a4feb825e7"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "c2010d3b96f033596ef9b4d0c089f438301d0c8f",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-10-30T00:50:30-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: Reject unconditional CFG cycles",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/c2010d3b96f033596ef9b4d0c089f438301d0c8f",
+      "source_files": [
+        "src/salam/latency_sample.test.cc",
+        "src/salam/llvm_interface.cc",
+        "tests/gem5/salam/check_salam_binary.py",
+        "tests/gem5/salam/check_salam_ownership.py",
+        "tests/gem5/salam/harness/kernels/cfg_chain.ll.in",
+        "tests/gem5/salam/harness/kernels/cfg_cycles.ll.in",
+        "tests/gem5/salam/harness/kernels/stream_roundtrip.c",
+        "tests/gem5/salam/test_salam_kernels.py",
+        "tests/gem5/salam/test_salam_ppa.py",
+        "tests/gem5/salam/test_salam_ppa_storage.py",
+        "tests/gem5/salam/test_salam_profile.py",
+        "tests/gem5/salam/test_salam_stream.py",
+        "tests/pyunit/util/pyunit_salam_hw_profile.py",
+        "tests/pyunit/util/pyunit_salam_workload_config.py"
+      ],
+      "retained_phase": 1,
+      "retained_import_commits": [
+        "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+        "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24"
+      ],
+      "anchor_revision": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "anchors_relative_to_src_hwacc": "llvm_interface.cc:33",
+      "contribution": "Iterative basic-block traversal and CFG-cycle rejection",
+      "classification": "partial larger patch",
+      "boundary": "ActiveFunction::scheduleBB traversal, visited-block guard, diagnostic and comments. Other validation/fixtures in the larger original are not established as imported.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "679b31b83ce3e48a3c801b5287a467ff3057175d34b75b6144aae42f7e9da618",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "--find-renames",
+        "c2010d3b96f033596ef9b4d0c089f438301d0c8f"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    },
+    {
+      "upstream_sha": "932cb66bba9bd771683af36800ad176a15cad234",
+      "source_author": "Akanksha Chaudhari",
+      "source_author_date": "2026-10-26T11:14:07-05:00",
+      "source_committer": "Akanksha Chaudhari",
+      "source_commit_subject": "salam: Track cycles and native statistics",
+      "source_url": "https://github.com/akanksha-sc/gem5/commit/932cb66bba9bd771683af36800ad176a15cad234",
+      "source_files": [
+        "configs/SALAM/HWAccConfig.py",
+        "src/salam/HWInterface.py",
+        "src/salam/HWModeling/fu_pool.cc",
+        "src/salam/HWModeling/fu_pool.hh",
+        "src/salam/HWModeling/fu_pool.test.cc",
+        "src/salam/HWModeling/hw_interface.cc",
+        "src/salam/HWModeling/hw_interface.hh",
+        "src/salam/HWModeling/hw_statistics.cc",
+        "src/salam/HWModeling/hw_statistics.hh",
+        "src/salam/HWModeling/opcodes.hh",
+        "src/salam/HWStatistics.py",
+        "src/salam/SConscript",
+        "src/salam/comm_interface.cc",
+        "src/salam/comm_interface.hh",
+        "src/salam/dma_write_fifo.cc",
+        "src/salam/dma_write_fifo.hh",
+        "src/salam/llvm_interface.cc",
+        "src/salam/llvm_interface.hh",
+        "src/salam/noncoherent_dma.cc",
+        "src/salam/noncoherent_dma.hh",
+        "src/salam/stream_buffer.cc",
+        "src/salam/stream_buffer.hh",
+        "src/salam/stream_dma.cc",
+        "src/salam/stream_dma.hh",
+        "src/salam/stream_port.hh",
+        "tests/gem5/salam/harness/sw/main.c",
+        "tests/gem5/salam/salam_testlib.py",
+        "tests/gem5/salam/test_salam_bfs.py",
+        "tests/gem5/salam/test_salam_kernels.py",
+        "tests/pyunit/util/pyunit_salam_hw_profile.py"
+      ],
+      "retained_phase": 2,
+      "retained_import_commits": [
+        "6e9645aca843a5222100fa33ab86e81367850e84",
+        "4704eeca5884b39f5e32af4b8f142ff814f57c80"
+      ],
+      "anchor_revision": "6e9645aca843a5222100fa33ab86e81367850e84",
+      "anchors_relative_to_src_hwacc": "llvm_interface.cc:26,57,82,92,98,106,112,131",
+      "contribution": "Native execution-statistics groups and counting",
+      "classification": "partial larger patch",
+      "boundary": "ExecStats constructor/descriptions and regStats match directly; count/category/occupancy methods are adapted. Upstream cumulative totals updates and SALAMIssue debug calls are omitted. Later native-clock adapters/reset reconciliation are separate.",
+      "verification": "manual distinctive-hunk comparison plus immutable Git author/object verification; not a whole-file or copyright-ownership claim",
+      "source_commit_show_sha256": "41f71e9a6366dc37cb1576ee202d5d8d323efc8f35912e4685b237188eeb9eff",
+      "source_commit_show_argv": [
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "show",
+        "--format=fuller",
+        "932cb66bba9bd771683af36800ad176a15cad234"
+      ],
+      "source_files_scope": "All files changed in the original upstream commit; not a claim that every listed file was imported."
+    }
+  ],
+  "retained_phases": [
+    {
+      "phase": 1,
+      "revised_commit": "6721f18e2bdd1c44c7a9c0b19a59b7f265ef7b24",
+      "original_commit": "45474cb28f785ea5c1a54e6ec09d8cebc38450c3",
+      "subject": "hwacc: Fix memory safety, port retry, and IR validation",
+      "original_source_status": "13 scoped upstream patches verified; adjacent changes not exhaustively attributed"
+    },
+    {
+      "phase": 2,
+      "revised_commit": "4704eeca5884b39f5e32af4b8f142ff814f57c80",
+      "original_commit": "6e9645aca843a5222100fa33ab86e81367850e84",
+      "subject": "hwacc: Use ClockedObject scheduling and gem5 statistics",
+      "original_source_status": "native statistics source verified; clock-domain provenance unresolved"
+    },
+    {
+      "phase": 3,
+      "revised_commit": "564dcad1fdd95e4fcd6fa48de998f886b910ecd3",
+      "original_commit": "d3d4930593acfcb9fb024446ce295649fb887ba1",
+      "subject": "hwacc: Consolidate FU and instruction config constructors",
+      "original_source_status": "constructor implementations differ; exact source derivation unresolved"
+    },
+    {
+      "phase": 4,
+      "revised_commit": "6c9e5af23d23982a0bd1f801a917c53c79685e89",
+      "original_commit": null,
+      "subject": "configs,salam: Fix SALAM configurator and path bugs",
+      "original_source_status": "screened only; exact source attribution remains under review"
+    },
+    {
+      "phase": 5,
+      "revised_commit": "bcbcc33fd10f5de462efdc58f8ab5269b83ac416",
+      "original_commit": null,
+      "subject": "hwacc,util: Add named constants and forced git hygiene hooks",
+      "original_source_status": "screened only; exact source attribution remains under review"
+    },
+    {
+      "phase": 6,
+      "revised_commit": "b9c798893d53e8565943aed6678a151434d4a5f1",
+      "original_commit": null,
+      "subject": "tests,hwacc: Add GTest and PyUnit reviewer compliance tests",
+      "original_source_status": "screened only; exact source attribution remains under review"
+    }
+  ],
+  "unresolved_leads": [
+    {
+      "source_sha": "6185341ea9adac0e957ac33fc8092be3d2009a92",
+      "phase": 2,
+      "status": "unresolved",
+      "reason": "Generic clock API overlap is insufficient to establish copied implementation."
+    },
+    {
+      "source_sha": "06c204dffa00d777061bbc12d2113a6a0238cecb",
+      "phase": 3,
+      "status": "unresolved",
+      "reason": "Original uses fixed generic SimObjects; retained series keeps per-entry types with templated bases. Similar design goal is insufficient."
+    },
+    {
+      "source_sha": "c981b557e6861158ac3fbd0703b7ff87a29edc4e",
+      "phase": 5,
+      "status": "screening lead only",
+      "reason": "Four distinctive cache Param descriptions match; complete hunk/implementation scope not verified."
+    },
+    {
+      "source_sha": "f0e67661af12e3d32b532f1f36aac435376aabab",
+      "phase": 4,
+      "status": "screening lead only",
+      "reason": "Header/configurator similarity needs complete hunk review."
+    },
+    {
+      "source_sha": "600e55ac06704877f39cf7893a40d3ea97938848",
+      "phase": 4,
+      "status": "screening lead only",
+      "reason": "Header/configurator similarity needs complete hunk review."
+    },
+    {
+      "source_sha": "5afd4e72a2c87f4e89b1d87790ace81af90b616c",
+      "phase": 4,
+      "status": "screening lead only",
+      "reason": "Header/configurator similarity needs complete hunk review."
+    }
+  ],
+  "coverage_limits": [
+    "Not exhaustive against newer live PR head, all source history, licenses or copyright holders.",
+    "Source author and integration author are distinct roles; Git metadata alone does not establish exclusive intellectual authorship.",
+    "Two phase-one records and two phase-two records are alternate adaptation histories, not duplicate original contributions.",
+    "Original notices and published commit IDs remain unchanged. No fabricated coauthor/signoff trailers."
+  ],
+  "source_path_mapping": {
+    "src/salam/HWModeling/opcodes.cc": "src/hwacc/HWModeling/src/opcodes.cc",
+    "src/salam/HWModeling/opcodes.hh": "src/hwacc/HWModeling/src/opcodes.hh",
+    "src/salam/LLVMRead/": "src/hwacc/LLVMRead/src/",
+    "src/salam/": "src/hwacc/"
+  },
+  "commit_show_digest_format": {
+    "description": "SHA-256 of git show output including fuller author/committer headers, dates, commit message and diff. Not a patch-only digest and not the Git commit object ID.",
+    "git_version": "git version 2.43.0",
+    "worktree_attributes_revision": "e33b9a0d4b2f5a22b89c4bf1d4ed4b34f5db3f9d",
+    "attributes_blob": "71ae8dd842e65475c49d23b0fd5004c52d88eb7c",
+    "environment_note": "Captured with piped stdout in the inspected repository; exact capture arguments are recorded per row. Original full Git SHAs remain the portable primary identities."
+  },
+  "source_path_mapping_rule": "Use exact file matches before longest-prefix mappings. This records the reviewed layout exceptions, not a universal rename of every upstream file."
+}
