@@ -3,6 +3,12 @@
 Review snapshot: **5 November 2026**. This is a preparation and evidence
 register, not a submission to gem5 and not a claim of upstream acceptance.
 
+Current-main status includes the
+[6 November Track A/B qualification](TRACK_AB_INTEGRATION.md) and
+[7 November lifecycle validation](SIMOBJECT_LIFECYCLE_VALIDATION_2026-11-07.md).
+The dated follow-up counts below describe their original snapshots, not the
+latest source suite or a new simulator qualification at each merge.
+
 The original register compared the packaging/visualization contribution from
 [our PR #3](https://github.com/Josh-Slycord/gem5-SALAM-dev/pull/3).
 The **5 November integration follow-up** updates this fork's status for
@@ -15,7 +21,7 @@ using this fork's implementation and independently reproducible evidence.
 
 The final RegisterBank adapter follow-up adds typed-parser compatibility and
 AST-bound guards after the real stencil GUI preflight refused the changed
-constructor form. The current source fixture has **742 tests with zero skips**
+constructor form. That follow-up source fixture had **742 tests with zero skips**
 (352 fast, 326 configuration, 64 GUI). The native binaries, configuration
 fingerprints and earlier native/clock/reset proof remain unchanged.
 Final consolidated GUI evidence is linked in the integration checkpoint.
@@ -79,8 +85,8 @@ our engine or describe another contributor's work as ours.
 
 The [integration checkpoint](GEMINI_INTEGRATION_CHECKPOINT_2026-11-05.md) and
 its [machine-readable status](GEMINI_INTEGRATION_CHECKPOINT_2026-11-05.json)
-are the follow-up authority for exact source/binary identities and remaining
-qualification gates. They are finalized separately from this review register.
+are the authority for that dated follow-up's source/binary identities and
+qualification gates. Later Track A/B and lifecycle records are linked above.
 This is not a claim of full upstream readiness, license clearance or a SALAM
 stdlib implementation.
 

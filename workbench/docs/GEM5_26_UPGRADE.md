@@ -1,11 +1,17 @@
 # gem5 26 migration
 
-This branch ports the validated SALAM accelerator model to the pinned
+Current main contains the retained SALAM accelerator model on the pinned
 [gem5 v26.0.0.0 release](https://github.com/gem5/gem5/releases/tag/v26.0.0.0)
-(`fed0e07e930fecf1e73dce94dd44e69a5bf70c46`). It preserves the working
-gem5 21-based `main` at `48fe84fa2f1c52e95fbc2382d62f26013fa78cd7`.
+(`fed0e07e930fecf1e73dce94dd44e69a5bf70c46`). The working gem5 21 version
+is preserved on
+[legacy/gem5-21.1-workbench-20261107](https://github.com/Josh-Slycord/gem5-SALAM-dev/tree/48fe84fa2f1c52e95fbc2382d62f26013fa78cd7).
 The original Ubuntu 20.04 runtime, GUI binding and Windows shortcut remain
-available independently of this branch.
+separate. Source promotion does not update those local bindings.
+
+The [7 November lifecycle validation](SIMOBJECT_LIFECYCLE_VALIDATION_2026-11-07.md)
+and [6 November Track A/B qualification](TRACK_AB_INTEGRATION.md) describe
+later implementation and acceptance. The original migration records linked
+below retain their dated sources, outcomes and unresolved observations.
 
 ## Upstream review and port boundary
 
@@ -35,7 +41,7 @@ LLVM/Clang 14. The modern GUI lock is
 `requirements-gui-gem5-26-validated.txt`; the legacy lock remains separate.
 Exact installed tools and package records belong to the local build evidence.
 
-Opt in through `configuration_engine.toolchain_profile` in this branch's
+Select `configuration_engine.toolchain_profile` in the modern workbench's
 private `workspace.json`, with ID `gem5-26-retained-salam`. Absolute tool paths
 may be provided explicitly. With no profile, legacy command selection remains
 unchanged. The profile selects tools; it does not establish a successful build.
@@ -83,8 +89,10 @@ recipes and validation receipts are retained.
   historical result header and its legacy ABI remain unchanged.
 - Staged LLVM 14 compilation uses the selected ARM target SDK and explicit
   include path. `-ffp-contract=off` retains supported scalar floating-point
-  operations. Preflight rejects known unsupported FNeg/FMA forms; complete
-  LLVM instruction validation remains unimplemented.
+  operations. Preflight rejects known unsupported FNeg/FMA forms. Later
+  retained-engine fixes also reject unimplemented opcodes, unsupported value
+  types and unsupported call targets. Exhaustive opcode/type execution
+  coverage remains open; see the [readiness register](UPSTREAM_READINESS.md).
 - Source-bound outer self-checks retain the selected virtual environment's
   executable path. Only the two derived SLICC PLY cache files are excluded
   from compiled source identity; real parser sources remain fingerprinted.
@@ -96,9 +104,9 @@ mailbox uses that region only when SCMI is explicitly attached; its class
 definition alone is not evidence that our generated systems attach it.
 Actual configured address ranges remain part of simulation verification.
 
-## Open the separate workbench
+## Open the modern workbench
 
-Bind the modern profile only in this branch's private workspace. From Windows
+Bind the modern profile in its own private workspace. From Windows
 PowerShell in its `workbench` directory, use:
 
 ```powershell
@@ -139,5 +147,7 @@ physical power accuracy require separate coverage before support claims.
 See the [validation record](GEM5_26_VALIDATION.md),
 [qualification limits](GEM5_26_KNOWN_GAPS.md), and
 [local evidence index](GEM5_26_EVIDENCE_INDEX.md). Raw run artifacts and
-binaries remain local ignored evidence with recorded hashes. This branch
-is published separately and remains unmerged into the working `main`.
+binaries remain local ignored evidence with recorded hashes. Current main
+consolidates the modern implementation; the legacy branch, frozen checkpoints
+and their independent runtime bindings remain preserved. Main promotion is
+a fork delivery change, not upstream acceptance or fresh runtime validation.

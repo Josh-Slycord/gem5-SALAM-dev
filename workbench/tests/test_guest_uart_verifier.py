@@ -108,14 +108,12 @@ class GuestUartVerifierTests(unittest.TestCase):
         return subprocess.CompletedProcess(argv, 0, b"built\n", b"")
 
     def verify(self, outdir=None, **kwargs):
-        with (
-            patch.object(VERIFY, "_tools", return_value=self.tools),
-            patch.object(VERIFY.subprocess, "run", side_effect=self.fake_command),
-            patch.dict(os.environ, {"WSL_DISTRO_NAME": "Ubuntu-24.04"}),
-        ):
-            return VERIFY.run_verification(
-                self.repo, self.run_dir if outdir is None else outdir, **kwargs
-            )
+        with patch.object(VERIFY, "_tools", return_value=self.tools):
+            with patch.object(VERIFY.subprocess, "run", side_effect=self.fake_command):
+                with patch.dict(os.environ, {"WSL_DISTRO_NAME": "Ubuntu-24.04"}):
+                    return VERIFY.run_verification(
+                        self.repo, self.run_dir if outdir is None else outdir, **kwargs
+                    )
 
     def receipt_on_disk(self, directory=None):
         return json.loads(
@@ -322,14 +320,12 @@ class GuestUartVerifierTests(unittest.TestCase):
             "--cpu-type",
             "DerivO3CPU",
         ]
-        with (
-            patch.object(VERIFY.sys, "argv", arguments),
-            patch.object(
+        with patch.object(VERIFY.sys, "argv", arguments):
+            with patch.object(
                 VERIFY, "run_verification", return_value={"state": "passed"}
-            ) as run,
-            patch("builtins.print"),
-        ):
-            self.assertEqual(VERIFY.main(), 0)
+            ) as run:
+                with patch("builtins.print"):
+                    self.assertEqual(VERIFY.main(), 0)
         self.assertEqual(run.call_args.kwargs["cpu_type"], "DerivO3CPU")
 
     def test_expected_phrase_before_wrong_actual_exit_cannot_pass(self):

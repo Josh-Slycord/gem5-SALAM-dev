@@ -1,5 +1,12 @@
 # Reviewed Track A/B integration
 
+> **Historical qualification, 6 November 2026.** The source and acceptance
+> below remain pinned to that checkpoint. Subsequent
+> [7 November lifecycle validation](SIMOBJECT_LIFECYCLE_VALIDATION_2026-11-07.md)
+> covers production drain/callback order, retry statistics and independent
+> overlapping accelerator restarts. Other DMA/stream/SPM protocols,
+> checkpoint serialization and whole-engine sanitizer coverage remain open.
+
 Implementation revision: `13bbe024fd9e480196125eecaf0783435180c029` on `codex/track-ab-integration-20261106`.
 
 Qualification status: passed within the bounded acceptance below. The [checkpoint JSON](TRACK_AB_INTEGRATION_CHECKPOINT_2026-11-06.json) records the frozen implementation and every required evidence gate.

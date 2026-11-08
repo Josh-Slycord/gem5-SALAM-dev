@@ -1,16 +1,18 @@
 # CI validation and its limits
 
 The `Workbench source validation` workflow checks the maintained research
-workbench against repository source. On the gem5 26 upgrade branch it contains
-two source-validation jobs. Neither job builds or runs gem5, and neither creates
-a simulator build receipt or a runnable engine binding.
+workbench against repository source. Current main has two Linux
+source-validation jobs and one Windows packaging-contract job. None builds
+or runs gem5, creates a simulator build receipt or establishes a runnable
+engine binding.
 
-## The two environments
+## Hosted environments and contracts
 
 | Job | Environment | Selection |
 |---|---|---|
 | `source-only` | Digest-pinned Ubuntu 20.04, Python 3.8 and the legacy dependency lock | Explicit recorded legacy command profile. Existing source-validation commands are retained. |
 | `source-only-gem5-26` | Digest-pinned Ubuntu 24.04, isolated Python 3.12 venv and `.github/requirements-ci-gem5-26.txt` | Legacy-default command contracts are tested under Python 3.12. A separate generation step then selects the modern profile with explicit CI-local tool paths. |
+| `windows-packaging-contracts` | Windows runner and PowerShell | Syntax and packaging failure controls without Docker or a WSL installation; no fresh-host import, GUI launch or simulator acceptance. |
 
 The legacy profile used by unit fixtures is
 `ubuntu20-llvm12-python38-armgcc9`. This preserves assertions about legacy
@@ -19,8 +21,10 @@ are executed in the modern container. The subsequent modern generation fixture
 selects `gem5-26-retained-salam`, its Python 3.12 venv, LLVM 14 paths and modern
 build flags. The generator's recorded command must use that selected Python.
 
-The workflow runs for pull requests targeting `main`, pushes to `main`,
-`codex/ci-workbench-*` and `codex/gem5-26-*`, and manual dispatch. Dependencies
+The workflow runs for pull requests targeting `main` or `codex/gem5-26-*`,
+pushes to `main`, `codex/ci-workbench-*`, `codex/gem5-26-*`, `codex/wsl2-*`,
+`codex/pr3-*` or `codex/gemini-review-*`, and manual dispatch. Other development
+branch pushes do not automatically run this workflow. Dependencies
 are installed only on ephemeral GitHub runners. The modern job records the
 actual interpreter, OS, compiler, LLVM version, dependency input hashes and
 installed Python package versions.
@@ -69,11 +73,11 @@ therefore cannot execute. Source validation checks this boundary. Keep the
 guards when updating upstream or regenerating agentic lock workflows.
 
 The old scheduled nightly workflow is archived byte for byte at
-[legacy-nightly-gem5-21.yml](../workbench/docs/ci/legacy-nightly-gem5-21.yml) on
-the upgrade branch. It is outside `.github/workflows` and does not schedule
+[legacy-nightly-gem5-21.yml](../workbench/docs/ci/legacy-nightly-gem5-21.yml) in
+the modern source tree. It is outside `.github/workflows` and does not schedule
 runs. It used generic unbound builds and benchmark pass strings; it did not
 establish the upgraded SALAM engine's correctness. The preserved working
-version on the old main branch remains separate.
+version is retained on `legacy/gem5-21.1-workbench-20261107`.
 
 The former [CI workflow](ci/legacy-ci.yml) and
 [pre-commit configuration](ci/legacy-precommit-config.yaml) remain exact
@@ -99,6 +103,12 @@ can be reviewed separately with gem5's existing clang-format utility; it is not
 a required or silently bypassed acceptance gate here.
 
 ## Real simulator acceptance is separate
+
+The [7 November lifecycle record](../workbench/docs/SIMOBJECT_LIFECYCLE_VALIDATION_2026-11-07.md)
+and [6 November Track A/B record](../workbench/docs/TRACK_AB_INTEGRATION.md)
+report local, source-bound acceptance. Their counts are historical evidence,
+not an assertion that a later Actions run repeated those simulations.
+Automatic full-simulator lifecycle/TestLib CI registration remains open.
 
 Local acceptance needs a fresh SALAM-enabled simulator build whose receipt
 binds the actual binary, compiler/LLVM toolchain and complete source inputs.
