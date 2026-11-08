@@ -1,6 +1,18 @@
 #ifndef __HWACC_STREAM_PORT_HH__
 #define __HWACC_STREAM_PORT_HH__
 
+/**
+ * @file
+ * @brief Declares streaming port interfaces modeling AXI-Stream flow control
+ * in
+ * SALAM.
+ *
+ * Provides StreamRequestPort and StreamResponsePort (templated
+ * StreamResponsePortT)
+ * implementing valid/ready handshaking, stall accounting, retry notifications,
+ * and bandwidth-modeled transfer durations.
+ */
+
 #include "base/statistics.hh"
 #include "mem/port.hh"
 #include "mem/tport.hh"
@@ -11,14 +23,19 @@ using namespace gem5;
 class StreamRequestPort;
 
 /**
- * A StreamResponsePort is a specialization of a SimpleTimingPort meant to enable
- * functionality similar to the master port in the AXI-Stream specification.
- * This serves only as a base class.
+ * @brief Base response port for streaming data transfers.
+ *
+ * Specialization of SimpleTimingPort enabling master/slave streaming semantics
+ * similar to the AXI-Stream specification. Collects timing statistics for
+ * requests, payload bytes, backpressure stalls, and retries.
  */
 class StreamResponsePort : public SimpleTimingPort {
   friend class StreamRequestPort;
   private:
   protected:
+    /**
+     * @brief Statistics group for streaming port activity.
+     */
     struct StreamStats : public statistics::Group
     {
         StreamStats(statistics::Group *parent, const std::string &port_name)
@@ -43,8 +60,23 @@ class StreamResponsePort : public SimpleTimingPort {
     };
     StreamStats streamStats;
 
+    /**
+     * @brief Evaluates whether a packet transfer is valid.
+     *
+     * @param pkt Pointer to gem5 packet.
+     * @return True if port can service the packet.
+     */
     virtual bool tvalid(PacketPtr pkt) = 0;
+
+    /**
+     * @brief Evaluates whether a transfer of given length is valid.
+     *
+     * @param len Transfer length in bytes.
+     * @param isRead True if read request, false if write.
+     * @return True if port can accept transfer.
+     */
     virtual bool tvalid(size_t len, bool isRead) = 0;
+
     Tick recvAtomic(PacketPtr pkt) override {
       Tick t = 0;
       return t;
@@ -54,13 +86,23 @@ class StreamResponsePort : public SimpleTimingPort {
       return range;
     }
   public:
+    /**
+     * @brief Constructs a StreamResponsePort.
+     *
+     * @param name Name of the port.
+     * @param owner Pointer to owning SimObject.
+     * @param stat_name Sub-group name for statistics.
+     */
     StreamResponsePort(const std::string& name, SimObject* owner,
                        const std::string &stat_name="stream") :
       SimpleTimingPort(name, owner), streamStats(owner, stat_name) {}
 };
 
 /**
- * Templated StreamResponsePort that functions similarly to the pio port on PioDevices.
+ * @brief Templated StreamResponsePort connecting a specific device.
+ *
+ * Implements flow control, transfer duration calculation based on device
+ * bandwidth, and retry notifications.
  */
 template <class Device>
 class StreamResponsePortT : public StreamResponsePort
@@ -85,7 +127,7 @@ class StreamResponsePortT : public StreamResponsePort
     }
 
   protected:
-  Device *device;
+    Device *device;
 
     virtual bool tvalid(PacketPtr pkt) { return device->tvalid(pkt); }
     virtual bool tvalid(size_t len, bool isRead) { return device->tvalid(len, isRead); }
@@ -158,6 +200,12 @@ class StreamResponsePortT : public StreamResponsePort
     }
 
   public:
+    /**
+     * @brief Constructs a StreamResponsePortT for a specific device.
+     *
+     * @param dev Pointer to device.
+     * @param port_suffix Name suffix for the port.
+     */
     StreamResponsePortT(Device *dev, const std::string &port_suffix="stream") :
       StreamResponsePort(dev->name() + "." + port_suffix, dev, port_suffix),
       isBusy(false),
@@ -168,11 +216,10 @@ class StreamResponsePortT : public StreamResponsePort
 };
 
 /**
- * A StreamRequestPort is a specialization of a RequestPort, meant to enable
- * functionality similar to the master port in the AXI-Stream specification.
- * A StreamRequestPort is able to check the valid signal on a corresponding
- * StreamResponsePort before initiating a transfer. Otherwise it functions like
- * a standard RequestPort.
+ * @brief Specialization of RequestPort for stream masters.
+ *
+ * Checks the valid/ready signal on a connected StreamResponsePort before
+ * initiating a transfer.
  */
 class StreamRequestPort : public RequestPort {
   private:
@@ -181,32 +228,52 @@ class StreamRequestPort : public RequestPort {
   protected:
     //
   public:
+    /**
+     * @brief Constructs a StreamRequestPort.
+     *
+     * @param name Port name.
+     * @param _owner Pointer to owning SimObject.
+     * @param id Port identifier.
+     */
     StreamRequestPort(const std::string& name, SimObject* _owner,
                  PortID id=InvalidPortID);
     virtual ~StreamRequestPort();
 
     /**
-     * Bind this master port to a slave port. This also does the
-     * mirror action and binds the slave port to the master port.
-     * If the slave port is a stream slave, also binds the tvalid
-     * signal.
+     * @brief Bind this master port to a slave port.
+     *
+     * Binds the slave port to this master port and caches the stream response
+     * port reference if the peer is a StreamResponsePort.
+     *
+     * @param peer Reference to peer port.
      */
     void bind(Port &peer) override;
 
     /**
-     * Unbind this master port and the associated slave port.
+     * @brief Unbind this master port and the associated slave port.
      */
     void unbind() override;
 
     /**
-   * If the slave port is a stream slave port, then check if it can
-   * service a request of size 'len'
+     * @brief Checks if connected stream slave port can service the packet.
+     *
+     * @param pkt Packet to check.
+     * @return True if stream slave is valid, true if not connected to stream.
      */
     bool streamValid(PacketPtr pkt) {
       if (_stream_slave)
         return _stream_slave->tvalid(pkt);
       return true;
     }
+
+    /**
+     * @brief Checks if connected stream slave can service a transfer of length
+     * len.
+     *
+     * @param len Transfer length in bytes.
+     * @param isRead True if read request.
+     * @return True if valid.
+     */
     bool streamValid(size_t len, bool isRead) {
       if (_stream_slave)
         return _stream_slave->tvalid(len, isRead);
@@ -214,6 +281,9 @@ class StreamRequestPort : public RequestPort {
     }
 };
 
+/**
+ * @brief Status monitoring port for stream devices.
+ */
 template <class Device>
 class StatusPort : public SimpleTimingPort
 {

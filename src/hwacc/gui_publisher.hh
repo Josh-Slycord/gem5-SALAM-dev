@@ -26,12 +26,14 @@ namespace gem5 {
  * received by the salam_gui application for real-time visualization.
  *
  * Message format is JSON with the following structure:
+ * @code
  * {
  *   "type": "<message_type>",
  *   "cycle": <cycle_number>,
  *   "timestamp": <unix_timestamp>,
  *   "data": { ... type-specific data ... }
  * }
+ * @endcode
  */
 class GUIPublisher {
 public:

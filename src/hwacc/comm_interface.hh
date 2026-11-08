@@ -1,6 +1,20 @@
 #ifndef __HWACC_COMM_INTERFACE_HH__
 #define __HWACC_COMM_INTERFACE_HH__
 
+/**
+ * @file comm_interface.hh
+ * @brief Memory-mapped communication and control interface for gem5-SALAM
+ * accelerators.
+ *
+ * CommInterface connects host CPUs to hardware accelerators via memory-mapped
+ * I/O (MMIO).
+ * It implements the accelerator control registers (start, busy, done),
+ * interrupt generation
+ * (via ARM GIC), memory request routing across local, global, scratchpad, and
+ * register ports,
+ * and computation orchestration with attached ComputeUnit instances.
+ */
+
 #include "params/CommInterface.hh"
 #include "base/statistics.hh"
 #include "dev/io_device.hh"
@@ -17,6 +31,21 @@
 
 class SalamLifecycleTester;
 
+/**
+ * @class CommInterface
+ * @brief PIO device providing the memory-mapped register interface and memory
+ * gateway.
+ *
+ * Acts as the primary control gateway for a SALAM accelerator cluster. The
+ * host CPU initiates
+ * execution by writing to the memory-mapped run register. CommInterface
+ * orchestrates memory
+ * traffic between the compute unit (e.g. LLVMInterface) and target memory
+ * spaces (scratchpads,
+ * register files, cluster-local caches, or coherent system memory), signaling
+ * completion via
+ * MMR status flags and hardware interrupts.
+ */
 class CommInterface : public BasicPioDevice
 {
     friend class SalamLifecycleTester;
@@ -44,9 +73,18 @@ class CommInterface : public BasicPioDevice
     bool debugEnabled;
 
   public:
+    /**
+     * @brief Check whether debug tracing is enabled.
+     * @return True if debug flag is active.
+     */
     bool debug() { return debugEnabled; }
 
   protected:
+    /**
+     * @class MemSidePort
+     * @brief Master stream port connecting CommInterface to local, global, or
+     * streaming memory.
+     */
     class MemSidePort : public StreamRequestPort
     {
       friend class CommInterface;
@@ -90,6 +128,11 @@ class CommInterface : public BasicPioDevice
         bool debug() { return owner->debug(); }
     };
 
+    /**
+     * @class SPMPort
+     * @brief Dedicated port connecting CommInterface directly to on-chip
+     * ScratchpadMemory.
+     */
     class SPMPort : public ScratchpadRequestPort
     {
       friend class CommInterface;
@@ -133,6 +176,10 @@ class CommInterface : public BasicPioDevice
         bool debug() { return owner->debug(); }
     };
 
+    /**
+     * @class RegPort
+     * @brief RequestPort connecting CommInterface to an on-chip RegisterBank.
+     */
     class RegPort : public RequestPort
     {
       friend class CommInterface;
@@ -157,6 +204,11 @@ class CommInterface : public BasicPioDevice
         bool debug() { return owner->debug(); }
     };
 
+    /**
+     * @class TickEvent
+     * @brief Event driver scheduling periodic queue processing and MMIO
+     * polling.
+     */
     class TickEvent : public Event
     {
       private:
@@ -171,6 +223,11 @@ class CommInterface : public BasicPioDevice
         bool debug() { return comm->debug(); }
     };
 
+    /**
+     * @struct CommStats
+     * @brief Statistics group tracking communication requests, byte transfers,
+     * and responses.
+     */
     struct CommStats : public statistics::Group
     {
         CommStats(statistics::Group *parent);
@@ -274,45 +331,122 @@ class CommInterface : public BasicPioDevice
   public:
     PARAMS(CommInterface);
 
+    /**
+     * @brief Construct a new CommInterface object.
+     * @param p SimObject configuration parameters.
+     */
     CommInterface(const CommInterfaceParams &p);
 
     void startup();
 
+    /**
+     * @brief Checks whether the communication interface is drained.
+     *
+     * Returns DrainState::Drained if no memory requests, port retries,
+     * queued responses, or tick events are pending; otherwise returns
+     * DrainState::Draining until tryCompleteDrain() signals completion.
+     *
+     * @return Current gem5 DrainState.
+     */
     DrainState drain() override;
 
   private:
+    /**
+     * @brief Checks whether any ports, queues, or events have active
+     * work.
+     *
+     * Inspects active read/write requests, port packet queues, stall
+     * flags, memory-mapped registers, and scheduled tick events.
+     *
+     * @return True if any pending work remains prior to drain completion.
+     */
     bool hasPendingWork() const;
+    /**
+     * @brief Signals drain completion if currently draining and no
+     * pending work remains.
+     */
     void tryCompleteDrain();
 
   public:
 
+    /**
+     * @brief Handle PIO read transaction from the host CPU into MMIO
+     * registers.
+     * @param pkt Memory request packet.
+     * @return Access latency in ticks.
+     */
     virtual Tick read(PacketPtr pkt);
 
+    /**
+     * @brief Handle PIO write transaction from the host CPU into MMIO
+     * registers.
+     * @param pkt Memory request packet.
+     * @return Access latency in ticks.
+     */
     virtual Tick write(PacketPtr pkt);
 
     Port& getPort(const std::string& if_name,
                                   PortID idk = InvalidPortID) override;
 
+    /**
+     * @brief Callback invoked by ports when a timing response packet returns.
+     * @param pkt Completed response packet.
+     */
     void recvPacket(PacketPtr pkt);
 
     // Addr value stored in gep register, length based on data type
+    /**
+     * @brief Enqueue a read request generated by a ComputeUnit instruction.
+     * @param req Pointer to MemoryRequest descriptor.
+     */
     void enqueueRead(MemoryRequest * req); 
 
+    /**
+     * @brief Enqueue a write request generated by a ComputeUnit instruction.
+     * @param req Pointer to MemoryRequest descriptor.
+     */
     void enqueueWrite(MemoryRequest * req);
 
     //uint8_t* getReadBuffer() { return readBuffer; }
 
+    /**
+     * @brief Query whether the accelerator is actively executing.
+     * @return True if running.
+     */
     bool isRunning() { return running; }
+    /**
+     * @brief Check whether computation needs to be triggered.
+     * @return True if computation is pending.
+     */
     bool isCompNeeded() { return computationNeeded; }
 
+    /**
+     * @brief Read a global input variable passed by the host in the MMR
+     * aperture.
+     * @param offset Byte offset within the variable section.
+     * @param size Size in bytes (1, 2, 4, or 8).
+     * @return Variable value as an unsigned 64-bit integer.
+     */
     uint64_t getGlobalVar(unsigned offset, unsigned size);
+    /**
+     * @brief Get the configured processing delay in ticks.
+     * @return Latency in ticks.
+     */
     Tick getProcessDelay() const { return cyclesToTicks(processCycles); }
     virtual int getReadPorts()  { return 0; }
     virtual int getWritePorts()  { return 0; }
     virtual int getReadBusWidth()  { return 0; }
     virtual int getWriteBusWidth()  { return 0; }  
     virtual int getPmemRange() { return 0; }
+    /**
+     * @brief Register the attached ComputeUnit instance.
+     * @param compunit Pointer to ComputeUnit.
+     */
     void registerCompUnit(ComputeUnit *compunit) { cu = compunit; }
+    /**
+     * @brief Signal accelerator completion, assert interrupt, and set done
+     * bit.
+     */
     virtual void finish();
 
     MemoryRequest * findMemRequest(PacketPtr pkt, bool isRead);
@@ -328,5 +462,6 @@ class CommInterface : public BasicPioDevice
 
 /*
 * MM Register Layout
-* | Location of Data 32bits | Compute Finished 1bit | Unused 30bits | Start Operation 1bit |
+* | Location of Data 32bits | Compute Finished 1bit | Unused 30bits | Start
+* Operation 1bit |
 */

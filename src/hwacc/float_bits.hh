@@ -3,6 +3,15 @@
 #ifndef __HWACC_FLOAT_BITS_HH__
 #define __HWACC_FLOAT_BITS_HH__
 
+/**
+ * @file
+ * @brief Bit-preserving scalar floating-point writeback and remainder
+ * operations.
+ *
+ * Prevents aliasing or overreads by preserving exact bit patterns across float
+ * (32-bit) and double (64-bit) representations.
+ */
+
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -11,6 +20,14 @@
 namespace gem5::salam
 {
 
+/**
+ * @brief Converts floating-point value to exact 64-bit unsigned
+ * representation.
+ *
+ * @tparam Float Single or double precision float.
+ * @param value Floating-point value.
+ * @return Bit-pattern payload as uint64_t.
+ */
 template <class Float>
 uint64_t
 floatingResultBits(Float value)
@@ -30,6 +47,14 @@ floatingResultBits(Float value)
 
 // LLVM frem truncates the quotient toward zero; std::remainder instead
 // chooses the nearest integral quotient and is not equivalent.
+/**
+ * @brief Computes floating-point remainder compatible with LLVM frem (fmod).
+ *
+ * @tparam Float Single or double precision float.
+ * @param lhs Dividend.
+ * @param rhs Divisor.
+ * @return Remainder value.
+ */
 template <class Float>
 Float
 floatingRemainder(Float lhs, Float rhs)

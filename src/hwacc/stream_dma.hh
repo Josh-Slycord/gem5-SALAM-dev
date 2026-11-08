@@ -1,5 +1,11 @@
 #ifndef __HWACC_STREAM_DMA_HH__
 #define __HWACC_STREAM_DMA_HH__
+
+/**
+ * @file
+ * @brief Multi-mode streaming DMA device (Memory-to-Stream and Stream-to-
+ * Memory).
+ */
 //------------------------------------------//
 #include "base/statistics.hh"
 #include "hwacc/LLVMRead/src/debug_flags.hh"
@@ -76,6 +82,9 @@
 #define RD_INT_MASK             0x10
 #define WR_INT_MASK             0x20
 
+/**
+ * @brief Streaming DMA engine supporting MM2S and S2MM data movement.
+ */
 class StreamDma : public DmaDevice {
   private:
     std::string devname;
@@ -107,6 +116,9 @@ class StreamDma : public DmaDevice {
 
     ByteOrder endian;
 
+    /**
+     * @brief Periodic tick event driving StreamDma state transitions.
+     */
     class TickEvent : public Event
     {
       private:
@@ -150,6 +162,9 @@ class StreamDma : public DmaDevice {
     uint8_t writeIntFrames;
     uint64_t writePtr;
 
+    /**
+     * @brief gem5 statistics group tracking MM2S and S2MM frame counts.
+     */
     struct DmaStats : public statistics::Group
     {
         DmaStats(statistics::Group *parent);
@@ -177,20 +192,51 @@ class StreamDma : public DmaDevice {
     //   return dynamic_cast<const Params *>(_params);
     // }
     PARAMS(StreamDma);
+    /**
+     * @brief Constructs a StreamDma engine.
+     * @param p Configuration parameters.
+     */
     StreamDma(const StreamDmaParams &p);
     ~StreamDma() {}
 
+    /**
+     * @brief Returns the MMIO control register address ranges.
+     */
     AddrRangeList getAddrRanges() const;
+    /**
+     * @brief Returns the streaming data port address ranges.
+     */
     AddrRangeList getStreamAddrRanges() const;
+    /**
+     * @brief Returns the streaming status port address ranges.
+     */
     AddrRangeList getStatusAddrRanges() const;
 
+    /**
+     * @brief Advances active MM2S and S2MM frame transfers.
+     */
     void tick();
 
+    /**
+     * @brief Handles MMIO control/buffer read packets.
+     */
     Tick read(PacketPtr pkt);
+    /**
+     * @brief Handles MMIO control/buffer write packets.
+     */
     Tick write(PacketPtr pkt);
 
+    /**
+     * @brief Services a stream-side read packet from the MM2S FIFO.
+     */
     Tick streamRead(PacketPtr pkt);
+    /**
+     * @brief Services a stream-side write packet into the S2MM FIFO.
+     */
     Tick streamWrite(PacketPtr pkt);
+    /**
+     * @brief Services a stream status query packet.
+     */
     Tick status(PacketPtr pkt, bool readStatus);
 
     bool tvalid(PacketPtr pkt);
@@ -198,6 +244,9 @@ class StreamDma : public DmaDevice {
 
     double getBandwidth(){ return bandwidth; };
 
+    /**
+     * @brief Resolves DMA, PIO, stream, and status port bindings.
+     */
     Port &getPort(const std::string &if_name,
             PortID idx=InvalidPortID) override;
 };

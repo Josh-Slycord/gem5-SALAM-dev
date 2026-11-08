@@ -1,10 +1,18 @@
 #ifndef __DATA_COLLECTION_HH__
 #define __DATA_COLLECTION_HH__
+
+/**
+ * @file
+ * @brief Legacy results and performance metrics summary data container.
+ */
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include "base/trace.hh"
 
+/**
+ * @brief Data container aggregating execution cycle counts, PPA, and stalls.
+ */
 class Results {
 
     private:

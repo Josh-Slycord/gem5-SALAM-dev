@@ -1,9 +1,14 @@
 #ifndef __HWACC_FU_SCHEDULING_POOL_HH__
 #define __HWACC_FU_SCHEDULING_POOL_HH__
 
-// SALAM_FU_SCHEDULER_V1: nonpipelined capacity accounting for dynamic
-// scalar instructions. This header has no gem5 dependencies so the same
-// admission logic can be tested without a simulator build.
+/**
+ * @file fu_scheduling_pool.hh
+ * @brief Dynamic functional unit capacity accounting and lease management.
+ *
+ * SALAM_FU_SCHEDULER_V1: nonpipelined capacity accounting for dynamic
+ * scalar instructions. This header has no gem5 dependencies so the same
+ * admission logic can be tested without a simulator build.
+ */
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -13,12 +18,33 @@
 #include <string>
 #include <vector>
 
+/**
+ * @class FUSchedulingPool
+ * @brief Manages runtime resource admission, capacity constraints, and lease
+ * tracking for FUs.
+ *
+ * Implements non-pipelined issue-to-completion functional unit scheduling for
+ * SALAM.
+ * Instructions request FU leases prior to computation; if the unit's limit is
+ * nonzero
+ * and current occupancy equals the limit, admission is denied, stalling the
+ * instruction.
+ * A limit of zero denotes unlimited capacity.
+ */
 class FUSchedulingPool
 {
   public:
     // SALAM_FU_TRACE_BUDGET_V1: the bounded trace budget affects logging only.
+    /** @brief Default in-memory trace event capacity. */
     static constexpr uint32_t DefaultTraceEventLimit = 262144;
+    /** @brief Hard upper bound on trace event capacity. */
     static constexpr uint32_t MaxTraceEventLimit = 4194304;
+
+    /**
+     * @struct Unit
+     * @brief Runtime state and usage statistics for an individual functional
+     * unit.
+     */
     struct Unit {
         uint32_t id;
         std::string name;
@@ -30,6 +56,12 @@ class FUSchedulingPool
         uint64_t peak = 0;
         uint64_t outstanding = 0;
     };
+
+    /**
+     * @struct Event
+     * @brief Individual trace observation recording a grant, deny, or release
+     * event.
+     */
     struct Event {
         std::string event;
         uint64_t cycle;
@@ -93,6 +125,11 @@ class FUSchedulingPool
     }
 
   public:
+    /**
+     * @brief Construct a new FUSchedulingPool object.
+     * @param trace_event_limit Maximum number of trace events to buffer.
+     * @throws std::invalid_argument If trace limit is outside [1, 4194304].
+     */
     explicit FUSchedulingPool(uint32_t trace_event_limit = DefaultTraceEventLimit)
         : trace_event_limit_(trace_event_limit)
     {
@@ -100,21 +137,83 @@ class FUSchedulingPool
             throw std::invalid_argument("FU trace event limit must be from 1 to 4194304");
     }
 
+    /**
+     * @brief Register a functional unit with capacity constraints.
+     * @param id Unique nonzero unit identifier.
+     * @param name Descriptive functional unit name.
+     * @param limit Maximum concurrent capacity (0 = unlimited).
+     * @throws std::logic_error If id is 0 or already registered.
+     */
     void configure(uint32_t id, const std::string &name, uint64_t limit)
     {
         if (!id || !units_.emplace(id, Unit{id, name, limit}).second)
             throw std::logic_error("FU id must be nonzero and unique");
     }
 
+    /**
+     * @brief Check whether an FU ID is registered in the pool.
+     * @param id Functional unit ID.
+     * @return True if registered.
+     */
     bool hasUnit(uint32_t id) const { return units_.count(id) != 0; }
+
+    /**
+     * @brief Check whether an instruction pointer holds an active lease.
+     * @param instruction Pointer to instruction instance.
+     * @return True if lease is active.
+     */
     bool hasLease(const void *instruction) const { return leases_.count(instruction) != 0; }
+
+    /**
+     * @brief Query status for a registered functional unit.
+     * @param id Functional unit ID.
+     * @return Const reference to Unit state descriptor.
+     */
     const Unit &unit(uint32_t id) const { return units_.at(id); }
+
+    /**
+     * @brief Access map of all registered functional units.
+     * @return Const reference to map of units.
+     */
     const std::map<uint32_t, Unit> &units() const { return units_; }
+
+    /**
+     * @brief Get count of currently outstanding active leases.
+     * @return Number of active leases.
+     */
     uint64_t outstanding() const { return leases_.size(); }
+
+    /**
+     * @brief Check whether the trace buffer exceeded capacity and was
+     * truncated.
+     * @return True if trace was truncated.
+     */
     bool traceTruncated() const { return trace_truncated_; }
+
+    /**
+     * @brief Get configured trace event capacity.
+     * @return Event limit.
+     */
     uint32_t traceEventLimit() const { return trace_event_limit_; }
+
+    /**
+     * @brief Access buffered execution trace events.
+     * @return Const reference to event vector.
+     */
     const std::vector<Event> &trace() const { return trace_; }
 
+    /**
+     * @brief Request a lease on a functional unit for an instruction.
+     * @param instruction Pointer to requesting instruction.
+     * @param uid Instruction unique ID.
+     * @param opcode LLVM opcode.
+     * @param fu_id Target functional unit ID.
+     * @param cycle Current simulation cycle.
+     * @param tick Current simulation tick.
+     * @return True if lease is granted; false if denied due to capacity.
+     * @throws std::logic_error If instruction is null or already holds a
+     * lease.
+     */
     bool acquire(const void *instruction, uint64_t uid, uint64_t opcode,
                  uint32_t fu_id, uint64_t cycle, uint64_t tick)
     {
@@ -140,6 +239,15 @@ class FUSchedulingPool
         return true;
     }
 
+    /**
+     * @brief Release a previously granted functional unit lease.
+     * @param instruction Pointer to instruction holding lease.
+     * @param cycle Current simulation cycle.
+     * @param tick Current simulation tick.
+     * @return Functional unit ID that was released.
+     * @throws std::logic_error If instruction has no active lease or underflow
+     * occurs.
+     */
     uint32_t release(const void *instruction, uint64_t cycle, uint64_t tick)
     {
         auto it = leases_.find(instruction);
@@ -158,6 +266,13 @@ class FUSchedulingPool
         return lease.fu_id;
     }
 
+    /**
+     * @brief Serialize pool state and trace log to JSON format.
+     * @param name Benchmark or accelerator name.
+     * @param elapsed_cycles Total execution cycles.
+     * @param elapsed_ticks Total execution ticks.
+     * @return Formatted JSON string.
+     */
     std::string toJSON(const std::string &name, uint64_t elapsed_cycles,
                        uint64_t elapsed_ticks) const
     {

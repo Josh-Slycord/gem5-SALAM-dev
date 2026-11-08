@@ -1,6 +1,11 @@
 #ifndef __HWMODEL_COMMON_MACROS_HH__
 #define __HWMODEL_COMMON_MACROS_HH__
 
+/**
+ * @file
+ * @brief Numeric identifiers for hardware functional unit types in SALAM.
+ */
+
 namespace SALAM {
     // Hardware Units
     #define    INTADDER         1

@@ -1,6 +1,18 @@
 #ifndef __HWACC_SCRATCHPAD_MEMORY_HH__
 #define __HWACC_SCRATCHPAD_MEMORY_HH__
 
+/**
+ * @file scratchpad_memory.hh
+ * @brief Multi-ported, banked on-chip scratchpad memory model for gem5-SALAM.
+ *
+ * ScratchpadMemory models tightly coupled accelerator local SRAM memories
+ * (SPMs).
+ * It supports multiple concurrent request ports, configurable bank bandwidth
+ * and
+ * access latency, ready/valid synchronization bits, and rigorous timing retry
+ * handling.
+ */
+
 #include "base/random.hh"
 #include "mem/abstract_mem.hh"
 #include "mem/port.hh"
@@ -12,6 +24,10 @@ using namespace memory;
 
 class ScratchpadRequestPort;
 
+/**
+ * @class ScratchpadResponsePort
+ * @brief ResponsePort variant with SPM ready/valid status query hooks.
+ */
 class ScratchpadResponsePort : public ResponsePort
 {
   friend class ScratchpadRequestPort;
@@ -34,6 +50,10 @@ class ScratchpadResponsePort : public ResponsePort
     virtual void setReadyStatus(bool r) { }
 };
 
+/**
+ * @class ScratchpadRequestPort
+ * @brief RequestPort variant linking accelerator compute units to SPM ports.
+ */
 class ScratchpadRequestPort : public RequestPort
 {
   private:
@@ -43,7 +63,18 @@ class ScratchpadRequestPort : public RequestPort
   public:
     ScratchpadRequestPort(const std::string& _name, SimObject* _owner,
         PortID id=InvalidPortID) : RequestPort(_name, id) {}
+    /**
+     * @brief Set the ready flag across SPM banks.
+     * @param r Boolean ready state.
+     */
     void setReadyStatus(bool r) { _spmslave->setReadyStatus(r); }
+    /**
+     * @brief Check whether an address range is ready for access.
+     * @param add Target start address.
+     * @param len Access length in bytes.
+     * @param read True if read, false if write.
+     * @return True if accessible, false if blocked.
+     */
     bool canAccess(Addr add, size_t len, bool read) { return _spmslave->canAccess(add, len, read); }
     void bind(Port &peer) override {
         auto *spmslave = dynamic_cast<ScratchpadResponsePort *>(&peer);
@@ -60,6 +91,15 @@ class ScratchpadRequestPort : public RequestPort
 
 #include "params/ScratchpadMemory.hh"
 
+/**
+ * @class ScratchpadMemory
+ * @brief Multi-banked on-chip scratchpad memory SimObject.
+ *
+ * Implements an on-chip SRAM block with multiple access ports (`spm_ports`),
+ * variable response latency, bandwidth regulation, and a serialized response
+ * queue
+ * enforcing head-of-line blocking across ports awaiting retries.
+ */
 class ScratchpadMemory : public AbstractMemory
 {
   protected:
@@ -77,16 +117,38 @@ class ScratchpadMemory : public AbstractMemory
     //   return dynamic_cast<const Params *>(_params);
     // }
     PARAMS(ScratchpadMemory);
+    /**
+     * @brief Construct a new ScratchpadMemory object.
+     * @param p SimObject configuration parameters.
+     */
     ScratchpadMemory(const ScratchpadMemoryParams &p);
+    /**
+     * @brief Check if target address range is ready.
+     * @param ad Target address.
+     * @param size Size in bytes.
+     * @param read True if read operation.
+     * @return True if access is permitted.
+     */
     bool isReady(Addr ad, size_t size, bool read);
+    /**
+     * @brief Core scratchpad access handler executing read/write memory
+     * transactions.
+     * @param pkt Memory packet.
+     * @param validateAccess Whether to enforce ready bit validation.
+     */
     void scratchpadAccess(PacketPtr pkt, bool validateAccess=false);
+    /**
+     * @brief Bulk update ready status for all memory lines.
+     * @param r Target ready state.
+     */
     void setAllReady(bool r);
 
   private:
 
     /**
-     * A deferred packet stores a packet along with its scheduled
-     * transmission time
+     * @class DeferredPacket
+     * @brief Queued response packet awaiting transmission time on a specific
+     * origin port.
      */
     class DeferredPacket
     {
@@ -101,6 +163,10 @@ class ScratchpadMemory : public AbstractMemory
         { }
     };
 
+    /**
+     * @class MemoryPort
+     * @brief ResponsePort connecting scratchpad to system memory crossbar.
+     */
     class MemoryPort : public ResponsePort
     {
       private:
@@ -121,6 +187,11 @@ class ScratchpadMemory : public AbstractMemory
 
     MemoryPort port;
 
+    /**
+     * @class SPMPort
+     * @brief Dedicated accelerator access port supporting ready/valid
+     * handshaking.
+     */
     class SPMPort : public ScratchpadResponsePort
     {
       private:
@@ -213,9 +284,8 @@ class ScratchpadMemory : public AbstractMemory
     // std::vector<Tick> dequeueTick;
 
     /**
-     * Detemine the latency.
-     *
-     * @return the latency seen by the current packet
+     * @brief Compute the total response latency for a packet access.
+     * @return Computed latency in ticks.
      */
     Tick getLatency() const;
 

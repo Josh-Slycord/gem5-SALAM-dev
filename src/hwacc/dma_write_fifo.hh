@@ -1,5 +1,11 @@
 #ifndef __HWACC_DMA_WRITE_FIFO_HH__
 #define __HWACC_DMA_WRITE_FIFO_HH__
+
+/**
+ * @file
+ * @brief DMA write staging FIFO buffer with draining and serialization
+ * support.
+ */
 //------------------------------------------//
 #include "hwacc/LLVMRead/src/debug_flags.hh"
 #include "dev/dma_device.hh"
@@ -8,6 +14,9 @@
 
 using namespace gem5;
 
+/**
+ * @brief Staging FIFO for asynchronous DMA write burst transfers.
+ */
 class DmaWriteFifo : public Drainable, public Serializable
 {
   public:
@@ -34,19 +43,23 @@ class DmaWriteFifo : public Drainable, public Serializable
      * @name FIFO access
      */
     /**
-     * Try to read data from the FIFO.
+     * Check whether the write FIFO has capacity for len bytes.
      *
-     * This method reads len bytes of data from the FIFO and stores
-     * them in the memory location pointed to by dst. The method
-     * fails, and no data is written to the buffer, if the FIFO
-     * doesn't contain enough data to satisfy the request.
-     *
-     * @param dst Pointer to a destination buffer
-     * @param len Amount of data to read.
-     * @return true on success, false otherwise.
+     * @param len Amount of data to write in bytes.
+     * @return true if space is available, false otherwise.
      */
     bool canFill(size_t len);
 
+    /**
+     * Try to write data into the FIFO.
+     *
+     * Writes len bytes from src into the FIFO if sufficient capacity
+     * exists; otherwise leaves the buffer unchanged and returns false.
+     *
+     * @param src Pointer to a source buffer.
+     * @param len Amount of data to write.
+     * @return true on success, false otherwise.
+     */
     bool tryFill(uint8_t *src, size_t len);
 
     template<typename T>
@@ -55,12 +68,12 @@ class DmaWriteFifo : public Drainable, public Serializable
     };
 
     /**
-     * Read data from the FIFO and panic on failure.
+     * Write data into the FIFO and panic on failure.
      *
      * @see tryFill()
      *
-     * @param dst Pointer to a destination buffer
-     * @param len Amount of data to read.
+     * @param src Pointer to a source buffer.
+     * @param len Amount of data to write.
      */
     void fill(uint8_t *src, size_t len);
 
@@ -85,7 +98,7 @@ class DmaWriteFifo : public Drainable, public Serializable
     /**
      * Start filling the FIFO.
      *
-     * @warn It's considered an error to call start on an active DMA
+     * @warning It's considered an error to call start on an active DMA
      * engine unless the last request from the active block has been
      * sent (i.e., atEndOfBlock() is true).
      *

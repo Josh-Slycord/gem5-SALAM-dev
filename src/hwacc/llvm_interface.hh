@@ -1,6 +1,18 @@
 #ifndef __HWACC_LLVM_INTERFACE_HH__
 #define __HWACC_LLVM_INTERFACE_HH__
 
+/**
+ * @file llvm_interface.hh
+ * @brief LLVM IR-driven cycle-accurate hardware accelerator execution engine
+ * for gem5-SALAM.
+ *
+ * LLVMInterface parses LLVM bitcode into a control/data-flow graph (CDFG),
+ * simulates
+ * execution on a cycle-by-cycle basis with configurable functional units,
+ * memory interfaces,
+ * dynamic dependency resolution, and registers native gem5 statistics.
+ */
+
 // C++ Includes
 #include <algorithm>
 #include <chrono>
@@ -43,10 +55,29 @@
 
 class SalamLifecycleTester;
 
+/**
+ * @class LLVMInterface
+ * @brief Primary compute engine executing LLVM IR dataflow graphs on modeled
+ * hardware.
+ *
+ * Inherits from ComputeUnit. On initialization, it reads compiled LLVM bitcode
+ * (.bc)
+ * and constructs static CDFG structures (SALAM::Function, BasicBlock,
+ * Instruction, Value).
+ * During simulation, tick() drives dynamic instruction issue, dependency
+ * tracking,
+ * FU acquisition/release, memory transaction dispatch, and cycle
+ * categorization.
+ */
 class LLVMInterface : public ComputeUnit {
     friend class SalamLifecycleTester;
 
   public:
+    /**
+     * @enum OpClass
+     * @brief High-level classification of operations for accounting and issue
+     * tracking.
+     */
     enum OpClass
     {
         ComputeOp = 0,
@@ -57,6 +88,10 @@ class LLVMInterface : public ComputeUnit {
         NumOpClasses = 5
     };
 
+    /**
+     * @enum CycleCategory
+     * @brief Detailed categorization of each accelerator execution cycle.
+     */
     enum CycleCategory
     {
         IssueCycle = 0,
@@ -75,6 +110,10 @@ class LLVMInterface : public ComputeUnit {
     int cycle;
     int stalls;
 
+    /**
+     * @struct PassEvents
+     * @brief Per-cycle event flags used to classify cycle stalls.
+     */
     struct PassEvents
     {
         bool issued = false;
@@ -83,6 +122,10 @@ class LLVMInterface : public ComputeUnit {
     };
     PassEvents pass;
 
+    /**
+     * @struct ExecStats
+     * @brief Native gem5 statistics group for SALAM accelerator execution.
+     */
     struct ExecStats : public statistics::Group
     {
         ExecStats(LLVMInterface *owner);
@@ -130,6 +173,14 @@ class LLVMInterface : public ComputeUnit {
     std::chrono::high_resolution_clock::time_point timeStart;
 
 
+    /**
+     * @class ActiveFunction
+     * @brief Dynamic activation record managing in-flight execution of an LLVM
+     * function.
+     *
+     * Holds the dynamic reservation queue, active read/write/compute queues,
+     * instruction dynamic dependency resolution, and basic block scheduling.
+     */
     class ActiveFunction {
       friend class LLVMInterface;
     private:
@@ -193,6 +244,12 @@ class LLVMInterface : public ComputeUnit {
           return (computeQueue.find(uid) != computeQueue.end());
         }
     public:
+        /**
+         * @brief Construct an ActiveFunction activation record.
+         * @param _owner Parent LLVMInterface engine.
+         * @param _func Target function to activate.
+         * @param _caller Caller instruction if nested call.
+         */
         ActiveFunction(LLVMInterface * _owner, std::shared_ptr<SALAM::Function> _func,
                        std::shared_ptr<SALAM::Instruction> _caller):
                        owner(_owner), hw(_owner->getHWInterface()), func(_func),
@@ -201,23 +258,70 @@ class LLVMInterface : public ComputeUnit {
                           lockstep = (owner->getLockstepStatus());
                           dbg = owner->debug();
                        }
+        /**
+         * @brief Commit a completed memory read transaction.
+         * @param req Pointer to completed MemoryRequest.
+         */
         void readCommit(MemoryRequest *req);
+        /**
+         * @brief Commit a completed memory write transaction.
+         * @param req Pointer to completed MemoryRequest.
+         */
         void writeCommit(MemoryRequest *req);
+        /**
+         * @brief Resolve dynamic dependencies for an instruction before issue.
+         * @param inst Instruction clone to resolve.
+         */
         void findDynamicDeps(std::shared_ptr<SALAM::Instruction> inst);
+        /**
+         * @brief Schedule all instructions within a basic block into the
+         * reservation queue.
+         * @param bb Target BasicBlock to schedule.
+         */
         void scheduleBB(std::shared_ptr<SALAM::BasicBlock> bb);
+        /**
+         * @brief Process and advance active compute, read, and write queues
+         * for this cycle.
+         */
         void processQueues();
+        /**
+         * @brief Launch function execution by scheduling its entry basic
+         * block.
+         */
         void launch();
+        /**
+         * @brief Check whether all in-flight execution queues are empty.
+         * @return True if read, write, and compute queues are empty.
+         */
         inline bool queuesClear() {
           return readQueue.empty() && writeQueue.empty() && computeQueue.empty();
         }
         inline bool lockstepReady() {
           return !lockstep || queuesClear();
         }
+        /**
+         * @brief Check whether the function has reached a committable return
+         * state.
+         * @return True if queues are clear and head instruction is a return.
+         */
         inline bool canReturn() {
             return queuesClear() && reservation.front()->isReturn();
         }
+        /**
+         * @brief Dispatch an in-flight read instruction to the memory system.
+         * @param readInst Target read instruction.
+         */
         void launchRead(std::shared_ptr<SALAM::Instruction> readInst);
+        /**
+         * @brief Dispatch an in-flight write instruction to the memory system.
+         * @param writeInst Target write instruction.
+         */
         void launchWrite(std::shared_ptr<SALAM::Instruction> writeInst);
+        /**
+         * @brief Check whether this active function instance has completed and
+         * returned.
+         * @return True if returned.
+         */
         bool hasReturned() { return returned; }
     };
 
@@ -236,27 +340,85 @@ class LLVMInterface : public ComputeUnit {
     // virtual bool debug() { return true; }
   public:
     PARAMS(LLVMInterface);
+    /**
+     * @brief Construct a new LLVMInterface object.
+     * @param p SimObject configuration parameters.
+     */
     LLVMInterface(const LLVMInterfaceParams &p);
+    /**
+     * @brief Advance simulation state by one clock cycle.
+     */
     void tick();
+    /**
+     * @brief Parse LLVM bitcode file and construct static CDFG structures.
+     */
     void constructStaticGraph();
     void startup();
+    /**
+     * @brief Initialize accelerator state, reset counters, and prepare queues.
+     */
     void initialize();
+    /**
+     * @brief Teardown accelerator execution, emit statistics, and release
+     * graph nodes.
+     */
     void finalize();
+    /**
+     * @brief Evaluates whether the LLVM execution engine has drained.
+     *
+     * Returns DrainState::Drained when not running and no tick event is
+     * scheduled; otherwise returns DrainState::Draining until
+     * finalize() completes the active invocation and calls
+     * signalDrainDone().
+     *
+     * @return Current gem5 DrainState.
+     */
     DrainState drain() override;
     void debug(uint64_t flags);
     bool getLockstepStatus() { return lockstep; }
     void readCommit(MemoryRequest *req);
     void writeCommit(MemoryRequest *req);
+    /**
+     * @brief Debug helper dumping LLVM module details to stdout.
+     * @param m Pointer to llvm::Module.
+     */
     void dumpModule(llvm::Module *m);
+    /**
+     * @brief Print simulation results, cycle breakdown, and PPA estimates.
+     */
     void printResults();
+    /**
+     * @brief Instantiate and launch an activation record for a function.
+     * @param callee Target function to launch.
+     * @param caller Caller instruction if nested call.
+     */
     void launchFunction(std::shared_ptr<SALAM::Function> callee,
                         std::shared_ptr<SALAM::Instruction> caller);
+    /**
+     * @brief Launch the top-level entry function of the accelerator.
+     */
     void launchTopFunction();
+    /**
+     * @brief Attempt to acquire an FU lease for an instruction.
+     * @param inst Requesting instruction.
+     * @return True if granted; false if denied.
+     */
     bool tryAcquireFU(SALAM::Instruction *inst);
+    /**
+     * @brief Release an FU lease held by an instruction.
+     * @param inst Instruction releasing lease.
+     */
     void releaseFU(SALAM::Instruction *inst);
     void endFunction(ActiveFunction * afunc);
     void launchRead(MemoryRequest * memReq, ActiveFunction * func);
     void launchWrite(MemoryRequest * memReq, ActiveFunction * func);
+    /**
+     * @brief Factory method mapping an llvm::Instruction to a
+     * SALAM::Instruction subclass.
+     * @param inst Pointer to LLVM IR instruction.
+     * @param id Unique value ID.
+     * @return Shared pointer to newly constructed SALAM::Instruction.
+     */
     std::shared_ptr<SALAM::Instruction> createInstruction(llvm::Instruction *inst,
                                                           uint64_t id);
     void dumpQueues();
