@@ -1,3 +1,9 @@
+> **This development fork:** follow the [SALAM contribution and Git
+> workflow](workbench/docs/GIT_WORKFLOW.md). Topic branches and PRs target
+> `Josh-Slycord/gem5-SALAM-dev:main`. The original gem5 upstream guide below is
+> preserved as reference; upstream submission is a separate, explicitly
+> authorized task.
+
 This document serves as a guide to contributing to gem5.
 The following subsections outline, in order, the steps involved in contributing
 to the gem5 project.

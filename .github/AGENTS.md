@@ -1,5 +1,15 @@
 # GitHub Workflow Agent Notes
 
+## SALAM fork entry point
+
+For this fork, `ci.yml` runs Workbench source validation and repository hygiene.
+Imported gem5 workflows remain guarded to `gem5/gem5`; their names do not prove
+simulator CI ran here. Follow `workbench/docs/GIT_WORKFLOW.md`, the PR template
+and the reviewed `salam-git-policy.json`. Keep required check names unique and
+preserve read-only Actions permissions. Repository administration is separate
+from a workflow edit; the local policy tool plans by default and refuses early
+activation before the policy and successful checks exist on remote main.
+
 This directory controls GitHub metadata and Actions workflows. Keep workflow
 changes reviewable and mechanical.
 

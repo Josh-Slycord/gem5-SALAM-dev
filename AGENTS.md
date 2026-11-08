@@ -1,3 +1,13 @@
+# SALAM fork workflow authority
+
+For work in `Josh-Slycord/gem5-SALAM-dev`, read
+`workbench/docs/GIT_WORKFLOW.md`. Create unique topic branches/worktrees from
+this fork main and target PRs here. Preserve legacy and qualified checkpoint
+refs, binaries and receipts. Official repositories are reference sources unless
+Josh authorizes a separate upstream submission. These fork-specific
+branch/target rules supersede the inherited upstream develop/stable directions
+below. Preserve the inherited technical and provenance guidance.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

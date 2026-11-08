@@ -1,8 +1,8 @@
 # CI validation and its limits
 
 The `Workbench source validation` workflow checks the maintained research
-workbench against repository source. Current main has two Linux
-source-validation jobs and one Windows packaging-contract job. None builds
+workbench against repository source. It has two Linux source-validation jobs,
+one repository-hygiene job and one Windows packaging-contract job. None builds
 or runs gem5, creates a simulator build receipt or establishes a runnable
 engine binding.
 
@@ -13,6 +13,7 @@ engine binding.
 | `source-only` | Digest-pinned Ubuntu 20.04, Python 3.8 and the legacy dependency lock | Explicit recorded legacy command profile. Existing source-validation commands are retained. |
 | `source-only-gem5-26` | Digest-pinned Ubuntu 24.04, isolated Python 3.12 venv and `.github/requirements-ci-gem5-26.txt` | Legacy-default command contracts are tested under Python 3.12. A separate generation step then selects the modern profile with explicit CI-local tool paths. |
 | `windows-packaging-contracts` | Windows runner and PowerShell | Syntax and packaging failure controls without Docker or a WSL installation; no fresh-host import, GUI launch or simulator acceptance. |
+| `repository-hygiene` | Ubuntu runner and standard-library Python | Commit/blob artifact checks and their negative controls; no checkout-content or simulator qualification. |
 
 The legacy profile used by unit fixtures is
 `ubuntu20-llvm12-python38-armgcc9`. This preserves assertions about legacy
@@ -23,7 +24,7 @@ build flags. The generator's recorded command must use that selected Python.
 
 The workflow runs for pull requests targeting `main` or `codex/gem5-26-*`,
 pushes to `main`, `codex/ci-workbench-*`, `codex/gem5-26-*`, `codex/wsl2-*`,
-`codex/pr3-*` or `codex/gemini-review-*`, and manual dispatch. Other development
+`codex/pr3-*`, `codex/gemini-review-*` or `codex/git-polish-*`, and manual dispatch. Other development
 branch pushes do not automatically run this workflow. Dependencies
 are installed only on ephemeral GitHub runners. The modern job records the
 actual interpreter, OS, compiler, LLVM version, dependency input hashes and
@@ -63,6 +64,24 @@ The prior source-only fixture result at
 Ubuntu 20.04/Python 3.8/Qt evidence. It does not establish the upgraded tree's
 current test count or its hosted workflow outcome. Read each new Actions run's
 own receipts for those results.
+
+## Repository hygiene and required checks
+
+The `Repository hygiene` job checks the immutable PR base/head (or explicit
+push base/head) and fails if the base cannot be resolved. It examines new or
+changed committed paths and blob metadata, including renames and files forced
+past ignore rules. Known local output locations, compiled/cache payloads and
+oversized blobs are rejected without reading unrelated untracked contents.
+Required generated source and deterministic test fixtures remain permitted.
+Its temporary-Git tests include intentional artifact rejection and missing-base
+controls. The local staged hook checks the index; CI checks commit objects.
+
+The [fork Git workflow](../workbench/docs/GIT_WORKFLOW.md) and
+[protection policy](../.github/salam-git-policy.json) distinguish check names
+from workflow titles. The policy tool defaults to a read-only plan. Applying
+it requires the reviewed policy to be on remote main and every declared check
+to have succeeded there. Adding a job to this PR does not itself activate a
+GitHub required check. Real simulator acceptance remains a separate gate.
 
 ## Fork boundaries and historical workflows
 

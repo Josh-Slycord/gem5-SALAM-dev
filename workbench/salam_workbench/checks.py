@@ -21,6 +21,9 @@ from .toolchain_profile import require_legacy_harness
 PROJECT = Path(__file__).resolve().parents[1]
 TIERS = ("fast", "config", "gui", "collector", "gemm")
 FAST_MODULES = (
+    "test_repository_hygiene",
+    "test_git_status",
+    "test_git_policy",
     "test_benchmark_oracles",
     "test_execution_visualizer",
     "test_timeline_export",
