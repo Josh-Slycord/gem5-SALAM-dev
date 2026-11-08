@@ -30,6 +30,21 @@ Core Headers (src/hwacc/)
 .. doxygenfile:: compute_unit.hh
    :sections: briefdescription
 
+.. doxygenfile:: fu_scheduling_pool.hh
+   :sections: briefdescription
+
+.. doxygenfile:: workbench_statistics.hh
+   :sections: briefdescription
+
+.. doxygenfile:: float_bits.hh
+   :sections: briefdescription
+
+.. doxygenfile:: native_helpers.hh
+   :sections: briefdescription
+
+.. doxygenfile:: data_collection.hh
+   :sections: briefdescription
+
 .. doxygenfile:: io_acc.hh
    :sections: briefdescription
 
@@ -42,8 +57,11 @@ Memory Headers
 .. doxygenfile:: register_bank.hh
    :sections: briefdescription
 
-DMA Headers
------------
+.. doxygenfile:: response_queue.hh
+   :sections: briefdescription
+
+DMA & Streaming Headers
+-----------------------
 
 .. doxygenfile:: noncoherent_dma.hh
    :sections: briefdescription
@@ -54,11 +72,14 @@ DMA Headers
 .. doxygenfile:: stream_buffer.hh
    :sections: briefdescription
 
+.. doxygenfile:: stream_port.hh
+   :sections: briefdescription
+
 .. doxygenfile:: dma_write_fifo.hh
    :sections: briefdescription
 
-LLVMRead Headers (src/hwacc/LLVMRead/include/)
-----------------------------------------------
+LLVMRead Headers (src/hwacc/LLVMRead/src/)
+------------------------------------------
 
 .. doxygenfile:: instruction.hh
    :sections: briefdescription
@@ -75,8 +96,20 @@ LLVMRead Headers (src/hwacc/LLVMRead/include/)
 .. doxygenfile:: operand.hh
    :sections: briefdescription
 
-HWModeling Headers (src/hwacc/HWModeling/include/)
---------------------------------------------------
+.. doxygenfile:: registers.hh
+   :sections: briefdescription
+
+.. doxygenfile:: mem_request.hh
+   :sections: briefdescription
+
+.. doxygenfile:: ir_parse.hh
+   :sections: briefdescription
+
+.. doxygenfile:: debug_flags.hh
+   :sections: briefdescription
+
+HWModeling Headers (src/hwacc/HWModeling/src/)
+----------------------------------------------
 
 .. doxygenfile:: hw_interface.hh
    :sections: briefdescription
@@ -88,6 +121,30 @@ HWModeling Headers (src/hwacc/HWModeling/include/)
    :sections: briefdescription
 
 .. doxygenfile:: hw_statistics.hh
+   :sections: briefdescription
+
+.. doxygenfile:: instruction_config.hh
+   :sections: briefdescription
+
+.. doxygenfile:: opcodes.hh
+   :sections: briefdescription
+
+.. doxygenfile:: salam_power_model.hh
+   :sections: briefdescription
+
+.. doxygenfile:: simulator_config.hh
+   :sections: briefdescription
+
+.. doxygenfile:: cacti_wrapper.hh
+   :sections: briefdescription
+
+Verification Headers (src/hwacc/tests/)
+---------------------------------------
+
+.. doxygenfile:: lifecycle_tester.hh
+   :sections: briefdescription
+
+.. doxygenfile:: register_bank_tester.hh
    :sections: briefdescription
 
 All Files

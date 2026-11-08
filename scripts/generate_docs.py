@@ -402,13 +402,13 @@ th {
             subprocess.run(["sphinx-build", "--version"],
                          capture_output=True, check=True)
             self._generate_sphinx_docs(python_doc_dir)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, OSError):
             print("  Sphinx not found, using built-in generator...")
             self._generate_simple_python_docs(python_doc_dir)
 
     def _generate_sphinx_docs(self, output_dir: Path):
         """Generate docs using Sphinx."""
-        sphinx_dir = self.project_root / "docs" / "_sphinx"
+        sphinx_dir = self.docs_dir / "_sphinx"
         sphinx_dir.mkdir(exist_ok=True)
 
         # Create conf.py
@@ -655,20 +655,22 @@ Indices and tables
             subprocess.run(["doxygen", "--version"],
                          capture_output=True, check=True)
             self._generate_doxygen_docs(cpp_doc_dir)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, OSError):
             print("  Doxygen not found, generating simple C++ docs...")
             self._generate_simple_cpp_docs(cpp_doc_dir)
 
     def _generate_doxygen_docs(self, output_dir: Path):
         """Generate docs using Doxygen."""
-        doxyfile = self.project_root / "Doxyfile"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        hwacc_dir = self.project_root / "src" / "hwacc"
+        input_dir = hwacc_dir if hwacc_dir.exists() else (self.project_root / "src")
 
-        # Create Doxyfile
+        # Pass Doxygen configuration via stdin so the repository root stays clean
         doxyfile_content = f"""
 PROJECT_NAME           = "gem5-SALAM"
 PROJECT_BRIEF          = "System-level Architecture for Modeling Hardware Accelerators"
 OUTPUT_DIRECTORY       = {output_dir}
-INPUT                  = {self.project_root / "src"}
+INPUT                  = {input_dir}
 FILE_PATTERNS          = *.hh *.cc *.h *.cpp
 RECURSIVE              = YES
 GENERATE_HTML          = YES
@@ -680,12 +682,13 @@ EXTRACT_STATIC         = YES
 SOURCE_BROWSER         = YES
 INLINE_SOURCES         = NO
 GENERATE_TREEVIEW      = YES
+PREDEFINED             = "DPRINTF(x,...)=" "DPRINTFS(x,y,...)=" "PARAMS(x)="
 """
-        doxyfile.write_text(doxyfile_content)
 
         # Run Doxygen
         result = subprocess.run(
-            ["doxygen", str(doxyfile)],
+            ["doxygen", "-"],
+            input=doxyfile_content.encode("utf-8"),
             cwd=self.project_root,
             capture_output=True
         )
@@ -698,17 +701,18 @@ GENERATE_TREEVIEW      = YES
 
     def _generate_simple_cpp_docs(self, output_dir: Path):
         """Generate simple C++ documentation without Doxygen."""
-        src_dir = self.project_root / "src"
+        hwacc_dir = self.project_root / "src" / "hwacc"
+        src_dir = hwacc_dir if hwacc_dir.exists() else (self.project_root / "src")
 
         if not src_dir.exists():
             print("  No src/ directory found, skipping C++ docs")
             self._create_placeholder_cpp_index(output_dir)
             return
 
-        headers = list(src_dir.rglob("*.hh")) + list(src_dir.rglob("*.h"))
+        headers = sorted(list(src_dir.rglob("*.hh")) + list(src_dir.rglob("*.h")))
 
         docs = []
-        for header in headers[:50]:  # Limit to first 50
+        for header in headers:
             try:
                 content = header.read_text(encoding='utf-8', errors='ignore')
                 doc = self._extract_cpp_docs(header, content)

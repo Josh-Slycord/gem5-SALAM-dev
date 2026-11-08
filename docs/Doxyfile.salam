@@ -61,7 +61,7 @@ HIDE_IN_BODY_DOCS      = NO
 
 # Inheritance and collaboration graphs
 HAVE_DOT               = YES
-CLASS_DIAGRAMS         = YES
+# CLASS_DIAGRAMS         = YES
 COLLABORATION_GRAPH    = YES
 INCLUDE_GRAPH          = YES
 INCLUDED_BY_GRAPH      = YES
@@ -107,13 +107,16 @@ MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = NO
 SEARCH_INCLUDES        = YES
 INCLUDE_PATH           = src/hwacc \
-                         src/hwacc/LLVMRead/include \
-                         src/hwacc/HWModeling/include
+                         src/hwacc/LLVMRead/src \
+                         src/hwacc/HWModeling/src \
+                         src/hwacc/common/src \
+                         src/hwacc/tests
 
 # Predefined macros for gem5 compatibility
 PREDEFINED             = "DPRINTF(x,...)=" \
                          "DPRINTFS(x,y,...)=" \
                          "DPRINTF_UNCONDITIONAL(x,...)=" \
+                         "PARAMS(x)=" \
                          "panic(...)=" \
                          "fatal(...)=" \
                          "warn(...)=" \
@@ -189,8 +192,8 @@ IGNORE_PREFIX          =
 #---------------------------------------------------------------------------
 
 DOT_NUM_THREADS        = 0
-DOT_FONTNAME           = Helvetica
-DOT_FONTSIZE           = 10
+# DOT_FONTNAME           = Helvetica
+# DOT_FONTSIZE           = 10
 DOT_FONTPATH           =
 CLASS_GRAPH            = YES
 GROUP_GRAPHS           = YES
@@ -199,7 +202,7 @@ UML_LIMIT_NUM_FIELDS   = 10
 TEMPLATE_RELATIONS     = YES
 DOT_GRAPH_MAX_NODES    = 100
 MAX_DOT_GRAPH_DEPTH    = 0
-DOT_TRANSPARENT        = NO
+# DOT_TRANSPARENT        = NO
 DOT_MULTI_TARGETS      = YES
 GENERATE_LEGEND        = YES
 DOT_CLEANUP            = YES
