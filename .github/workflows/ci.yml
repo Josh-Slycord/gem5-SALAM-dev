@@ -2,7 +2,7 @@ name: Workbench source validation
 
 on:
   push:
-    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*', 'codex/wsl2-*', 'codex/pr3-*', 'codex/gemini-review-*']
+    branches: [main, 'codex/ci-workbench-*', 'codex/gem5-26-*', 'codex/wsl2-*', 'codex/pr3-*', 'codex/gemini-review-*', 'codex/git-polish-*']
   pull_request:
     branches: [main, 'codex/gem5-26-*']
   workflow_dispatch:
@@ -11,6 +11,45 @@ permissions:
   contents: read
 
 jobs:
+  repository-hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+      PYTHONPATH: workbench
+    steps:
+      - name: Check out the exact candidate with comparison history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check changed Git objects for local artifacts
+        run: |
+          set -euo pipefail
+          python3 -B workbench/salam_workbench/repository_hygiene.py \
+            --repo "$GITHUB_WORKSPACE" --github-event "$GITHUB_EVENT_PATH" \
+            --event-name "$GITHUB_EVENT_NAME" --current-sha "$GITHUB_SHA" \
+            --report workbench/evidence/ci/repository-hygiene.json
+
+      - name: Exercise policy with real temporary Git repositories
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s workbench/tests \
+            -p test_repository_hygiene.py -v
+
+      - name: Upload repository-hygiene metadata
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: repository-hygiene
+          path: workbench/evidence/ci/repository-hygiene.json
+          if-no-files-found: warn
+          retention-days: 14
+
   source-only:
     name: Python contracts and SALAM source generation
     runs-on: ubuntu-latest

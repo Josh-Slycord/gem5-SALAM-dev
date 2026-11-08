@@ -1,3 +1,6 @@
+Contributing to this fork: [SALAM Git workflow](workbench/docs/GIT_WORKFLOW.md)
+· [Read-only Git status](workbench/docs/GIT_WORKFLOW.md#read-only-status).
+
 > **Modern main:** this fork uses gem5 v26.0.0.0 with the retained SALAM
 > model. Use the explicit modern toolchain and verified external runtime
 > described in the [setup and migration guide](workbench/docs/GEM5_26_UPGRADE.md).

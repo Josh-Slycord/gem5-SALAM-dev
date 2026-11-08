@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-11-07",
+  "repository": "Josh-Slycord/gem5-SALAM-dev",
+  "description": "Authored roles. Live Git state and qualification receipts remain separate evidence.",
+  "branches": {
+    "main": {
+      "role": "active",
+      "description": "Current gem5 26 integration branch; topics and PRs start here."
+    },
+    "legacy/gem5-21.1-workbench-20261107": {
+      "role": "legacy",
+      "expected_sha": "48fe84fa2f1c52e95fbc2382d62f26013fa78cd7",
+      "description": "Preserved gem5 21.1.0.1 source."
+    },
+    "codex/track-ab-integration-20261106": {
+      "role": "checkpoint",
+      "expected_sha": "1f4e6225dc04d305bdf2a2be424fab029d471d4e",
+      "description": "Qualification record checkpoint; tested implementation is identified in its receipts."
+    },
+    "codex/simobject-lifecycle-20261107": {
+      "role": "checkpoint",
+      "expected_sha": "81cb2734f0faa96d24dde4a970c8dc82a77ff38d",
+      "description": "Preserved lifecycle source and attribution checkpoint."
+    },
+    "codex/gem5-26-upgrade": {
+      "role": "merged_topic",
+      "description": "Merged through PR2; similarly named older local branch may remain behind."
+    },
+    "codex/main-consolidation-20261107": {
+      "role": "merged_topic",
+      "description": "Tested PR2 source bookmark, preserved after main merge."
+    },
+    "gemini/track-b-20261105": {
+      "role": "selective_input",
+      "description": "Original handoff; selected changes integrated with repairs, not a wholesale ancestry merge."
+    }
+  },
+  "tags": {
+    "gem5-26-checkpoint-20261105": {
+      "role": "checkpoint",
+      "expected_object_sha": "38c99ba353116039cd72e2d3c225304f93a3ce44"
+    },
+    "gem5-26-integration-checkpoint-20261105": {
+      "role": "checkpoint",
+      "expected_object_sha": "43cb531d14a46bb5694cbc601e0241fa3295b836"
+    }
+  }
+}

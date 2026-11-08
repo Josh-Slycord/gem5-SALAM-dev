@@ -3,7 +3,7 @@
 # Historical source, generated files and vendor style remain outside formatting.
 minimum_pre_commit_version: '3.5.0'
 
-files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh|(?:configs/SALAM/[^/]+|SALAM-Configurator/[^/]+|tools/SALAM-Configurator/[^/]+|src/hwacc/[^/]+|src/hwacc/tests/[^/]+)\.py)$'
+files: '^(?:README[.]md|CONTRIBUTING[.]md|AGENTS[.]md|[.]gitignore|[.]github/(?:PULL_REQUEST_TEMPLATE[.]md|salam-git-policy[.]json)|workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh|(?:configs/SALAM/[^/]+|SALAM-Configurator/[^/]+|tools/SALAM-Configurator/[^/]+|src/hwacc/[^/]+|src/hwacc/tests/[^/]+)\.py)$'
 exclude: '^workbench/(salam_workbench/vendor/|experiments/regression/overlays/|docs/patches/|docs/ci/legacy-)'
 
 repos:
@@ -15,6 +15,14 @@ repos:
         language: system
         stages: [commit-msg]
         always_run: true
+
+      - id: salam-repository-hygiene
+        name: Reject staged SALAM runtime artifacts
+        entry: python3 workbench/salam_workbench/repository_hygiene.py --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
 
       - id: salam-python-syntax
         name: Parse SALAM configurations and SimObjects
@@ -49,7 +57,7 @@ repos:
         entry: check-json
         language: system
         types: [json]
-        files: '^workbench/(experiments|docs/planning)/.*\.json$'
+        files: '^(?:workbench/(experiments|docs/planning)/.*[.]json|workbench/docs/git-roles[.]json|[.]github/salam-git-policy[.]json)$'
 
       - id: workbench-yaml-syntax
         name: Parse maintained CI and experiment YAML
@@ -71,7 +79,7 @@ repos:
         entry: end-of-file-fixer
         language: system
         types: [text]
-        files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
+        files: '^(?:README[.]md|CONTRIBUTING[.]md|AGENTS[.]md|[.]gitignore|[.]github/(?:PULL_REQUEST_TEMPLATE[.]md|salam-git-policy[.]json)|workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
 
       - id: maintained-trailing-whitespace
         name: No accidental trailing whitespace in maintained text
@@ -79,7 +87,7 @@ repos:
         args: [--markdown-linebreak-ext=md]
         language: system
         types: [text]
-        files: '^(?:workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
+        files: '^(?:README[.]md|CONTRIBUTING[.]md|AGENTS[.]md|[.]gitignore|[.]github/(?:PULL_REQUEST_TEMPLATE[.]md|salam-git-policy[.]json)|workbench/(?:(?:salam_workbench|tests|scripts|visualizer|experiments|docs)/.+|README\.md|requirements[^/]*\.txt|workbench\.ps1|pyproject\.toml)|\.github/(?:workflows/ci\.yml|requirements-ci(?:-gem5-26)?\.txt)|\.pre-commit-config\.yaml|docker/.+|docs/CI\.md|util/pre-commit-install\.sh)$'
 
       - id: maintained-line-endings
         name: LF line endings in maintained Python and new CI files
