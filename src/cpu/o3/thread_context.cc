@@ -41,8 +41,6 @@
 
 #include "cpu/o3/thread_context.hh"
 
-#include "arch/vecregs.hh"
-#include "config/the_isa.hh"
 #include "debug/O3CPU.hh"
 
 namespace gem5
@@ -51,12 +49,6 @@ namespace gem5
 namespace o3
 {
 
-PortProxy&
-ThreadContext::getVirtProxy()
-{
-    return thread->getVirtProxy();
-}
-
 void
 ThreadContext::takeOverFrom(gem5::ThreadContext *old_context)
 {
@@ -64,8 +56,8 @@ ThreadContext::takeOverFrom(gem5::ThreadContext *old_context)
 
     getIsaPtr()->takeOverFrom(this, old_context);
 
-    TheISA::Decoder *newDecoder = getDecoderPtr();
-    TheISA::Decoder *oldDecoder = old_context->getDecoderPtr();
+    InstDecoder *newDecoder = getDecoderPtr();
+    InstDecoder *oldDecoder = old_context->getDecoderPtr();
     newDecoder->takeOverFrom(oldDecoder);
 
     thread->noSquashFromTC = false;
@@ -143,9 +135,6 @@ ThreadContext::readLastSuspend()
 void
 ThreadContext::copyArchRegs(gem5::ThreadContext *tc)
 {
-    // Set vector renaming mode before copying registers
-    cpu->vecRenameMode(tc->getIsaPtr()->vecRegRenameMode(tc));
-
     // Prevent squashing
     thread->noSquashFromTC = true;
     getIsaPtr()->copyRegsFrom(tc);
@@ -159,105 +148,39 @@ ThreadContext::clearArchRegs()
 }
 
 RegVal
-ThreadContext::readIntRegFlat(RegIndex reg_idx) const
+ThreadContext::getReg(const RegId &reg) const
 {
-    return cpu->readArchIntReg(reg_idx, thread->threadId());
+    return cpu->getArchReg(reg, thread->threadId());
 }
 
-RegVal
-ThreadContext::readFloatRegFlat(RegIndex reg_idx) const
+void *
+ThreadContext::getWritableReg(const RegId &reg)
 {
-    return cpu->readArchFloatReg(reg_idx, thread->threadId());
-}
-
-const TheISA::VecRegContainer&
-ThreadContext::readVecRegFlat(RegIndex reg_id) const
-{
-    return cpu->readArchVecReg(reg_id, thread->threadId());
-}
-
-TheISA::VecRegContainer&
-ThreadContext::getWritableVecRegFlat(RegIndex reg_id)
-{
-    return cpu->getWritableArchVecReg(reg_id, thread->threadId());
-}
-
-const TheISA::VecElem&
-ThreadContext::readVecElemFlat(RegIndex idx, const ElemIndex& elemIndex) const
-{
-    return cpu->readArchVecElem(idx, elemIndex, thread->threadId());
-}
-
-const TheISA::VecPredRegContainer&
-ThreadContext::readVecPredRegFlat(RegIndex reg_id) const
-{
-    return cpu->readArchVecPredReg(reg_id, thread->threadId());
-}
-
-TheISA::VecPredRegContainer&
-ThreadContext::getWritableVecPredRegFlat(RegIndex reg_id)
-{
-    return cpu->getWritableArchVecPredReg(reg_id, thread->threadId());
-}
-
-RegVal
-ThreadContext::readCCRegFlat(RegIndex reg_idx) const
-{
-    return cpu->readArchCCReg(reg_idx, thread->threadId());
+    return cpu->getWritableArchReg(reg, thread->threadId());
 }
 
 void
-ThreadContext::setIntRegFlat(RegIndex reg_idx, RegVal val)
+ThreadContext::getReg(const RegId &reg, void *val) const
 {
-    cpu->setArchIntReg(reg_idx, val, thread->threadId());
+    cpu->getArchReg(reg, val, thread->threadId());
+}
 
+void
+ThreadContext::setReg(const RegId &reg, RegVal val)
+{
+    cpu->setArchReg(reg, val, thread->threadId());
     conditionalSquash();
 }
 
 void
-ThreadContext::setFloatRegFlat(RegIndex reg_idx, RegVal val)
+ThreadContext::setReg(const RegId &reg, const void *val)
 {
-    cpu->setArchFloatReg(reg_idx, val, thread->threadId());
-
+    cpu->setArchReg(reg, val, thread->threadId());
     conditionalSquash();
 }
 
 void
-ThreadContext::setVecRegFlat(
-        RegIndex reg_idx, const TheISA::VecRegContainer& val)
-{
-    cpu->setArchVecReg(reg_idx, val, thread->threadId());
-
-    conditionalSquash();
-}
-
-void
-ThreadContext::setVecElemFlat(RegIndex idx,
-        const ElemIndex& elemIndex, const TheISA::VecElem& val)
-{
-    cpu->setArchVecElem(idx, elemIndex, val, thread->threadId());
-    conditionalSquash();
-}
-
-void
-ThreadContext::setVecPredRegFlat(RegIndex reg_idx,
-        const TheISA::VecPredRegContainer& val)
-{
-    cpu->setArchVecPredReg(reg_idx, val, thread->threadId());
-
-    conditionalSquash();
-}
-
-void
-ThreadContext::setCCRegFlat(RegIndex reg_idx, RegVal val)
-{
-    cpu->setArchCCReg(reg_idx, val, thread->threadId());
-
-    conditionalSquash();
-}
-
-void
-ThreadContext::pcState(const TheISA::PCState &val)
+ThreadContext::pcState(const PCStateBase &val)
 {
     cpu->pcState(val, thread->threadId());
 
@@ -265,17 +188,11 @@ ThreadContext::pcState(const TheISA::PCState &val)
 }
 
 void
-ThreadContext::pcStateNoRecord(const TheISA::PCState &val)
+ThreadContext::pcStateNoRecord(const PCStateBase &val)
 {
     cpu->pcState(val, thread->threadId());
 
     conditionalSquash();
-}
-
-RegId
-ThreadContext::flattenRegId(const RegId& regId) const
-{
-    return cpu->isa[thread->threadId()]->flattenRegId(regId);
 }
 
 void

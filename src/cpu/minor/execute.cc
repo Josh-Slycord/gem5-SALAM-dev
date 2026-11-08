@@ -39,7 +39,6 @@
 
 #include <functional>
 
-#include "arch/locked_mem.hh"
 #include "cpu/minor/cpu.hh"
 #include "cpu/minor/exec_context.hh"
 #include "cpu/minor/fetch1.hh"
@@ -58,46 +57,40 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
-Execute::Execute(const std::string &name_,
-    MinorCPU &cpu_,
-    const MinorCPUParams &params,
-    Latch<ForwardInstData>::Output inp_,
-    Latch<BranchData>::Input out_) :
-    Named(name_),
-    inp(inp_),
-    out(out_),
-    cpu(cpu_),
-    zeroReg(cpu.threads[0]->getIsaPtr()->regClasses().
-        at(IntRegClass).zeroReg()),
-    issueLimit(params.executeIssueLimit),
-    memoryIssueLimit(params.executeMemoryIssueLimit),
-    commitLimit(params.executeCommitLimit),
-    memoryCommitLimit(params.executeMemoryCommitLimit),
-    processMoreThanOneInput(params.executeCycleInput),
-    fuDescriptions(*params.executeFuncUnits),
-    numFuncUnits(fuDescriptions.funcUnits.size()),
-    setTraceTimeOnCommit(params.executeSetTraceTimeOnCommit),
-    setTraceTimeOnIssue(params.executeSetTraceTimeOnIssue),
-    allowEarlyMemIssue(params.executeAllowEarlyMemoryIssue),
-    noCostFUIndex(fuDescriptions.funcUnits.size() + 1),
-    lsq(name_ + ".lsq", name_ + ".dcache_port",
-        cpu_, *this,
-        params.executeMaxAccessesInMemory,
-        params.executeMemoryWidth,
-        params.executeLSQRequestsQueueSize,
-        params.executeLSQTransfersQueueSize,
-        params.executeLSQStoreBufferSize,
-        params.executeLSQMaxStoreBufferStoresPerCycle,
-        zeroReg),
-    executeInfo(params.numThreads,
-            ExecuteThreadInfo(params.executeCommitLimit)),
-    interruptPriority(0),
-    issuePriority(0),
-    commitPriority(0)
+Execute::Execute(const std::string &name_, MinorCPU &cpu_,
+                 const BaseMinorCPUParams &params,
+                 Latch<ForwardInstData>::Output inp_,
+                 Latch<BranchData>::Input out_)
+    : Named(name_),
+      inp(inp_),
+      out(out_),
+      cpu(cpu_),
+      issueLimit(params.executeIssueLimit),
+      memoryIssueLimit(params.executeMemoryIssueLimit),
+      commitLimit(params.executeCommitLimit),
+      memoryCommitLimit(params.executeMemoryCommitLimit),
+      processMoreThanOneInput(params.executeCycleInput),
+      fuDescriptions(*params.executeFuncUnits),
+      numFuncUnits(fuDescriptions.funcUnits.size()),
+      setTraceTimeOnCommit(params.executeSetTraceTimeOnCommit),
+      setTraceTimeOnIssue(params.executeSetTraceTimeOnIssue),
+      allowEarlyMemIssue(params.executeAllowEarlyMemoryIssue),
+      noCostFUIndex(fuDescriptions.funcUnits.size() + 1),
+      lsq(name_ + ".lsq", name_ + ".dcache_port", cpu_, *this,
+          params.executeMaxAccessesInMemory, params.executeMemoryWidth,
+          params.executeLSQRequestsQueueSize,
+          params.executeLSQTransfersQueueSize,
+          params.executeLSQStoreBufferSize,
+          params.executeLSQMaxStoreBufferStoresPerCycle),
+      executeInfo(params.numThreads,
+                  ExecuteThreadInfo(params.executeCommitLimit)),
+      interruptPriority(0),
+      issuePriority(0),
+      commitPriority(0),
+      issueStats(&cpu_)
 {
     if (commitLimit < 1) {
         fatal("%s: executeCommitLimit must be >= 1 (%d)\n", name_,
@@ -225,8 +218,8 @@ void
 Execute::tryToBranch(MinorDynInstPtr inst, Fault fault, BranchData &branch)
 {
     ThreadContext *thread = cpu.getContext(inst->id.threadId);
-    const TheISA::PCState &pc_before = inst->pc;
-    TheISA::PCState target = thread->pcState();
+    const std::unique_ptr<PCStateBase> pc_before(inst->pc->clone());
+    std::unique_ptr<PCStateBase> target(thread->pcState().clone());
 
     /* Force a branch for SerializeAfter/SquashAfter instructions
      * at the end of micro-op sequence when we're not suspended */
@@ -237,10 +230,10 @@ Execute::tryToBranch(MinorDynInstPtr inst, Fault fault, BranchData &branch)
          inst->staticInst->isSquashAfter());
 
     DPRINTF(Branch, "tryToBranch before: %s after: %s%s\n",
-        pc_before, target, (force_branch ? " (forcing)" : ""));
+        *pc_before, *target, (force_branch ? " (forcing)" : ""));
 
     /* Will we change the PC to something other than the next instruction? */
-    bool must_branch = pc_before != target ||
+    bool must_branch = *pc_before != *target ||
         fault != NoFault ||
         force_branch;
 
@@ -248,11 +241,11 @@ Execute::tryToBranch(MinorDynInstPtr inst, Fault fault, BranchData &branch)
     BranchData::Reason reason = BranchData::NoBranch;
 
     if (fault == NoFault) {
-        inst->staticInst->advancePC(target);
-        thread->pcState(target);
+        inst->staticInst->advancePC(*target);
+        thread->pcState(*target);
 
         DPRINTF(Branch, "Advancing current PC from: %s to: %s\n",
-            pc_before, target);
+            *pc_before, *target);
     }
 
     if (inst->predictedTaken && !force_branch) {
@@ -262,32 +255,37 @@ Execute::tryToBranch(MinorDynInstPtr inst, Fault fault, BranchData &branch)
              *  intended PC value */
             DPRINTF(Branch, "Predicted a branch from 0x%x to 0x%x but"
                 " none happened inst: %s\n",
-                inst->pc.instAddr(), inst->predictedTarget.instAddr(), *inst);
+                inst->pc->instAddr(), inst->predictedTarget->instAddr(),
+                *inst);
 
             reason = BranchData::BadlyPredictedBranch;
-        } else if (inst->predictedTarget == target) {
-            /* Branch prediction got the right target, kill the branch and
-             *  carry on.
-             *  Note that this information to the branch predictor might get
-             *  overwritten by a "real" branch during this cycle */
+        } else if (inst->predictedTarget->fullEquals(*target)) {
+            /* Address *and* ISA extras (RVV vl/vtype, ...) match. Using
+             * fullEquals rather than == / equals(): RISC-V equals()
+             * ignores vl when new_vconf is false (#1709). A predicted
+             * taken loop branch clones the branch PCState, so the
+             * address can be right while vl is stale; treating that as
+             * CorrectlyPredictedBranch skips the stream change and
+             * leaves Minor's decoder on the old vl (#2742). */
             DPRINTF(Branch, "Predicted a branch from 0x%x to 0x%x correctly"
                 " inst: %s\n",
-                inst->pc.instAddr(), inst->predictedTarget.instAddr(), *inst);
+                inst->pc->instAddr(), inst->predictedTarget->instAddr(),
+                *inst);
 
             reason = BranchData::CorrectlyPredictedBranch;
         } else {
             /* Branch prediction got the wrong target */
             DPRINTF(Branch, "Predicted a branch from 0x%x to 0x%x"
                     " but got the wrong target (actual: 0x%x) inst: %s\n",
-                    inst->pc.instAddr(), inst->predictedTarget.instAddr(),
-                    target.instAddr(), *inst);
+                    inst->pc->instAddr(), inst->predictedTarget->instAddr(),
+                    target->instAddr(), *inst);
 
             reason = BranchData::BadlyPredictedBranchTarget;
         }
     } else if (must_branch) {
         /* Unpredicted branch */
         DPRINTF(Branch, "Unpredicted branch from 0x%x to 0x%x inst: %s\n",
-            inst->pc.instAddr(), target.instAddr(), *inst);
+            inst->pc->instAddr(), target->instAddr(), *inst);
 
         reason = BranchData::UnpredictedBranch;
     } else {
@@ -295,14 +293,14 @@ Execute::tryToBranch(MinorDynInstPtr inst, Fault fault, BranchData &branch)
         reason = BranchData::NoBranch;
     }
 
-    updateBranchData(inst->id.threadId, reason, inst, target, branch);
+    updateBranchData(inst->id.threadId, reason, inst, *target, branch);
 }
 
 void
 Execute::updateBranchData(
     ThreadID tid,
     BranchData::Reason reason,
-    MinorDynInstPtr inst, const TheISA::PCState &target,
+    MinorDynInstPtr inst, const PCStateBase &target,
     BranchData &branch)
 {
     if (reason != BranchData::NoBranch) {
@@ -331,7 +329,7 @@ Execute::handleMemResponse(MinorDynInstPtr inst,
     ThreadID thread_id = inst->id.threadId;
     ThreadContext *thread = cpu.getContext(thread_id);
 
-    ExecContext context(cpu, *cpu.threads[thread_id], *this, inst, zeroReg);
+    ExecContext context(cpu, *cpu.threads[thread_id], *this, inst);
 
     PacketPtr packet = response->packet;
 
@@ -409,8 +407,6 @@ Execute::handleMemResponse(MinorDynInstPtr inst,
             context.readPredicate() : false));
     }
 
-    doInstCommitAccounting(inst);
-
     /* Generate output to account for branches */
     tryToBranch(inst, fault, branch);
 }
@@ -464,10 +460,9 @@ Execute::executeMemRefInst(MinorDynInstPtr inst, BranchData &branch,
         issued = false;
     } else {
         ThreadContext *thread = cpu.getContext(inst->id.threadId);
-        TheISA::PCState old_pc = thread->pcState();
+        std::unique_ptr<PCStateBase> old_pc(thread->pcState().clone());
 
-        ExecContext context(cpu, *cpu.threads[inst->id.threadId],
-            *this, inst, zeroReg);
+        ExecContext context(cpu, *cpu.threads[inst->id.threadId], *this, inst);
 
         DPRINTF(MinorExecute, "Initiating memRef inst: %s\n", *inst);
 
@@ -516,7 +511,7 @@ Execute::executeMemRefInst(MinorDynInstPtr inst, BranchData &branch,
         }
 
         /* Restore thread PC */
-        thread->pcState(old_pc);
+        thread->pcState(*old_pc);
         issued = true;
     }
 
@@ -571,10 +566,6 @@ Execute::issue(ThreadID thread_id)
 
     /* Number of memory ops issues this cycle to check for memoryIssueLimit */
     unsigned num_mem_insts_issued = 0;
-
-    /* Number of instructions discarded this cycle in order to enforce a
-     *  discardLimit. @todo, add that parameter? */
-    unsigned num_insts_discarded = 0;
 
     do {
         MinorDynInstPtr inst = insts_in->insts[thread.inputIndex];
@@ -690,7 +681,19 @@ Execute::issue(ThreadID thread_id)
                         DPRINTF(MinorExecute, "Issuing inst: %s"
                             " into FU %d\n", *inst,
                             fu_index);
-
+                        // Update ALU access stats.
+                        if (!inst->isFault()) {
+                            auto tid = thread_id;
+                            if (inst->staticInst->isInteger()) {
+                                cpu.executeStats[tid]->numIntAluAccesses++;
+                            }
+                            if (inst->staticInst->isFloating()) {
+                                cpu.executeStats[tid]->numFpAluAccesses++;
+                            }
+                            if (inst->staticInst->isVector()) {
+                                cpu.executeStats[tid]->numVecAluAccesses++;
+                            }
+                        }
                         Cycles extra_dest_retire_lat = Cycles(0);
                         TimingExpr *extra_dest_retire_lat_expr = NULL;
                         Cycles extra_assumed_lat = Cycles(0);
@@ -752,6 +755,12 @@ Execute::issue(ThreadID thread_id)
                             thread.inFUMemInsts->push(fu_inst);
                         }
 
+                        /* Update the # of insts. issued per OpClass type */
+                        if (!inst->isFault()) {
+                            auto opclass = inst->staticInst->opClass();
+                            issueStats.issuedInstType[thread_id][opclass]++;
+                        }
+
                         /* Issue to FU */
                         fu->push(fu_inst);
                         /* And start the countdown on activity to allow
@@ -786,8 +795,7 @@ Execute::issue(ThreadID thread_id)
             /* Generate MinorTrace's MinorInst lines.  Do this at commit
              *  to allow better instruction annotation? */
             if (debug::MinorTrace && !inst->isBubble()) {
-                inst->minorTraceInst(*this,
-                        cpu.threads[0]->getIsaPtr()->regClasses());
+                inst->minorTraceInst(*this);
             }
 
             /* Mark up barriers in the LSQ */
@@ -805,9 +813,7 @@ Execute::issue(ThreadID thread_id)
             if (issued_mem_ref)
                 num_mem_insts_issued++;
 
-            if (discarded) {
-                num_insts_discarded++;
-            } else if (!inst->isBubble()) {
+            if (!discarded && !inst->isBubble()) {
                 num_insts_issued++;
 
                 if (num_insts_issued == issueLimit)
@@ -850,10 +856,10 @@ Execute::tryPCEvents(ThreadID thread_id)
     /* Handle PC events on instructions */
     Addr oldPC;
     do {
-        oldPC = thread->instAddr();
+        oldPC = thread->pcState().instAddr();
         cpu.threads[thread_id]->pcEventQueue.service(oldPC, thread);
         num_pc_event_checks++;
-    } while (oldPC != thread->instAddr());
+    } while (oldPC != thread->pcState().instAddr());
 
     if (num_pc_event_checks > 1) {
         DPRINTF(PCEvent, "Acting on PC Event to PC: %s\n",
@@ -867,8 +873,10 @@ void
 Execute::doInstCommitAccounting(MinorDynInstPtr inst)
 {
     assert(!inst->isFault());
-
-    MinorThread *thread = cpu.threads[inst->id.threadId];
+    bool is_nop = inst->staticInst->isNop();
+    const ThreadID tid = inst->id.threadId;
+    MinorThread *thread = cpu.threads[tid];
+    const bool in_user_mode = thread->getIsaPtr()->inUserMode();
 
     /* Increment the many and various inst and op counts in the
      *  thread and system */
@@ -876,22 +884,74 @@ Execute::doInstCommitAccounting(MinorDynInstPtr inst)
     {
         thread->numInst++;
         thread->threadStats.numInsts++;
-        cpu.stats.numInsts++;
+        cpu.commitStats[tid]->numInsts++;
+        cpu.executeStats[tid]->numInsts++;
+        cpu.baseStats.numInsts++;
+        if (in_user_mode) {
+            cpu.commitStats[tid]->numUserInsts++;
+        }
+
+        if (!is_nop) {
+            cpu.commitStats[inst->id.threadId]->numInstsNotNOP++;
+        }
 
         /* Act on events related to instruction counts */
         thread->comInstEventQueue.serviceEvents(thread->numInst);
     }
+
     thread->numOp++;
     thread->threadStats.numOps++;
-    cpu.stats.numOps++;
-    cpu.stats.committedInstType[inst->id.threadId]
-                               [inst->staticInst->opClass()]++;
+    if (!is_nop) {
+        cpu.commitStats[tid]->numOpsNotNOP++;
+    }
+
+    if (inst->staticInst->isMemRef()) {
+        cpu.executeStats[tid]->numMemRefs++;
+        cpu.commitStats[tid]->numMemRefs++;
+        thread->threadStats.numMemRefs++;
+    }
+    if (inst->staticInst->isLoad()) {
+        cpu.executeStats[tid]->numLoadInsts++;
+        cpu.commitStats[tid]->numLoadInsts++;
+    }
+
+    if (inst->staticInst->isStore() || inst->staticInst->isAtomic()) {
+        cpu.commitStats[tid]->numStoreInsts++;
+    }
+    if (inst->staticInst->isInteger()) {
+        cpu.commitStats[tid]->numIntInsts++;
+    }
+
+    if (inst->staticInst->isFloating()) {
+        cpu.commitStats[tid]->numFpInsts++;
+    }
+
+    if (inst->staticInst->isVector()) {
+        cpu.commitStats[tid]->numVecInsts++;
+    }
+    if (inst->staticInst->isControl()) {
+        cpu.executeStats[tid]->numBranches++;
+    }
+    if (inst->staticInst->isCall() || inst->staticInst->isReturn()) {
+        cpu.commitStats[tid]->numCallsReturns++;
+    }
+    if (inst->staticInst->isCall()) {
+        cpu.commitStats[tid]->functionCalls++;
+    }
+
+    cpu.commitStats[tid]->numOps++;
+    cpu.commitStats[tid]
+        ->committedInstType[inst->staticInst->opClass()]++;
+    cpu.commitStats[tid]->updateComCtrlStats(inst->staticInst);
+    if (in_user_mode) {
+        cpu.commitStats[tid]->numUserOps++;
+    }
 
     /* Set the CP SeqNum to the numOps commit number */
     if (inst->traceData)
         inst->traceData->setCPSeq(thread->numOp);
 
-    cpu.probeInstCommit(inst->staticInst, inst->pc.instAddr());
+    cpu.probeInstCommit(inst->staticInst, inst->pc->instAddr());
 }
 
 bool
@@ -913,8 +973,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
         panic("We should never hit the case where we try to commit from a "
               "suspended thread as the streamSeqNum should not match");
     } else if (inst->isFault()) {
-        ExecContext context(cpu, *cpu.threads[thread_id], *this,
-                inst, zeroReg);
+        ExecContext context(cpu, *cpu.threads[thread_id], *this, inst);
 
         DPRINTF(MinorExecute, "Fault inst reached Execute: %s\n",
             inst->fault->name());
@@ -975,8 +1034,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
          * backwards, so no other branches may evaluate this cycle*/
         completed_inst = false;
     } else {
-        ExecContext context(cpu, *cpu.threads[thread_id], *this,
-                inst, zeroReg);
+        ExecContext context(cpu, *cpu.threads[thread_id], *this, inst);
 
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
 
@@ -1004,7 +1062,6 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
             fault->invoke(thread, inst->staticInst);
         }
 
-        doInstCommitAccounting(inst);
         tryToBranch(inst, fault, branch);
     }
 
@@ -1021,14 +1078,14 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
             !isInterrupted(thread_id)) /* Don't suspend if we have
                 interrupts */
         {
-            TheISA::PCState resume_pc = cpu.getContext(thread_id)->pcState();
+            auto &resume_pc = cpu.getContext(thread_id)->pcState();
 
             assert(resume_pc.microPC() == 0);
 
             DPRINTF(MinorInterrupt, "Suspending thread: %d from Execute"
                 " inst: %s\n", thread_id, *inst);
 
-            cpu.stats.numFetchSuspends++;
+            cpu.fetchStats[thread_id]->numFetchSuspends++;
 
             updateBranchData(thread_id, BranchData::SuspendThread, inst,
                 resume_pc, branch);
@@ -1341,8 +1398,9 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
                 " state was unexpected, expected: %d\n",
                 *inst, ex_info.streamSeqNum);
 
-            if (fault == NoFault)
-                cpu.stats.numDiscardedOps++;
+            if (fault == NoFault) {
+                cpu.executeStats[thread_id]->numDiscardedOps++;
+            }
         }
 
         /* Mark the mem inst as being in the LSQ */
@@ -1417,6 +1475,10 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
 
             if (num_mem_refs_committed == memoryCommitLimit)
                 DPRINTF(MinorExecute, "Reached mem ref commit limit\n");
+
+            if (fault == NoFault) {
+                doInstCommitAccounting(inst);
+            }
         }
     }
 }
@@ -1494,7 +1556,8 @@ Execute::evaluate()
              *  the bag */
             if (commit_info.drainState == DrainHaltFetch) {
                 updateBranchData(commit_tid, BranchData::HaltFetch,
-                        MinorDynInst::bubble(), TheISA::PCState(0), branch);
+                        MinorDynInst::bubble(),
+                        cpu.getContext(commit_tid)->pcState(), branch);
 
                 cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
                 setDrainState(commit_tid, DrainAllInsts);
@@ -1900,6 +1963,16 @@ MinorCPU::MinorCPUPort &
 Execute::getDcachePort()
 {
     return lsq.getDcachePort();
+}
+
+Execute::IssueStats::IssueStats(MinorCPU *cpu)
+    : statistics::Group(cpu),
+      ADD_STAT(issuedInstType, statistics::units::Count::get(),
+               "Number of instructions issued per FU type, per thread")
+{
+    issuedInstType.init(cpu->numThreads, enums::Num_OpClass)
+        .flags(statistics::total | statistics::pdf | statistics::dist);
+    issuedInstType.ysubnames(enums::OpClassStrings);
 }
 
 } // namespace minor

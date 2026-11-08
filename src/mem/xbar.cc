@@ -45,6 +45,9 @@
 
 #include "mem/xbar.hh"
 
+#include <memory>
+#include <string>
+
 #include "base/logging.hh"
 #include "base/trace.hh"
 #include "debug/AddrRanges.hh"
@@ -62,9 +65,12 @@ BaseXBar::BaseXBar(const BaseXBarParams &p)
       headerLatency(p.header_latency),
       width(p.width),
       gotAddrRanges(p.port_default_connection_count +
-                          p.port_mem_side_ports_connection_count, false),
-      gotAllAddrRanges(false), defaultPortID(InvalidPortID),
+                        p.port_mem_side_ports_connection_count,
+                    false),
+      gotAllAddrRanges(false),
+      defaultPortID(InvalidPortID),
       useDefaultRange(p.use_default_range),
+      enableBackdoor(p.enable_backdoor),
 
       ADD_STAT(transDist, statistics::units::Count::get(),
                "Transaction distribution"),
@@ -328,7 +334,7 @@ BaseXBar::Layer<SrcType, DstType>::recvRetry()
 }
 
 PortID
-BaseXBar::findPort(AddrRange addr_range)
+BaseXBar::findPort(AddrRange addr_range, PacketPtr pkt)
 {
     // we should never see any address lookups before we've got the
     // ranges of all connected CPU-side-port modules
@@ -353,10 +359,17 @@ BaseXBar::findPort(AddrRange addr_range)
         return defaultPortID;
     }
 
-    // we should use the range for the default port and it did not
-    // match, or the default port is not set
-    fatal("Unable to find destination for %s on %s\n", addr_range.to_string(),
-          name());
+    // We should use the range for the default port and it did not match,
+    // or the default port is not set. Dump out the port trace if possible.
+    std::string port_trace = "";
+    if (pkt) {
+        std::shared_ptr<TracingExtension> ext =
+            pkt->getExtension<TracingExtension>();
+        port_trace = ext ? ext->getTraceInString() :
+            "Use --debug-flags=PortTrace to see the port trace of the packet.";
+    }
+    fatal("Unable to find destination for %s on %s\n%s\n",
+          addr_range.to_string(), name(), port_trace);
 }
 
 /** Function called by the port when the crossbar is receiving a range change.*/

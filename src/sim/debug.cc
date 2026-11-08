@@ -32,13 +32,10 @@
 #include <vector>
 
 #include "base/debug.hh"
-#include "cpu/pc_event.hh"
 #include "sim/eventq.hh"
 #include "sim/global_event.hh"
-#include "sim/kernel_workload.hh"
 #include "sim/sim_events.hh"
 #include "sim/sim_exit.hh"
-#include "sim/system.hh"
 
 namespace gem5
 {
@@ -103,7 +100,7 @@ takeCheckpoint(Tick when)
 {
     if (!when)
         when = curTick() + 1;
-    exitSimLoop("checkpoint", 0, when, 0);
+    exitSimulationLoopClassic("checkpoint", 0, when, 0);
 }
 
 void
@@ -112,22 +109,6 @@ eventqDump()
     for (uint32_t i = 0; i < numMainEventQueues; ++i) {
         mainEventQueue[i]->dump();
     }
-}
-
-int remote_gdb_base_port = 7000;
-
-int
-getRemoteGDBPort()
-{
-    return remote_gdb_base_port;
-}
-
-// Set remote GDB base port.  0 means disable remote GDB.
-// Callable from python.
-void
-setRemoteGDBPort(int port)
-{
-    remote_gdb_base_port = port;
 }
 
 } // namespace gem5

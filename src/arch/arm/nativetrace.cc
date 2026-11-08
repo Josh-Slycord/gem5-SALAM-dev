@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011, 2014, 2016-2017 ARM Limited
+ * Copyright (c) 2010-2011, 2014, 2016-2017, 2025 ARM Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -41,7 +41,9 @@
 #include "arch/arm/nativetrace.hh"
 
 #include "arch/arm/regs/cc.hh"
+#include "arch/arm/regs/int.hh"
 #include "arch/arm/regs/misc.hh"
+#include "arch/arm/regs/vec.hh"
 #include "base/compiler.hh"
 #include "cpu/thread_context.hh"
 #include "debug/ExecRegDelta.hh"
@@ -53,9 +55,9 @@ namespace gem5
 
 using namespace ArmISA;
 
-namespace Trace {
+namespace trace {
 
-GEM5_VAR_USED static const char *regNames[] = {
+[[maybe_unused]] static const char *regNames[] = {
     "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
     "r8", "r9", "r10", "fp", "r12", "sp", "lr", "pc",
     "cpsr", "f0", "f1", "f2", "f3", "f4", "f5", "f6",
@@ -65,8 +67,12 @@ GEM5_VAR_USED static const char *regNames[] = {
     "f31", "fpscr"
 };
 
+ArmNativeTrace::ArmNativeTrace(const Params &p)
+    : NativeTrace(p), stopOnPCError(p.stop_on_pc_error)
+{}
+
 void
-Trace::ArmNativeTrace::ThreadState::update(NativeTrace *parent)
+ArmNativeTrace::ThreadState::update(NativeTrace *parent)
 {
     oldState = state[current];
     current = (current + 1) % 2;
@@ -89,8 +95,8 @@ Trace::ArmNativeTrace::ThreadState::update(NativeTrace *parent)
         diffVector >>= 1;
     }
 
-    uint64_t values[changes];
-    parent->read(values, sizeof(values));
+    auto values = std::make_unique<uint64_t[]>(changes);
+    parent->read(values.get(), changes * sizeof(uint64_t));
     int pos = 0;
     for (int i = 0; i < STATE_NUMVALS; i++) {
         if (changed[i]) {
@@ -101,7 +107,7 @@ Trace::ArmNativeTrace::ThreadState::update(NativeTrace *parent)
 }
 
 void
-Trace::ArmNativeTrace::ThreadState::update(ThreadContext *tc)
+ArmNativeTrace::ThreadState::update(ThreadContext *tc)
 {
     oldState = state[current];
     current = (current + 1) % 2;
@@ -109,40 +115,42 @@ Trace::ArmNativeTrace::ThreadState::update(ThreadContext *tc)
 
     // Regular int regs
     for (int i = 0; i < 15; i++) {
-        newState[i] = tc->readIntReg(i);
+        newState[i] = tc->getReg(intRegClass[i]);
         changed[i] = (oldState[i] != newState[i]);
     }
 
     //R15, aliased with the PC
-    newState[STATE_PC] = tc->pcState().npc();
+    newState[STATE_PC] = tc->pcState().as<ArmISA::PCState>().npc();
     changed[STATE_PC] = (newState[STATE_PC] != oldState[STATE_PC]);
 
     //CPSR
     CPSR cpsr = tc->readMiscReg(MISCREG_CPSR);
-    cpsr.nz = tc->readCCReg(CCREG_NZ);
-    cpsr.c = tc->readCCReg(CCREG_C);
-    cpsr.v = tc->readCCReg(CCREG_V);
-    cpsr.ge = tc->readCCReg(CCREG_GE);
+    cpsr.nz = tc->getReg(cc_reg::Nz);
+    cpsr.c = tc->getReg(cc_reg::C);
+    cpsr.v = tc->getReg(cc_reg::V);
+    cpsr.ge = tc->getReg(cc_reg::Ge);
 
     newState[STATE_CPSR] = cpsr;
     changed[STATE_CPSR] = (newState[STATE_CPSR] != oldState[STATE_CPSR]);
 
     for (int i = 0; i < NumVecV7ArchRegs; i++) {
-        auto *vec = tc->readVecReg(RegId(VecRegClass,i)).as<uint64_t>();
+        ArmISA::VecRegContainer vec_container;
+        tc->getReg(vecRegClass[i], &vec_container);
+        auto *vec = vec_container.as<uint64_t>();
         newState[STATE_F0 + 2*i] = vec[0];
         newState[STATE_F0 + 2*i + 1] = vec[1];
     }
-    newState[STATE_FPSCR] = tc->readMiscRegNoEffect(MISCREG_FPSCR) |
-                            tc->readCCReg(CCREG_FP);
+    newState[STATE_FPSCR] = tc->readMiscReg(MISCREG_FPSCR) |
+                            tc->getReg(cc_reg::Fp);
 }
 
 void
-Trace::ArmNativeTrace::check(NativeTraceRecord *record)
+ArmNativeTrace::check(NativeTraceRecord *record)
 {
     ThreadContext *tc = record->getThread();
     // This area is read only on the target. It can't stop there to tell us
     // what's going on, so we should skip over anything there also.
-    if (tc->nextInstAddr() > 0xffff0000)
+    if (tc->pcState().as<ArmISA::PCState>().npc() > 0xffff0000)
         return;
     nState.update(this);
     mState.update(tc);
@@ -219,5 +227,5 @@ Trace::ArmNativeTrace::check(NativeTraceRecord *record)
     }
 }
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5

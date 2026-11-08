@@ -42,7 +42,6 @@
 #ifndef __CPU_O3_THREAD_CONTEXT_HH__
 #define __CPU_O3_THREAD_CONTEXT_HH__
 
-#include "config/the_isa.hh"
 #include "cpu/o3/cpu.hh"
 #include "cpu/thread_context.hh"
 
@@ -107,12 +106,12 @@ class ThreadContext : public gem5::ThreadContext
     CheckerCPU *getCheckerCpuPtr() override { return NULL; }
 
     BaseISA *
-    getIsaPtr() override
+    getIsaPtr() const override
     {
         return cpu->isa[thread->threadId()];
     }
 
-    TheISA::Decoder *
+    InstDecoder *
     getDecoderPtr() override
     {
         return cpu->fetch.decoder[thread->threadId()];
@@ -142,14 +141,6 @@ class ThreadContext : public gem5::ThreadContext
     Process *getProcessPtr() override { return thread->getProcessPtr(); }
 
     void setProcessPtr(Process *p) override { thread->setProcessPtr(p); }
-
-    PortProxy &getVirtProxy() override;
-
-    void
-    initMemProxies(gem5::ThreadContext *tc) override
-    {
-        thread->initMemProxies(tc);
-    }
 
     /** Returns this thread's status. */
     Status status() const override { return thread->status(); }
@@ -184,138 +175,17 @@ class ThreadContext : public gem5::ThreadContext
     /** Resets all architectural registers to 0. */
     void clearArchRegs() override;
 
-    /** Reads an integer register. */
-    RegVal
-    readReg(RegIndex reg_idx)
-    {
-        return readIntRegFlat(flattenRegId(RegId(IntRegClass,
-                                                 reg_idx)).index());
-    }
-    RegVal
-    readIntReg(RegIndex reg_idx) const override
-    {
-        return readIntRegFlat(flattenRegId(RegId(IntRegClass,
-                                                 reg_idx)).index());
-    }
-
-    RegVal
-    readFloatReg(RegIndex reg_idx) const override
-    {
-        return readFloatRegFlat(flattenRegId(RegId(FloatRegClass,
-                                             reg_idx)).index());
-    }
-
-    const TheISA::VecRegContainer &
-    readVecReg(const RegId& id) const override
-    {
-        return readVecRegFlat(flattenRegId(id).index());
-    }
-
-    /**
-     * Read vector register operand for modification, hierarchical indexing.
-     */
-    TheISA::VecRegContainer &
-    getWritableVecReg(const RegId& id) override
-    {
-        return getWritableVecRegFlat(flattenRegId(id).index());
-    }
-
-    const TheISA::VecElem &
-    readVecElem(const RegId& reg) const override
-    {
-        return readVecElemFlat(flattenRegId(reg).index(), reg.elemIndex());
-    }
-
-    const TheISA::VecPredRegContainer &
-    readVecPredReg(const RegId& id) const override
-    {
-        return readVecPredRegFlat(flattenRegId(id).index());
-    }
-
-    TheISA::VecPredRegContainer&
-    getWritableVecPredReg(const RegId& id) override
-    {
-        return getWritableVecPredRegFlat(flattenRegId(id).index());
-    }
-
-    RegVal
-    readCCReg(RegIndex reg_idx) const override
-    {
-        return readCCRegFlat(flattenRegId(RegId(CCRegClass,
-                                                 reg_idx)).index());
-    }
-
-    /** Sets an integer register to a value. */
-    void
-    setIntReg(RegIndex reg_idx, RegVal val) override
-    {
-        setIntRegFlat(flattenRegId(RegId(IntRegClass, reg_idx)).index(), val);
-    }
-
-    void
-    setFloatReg(RegIndex reg_idx, RegVal val) override
-    {
-        setFloatRegFlat(flattenRegId(RegId(FloatRegClass,
-                                           reg_idx)).index(), val);
-    }
-
-    void
-    setVecReg(const RegId& reg, const TheISA::VecRegContainer& val) override
-    {
-        setVecRegFlat(flattenRegId(reg).index(), val);
-    }
-
-    void
-    setVecElem(const RegId& reg, const TheISA::VecElem& val) override
-    {
-        setVecElemFlat(flattenRegId(reg).index(), reg.elemIndex(), val);
-    }
-
-    void
-    setVecPredReg(const RegId& reg,
-                  const TheISA::VecPredRegContainer& val) override
-    {
-        setVecPredRegFlat(flattenRegId(reg).index(), val);
-    }
-
-    void
-    setCCReg(RegIndex reg_idx, RegVal val) override
-    {
-        setCCRegFlat(flattenRegId(RegId(CCRegClass, reg_idx)).index(), val);
-    }
-
     /** Reads this thread's PC state. */
-    TheISA::PCState
+    const PCStateBase &
     pcState() const override
     {
         return cpu->pcState(thread->threadId());
     }
 
     /** Sets this thread's PC state. */
-    void pcState(const TheISA::PCState &val) override;
+    void pcState(const PCStateBase &val) override;
 
-    void pcStateNoRecord(const TheISA::PCState &val) override;
-
-    /** Reads this thread's PC. */
-    Addr
-    instAddr() const override
-    {
-        return cpu->instAddr(thread->threadId());
-    }
-
-    /** Reads this thread's next PC. */
-    Addr
-    nextInstAddr() const override
-    {
-        return cpu->nextInstAddr(thread->threadId());
-    }
-
-    /** Reads this thread's next PC. */
-    MicroPC
-    microPC() const override
-    {
-        return cpu->microPC(thread->threadId());
-    }
+    void pcStateNoRecord(const PCStateBase &val) override;
 
     /** Reads a miscellaneous register. */
     RegVal
@@ -338,8 +208,6 @@ class ThreadContext : public gem5::ThreadContext
     /** Sets a misc. register, including any side-effects the
      * write might have as defined by the architecture. */
     void setMiscReg(RegIndex misc_reg, RegVal val) override;
-
-    RegId flattenRegId(const RegId& regId) const override;
 
     /** Returns the number of consecutive store conditional failures. */
     // @todo: Figure out where these store cond failures should go.
@@ -368,32 +236,12 @@ class ThreadContext : public gem5::ThreadContext
             cpu->squashFromTC(thread->threadId());
     }
 
-    RegVal readIntRegFlat(RegIndex idx) const override;
-    void setIntRegFlat(RegIndex idx, RegVal val) override;
+    RegVal getReg(const RegId &reg) const override;
+    void getReg(const RegId &reg, void *val) const override;
+    void *getWritableReg(const RegId &reg) override;
 
-    RegVal readFloatRegFlat(RegIndex idx) const override;
-    void setFloatRegFlat(RegIndex idx, RegVal val) override;
-
-    const TheISA::VecRegContainer& readVecRegFlat(RegIndex idx) const override;
-    /** Read vector register operand for modification, flat indexing. */
-    TheISA::VecRegContainer& getWritableVecRegFlat(RegIndex idx) override;
-    void setVecRegFlat(RegIndex idx,
-            const TheISA::VecRegContainer& val) override;
-
-    const TheISA::VecElem &readVecElemFlat(RegIndex idx,
-            const ElemIndex& elemIndex) const override;
-    void setVecElemFlat(RegIndex idx, const ElemIndex& elemIdx,
-                        const TheISA::VecElem& val) override;
-
-    const TheISA::VecPredRegContainer&
-        readVecPredRegFlat(RegIndex idx) const override;
-    TheISA::VecPredRegContainer&
-        getWritableVecPredRegFlat(RegIndex idx) override;
-    void setVecPredRegFlat(RegIndex idx,
-                           const TheISA::VecPredRegContainer& val) override;
-
-    RegVal readCCRegFlat(RegIndex idx) const override;
-    void setCCRegFlat(RegIndex idx, RegVal val) override;
+    void setReg(const RegId &reg, RegVal val) override;
+    void setReg(const RegId &reg, const void *val) override;
 
     // hardware transactional memory
     void htmAbortTransaction(uint64_t htm_uid,

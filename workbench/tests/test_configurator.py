@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from salam_workbench import configurator as c
 from salam_workbench.configurator_runtime import configure_system
+from salam_workbench.toolchain_profile import is_modern, load_toolchain
 
 
 class GeneratedDebugObjectRecoveryTests(unittest.TestCase):
@@ -233,11 +234,17 @@ class ConfigurationTests(unittest.TestCase):
             }
         )
         args = c.simulator_args(Path("/engine"), Path("/fresh"), c.validate_spec(spec))
+        cpu_name = (
+            "ArmTimingSimpleCPU"
+            if is_modern(load_toolchain(c.PROJECT))
+            else "TimingSimpleCPU"
+        )
+        self.assertEqual(spec["system"]["cpu-type"], "TimingSimpleCPU")
         for value in (
             "--mem-size=2GB",
             "--mem-type=DDR3_1600_8x8",
             "--cpu-clock=1GHz",
-            "--cpu-type=TimingSimpleCPU",
+            "--cpu-type=" + cpu_name,
         ):
             self.assertIn(value, args)
         self.assertNotIn("--l2cache", args)

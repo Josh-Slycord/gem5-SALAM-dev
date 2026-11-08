@@ -1,0 +1,119 @@
+{
+  "kind": "salam_gem5_26_checkpoint",
+  "schema_version": 1,
+  "state": "qualified_with_documented_limits",
+  "date": "2026-11-05",
+  "tag": "gem5-26-checkpoint-20261105",
+  "original_gemini_pr_head": "91fcf24bc60cda21a4d5fb6a480a60a5060d58fe",
+  "preserved_main": "48fe84fa2f1c52e95fbc2382d62f26013fa78cd7",
+  "code_validation_commit": "ffe2f432cc9a9fe19a9442c42844cf29d6e20177",
+  "workbench_source_sha256": "7b005567035510e55438857e7ea03aebb182a6a9dc5e52013fca343b4c08db2b",
+  "unit_tests": {
+    "state": "passed",
+    "count": 705,
+    "tiers": {
+      "fast": 352,
+      "config": 289,
+      "gui": 64
+    },
+    "skips": 0,
+    "exact_discovery_coverage": true
+  },
+  "hardware_generation": {
+    "outputs_checked": 129,
+    "source_matches": 129,
+    "receipt_sha256": "f913bf7083198eeb06a19e7955c23131241df97107d96b9d8e7a1a783c2077df"
+  },
+  "hosted_ci": {
+    "run": 42061923990,
+    "state": "success",
+    "jobs": [
+      "Python 3.8",
+      "Python 3.12",
+      "Windows packaging controls"
+    ]
+  },
+  "gui_cases": [
+    {
+      "benchmark": "gemm",
+      "seed": 31,
+      "complete_outputs_compared": 64,
+      "mismatches": 0,
+      "acceptance": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/pr3-checkpoint-gemm-seed31-v2/acceptance.json",
+      "acceptance_sha256": "11d0a52cf967e7bd125ce6ee84a7123aa5251330b2bc3093ad76b000e3df58c3",
+      "numpy_receipt": "/home/jslycord/projects/salam-pr3-checkpoint-evidence/numpy-gemm.json",
+      "numpy_receipt_sha256": "3c64f52b65cbc214ec704d3e4e67cf0a1699f83a5e53a3d184b3d8a7137eb2de",
+      "trace_events_replayed": 41264,
+      "timeline": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/execution-timelines/20261105T161827-7729a97fe8/timeline.html",
+      "timeline_sha256": "2dc52adb92bdd32f73536623e8a3b32d5703d53caf99f9ce214ce8f37a59e671",
+      "preview": {
+        "rendered_spans": 2176,
+        "total_spans": 2176,
+        "limited": false,
+        "max_spans": 20000
+      }
+    },
+    {
+      "benchmark": "fft",
+      "seed": 31,
+      "complete_outputs_compared": 1024,
+      "mismatches": 0,
+      "acceptance": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/pr3-checkpoint-fft-seed31-v2/acceptance.json",
+      "acceptance_sha256": "80b0de6a0f48e29b213137f051853dbf41c43aed5ddbbe962423a86faf6f0e03",
+      "numpy_receipt": "/home/jslycord/projects/salam-pr3-checkpoint-evidence/numpy-fft.json",
+      "numpy_receipt_sha256": "2c60824d7817e101208421003e923f947245cf82f1c65618eba1c4c7808a0261",
+      "trace_events_replayed": 149558,
+      "timeline": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/execution-timelines/20261105T162033-48ababab75/timeline.html",
+      "timeline_sha256": "2163736a5088d8828d6968d1c7c5cdc272b25a9e2c5338155219d367acf123cb",
+      "preview": {
+        "rendered_spans": 20000,
+        "total_spans": 70682,
+        "limited": true,
+        "max_spans": 20000
+      }
+    },
+    {
+      "benchmark": "stencil3d",
+      "seed": 31,
+      "complete_outputs_compared": 16384,
+      "mismatches": 0,
+      "acceptance": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/pr3-checkpoint-stencil3d-seed31-v1/acceptance.json",
+      "acceptance_sha256": "44bfb5e67ea61c9c5a51406de713e9cc4ec0f3b11059c7d8e9e1baf581e67b69",
+      "numpy_receipt": "/home/jslycord/projects/salam-pr3-checkpoint-evidence/numpy-stencil3d.json",
+      "numpy_receipt_sha256": "77b27d328c0e20caa5c5053a91ba7ca67be8c78de7cab5b77ca963e6dd1f888f",
+      "trace_events_replayed": 2112201,
+      "timeline": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/execution-timelines/20261105T164216-7fbf158945/timeline.html",
+      "timeline_sha256": "297a66ba43d6ae253cd77d4b9404ff816c010ca146cb3c858cd538960519ea1c",
+      "preview": {
+        "rendered_spans": 20000,
+        "total_spans": 205362,
+        "limited": true,
+        "max_spans": 20000
+      }
+    }
+  ],
+  "wrong_output_controls": {
+    "count": 2,
+    "guest_pass_retained": true,
+    "refreshed_transport_hashes": true,
+    "mismatches_per_case": 1,
+    "receipt": "/home/jslycord/projects/gem5-salam-26-pr3-checkpoint/workbench/evidence/pr3-checkpoint-wrong-output-controls/controls.json",
+    "receipt_sha256": "834b9adbd68c971b38ef196ad4a4afd9f58722e12f8b562e800597909ebfa2c3"
+  },
+  "configured_gemm_cli": {
+    "state": "passed",
+    "timelines": 2,
+    "receipt": "/home/jslycord/projects/salam-pr3-checkpoint-evidence/CONFIGURED_CLI_ACCEPTANCE.json"
+  },
+  "limits": [
+    "Docker build/import/clean-host appliance not qualified",
+    "Qt rendering offscreen; no visible Windows input acceptance",
+    "HTML browser rendering unverified; local URL blocked; static JS syntax checked",
+    "Physical power/area coefficients uncalibrated",
+    "Engine correctness/lifecycle gates remain in UPSTREAM_READINESS.md",
+    "Historical GCC failures/native hash observations/audit aborts remain unresolved"
+  ],
+  "official_repositories_modified": false,
+  "main_modified": false,
+  "evidence_root": "/home/jslycord/projects/salam-pr3-checkpoint-evidence"
+}

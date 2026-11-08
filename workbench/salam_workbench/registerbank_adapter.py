@@ -29,6 +29,11 @@ _OLD_INIT = """        elif self.type == "RegisterBank":
                     con, numPorts = conDef.split(":")
                     self.connections.append(PortedConnection(con, numPorts))
 """
+# Gemini's parser repair converts explicit counts before this adapter runs.
+# Accept only this exact second form; all other statement changes still fail.
+_OLD_CAST_INIT = _OLD_INIT.replace(
+    "PortedConnection(con, numPorts)", "PortedConnection(con, int(numPorts))"
+)
 _NEW_INIT = """        elif self.type == "RegisterBank":
             self.connections = []
             # Read in register-bank args; preserve requested vector cardinality.
@@ -87,18 +92,63 @@ def _persist(path, record):
             handle.write("\n")
 
 
+def _registerbank_branch(source, method_name):
+    """Locate the actual Variable method branch, not a matching text decoy."""
+    classes = [
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.ClassDef) and node.name == "Variable"
+    ]
+    if len(classes) != 1:
+        raise ValueError("Parser must define one Variable class")
+    methods = [
+        node
+        for node in classes[0].body
+        if isinstance(node, ast.FunctionDef) and node.name == method_name
+    ]
+    if len(methods) != 1:
+        raise ValueError("Parser must define one Variable." + method_name)
+    branches = [
+        node
+        for node in ast.walk(methods[0])
+        if isinstance(node, ast.If)
+        and isinstance(node.test, ast.Compare)
+        and isinstance(node.test.left, ast.Attribute)
+        and isinstance(node.test.left.value, ast.Name)
+        and node.test.left.value.id == "self"
+        and node.test.left.attr == "type"
+        and len(node.test.ops) == 1
+        and isinstance(node.test.ops[0], ast.Eq)
+        and len(node.test.comparators) == 1
+        and isinstance(node.test.comparators[0], ast.Constant)
+        and node.test.comparators[0].value == "RegisterBank"
+    ]
+    if len(branches) != 1:
+        raise ValueError("Parser must define one RegisterBank branch in " + method_name)
+    branch = branches[0]
+    return "".join(
+        source.splitlines(True)[branch.lineno - 1 : branch.body[-1].end_lineno]
+    )
+
+
 def registerbank_ports_supported(workspace):
     path = Path(workspace) / PARSER
     if not path.is_file():
         return False
     source = path.read_text(encoding="utf-8")
-    return (
-        source.count(MARKER) == 1
-        and source.count(_NEW_INIT) == 1
-        and source.count(_NEW_CONNECTION) == 1
-        and _OLD_INIT not in source
-        and _OLD_CONNECTION not in source
-    )
+    try:
+        return (
+            source.count(MARKER) == 1
+            and source.count(_NEW_INIT) == 1
+            and _registerbank_branch(source, "__init__") == _NEW_INIT
+            and source.count(_NEW_CONNECTION) == 1
+            and _registerbank_branch(source, "genConfig").count(_NEW_CONNECTION) == 1
+            and _OLD_INIT not in source
+            and _OLD_CAST_INIT not in source
+            and _OLD_CONNECTION not in source
+        )
+    except (SyntaxError, ValueError):
+        return False
 
 
 def registerbank_port_kind(workspace):
@@ -194,10 +244,11 @@ def adapt_registerbank_ports(workspace, *, source_engine=None, receipt_path=None
             )
         before = before_bytes.decode("utf-8")
         newline = "\r\n" if "\r\n" in before else "\n"
-        old_init, new_init = (
+        old_inits = (
             _OLD_INIT.replace("\n", newline),
-            _NEW_INIT.replace("\n", newline),
+            _OLD_CAST_INIT.replace("\n", newline),
         )
+        new_init = _NEW_INIT.replace("\n", newline)
         old_connection = _OLD_CONNECTION.replace("\n", newline)
         new_connection = _NEW_CONNECTION.replace("\n", newline)
         if before.count(_VERSION + newline) != 1:
@@ -208,8 +259,10 @@ def adapt_registerbank_ports(workspace, *, source_engine=None, receipt_path=None
             if (
                 before.count(MARKER) != 1
                 or before.count(new_init) != 1
+                or _registerbank_branch(before, "__init__") != new_init
                 or before.count(new_connection) != 1
-                or old_init in before
+                or _registerbank_branch(before, "genConfig").count(new_connection) != 1
+                or any(old_init in before for old_init in old_inits)
                 or old_connection in before
             ):
                 raise ValueError(
@@ -219,10 +272,18 @@ def adapt_registerbank_ports(workspace, *, source_engine=None, receipt_path=None
             compile(after, str(parser), "exec")
             record["state"] = "already_patched"
         else:
-            if before.count(old_init) != 1 or before.count(old_connection) != 1:
+            branch = _registerbank_branch(before, "__init__")
+            matches = [candidate for candidate in old_inits if branch == candidate]
+            if (
+                len(matches) != 1
+                or sum(before.count(candidate) for candidate in old_inits) != 1
+                or before.count(old_connection) != 1
+                or _registerbank_branch(before, "genConfig").count(old_connection) != 1
+            ):
                 raise ValueError(
                     "Parser anchors changed; refusing RegisterBank adaptation"
                 )
+            old_init = matches[0]
             after = before.replace(
                 _VERSION + newline, _VERSION + newline + MARKER + newline, 1
             )

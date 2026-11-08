@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2018-2020 ARM Limited
+ * Copyright (c) 2013, 2018-2020, 2024 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -48,8 +48,10 @@
 #include "base/types.hh"
 #include "debug/Checkpoint.hh"
 #include "debug/SMMUv3.hh"
+#include "dev/arm/base_gic.hh"
 #include "dev/arm/smmu_v3_transl.hh"
 #include "mem/packet_access.hh"
+#include "params/SMMUv3.hh"
 #include "sim/system.hh"
 
 namespace gem5
@@ -62,7 +64,7 @@ SMMUv3::SMMUv3(const SMMUv3Params &params) :
     requestPort(name() + ".request", *this),
     tableWalkPort(name() + ".walker", *this),
     controlPort(name() + ".control", *this, params.reg_map),
-    irqInterfaceEnable(params.irq_interface_enable),
+    eventqInterrupt(params.eventq_irq ? params.eventq_irq->get() : nullptr),
     tlb(params.tlb_entries, params.tlb_assoc, params.tlb_policy, this),
     configCache(params.cfg_entries, params.cfg_assoc, params.cfg_policy, this),
     ipaCache(params.ipa_entries, params.ipa_assoc, params.ipa_policy, this),
@@ -100,7 +102,7 @@ SMMUv3::SMMUv3(const SMMUv3Params &params) :
     deviceInterfaces(params.device_interfaces),
     commandExecutor(name() + ".cmd_exec", *this),
     regsMap(params.reg_map),
-    processCommandsEvent(this)
+    processCommandsEvent(*this)
 {
     fatal_if(regsMap.size() != SMMU_REG_SIZE,
         "Invalid register map size: %#x different than SMMU_REG_SIZE = %#x\n",
@@ -253,7 +255,7 @@ SMMUv3::runProcessAtomic(SMMUProcess *proc, PacketPtr pkt)
                     pkt = action.pkt;
                     break;
                 }
-                GEM5_FALLTHROUGH;
+                [[fallthrough]];
             case ACTION_SEND_REQ_FINAL:
                 delay += requestPort.sendAtomic(action.pkt);
                 pkt = action.pkt;
@@ -309,7 +311,7 @@ SMMUv3::runProcessTiming(SMMUProcess *proc, PacketPtr pkt)
 
                 break;
             }
-            GEM5_FALLTHROUGH;
+            [[fallthrough]];
         case ACTION_SEND_REQ_FINAL:
             action.pkt->pushSenderState(proc);
 
@@ -567,22 +569,6 @@ SMMUv3::processCommand(const SMMUCommand &cmd)
     }
 }
 
-const PageTableOps*
-SMMUv3::getPageTableOps(uint8_t trans_granule)
-{
-    static V8PageTableOps4k  ptOps4k;
-    static V8PageTableOps16k ptOps16k;
-    static V8PageTableOps64k ptOps64k;
-
-    switch (trans_granule) {
-    case TRANS_GRANULE_4K:  return &ptOps4k;
-    case TRANS_GRANULE_16K: return &ptOps16k;
-    case TRANS_GRANULE_64K: return &ptOps64k;
-    default:
-        panic("Unknown translation granule size %d", trans_granule);
-    }
-}
-
 Tick
 SMMUv3::readControl(PacketPtr pkt)
 {
@@ -634,10 +620,9 @@ SMMUv3::writeControl(PacketPtr pkt)
             break;
         case offsetof(SMMURegs, irq_ctrl):
             assert(pkt->getSize() == sizeof(uint32_t));
-            if (irqInterfaceEnable) {
-                warn("SMMUv3::%s No support for interrupt sources", __func__);
-                regs.irq_ctrl = regs.irq_ctrlack = pkt->getLE<uint32_t>();
-            }
+            warn("SMMUv3::%s No support for GERROR and PRI interrupt sources",
+                 __func__);
+            regs.irq_ctrl = regs.irq_ctrlack = pkt->getLE<uint32_t>();
             break;
 
         case offsetof(SMMURegs, cr1):

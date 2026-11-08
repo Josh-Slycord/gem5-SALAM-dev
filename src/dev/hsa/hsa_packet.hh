@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -43,15 +41,15 @@ namespace gem5
 
 struct hsa_packet_header_bitfield_t
 {
-        // TODO: replace with more portable impl based on offset, length
-        uint16_t type:8;
-        uint16_t barrier:1;
-        uint16_t acquire_fence_scope:2;
-        uint16_t release_fence_scope:2;
-        uint16_t reserved:3;
+    // TODO: replace with more portable impl based on offset, length
+    uint16_t type : 8;
+    uint16_t barrier : 1;
+    uint16_t acquire_fence_scope : 2;
+    uint16_t release_fence_scope : 2;
+    uint16_t reserved : 3;
 };
 
-//TODO: put an _ in front of these guys to avoud prob with hsa.h for now
+// TODO: put an _ in front of these guys to avoud prob with hsa.h for now
 struct _hsa_dispatch_packet_t
 {
     uint16_t header;
@@ -101,6 +99,14 @@ struct _hsa_barrier_or_packet_t
     uint64_t reserved2;
     uint64_t completion_signal;
 };
+
+struct _hsa_generic_vendor_pkt
+{
+    uint32_t padding[14];
+    Addr completion_signal;
+};
+// All HSA AQL packets are 64 bytes. Confirm that here.
+static_assert(sizeof(_hsa_generic_vendor_pkt) == 64);
 
 } // namespace gem5
 

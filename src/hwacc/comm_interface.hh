@@ -2,6 +2,7 @@
 #define __HWACC_COMM_INTERFACE_HH__
 
 #include "params/CommInterface.hh"
+#include "base/statistics.hh"
 #include "dev/io_device.hh"
 #include "dev/arm/base_gic.hh"
 #include "hwacc/compute_unit.hh"
@@ -14,9 +15,19 @@
 #include <queue>
 #include <vector>
 
+class SalamLifecycleTester;
+
 class CommInterface : public BasicPioDevice
 {
+    friend class SalamLifecycleTester;
+
   protected:
+    static constexpr uint8_t MmrStatusRun = 0x01;
+    static constexpr uint8_t MmrStatusBusy = 0x02;
+    static constexpr uint8_t MmrStatusDone = 0x04;
+    static constexpr uint8_t MmrClearRunMask = 0xfe;
+    static constexpr uint8_t MmrClearRunBusyMask = 0xfc;
+
     Addr io_addr;
     Addr io_size;
     Addr flag_size;
@@ -128,11 +139,12 @@ class CommInterface : public BasicPioDevice
 
       private:
         CommInterface *owner;
+        std::queue<PacketPtr> outstandingPkts;
         MemoryRequest *readReq;
         MemoryRequest *writeReq;
       public:
         RegPort(const std::string& name, CommInterface *_owner, PortID id=InvalidPortID) :
-          RequestPort(name, _owner), owner(_owner) {}
+          RequestPort(name, id), owner(_owner), readReq(nullptr), writeReq(nullptr) {}
         void setReadReq(MemoryRequest * req = nullptr) { readReq = req; }
         void setWriteReq(MemoryRequest * req = nullptr) { writeReq = req; }
       protected:
@@ -141,7 +153,7 @@ class CommInterface : public BasicPioDevice
         virtual void recvRangeChange() { };
         virtual Tick recvAtomic(PacketPtr pkt) {return 0;}
         virtual void recvFunctional(PacketPtr pkt) { };
-        void sendPacket(PacketPtr pkt);
+        bool sendPacket(PacketPtr pkt);
         bool debug() { return owner->debug(); }
     };
 
@@ -151,11 +163,27 @@ class CommInterface : public BasicPioDevice
         CommInterface *comm;
 
       public:
-        TickEvent(CommInterface *_comm) : Event(CPU_Tick_Pri), comm(_comm) {}
+        TickEvent(CommInterface *_comm) :
+            Event(CPU_Tick_Pri - 1), comm(_comm)
+        {}
         void process() { comm->tick(); }
         virtual const char *description() const { return "CommInterface tick"; }
         bool debug() { return comm->debug(); }
     };
+
+    struct CommStats : public statistics::Group
+    {
+        CommStats(statistics::Group *parent);
+
+        statistics::Scalar starts;
+        statistics::Scalar finishes;
+        statistics::Vector requests;
+        statistics::Vector attempts;
+        statistics::Vector accepted;
+        statistics::Vector responses;
+        statistics::Vector bytes;
+    };
+    CommStats commStats;
 
     std::list<MemoryRequest*> readQueue;
     std::list<MemoryRequest*> writeQueue;
@@ -235,8 +263,9 @@ class CommInterface : public BasicPioDevice
     uint8_t *mmreg;
 
     bool processingDone;
-    int processDelay;
-    int clock_period;
+    Cycles processCycles;
+
+    Tick serviceEdge() const { return clockEdge(processCycles); }
 
     bool reset_spm;
 
@@ -248,6 +277,14 @@ class CommInterface : public BasicPioDevice
     CommInterface(const CommInterfaceParams &p);
 
     void startup();
+
+    DrainState drain() override;
+
+  private:
+    bool hasPendingWork() const;
+    void tryCompleteDrain();
+
+  public:
 
     virtual Tick read(PacketPtr pkt);
 
@@ -269,7 +306,7 @@ class CommInterface : public BasicPioDevice
     bool isCompNeeded() { return computationNeeded; }
 
     uint64_t getGlobalVar(unsigned offset, unsigned size);
-    int getProcessDelay() { return processDelay; }
+    Tick getProcessDelay() const { return cyclesToTicks(processCycles); }
     virtual int getReadPorts()  { return 0; }
     virtual int getWritePorts()  { return 0; }
     virtual int getReadBusWidth()  { return 0; }

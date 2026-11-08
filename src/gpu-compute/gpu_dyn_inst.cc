@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -45,10 +43,15 @@ namespace gem5
 
 GPUDynInst::GPUDynInst(ComputeUnit *_cu, Wavefront *_wf,
                        GPUStaticInst *static_inst, InstSeqNum instSeqNum)
-    : GPUExecContext(_cu, _wf), scalarAddr(0), addr(computeUnit()->wfSize(),
-      (Addr)0), numScalarReqs(0), isSaveRestore(false),
-      _staticInst(static_inst), _seqNum(instSeqNum),
-      maxSrcVecRegOpSize(-1), maxSrcScalarRegOpSize(-1)
+    : GPUExecContext(_cu, _wf),
+      scalarAddr(0),
+      addr(computeUnit()->wfSize(), (Addr)0),
+      numScalarReqs(0),
+      isSaveRestore(false),
+      _staticInst(static_inst),
+      _seqNum(instSeqNum),
+      maxSrcVecRegOpSize(-1),
+      maxSrcScalarRegOpSize(-1)
 {
     _staticInst->initOperandInfo();
     statusVector.assign(TheGpuISA::NumVecElemPerVecReg, 0);
@@ -58,7 +61,7 @@ GPUDynInst::GPUDynInst(ComputeUnit *_cu, Wavefront *_wf,
     a_data = new uint8_t[computeUnit()->wfSize() * 8];
     x_data = new uint8_t[computeUnit()->wfSize() * 8];
     // scalar loads can read up to 16 Dwords of data (see publicly
-    // available GCN3 ISA manual)
+    // available Vega ISA manual)
     scalar_data = new uint8_t[16 * sizeof(uint32_t)];
     for (int i = 0; i < (16 * sizeof(uint32_t)); ++i) {
         scalar_data[i] = 0;
@@ -87,12 +90,10 @@ GPUDynInst::GPUDynInst(ComputeUnit *_cu, Wavefront *_wf,
         wfSlotId = -1;
     }
 
-
     DPRINTF(GPUInst, "%s: generating operand info for %d operands\n",
             disassemble(), getNumOperands());
 
     _staticInst->initDynOperandInfo(wavefront(), computeUnit());
-
 }
 
 GPUDynInst::~GPUDynInst()
@@ -110,25 +111,25 @@ GPUDynInst::execute(GPUDynInstPtr gpuDynInst)
     _staticInst->execute(gpuDynInst);
 }
 
-const std::vector<OperandInfo>&
+const std::vector<OperandInfo> &
 GPUDynInst::srcVecRegOperands() const
 {
     return _staticInst->srcVecRegOperands();
 }
 
-const std::vector<OperandInfo>&
+const std::vector<OperandInfo> &
 GPUDynInst::dstVecRegOperands() const
 {
     return _staticInst->dstVecRegOperands();
 }
 
-const std::vector<OperandInfo>&
+const std::vector<OperandInfo> &
 GPUDynInst::srcScalarRegOperands() const
 {
     return _staticInst->srcScalarRegOperands();
 }
 
-const std::vector<OperandInfo>&
+const std::vector<OperandInfo> &
 GPUDynInst::dstScalarRegOperands() const
 {
     return _staticInst->dstScalarRegOperands();
@@ -161,13 +162,16 @@ GPUDynInst::numDstVecRegOperands() const
 int
 GPUDynInst::maxSrcVecRegOperandSize()
 {
-    if (maxSrcVecRegOpSize != -1)
+    if (maxSrcVecRegOpSize != -1) {
         return maxSrcVecRegOpSize;
+    }
 
     maxSrcVecRegOpSize = 0;
-    for (const auto& srcVecOp : srcVecRegOperands())
-        if (srcVecOp.sizeInDWords() > maxSrcVecRegOpSize)
+    for (const auto &srcVecOp : srcVecRegOperands()) {
+        if (srcVecOp.sizeInDWords() > maxSrcVecRegOpSize) {
             maxSrcVecRegOpSize = srcVecOp.sizeInDWords();
+        }
+    }
 
     return maxSrcVecRegOpSize;
 }
@@ -199,13 +203,16 @@ GPUDynInst::numDstScalarRegOperands() const
 int
 GPUDynInst::maxSrcScalarRegOperandSize()
 {
-    if (maxSrcScalarRegOpSize != -1)
+    if (maxSrcScalarRegOpSize != -1) {
         return maxSrcScalarRegOpSize;
+    }
 
     maxSrcScalarRegOpSize = 0;
-    for (const auto& srcScOp : srcScalarRegOperands())
-        if (srcScOp.sizeInDWords() > maxSrcScalarRegOpSize)
+    for (const auto &srcScOp : srcScalarRegOperands()) {
+        if (srcScOp.sizeInDWords() > maxSrcScalarRegOpSize) {
             maxSrcScalarRegOpSize = srcScOp.sizeInDWords();
+        }
+    }
 
     return maxSrcScalarRegOpSize;
 }
@@ -259,20 +266,20 @@ GPUDynInst::hasDestinationSgpr() const
 }
 
 bool
-GPUDynInst::isOpcode(const std::string& opcodeStr,
-                     const std::string& extStr) const
+GPUDynInst::isOpcode(const std::string &opcodeStr,
+                     const std::string &extStr) const
 {
     return _staticInst->opcode().find(opcodeStr) != std::string::npos &&
-        _staticInst->opcode().find(extStr) != std::string::npos;
+           _staticInst->opcode().find(extStr) != std::string::npos;
 }
 
 bool
-GPUDynInst::isOpcode(const std::string& opcodeStr) const
+GPUDynInst::isOpcode(const std::string &opcodeStr) const
 {
     return _staticInst->opcode().find(opcodeStr) != std::string::npos;
 }
 
-const std::string&
+const std::string &
 GPUDynInst::disassemble() const
 {
     return _staticInst->disassemble();
@@ -282,6 +289,18 @@ InstSeqNum
 GPUDynInst::seqNum() const
 {
     return _seqNum;
+}
+
+Addr
+GPUDynInst::pc()
+{
+    return wavefront()->pc();
+}
+
+void
+GPUDynInst::pc(Addr _pc)
+{
+    wavefront()->pc(_pc);
 }
 
 enums::StorageClassType
@@ -303,8 +322,9 @@ GPUDynInst::initiateAcc(GPUDynInstPtr gpuDynInst)
 void
 GPUDynInst::completeAcc(GPUDynInstPtr gpuDynInst)
 {
-    DPRINTF(GPUMem, "CU%d: WF[%d][%d]: mempacket status bitvector="
-            "%#x\n complete",
+    DPRINTF(GPUMem,
+            "CU%d: WF[%d][%d]: mempacket status bitvector="
+            "%#x complete\n",
             cu->cu_id, simdId, wfSlotId, exec_mask);
 
     _staticInst->completeAcc(gpuDynInst);
@@ -417,6 +437,18 @@ GPUDynInst::isFlat() const
 }
 
 bool
+GPUDynInst::isFlatGlobal() const
+{
+    return _staticInst->isFlatGlobal();
+}
+
+bool
+GPUDynInst::isFlatScratch() const
+{
+    return _staticInst->isFlatScratch();
+}
+
+bool
 GPUDynInst::isLoad() const
 {
     return _staticInst->isLoad();
@@ -473,9 +505,11 @@ GPUDynInst::writesSCC() const
 bool
 GPUDynInst::readsVCC() const
 {
-    for (const auto& srcOp : _staticInst->srcOperands())
-        if (srcOp.isVcc())
+    for (const auto &srcOp : _staticInst->srcOperands()) {
+        if (srcOp.isVcc()) {
             return true;
+        }
+    }
 
     return _staticInst->readsVCC();
 }
@@ -483,9 +517,11 @@ GPUDynInst::readsVCC() const
 bool
 GPUDynInst::writesVCC() const
 {
-    for (const auto& dstOp : _staticInst->dstOperands())
-        if (dstOp.isVcc())
+    for (const auto &dstOp : _staticInst->dstOperands()) {
+        if (dstOp.isVcc()) {
             return true;
+        }
+    }
 
     return _staticInst->writesVCC();
 }
@@ -523,9 +559,11 @@ GPUDynInst::ignoreExec() const
 bool
 GPUDynInst::writesExecMask() const
 {
-    for (const auto& dstOp : _staticInst->dstOperands())
-        if (dstOp.isExec())
+    for (const auto &dstOp : _staticInst->dstOperands()) {
+        if (dstOp.isExec()) {
             return true;
+        }
+    }
 
     return _staticInst->writesEXEC();
 }
@@ -533,9 +571,11 @@ GPUDynInst::writesExecMask() const
 bool
 GPUDynInst::readsExecMask() const
 {
-    for (const auto& srcOp : _staticInst->srcOperands())
-        if (srcOp.isExec())
+    for (const auto &srcOp : _staticInst->srcOperands()) {
+        if (srcOp.isExec()) {
             return true;
+        }
+    }
 
     return _staticInst->readsEXEC();
 }
@@ -543,9 +583,11 @@ GPUDynInst::readsExecMask() const
 bool
 GPUDynInst::writesFlatScratch() const
 {
-    for (const auto& dstScalarOp : dstScalarRegOperands())
-        if (dstScalarOp.isFlatScratch())
+    for (const auto &dstScalarOp : dstScalarRegOperands()) {
+        if (dstScalarOp.isFlatScratch()) {
             return true;
+        }
+    }
 
     return false;
 }
@@ -553,11 +595,19 @@ GPUDynInst::writesFlatScratch() const
 bool
 GPUDynInst::readsFlatScratch() const
 {
-    for (const auto& srcScalarOp : srcScalarRegOperands())
-        if (srcScalarOp.isFlatScratch())
+    for (const auto &srcScalarOp : srcScalarRegOperands()) {
+        if (srcScalarOp.isFlatScratch()) {
             return true;
+        }
+    }
 
     return false;
+}
+
+bool
+GPUDynInst::needsToken() const
+{
+    return isGlobalMem() || isFlat() || isFlatGlobal() || isFlatScratch();
 }
 
 bool
@@ -584,7 +634,8 @@ GPUDynInst::isAtomicCAS() const
     return _staticInst->isAtomicCAS();
 }
 
-bool GPUDynInst::isAtomicExch() const
+bool
+GPUDynInst::isAtomicExch() const
 {
     return _staticInst->isAtomicExch();
 }
@@ -623,6 +674,12 @@ bool
 GPUDynInst::isAtomicMin() const
 {
     return _staticInst->isAtomicMin();
+}
+
+bool
+GPUDynInst::isAtomicPkAddBF16() const
+{
+    return _staticInst->isAtomicPkAddBF16();
 }
 
 bool
@@ -698,6 +755,12 @@ GPUDynInst::isSystemCoherent() const
 }
 
 bool
+GPUDynInst::isI8() const
+{
+    return _staticInst->isI8();
+}
+
+bool
 GPUDynInst::isF16() const
 {
     return _staticInst->isF16();
@@ -731,6 +794,12 @@ bool
 GPUDynInst::isMAD() const
 {
     return _staticInst->isMAD();
+}
+
+bool
+GPUDynInst::isMFMA() const
+{
+    return _staticInst->isMFMA();
 }
 
 void
@@ -798,8 +867,8 @@ GPUDynInst::doApertureCheck(const VectorMask &mask)
                 assert(!computeUnit()->shader->isLdsApe(addr[lane]));
                 assert(!computeUnit()->shader->isScratchApe(addr[lane]));
                 assert(!computeUnit()->shader->isGpuVmApe(addr[lane]));
-                assert(!(bits(addr[lane], 63, 47) != 0x1FFFF
-                       && bits(addr[lane], 63, 47)));
+                assert(!(bits(addr[lane], 63, 47) != 0x1FFFF &&
+                         bits(addr[lane], 63, 47)));
             }
         }
     }
@@ -810,7 +879,6 @@ GPUDynInst::resolveFlatSegment(const VectorMask &mask)
 {
     doApertureCheck(mask);
 
-
     // Now that we know the aperature, do the following:
     // 1. Transform the flat address to its segmented equivalent.
     // 2. Set the execUnitId based an the aperture check.
@@ -818,7 +886,7 @@ GPUDynInst::resolveFlatSegment(const VectorMask &mask)
     //    resources are released as normal, below.
     if (executedAs() == enums::SC_GLOBAL) {
         // no transormation for global segment
-        wavefront()->execUnitId =  wavefront()->flatGmUnitId;
+        wavefront()->execUnitId = wavefront()->flatGmUnitId;
         if (isLoad()) {
             wavefront()->rdLmReqsInPipe--;
         } else if (isStore()) {
@@ -835,13 +903,15 @@ GPUDynInst::resolveFlatSegment(const VectorMask &mask)
                 // flat address calculation goes here.
                 // addr[lane] = segmented address
                 addr[lane] = addr[lane] -
-                    wavefront()->computeUnit->shader->ldsApe().base;
-                assert(addr[lane] <
-                  wavefront()->computeUnit->getLds().getAddrRange().size());
+                             wavefront()->computeUnit->shader->ldsApe().base;
+                assert(
+                    addr[lane] <
+                    wavefront()->computeUnit->getLds().getAddrRange().size());
             }
         }
-        wavefront()->execUnitId =  wavefront()->flatLmUnitId;
+        wavefront()->execUnitId = wavefront()->flatLmUnitId;
         wavefront()->decVMemInstsIssued();
+        wavefront()->vmemIssued.erase(seqNum());
         if (isLoad()) {
             wavefront()->rdGmReqsInPipe--;
         } else if (isStore()) {
@@ -882,41 +952,64 @@ GPUDynInst::resolveFlatSegment(const VectorMask &mask)
          *     #flat-addressing
          */
 
-        uint32_t numSgprs = wavefront()->maxSgprs;
-        uint32_t physSgprIdx =
-            wavefront()->computeUnit->registerManager->mapSgpr(wavefront(),
-                                                          numSgprs - 3);
-        uint32_t offset =
-            wavefront()->computeUnit->srf[simdId]->read(physSgprIdx);
-        physSgprIdx =
-            wavefront()->computeUnit->registerManager->mapSgpr(wavefront(),
-                                                          numSgprs - 4);
-        uint32_t size =
-            wavefront()->computeUnit->srf[simdId]->read(physSgprIdx);
-        for (int lane = 0; lane < wavefront()->computeUnit->wfSize(); ++lane) {
-            if (mask[lane]) {
-                addr[lane] = addr[lane] + lane * size + offset +
-                    wavefront()->computeUnit->shader->getHiddenPrivateBase() -
-                    wavefront()->computeUnit->shader->getScratchBase();
+        ComputeUnit *cu = wavefront()->computeUnit;
+
+        if (wavefront()->gfxVersion == GfxVersion::gfx942 ||
+            wavefront()->gfxVersion == GfxVersion::gfx950) {
+            // Architected flat scratch base address is in a dedicated hardware
+            // register.
+            for (int lane = 0; lane < cu->wfSize(); ++lane) {
+                if (mask[lane]) {
+                    // The scratch base is added for other gfx versions,
+                    // otherwise this would simply add the register base.
+                    addr[lane] = addr[lane] - cu->shader->getScratchBase() +
+                                 wavefront()->archFlatScratchAddr;
+                }
+            }
+        } else {
+            // In absolute flat scratch the program needs to place scratch
+            // address in SGPRn-3,4.
+            uint32_t numSgprs = wavefront()->maxSgprs;
+            uint32_t physSgprIdx =
+                cu->registerManager->mapSgpr(wavefront(), numSgprs - 4);
+            uint32_t offset = cu->srf[simdId]->read(physSgprIdx);
+            physSgprIdx =
+                cu->registerManager->mapSgpr(wavefront(), numSgprs - 3);
+            uint32_t size = cu->srf[simdId]->read(physSgprIdx);
+
+            for (int lane = 0; lane < cu->wfSize(); ++lane) {
+                if (mask[lane]) {
+                    addr[lane] = addr[lane] + lane * size + offset +
+                                 cu->shader->getHiddenPrivateBase() -
+                                 cu->shader->getScratchBase();
+                }
             }
         }
-        wavefront()->execUnitId =  wavefront()->flatLmUnitId;
-        wavefront()->decLGKMInstsIssued();
-        if (isLoad()) {
-            wavefront()->rdGmReqsInPipe--;
-        } else if (isStore()) {
-            wavefront()->wrGmReqsInPipe--;
-        } else if (isAtomic() || isMemSync()) {
-            wavefront()->rdGmReqsInPipe--;
-            wavefront()->wrGmReqsInPipe--;
-        } else {
-            panic("Invalid memory operation!\n");
+
+        wavefront()->execUnitId = wavefront()->flatLmUnitId;
+
+        // For FLAT the local memory pipe counters are incremented, but they
+        // are not incremented for explicit scratch_* instructions. Only
+        // decrement these counters if we are explicitly a FLAT instruction.
+        if (isFlat()) {
+            wavefront()->decLGKMInstsIssued();
+            wavefront()->lgkmIssued.erase(seqNum());
+            if (isLoad()) {
+                wavefront()->rdLmReqsInPipe--;
+            } else if (isStore()) {
+                wavefront()->wrLmReqsInPipe--;
+            } else if (isAtomic() || isMemSync()) {
+                wavefront()->wrLmReqsInPipe--;
+                wavefront()->rdLmReqsInPipe--;
+            } else {
+                panic("Invalid memory operation!\n");
+            }
         }
     } else {
         for (int lane = 0; lane < wavefront()->computeUnit->wfSize(); ++lane) {
             if (mask[lane]) {
-                panic("flat addr %#llx maps to bad segment %d\n",
-                      addr[lane], executedAs());
+                panic("flat addr %#llx maps to bad segment %d\n", addr[lane],
+                      executedAs());
             }
         }
     }
@@ -949,9 +1042,9 @@ GPUDynInst::updateStats()
         for (auto it : cu->pagesTouched) {
             // see if this page has been touched before. if not, this also
             // inserts the page into the table.
-            ret = cu->pageAccesses
-                .insert(ComputeUnit::pageDataStruct::value_type(it.first,
-                        std::make_pair(1, it.second)));
+            ret = cu->pageAccesses.insert(
+                ComputeUnit::pageDataStruct::value_type(
+                    it.first, std::make_pair(1, it.second)));
 
             // if yes, then update the stats
             if (!ret.second) {
@@ -973,8 +1066,9 @@ void
 GPUDynInst::profileRoundTripTime(Tick currentTime, int hopId)
 {
     // Only take the first measurement in the case of coalescing
-    if (roundTripTime.size() > hopId)
+    if (roundTripTime.size() > hopId) {
         return;
+    }
 
     roundTripTime.push_back(currentTime);
 }
@@ -989,7 +1083,7 @@ GPUDynInst::profileLineAddressTime(Addr addr, Tick currentTime, int hopId)
 
         lineAddressTime[addr].push_back(currentTime);
     } else if (hopId == 0) {
-        auto addressTimeVec = std::vector<Tick> { currentTime };
+        auto addressTimeVec = std::vector<Tick>{currentTime};
         lineAddressTime.insert(std::make_pair(addr, addressTimeVec));
     }
 }

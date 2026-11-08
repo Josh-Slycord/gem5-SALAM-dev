@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -36,6 +34,7 @@
 
 #include <vector>
 
+#include "base/random.hh"
 #include "cpu/testers/gpu_ruby_test/address_manager.hh"
 
 namespace gem5
@@ -113,6 +112,8 @@ class Episode
     // list of atomic locations picked for this episode
     typedef std::vector<Location> AtomicLocationList;
     AtomicLocationList atomicLocs;
+
+    Random::RandomPtr rng = Random::genRandom();
 
     // is a thread running this episode?
     bool isActive;

@@ -1,11 +1,17 @@
 """Portable publication paths and existing-engine binding contracts."""
 import hashlib
 import json
+import os
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+import yaml
 
 from salam_workbench import bootstrap_existing, gui_hook
 from salam_workbench.hardware_variants import _SKIP_COPY
@@ -109,12 +115,18 @@ class PortabilityTests(unittest.TestCase):
                             "path": str(engine),
                             "build_receipt": build_relative,
                             "generation_receipt": generation_relative,
+                            "toolchain_profile": {
+                                "id": "gem5-26-retained-salam",
+                                "python": "/opt/salam/bin/python",
+                            },
                         },
                     }
                 ),
                 encoding="utf-8",
             )
-            with patch.object(bootstrap_existing, "verify_engine"), patch.object(
+            with patch.object(
+                bootstrap_existing, "verify_engine"
+            ) as verify_build, patch.object(
                 bootstrap_existing, "_verify_generated_outputs"
             ), patch.object(
                 bootstrap_existing,
@@ -128,6 +140,15 @@ class PortabilityTests(unittest.TestCase):
             ):
                 result = bootstrap_existing.bootstrap_existing(workspace, project)
             self.assertEqual(result["state"], "bound_existing")
+            from salam_workbench.toolchain_profile import load_toolchain
+
+            verify_build.assert_called_once_with(
+                engine,
+                build,
+                toolchain_profile=load_toolchain(
+                    manifest=json.loads(workspace.read_text())
+                ),
+            )
             self.assertEqual(
                 (project / build_relative).read_bytes(), build.read_bytes()
             )
@@ -145,6 +166,10 @@ class PortabilityTests(unittest.TestCase):
             )
             selected = json.loads((project / "workspace.json").read_text())
             self.assertEqual(selected["configuration_engine"]["path"], str(engine))
+            self.assertEqual(
+                selected["configuration_engine"]["toolchain_profile"],
+                {"id": "gem5-26-retained-salam", "python": "/opt/salam/bin/python"},
+            )
             with self.assertRaisesRegex(ValueError, "new workbench binding"):
                 bootstrap_existing.bootstrap_existing(workspace, project)
 
@@ -174,6 +199,224 @@ class PortabilityTests(unittest.TestCase):
             ):
                 bootstrap_existing.bootstrap_existing(workspace, corrupt_target)
             self.assertFalse((corrupt_target / "workspace.json").exists())
+
+
+class GitHygieneTests(unittest.TestCase):
+    engine = Path(__file__).resolve().parents[2]
+
+    def config(self):
+        return yaml.safe_load((self.engine / ".pre-commit-config.yaml").read_text())
+
+    def eligible(self, path, hook=None):
+        config = self.config()
+        if not re.search(config["files"], path) or re.search(config["exclude"], path):
+            return False
+        return hook is None or re.search(hook.get("files", ""), path) is not None
+
+    def test_filters_cover_real_paths_and_reject_prefix_lookalikes(self):
+        for path in (
+            "workbench/salam_workbench/gui.py",
+            "workbench/tests/test_portability.py",
+            "workbench/scripts/verify.py",
+            "workbench/visualizer/__init__.py",
+            "workbench/docs/planning/project.json",
+            "workbench/experiments/gemm/example.yml",
+            "workbench/requirements-gui-gem5-26-validated.txt",
+            "workbench/README.md",
+            "docker/export_salam_visualizer.py",
+            ".github/workflows/ci.yml",
+            ".github/requirements-ci-gem5-26.txt",
+            "docs/CI.md",
+            "util/pre-commit-install.sh",
+            "src/hwacc/AccCluster.py",
+            "src/hwacc/tests/verify_native_stats.py",
+            "configs/SALAM/HWAccConfig.py",
+            "SALAM-Configurator/parser.py",
+            "tools/SALAM-Configurator/systembuilder.py",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(self.eligible(path))
+        for path in (
+            "workbench/salam_workbench/vendor/old.py",
+            "workbench/experiments/regression/overlays/foo.py",
+            "workbench/docs/patches/before.py",
+            "workbench/docs/ci/legacy-workflow.yml",
+            "workbench/salam_workbench_backup/gui.py",
+            "workbench/docs_extra/file.md",
+            "workbench/README.md.bak",
+            "other/workbench/tests/test.py",
+            ".github/workflows/ci.yml.extra",
+            "configs/SALAM/generated/old.py",
+            "src/hwacc/HWModeling/generated/old.py",
+            "src/hwacc/Scripts/statParser.py",
+            "src/hwacc/instruction.cc",
+            "MAINTAINERS.yaml",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(self.eligible(path))
+
+    def test_workbench_checks_are_preserved_and_salam_syntax_is_separate(self):
+        hooks = {item["id"]: item for item in self.config()["repos"][0]["hooks"]}
+        for name in ("workbench-black", "workbench-isort", "workbench-python-syntax"):
+            for path in (
+                "workbench/salam_workbench/gui.py",
+                "workbench/tests/test_portability.py",
+                "workbench/visualizer/export.py",
+                "docker/export_salam_visualizer.py",
+            ):
+                with self.subTest(hook=name, path=path):
+                    self.assertTrue(self.eligible(path, hooks[name]))
+            self.assertFalse(self.eligible("src/hwacc/AccCluster.py", hooks[name]))
+        for name in ("maintained-eof", "maintained-trailing-whitespace"):
+            self.assertTrue(self.eligible("workbench/docs/notes.md", hooks[name]))
+            self.assertFalse(self.eligible("src/hwacc/AccCluster.py", hooks[name]))
+        self.assertTrue(
+            self.eligible("src/hwacc/AccCluster.py", hooks["salam-python-syntax"])
+        )
+        self.assertTrue(
+            self.eligible(
+                "workbench/docs/planning/a.json", hooks["workbench-json-syntax"]
+            )
+        )
+        self.assertTrue(
+            self.eligible("workbench/experiments/a.yml", hooks["workbench-yaml-syntax"])
+        )
+        self.assertEqual(hooks["gem5-commit-msg-checker"]["stages"], ["commit-msg"])
+
+    def fixture(self, base):
+        repo = base / "repo with spaces"
+        repo.mkdir()
+        util = repo / "util"
+        util.mkdir()
+        shutil.copyfile(
+            self.engine / "util/pre-commit-install.sh", util / "pre-commit-install.sh"
+        )
+        bin_dir = base / "bin"
+        bin_dir.mkdir()
+        executable = bin_dir / "pre-commit"
+        executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$SALAM_HOOK_LOG"\n')
+        executable.chmod(0o755)
+        env = os.environ.copy()
+        for key in ("GIT_DIR", "GIT_COMMON_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(key, None)
+        env.update(
+            PATH=str(bin_dir) + os.pathsep + "/usr/bin:/bin",
+            GIT_CONFIG_GLOBAL="/dev/null",
+            GIT_CONFIG_NOSYSTEM="1",
+            SALAM_HOOK_LOG=str(base / "hook-invocation.txt"),
+        )
+        subprocess.run(["git", "init", "--quiet", str(repo)], env=env, check=True)
+        return repo, env
+
+    def install(self, repo, env, *args):
+        return subprocess.run(
+            ["bash", str(repo / "util/pre-commit-install.sh"), *args],
+            cwd=repo,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_installer_requires_explicit_install_and_delegates_to_precommit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            repo, env = self.fixture(base)
+            for args in ((), ("--help",), ("--unknown",), ("--install", "extra")):
+                result = self.install(repo, env, *args)
+                self.assertEqual(
+                    result.returncode, 0 if not args or args == ("--help",) else 2
+                )
+                self.assertFalse(Path(env["SALAM_HOOK_LOG"]).exists())
+            result = self.install(repo, env, "--install")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                Path(env["SALAM_HOOK_LOG"]).read_text().splitlines(),
+                ["install", "--hook-type", "pre-commit", "--hook-type", "commit-msg"],
+            )
+
+    def test_installer_preserves_custom_hooks_symlinks_and_hookspath(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            repo, env = self.fixture(base)
+            hooks = repo / ".git/hooks"
+            custom = hooks / "commit-msg"
+            custom.write_bytes(b"#!/bin/sh\nexit 0\n")
+            for kind in ("regular", "dangling_symlink"):
+                if kind == "dangling_symlink":
+                    custom.unlink()
+                    custom.symlink_to(base / "missing")
+                before = (
+                    custom.read_bytes() if custom.is_file() else os.readlink(custom)
+                )
+                result = self.install(repo, env, "--install")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(Path(env["SALAM_HOOK_LOG"]).exists())
+                self.assertEqual(
+                    custom.read_bytes() if custom.is_file() else os.readlink(custom),
+                    before,
+                )
+            subprocess.run(
+                ["git", "config", "core.hooksPath", str(base / "custom")],
+                cwd=repo,
+                env=env,
+                check=True,
+            )
+            result = self.install(repo, env, "--install")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("core.hooksPath", result.stderr)
+            self.assertFalse(Path(env["SALAM_HOOK_LOG"]).exists())
+
+    def test_installer_checks_common_hook_directory_for_linked_worktrees(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            repo, env = self.fixture(base)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "-c",
+                    "user.name=Fixture",
+                    "-c",
+                    "user.email=fixture@example.invalid",
+                    "commit",
+                    "--quiet",
+                    "--allow-empty",
+                    "-m",
+                    "fixture",
+                ],
+                cwd=repo,
+                env=env,
+                check=True,
+            )
+            linked = base / "linked checkout"
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "worktree",
+                    "add",
+                    "--quiet",
+                    "--detach",
+                    str(linked),
+                ],
+                cwd=repo,
+                env=env,
+                check=True,
+            )
+            (linked / "util").mkdir()
+            shutil.copyfile(
+                repo / "util/pre-commit-install.sh",
+                linked / "util/pre-commit-install.sh",
+            )
+            custom = repo / ".git/hooks/pre-commit"
+            custom.write_bytes(b"custom common hook\n")
+            result = self.install(linked, env, "--install")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(custom.read_bytes(), b"custom common hook\n")
+            self.assertFalse(Path(env["SALAM_HOOK_LOG"]).exists())
 
 
 if __name__ == "__main__":

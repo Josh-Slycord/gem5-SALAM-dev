@@ -254,7 +254,7 @@ TCPIface::connect()
 
 TCPIface::~TCPIface()
 {
-    GEM5_VAR_USED int ret;
+    [[maybe_unused]] int ret;
 
     ret = close(sock);
     assert(ret == 0);
@@ -268,8 +268,8 @@ TCPIface::sendTCP(int sock, const void *buf, unsigned length)
     ret = ::send(sock, buf, length, MSG_NOSIGNAL);
     if (ret < 0) {
         if (errno == ECONNRESET || errno == EPIPE) {
-            exitSimLoop("Message server closed connection, simulation "
-                        "is exiting");
+            exitSimulationLoopClassic(
+                "Message server closed connection, simulation is exiting");
         } else {
             panic("send() failed: %s", strerror(errno));
         }

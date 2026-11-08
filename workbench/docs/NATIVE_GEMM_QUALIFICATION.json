@@ -1,0 +1,183 @@
+{
+  "format": "salam-native-gemm-qualification/v1",
+  "created_utc": "2026-11-06T02:42:22.841299+00:00",
+  "state": "passed",
+  "branch": "codex/native-gem5-milestone",
+  "baseline": "8a224db82f534776daecc0e3ed989a55760ec3b8",
+  "simulator_cpp_sources_changed": false,
+  "simulator_rebuilt": false,
+  "binary_reuse_receipt": "/home/jslycord/projects/salam-track-a-native-20261105/binary-reuse/build.json",
+  "binary_sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91",
+  "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+  "study_receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/study.json",
+  "positive_comparisons": 8,
+  "positive_simulator_processes": 16,
+  "positive_accelerator_launches": 32,
+  "observed_positive_values_checked": 2048,
+  "unique_input_fixtures_per_case": 2,
+  "seeds": [
+    11,
+    29
+  ],
+  "negative_controls": [
+    {
+      "expected": "green guest/runner; independent numerical rejection",
+      "name": "false_guest_pass",
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/controls/false-guest-pass/independent-rejection.json",
+      "state": "passed"
+    },
+    {
+      "expected": "preflight rejection",
+      "mutation": {
+        "control": "instruction-cap",
+        "path": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/controls/instruction-cap/preparation/workspace/benchmarks/sys_validation/gemm/config.yml",
+        "sha256": "31ece39801f4da7e8a829b1de80c7704e1cd46df4d723dcbf44308dc178ef9fd"
+      },
+      "name": "instruction-cap",
+      "run_directory": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/controls/instruction-cap/runs/native",
+      "state": "passed"
+    },
+    {
+      "expected": "actual engine IR rejection",
+      "mutation": {
+        "control": "malformed-ir",
+        "path": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/controls/malformed-ir/preparation/workspace/benchmarks/sys_validation/gemm/hw/gemm.ll",
+        "sha256": "262ddb7366feab67a2868190c63e6bcd56d6cbb78309c36cc12162a32728954f"
+      },
+      "name": "malformed-ir",
+      "run_directory": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/controls/malformed-ir/runs/native",
+      "state": "passed"
+    }
+  ],
+  "normal_pipeline_smoke": {
+    "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/native-cli-seed47/configuration.json",
+    "seed": 47,
+    "output_values": 64,
+    "state": "passed"
+  },
+  "source_tests": {
+    "total": 805,
+    "tiers": [
+      {
+        "tier": "fast",
+        "tests": 352,
+        "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-fast/check.json",
+        "unit_receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-fast/unit-results.json",
+        "source_sha256": "31fade48141da7dcad1958a6cccdbe7b884a4aee388c6ff82c05878a41806541"
+      },
+      {
+        "tier": "config",
+        "tests": 389,
+        "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-config/check.json",
+        "unit_receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-config/unit-results.json",
+        "source_sha256": "31fade48141da7dcad1958a6cccdbe7b884a4aee388c6ff82c05878a41806541"
+      },
+      {
+        "tier": "gui",
+        "tests": 64,
+        "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-gui/check.json",
+        "unit_receipt": "/home/jslycord/projects/salam-track-a-native-20261105/source-checks/native-final-v2-gui/unit-results.json",
+        "source_sha256": "31fade48141da7dcad1958a6cccdbe7b884a4aee388c6ff82c05878a41806541"
+      }
+    ],
+    "inventory": "/mnt/d/kb_local_chatGPT/salam/track-a-implementation-20261105/SOURCE_TEST_INVENTORY.json"
+  },
+  "implementation_freeze": "/home/jslycord/projects/salam-track-a-native-20261105/IMPLEMENTATION_FREEZE.json",
+  "cases": [
+    {
+      "case": "p10-cap0-lat1",
+      "period_ns": 10,
+      "limit": 0,
+      "mul_cycles": 1,
+      "peak": 8,
+      "denials": 0,
+      "multiply_grants": 512,
+      "compute_passes": 337,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p10-cap0-lat1/comparison.json"
+    },
+    {
+      "case": "p10-cap0-lat16",
+      "period_ns": 10,
+      "limit": 0,
+      "mul_cycles": 16,
+      "peak": 8,
+      "denials": 0,
+      "multiply_grants": 512,
+      "compute_passes": 1055,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p10-cap0-lat16/comparison.json"
+    },
+    {
+      "case": "p10-cap1-lat1",
+      "period_ns": 10,
+      "limit": 1,
+      "mul_cycles": 1,
+      "peak": 1,
+      "denials": 100184,
+      "multiply_grants": 512,
+      "compute_passes": 839,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p10-cap1-lat1/comparison.json"
+    },
+    {
+      "case": "p10-cap1-lat16",
+      "period_ns": 10,
+      "limit": 1,
+      "mul_cycles": 16,
+      "peak": 1,
+      "denials": 100184,
+      "multiply_grants": 512,
+      "compute_passes": 8207,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p10-cap1-lat16/comparison.json"
+    },
+    {
+      "case": "p3-cap0-lat1",
+      "period_ns": 3,
+      "limit": 0,
+      "mul_cycles": 1,
+      "peak": 8,
+      "denials": 0,
+      "multiply_grants": 512,
+      "compute_passes": 337,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p3-cap0-lat1/comparison.json"
+    },
+    {
+      "case": "p3-cap0-lat16",
+      "period_ns": 3,
+      "limit": 0,
+      "mul_cycles": 16,
+      "peak": 8,
+      "denials": 0,
+      "multiply_grants": 512,
+      "compute_passes": 1055,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p3-cap0-lat16/comparison.json"
+    },
+    {
+      "case": "p3-cap1-lat1",
+      "period_ns": 3,
+      "limit": 1,
+      "mul_cycles": 1,
+      "peak": 1,
+      "denials": 100184,
+      "multiply_grants": 512,
+      "compute_passes": 839,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p3-cap1-lat1/comparison.json"
+    },
+    {
+      "case": "p3-cap1-lat16",
+      "period_ns": 3,
+      "limit": 1,
+      "mul_cycles": 16,
+      "peak": 1,
+      "denials": 100184,
+      "multiply_grants": 512,
+      "compute_passes": 8207,
+      "receipt": "/home/jslycord/projects/salam-track-a-native-20261105/study-final/cases/p3-cap1-lat16/comparison.json"
+    }
+  ],
+  "scope": "Fixed8x8int32GEMM; normalized NonCoherent DMA/accelerators/SPM; LocalBus-only PIO; current typed C++ interfaces.",
+  "limitations": [
+    "No generic Params or SCons migration.",
+    "Header and full-system wrapper preparation still use retained generator.",
+    "No new native GUI-selector acceptance, broader topology, full drain or leak qualification.",
+    "PPA remains uncalibrated metadata."
+  ]
+}

@@ -1,4 +1,5 @@
 #include "hwacc/register_bank.hh"
+#include "hwacc/response_queue.hh"
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -173,27 +174,20 @@ RegisterBank::recvTimingReq(PacketPtr pkt)
         // recvAtomic() should already have turned packet into
         // atomic response
         assert(pkt->isResponse());
-        if (isRead) {
-            retryResp = !port.sendTimingResp(pkt);
-            if (!retryResp) return true;
-        }
-        // typically this should be added at the end, so start the
-        // insertion sort with the last element, also make sure not to
-        // re-order in front of some existing packet with the same
-        // address, the latter is important as this memory effectively
-        // hands out exclusive copies (shared is not asserted)
-        auto i = packetQueue.end();
-        --i;
-        while (i != packetQueue.begin() && responseTime < i->tick &&
-            !i->pkt->matchAddr(pkt))
-            --i;
+        // Preserve the historical zero-time response for an idle read.
+        // Enqueue first so a synchronous peer callback cannot bypass a
+        // rejected response or replace the head while it is being sent.
+        const bool immediateRead = isRead && packetQueue.empty() &&
+            !retryResp && !responseInProgress;
+        auto position = gem5::salam::responseInsertionPosition(
+            packetQueue, responseTime, retryResp || responseInProgress,
+            [pkt](const auto &entry) { return entry.pkt->matchAddr(pkt); });
+        packetQueue.emplace(position, pkt, responseTime);
 
-        // emplace inserts the element before the position pointed to by
-        // the iterator, so advance it one step
-        packetQueue.emplace(++i, pkt, responseTime);
-
-        if (!retryResp && !dequeueEvent.scheduled()) {
-            schedule(dequeueEvent, packetQueue.back().tick);
+        if (immediateRead) {
+            dequeue();
+        } else {
+            scheduleNextResponse();
         }
     }
     return true;
@@ -204,36 +198,52 @@ RegisterBank::dequeue()
 {
     assert(!packetQueue.empty());
     DeferredPacket deferred_pkt = packetQueue.front();
-    
+
+    responseInProgress = true;
     retryResp = !port.sendTimingResp(deferred_pkt.pkt);
+    responseInProgress = false;
     if (!retryResp) {
         packetQueue.pop_front();
 
-        // if the queue is not empty, schedule the next dequeue event,
-        // otherwise signal that we are drained if we were asked to do so
         if (!packetQueue.empty()) {
-            // if there were packets that got in-between then we
-            // already have an event scheduled, so use re-schedule
-            reschedule(dequeueEvent,
-                       std::max(packetQueue.front().tick, curTick()), true);
-        } else if (drainState() == DrainState::Draining) {
-            DPRINTF(Drain, "Draining of ScratchpadMemory complete\n");
-            signalDrainDone();
+            scheduleNextResponse();
         }
     }
+    tryCompleteDrain();
 }
 
 void
 RegisterBank::delta()
 {
     std::memcpy(pmemAddr, deltaAddr, range.size());
+    tryCompleteDrain();
 }
 
 void
 RegisterBank::recvRespRetry()
 {
     assert(retryResp);
-    dequeue();
+    retryResp = false;
+    scheduleNextResponse();
+}
+
+void
+RegisterBank::scheduleNextResponse()
+{
+    auto when = gem5::salam::nextResponseTime(
+        packetQueue, curTick(), responseInProgress,
+        [this](const auto &) { return retryResp; });
+    if (!when) {
+        if (dequeueEvent.scheduled()) {
+            deschedule(dequeueEvent);
+        }
+        return;
+    }
+    if (!dequeueEvent.scheduled()) {
+        schedule(dequeueEvent, *when);
+    } else if (dequeueEvent.when() != *when) {
+        reschedule(dequeueEvent, *when);
+    }
 }
 
 Port &
@@ -250,10 +260,17 @@ RegisterBank::getPort(const std::string &if_name, PortID idx)
 DrainState
 RegisterBank::drain()
 {
-    if (!packetQueue.empty()) {
-        DPRINTF(Drain, "ScratchpadMemory Queue has requests, waiting to drain\n");
+    if (!packetQueue.empty() || deltaEvent.scheduled() ||
+        dequeueEvent.scheduled() || retryResp || responseInProgress) {
         return DrainState::Draining;
-    } else {
-        return DrainState::Drained;
     }
+    return DrainState::Drained;
+}
+
+void
+RegisterBank::tryCompleteDrain()
+{
+    if (drainState() == DrainState::Draining &&
+        drain() == DrainState::Drained)
+        signalDrainDone();
 }

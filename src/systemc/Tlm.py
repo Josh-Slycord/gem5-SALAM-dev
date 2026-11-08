@@ -23,13 +23,19 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from m5.params import Port, VectorPort
+from m5.params import (
+    Port,
+    VectorPort,
+)
+
 
 def TLM_TARGET_ROLE(width):
-    return 'TLM TARGET %d' % width
+    return "TLM TARGET %d" % width
+
 
 def TLM_INITIATOR_ROLE(width):
-    return 'TLM INITIATOR %d' % width
+    return "TLM INITIATOR %d" % width
+
 
 class TlmTargetSocket(Port):
     def __init__(self, width, desc):
@@ -37,7 +43,8 @@ class TlmTargetSocket(Port):
         peer_role = TLM_INITIATOR_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(TlmTargetSocket, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class VectorTlmTargetSocket(VectorPort):
     def __init__(self, width, desc):
@@ -45,7 +52,8 @@ class VectorTlmTargetSocket(VectorPort):
         peer_role = TLM_INITIATOR_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(VectorTlmTargetSocket, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class TlmInitiatorSocket(Port):
     def __init__(self, width, desc):
@@ -53,7 +61,8 @@ class TlmInitiatorSocket(Port):
         peer_role = TLM_TARGET_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(TlmInitiatorSocket, self).__init__(my_role, desc, is_source=True)
+        super().__init__(my_role, desc, is_source=True)
+
 
 class VectorTlmInitiatorSocket(VectorPort):
     def __init__(self, width, desc):
@@ -61,5 +70,4 @@ class VectorTlmInitiatorSocket(VectorPort):
         peer_role = TLM_TARGET_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(VectorTlmInitiatorSocket, self).__init__(
-                my_role, desc, is_source=True)
+        super().__init__(my_role, desc, is_source=True)

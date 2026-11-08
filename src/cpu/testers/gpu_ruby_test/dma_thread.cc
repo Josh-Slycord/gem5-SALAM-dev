@@ -2,8 +2,6 @@
  * Copyright (c) 2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -72,7 +70,7 @@ DmaThread::issueLoadOps()
         Addr address = addrManager->getAddress(location);
         DPRINTF(ProtocolTest, "%s Episode %d: Issuing Load - Addr %s\n",
                 this->getName(), curEpisode->getEpisodeId(),
-                ruby::printAddress(address));
+                printAddress(address));
 
         int load_size = sizeof(Value);
 
@@ -129,7 +127,7 @@ DmaThread::issueStoreOps()
 
         DPRINTF(ProtocolTest, "%s Episode %d: Issuing Store - Addr %s - "
                 "Value %d\n", this->getName(),
-                curEpisode->getEpisodeId(), ruby::printAddress(address),
+                curEpisode->getEpisodeId(), printAddress(address),
                 new_value);
 
         auto req = std::make_shared<Request>(address, sizeof(Value),
@@ -213,7 +211,7 @@ DmaThread::hitCallback(PacketPtr pkt)
 
     DPRINTF(ProtocolTest, "%s Episode %d: hitCallback - Command %s -"
             " Addr %s\n", this->getName(), curEpisode->getEpisodeId(),
-            resp_cmd.toString(), ruby::printAddress(addr));
+            resp_cmd.toString(), printAddress(addr));
 
     if (resp_cmd == MemCmd::SwapResp) {
         // response to a pending atomic

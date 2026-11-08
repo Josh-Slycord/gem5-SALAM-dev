@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "project": "SALAM Research Workbench - gem5 26",
+  "status": "Example only; supply a separately built runtime and verified receipts.",
+  "engine": {
+    "distribution": "Ubuntu-24.04",
+    "path": "/absolute/path/to/isolated/engine"
+  },
+  "configuration_engine": {
+    "distribution": "Ubuntu-24.04",
+    "path": "/absolute/path/to/isolated/engine",
+    "build_receipt": "evidence/your-modern-build/build.json",
+    "generation_receipt": "evidence/your-generation/hardware-codegen.json",
+    "toolchain_profile": {
+      "id": "gem5-26-retained-salam",
+      "python": "/absolute/path/to/venv/bin/python",
+      "scons": "/absolute/path/to/venv/bin/scons",
+      "cxx": "/usr/bin/g++",
+      "python_config": "/usr/bin/python3.12-config",
+      "linker": "/usr/bin/ld",
+      "llvm_bin": "/usr/lib/llvm-14/bin",
+      "llvm_config": "/usr/bin/llvm-config-14",
+      "arm_bin": "/usr/bin"
+    }
+  }
+}

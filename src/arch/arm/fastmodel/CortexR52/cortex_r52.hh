@@ -42,7 +42,6 @@ namespace gem5
 
 class BaseCPU;
 
-GEM5_DEPRECATED_NAMESPACE(FastModel, fastmodel);
 namespace fastmodel
 {
 
@@ -71,6 +70,8 @@ class CortexR52 : public Iris::CPU<CortexR52TC>
     void set_evs_param(const std::string &n, T val);
 
     void setCluster(CortexR52Cluster *_cluster, int _num);
+
+    void setResetAddr(Addr addr, bool secure = false) override;
 
     Port &getPort(const std::string &if_name,
             PortID idx=InvalidPortID) override;

@@ -129,8 +129,8 @@ containingFunc(uint64_t init_val, uint64_t fieldVal)
 // Declare these as global so g++ doesn't ignore them. Initialize them in
 // various ways.
 EmptySixtyFour emptySixtyFour = 0;
-EmptyThirtyTwo emptyThirtyTwo;
-EmptySixteen emptySixteen;
+[[maybe_unused]] EmptyThirtyTwo emptyThirtyTwo{};
+[[maybe_unused]] EmptySixteen emptySixteen;
 EmptyEight emptyEight(0);
 
 class BitUnionData : public testing::Test
@@ -264,9 +264,9 @@ TEST_F(BitUnionData, Templating)
     EndBitUnion(Dummy32);
 
     bool is64;
-    is64 = std::is_same<BitUnionBaseType<Dummy64>, uint64_t>::value;
+    is64 = std::is_same_v<BitUnionBaseType<Dummy64>, uint64_t>;
     EXPECT_TRUE(is64);
-    is64 = std::is_same<BitUnionBaseType<Dummy32>, uint64_t>::value;
+    is64 = std::is_same_v<BitUnionBaseType<Dummy32>, uint64_t>;
     EXPECT_FALSE(is64);
 }
 

@@ -42,15 +42,15 @@
 
 #include <csignal>
 
-#include "arch/decoder.hh"
-#include "arch/locked_mem.hh"
+#include "arch/generic/decoder.hh"
 #include "base/logging.hh"
 #include "cpu/base.hh"
 #include "cpu/thread_context.hh"
-#include "debug/Fault.hh"
+#include "debug/Faults.hh"
 #include "mem/page_table.hh"
 #include "sim/full_system.hh"
 #include "sim/process.hh"
+#include "sim/system.hh"
 
 namespace gem5
 {
@@ -60,7 +60,7 @@ FaultBase::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
     panic_if(!FullSystem, "fault (%s) detected @ PC %s",
              name(), tc->pcState());
-    DPRINTF(Fault, "Fault %s at PC: %s\n", name(), tc->pcState());
+    DPRINTF(Faults, "Fault %s at PC: %s\n", name(), tc->pcState());
 }
 
 void
@@ -72,11 +72,12 @@ UnimpFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 void
 SESyscallFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    tc->getSystemPtr()->workload->syscall(tc);
     // Move the PC forward since that doesn't happen automatically.
-    TheISA::PCState pc = tc->pcState();
-    inst->advancePC(pc);
-    tc->pcState(pc);
+    std::unique_ptr<PCStateBase> pc(tc->pcState().clone());
+    inst->advancePC(*pc);
+    tc->pcState(*pc);
+
+    tc->getSystemPtr()->workload->syscall(tc);
 }
 
 void
@@ -100,14 +101,14 @@ GenericPageTableFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
         handled = p->fixupFault(vaddr);
     }
     panic_if(!handled &&
-                 !tc->getSystemPtr()->trapToGdb(SIGSEGV, tc->contextId()),
+            !tc->getSystemPtr()->trapToGdb(GDBSignal::SEGV, tc->contextId()),
              "Page table fault when accessing virtual address %#x\n", vaddr);
 }
 
 void
 GenericAlignmentFault::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
-    panic_if(!tc->getSystemPtr()->trapToGdb(SIGSEGV, tc->contextId()),
+    panic_if(!tc->getSystemPtr()->trapToGdb(GDBSignal::SEGV, tc->contextId()),
              "Alignment fault when accessing virtual address %#x\n", vaddr);
 }
 
@@ -115,7 +116,7 @@ void GenericHtmFailureFault::invoke(ThreadContext *tc,
                                     const StaticInstPtr &inst)
 {
     // reset decoder
-    TheISA::Decoder* dcdr = tc->getDecoderPtr();
+    InstDecoder* dcdr = tc->getDecoderPtr();
     dcdr->reset();
 
     // restore transaction checkpoint
@@ -126,7 +127,7 @@ void GenericHtmFailureFault::invoke(ThreadContext *tc,
     checkpoint->restore(tc, getHtmFailureFaultCause());
 
     // reset the global monitor
-    TheISA::globalClearExclusive(tc);
+    tc->getIsaPtr()->globalClearExclusive();
 
     // send abort packet to ruby (in final breath)
     tc->htmAbortTransaction(htmUid, cause);

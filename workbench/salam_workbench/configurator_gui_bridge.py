@@ -335,9 +335,11 @@ _GUI_METHODS = '''    def generate_files(self):
                          Path(__file__).resolve().parents[3] / "workbench").resolve(strict=True)
         if not (workbench / "salam_workbench/configurator_gui_bridge.py").is_file():
             raise ValueError("Selected workbench package is unavailable")
+        from salam_workbench.toolchain_profile import load_toolchain
+        selected_python = load_toolchain(workbench)["python"]
         command = [
             "wsl", "-d", distro, "--cd", self._checked_wsl_path(workbench, distro),
-            "--exec", "/usr/bin/python3.8", "-B", "-m",
+            "--exec", selected_python, "-B", "-m",
             "salam_workbench.configurator_gui_bridge", "prepare",
             "--engine", engine, "--benchmark", benchmark, "--config", config,
             "--distro", distro,

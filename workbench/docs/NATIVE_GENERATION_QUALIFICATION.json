@@ -1,0 +1,364 @@
+{
+  "format": "salam-normalized-generation-qualification/v1",
+  "audit_local_date": "2026-11-06 America/New_York",
+  "created_utc": "2026-11-06T06:03:48.072558+00:00",
+  "state": "passed",
+  "branch": "codex/native-gem5-milestone",
+  "baseline": "35e5459bb22727e63d719e446643bea3e4c83415",
+  "study_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/study.json",
+  "positive_pairs": 9,
+  "positive_simulator_processes": 18,
+  "positive_launches": 36,
+  "observed_positive_values_checked": 2304,
+  "fixtures_per_process": 2,
+  "seeds": [
+    11,
+    29
+  ],
+  "input_equivalence": "Separate legacy/native builds: header macros/compiler inputs, identical LLVM IR and exact ARM ELF load images. Debug metadata may differ. Both processes execute the native-built canonical guest ELF.",
+  "cases": [
+    {
+      "name": "p10-cap0-lat1",
+      "base_address": "0x10020000",
+      "period_ns": 10,
+      "mul_limit": 0,
+      "mul_cycles": 1,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "63313b91db4ddd7ef078c9c02bd6659667bdb31e2321b555aeff8f4af1ac6016",
+      "native_elf_sha256": "f5a33ba8c66a431fa957508eb00988e6ad68f9c2bdc708b562747b4421068fb8",
+      "canonical_native_elf_sha256": "f5a33ba8c66a431fa957508eb00988e6ad68f9c2bdc708b562747b4421068fb8",
+      "model_sha256": "dbfb72313f9dae5c408545a5397eeb1500e920f251eb09768fd00aedb55f3f16",
+      "layout_sha256": "dcaaabdc7645753c408a33d58800e428179e2efe2c71721e6fd258ac33e0a713",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap0-lat1/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap0-lat1/comparison.json"
+    },
+    {
+      "name": "p10-cap0-lat16",
+      "base_address": "0x10020000",
+      "period_ns": 10,
+      "mul_limit": 0,
+      "mul_cycles": 16,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "2c0c837e05c3a77fff8713680d4a70e9251e1a2df35f476733461de5375ce81c",
+      "native_elf_sha256": "1727b400ec14b4b2bc166ba3c26b74ed43dbc473daa35a28138e68c7b5177314",
+      "canonical_native_elf_sha256": "1727b400ec14b4b2bc166ba3c26b74ed43dbc473daa35a28138e68c7b5177314",
+      "model_sha256": "595dd16c2ecc8e869116825f773417e9eee90d97451811c4e1989a7efec2f5e5",
+      "layout_sha256": "c0d0903b4fd547f402e8d54f25dc44848c4fbd1ff9ad15274707c7376df86bd0",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap0-lat16/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap0-lat16/comparison.json"
+    },
+    {
+      "name": "p10-cap1-lat1",
+      "base_address": "0x10020000",
+      "period_ns": 10,
+      "mul_limit": 1,
+      "mul_cycles": 1,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "a7ab81bde3143e05d9bc9d01dfb02db2d6ebe45641863bff3668268f5624124a",
+      "native_elf_sha256": "81918baab19939bdc4dcc32f7e24d9d4990524f950cded3c3262998c333e7a8a",
+      "canonical_native_elf_sha256": "81918baab19939bdc4dcc32f7e24d9d4990524f950cded3c3262998c333e7a8a",
+      "model_sha256": "c8a577eb8837cf7519e60ddea78434c0733f3c9e2cbd257cbb8c1588718e7621",
+      "layout_sha256": "fd4c5e020a3d75057b6bdc7b37eccb835d0015739a9f3ce37f0d440336ba3f6d",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap1-lat1/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap1-lat1/comparison.json"
+    },
+    {
+      "name": "p10-cap1-lat16",
+      "base_address": "0x10020000",
+      "period_ns": 10,
+      "mul_limit": 1,
+      "mul_cycles": 16,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "9f866a9b8b62858c5da701630252090df5c683f417f581f6bfb474f943c63555",
+      "native_elf_sha256": "e34fefbd934c56a4344612ce250b88c02c98b223fbbde7e26233d0a64490a70f",
+      "canonical_native_elf_sha256": "e34fefbd934c56a4344612ce250b88c02c98b223fbbde7e26233d0a64490a70f",
+      "model_sha256": "fb76bccb202618f4670f7492d083437c39a924ff856f9155172a1c0358ef1977",
+      "layout_sha256": "4d611e3b6f619eb26e7d06cc96edbe398b09ebdbc050a1abf441d95a380d9d01",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap1-lat16/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p10-cap1-lat16/comparison.json"
+    },
+    {
+      "name": "p3-cap0-lat1",
+      "base_address": "0x10020000",
+      "period_ns": 3,
+      "mul_limit": 0,
+      "mul_cycles": 1,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "589c80d949075849ec70fcbfd2777f6e92bded85dff862afafa2e0a8f7bcf4bd",
+      "native_elf_sha256": "568378a6ff1b76a9b7f1e61bcbac817fe5e9163e9e85f7bc7efc7fc848d15c25",
+      "canonical_native_elf_sha256": "568378a6ff1b76a9b7f1e61bcbac817fe5e9163e9e85f7bc7efc7fc848d15c25",
+      "model_sha256": "ea59e6b36e4ee9a79663967716cac5d585a10593272562a3ed1fc887c4063581",
+      "layout_sha256": "0271d74a64b019b934cc5eba5e3b8e3dd0e997e5611ca7bd779f59458c9e5d71",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap0-lat1/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap0-lat1/comparison.json"
+    },
+    {
+      "name": "p3-cap0-lat16",
+      "base_address": "0x10020000",
+      "period_ns": 3,
+      "mul_limit": 0,
+      "mul_cycles": 16,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "e3ed1c71df1f6b99b9f25c358808f844d01ffc258675b86fd26175ea83371524",
+      "native_elf_sha256": "3922c63f2a4cebc3db49ceb03f7bd8aa3a675476855efe9bf23d422838f69148",
+      "canonical_native_elf_sha256": "3922c63f2a4cebc3db49ceb03f7bd8aa3a675476855efe9bf23d422838f69148",
+      "model_sha256": "c17ab77b52708b4363664994bb2bbca26a443050598b4e4d40b6f083b75c77b8",
+      "layout_sha256": "336846e482866892a1bef6d1505be3201cef0d03d8d965ada977ea7d65294f12",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap0-lat16/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap0-lat16/comparison.json"
+    },
+    {
+      "name": "p3-cap1-lat1",
+      "base_address": "0x10020000",
+      "period_ns": 3,
+      "mul_limit": 1,
+      "mul_cycles": 1,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "57bcd18a4617fe0a648ed6a15d8d2c7ffa785811a11c0fa965e75869c360a3ce",
+      "native_elf_sha256": "d146f87453e55511c116adea911903f88ad9345ed7da44f02dce04d4d556d888",
+      "canonical_native_elf_sha256": "d146f87453e55511c116adea911903f88ad9345ed7da44f02dce04d4d556d888",
+      "model_sha256": "22e30c6a2c88309b6c1620908c34dcafffdbe81f37b105d2f4e283d82e6613f5",
+      "layout_sha256": "415637499a67c01d82445801506697f8b3a37292dffaa9a8a586a9b51531b17b",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap1-lat1/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap1-lat1/comparison.json"
+    },
+    {
+      "name": "p3-cap1-lat16",
+      "base_address": "0x10020000",
+      "period_ns": 3,
+      "mul_limit": 1,
+      "mul_cycles": 16,
+      "symbols": {
+        "DMA_CopyLen": 268566545,
+        "DMA_Flags": 268566528,
+        "DMA_RdAddr": 268566529,
+        "DMA_WrAddr": 268566537,
+        "GEMM": 268566656,
+        "MATRIX1": 268566720,
+        "MATRIX2": 268599552,
+        "MATRIX3": 268632384,
+        "TOP": 268566592
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "a5050fbb613ba010d1a5ce5ed344eef28015f7b90dac6d43a7d9e05000f6a373",
+      "native_elf_sha256": "2cfc24634998d897def695e5b708b7226e02e4b11327d9857930e0354843bb2c",
+      "canonical_native_elf_sha256": "2cfc24634998d897def695e5b708b7226e02e4b11327d9857930e0354843bb2c",
+      "model_sha256": "0ad3f9ed549a62ea2c1e434d132f01f7a1ef134d87b83daf2c58bb3fb93d53f6",
+      "layout_sha256": "f87199710a164755e34cd6765c2f76952f4200962eaa96122020c20bb26ee1f8",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap1-lat16/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/p3-cap1-lat16/comparison.json"
+    },
+    {
+      "name": "relocated-p3-cap1-lat16",
+      "base_address": "0x10024000",
+      "period_ns": 3,
+      "mul_limit": 1,
+      "mul_cycles": 16,
+      "symbols": {
+        "DMA_CopyLen": 268582929,
+        "DMA_Flags": 268582912,
+        "DMA_RdAddr": 268582913,
+        "DMA_WrAddr": 268582921,
+        "GEMM": 268583040,
+        "MATRIX1": 268583104,
+        "MATRIX2": 268615936,
+        "MATRIX3": 268648768,
+        "TOP": 268582976
+      },
+      "header_macro_count": 9,
+      "elf_load_image_equivalent": true,
+      "legacy_elf_sha256": "891ad80efb4940d6d3949b290f0410d69d4416a8f249a8af760ccf445c2c4534",
+      "native_elf_sha256": "066e6bc82ebe2944c1a439a234d2f1b432be349230df5f6d655c588d314aaea9",
+      "canonical_native_elf_sha256": "066e6bc82ebe2944c1a439a234d2f1b432be349230df5f6d655c588d314aaea9",
+      "model_sha256": "17225b98c2a444357f6fd718395e6790275df7f6cfa8ec0d5296e10f398ee2aa",
+      "layout_sha256": "fc29733bc393e094c5f6101672686f9fc63a343d5aa3d442779ad39246d3694a",
+      "generation_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/relocated-p3-cap1-lat16/generation-comparison.json",
+      "comparison_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/cases/relocated-p3-cap1-lat16/comparison.json"
+    }
+  ],
+  "failure_controls": [
+    {
+      "expected": "Compiler succeeds; independent compiler-visible TOP witness rejects",
+      "mutated_header_sha256": "44edc7e8b9367ea330c539257d358944d6be16d90e9b09013f2f14057e4f366e",
+      "name": "wrong_header_macro",
+      "state": "passed",
+      "witness": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/controls/header-wrong-macro/wrong-header-compiler/witness.json"
+    },
+    {
+      "expected": "Guest/runner green; independent numerical output check fails",
+      "name": "false_guest_pass",
+      "state": "passed",
+      "witness": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/controls/false-guest-pass/independent-rejection.json"
+    },
+    {
+      "expected_diagnostic": "Native model snapshot semantic hash differs from wrapper",
+      "mutation": {
+        "path": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/controls/model-tamper/preparation/workspace/configs/SALAM/generated/native_native_gemm.json",
+        "sha256": "035aac7f9bb14eb3e845df9377c766a239590dea8027e21864c3ff68c5abb7d5"
+      },
+      "name": "model-tamper",
+      "process_id": 1636,
+      "run_directory": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/controls/model-tamper/runs/native",
+      "state": "passed"
+    },
+    {
+      "expected_diagnostic": "CLI base address differs from the compiled guest layout",
+      "mutation": {
+        "cli_base_address": 268582912
+      },
+      "name": "cli-base-override",
+      "process_id": 1668,
+      "run_directory": "/home/jslycord/projects/salam-track-a-generation-20261106/study-final/controls/cli-base-override/runs/native",
+      "state": "passed"
+    }
+  ],
+  "legacy_builder_absence": {
+    "created_utc": "2026-11-06T05:59:17.773431+00:00",
+    "legacy_builder": "/home/jslycord/projects/salam-track-a-generation-20261106/engine/SALAM-Configurator/systembuilder.py",
+    "held_copy": "/home/jslycord/projects/salam-track-a-generation-20261106/legacy-tool-absence/systembuilder.py",
+    "sha256": "3580f2fd33289a476f39be541e5684efa17b72882c3872748d79bf10f8d7014b",
+    "state": "passed",
+    "available_during_prepare": false,
+    "pipeline": "/home/jslycord/projects/salam-track-a-generation-20261106/native-pipeline-without-legacy-builder/configuration.json",
+    "numerical_values": 64,
+    "native_binding": {
+      "state": "passed",
+      "factory_receipt": {
+        "path": "/home/jslycord/projects/salam-track-a-generation-20261106/native-pipeline-without-legacy-builder/runs/20261106T055932-66798b0109b1/simulator/native_factory.json",
+        "sha256": "1ab2d5c09c87b79505478aaa43fb466fdac81d6efeb4295ca26163a7b48a04b9",
+        "bytes": 37030
+      },
+      "model": {
+        "path": "/home/jslycord/projects/salam-track-a-generation-20261106/native-pipeline-without-legacy-builder/runs/20261106T055932-66798b0109b1/simulator/native_configuration.json",
+        "sha256": "61cf7fac1442481352551f2504251699dab0487aab5a0ddcb5fb373a2fb0f846",
+        "bytes": 208182
+      },
+      "semantic_sha256": "798a5a5f6cf1e4f213b46db69b8e507438bd755a92a8b3381a4f82895cf91e07",
+      "layout_sha256": "16b83fd03f409ff389418aa7f58ca376c76b4545607bbd42980cfe14c675f314",
+      "scope": "Prepared and captured construction identities; numerical and event checks remain separate"
+    },
+    "restored": true
+  },
+  "source_tests": {
+    "total": 906,
+    "tiers": [
+      {
+        "tier": "fast",
+        "tests": 352,
+        "receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/source-checks/generation-final-fast/check.json",
+        "tooling_sha256": "79a1a726f1722828e07313076156abb446d4ab959609013230ad9ff89a35d0ae"
+      },
+      {
+        "tier": "config",
+        "tests": 490,
+        "receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/source-checks/generation-final-config/check.json",
+        "tooling_sha256": "79a1a726f1722828e07313076156abb446d4ab959609013230ad9ff89a35d0ae"
+      },
+      {
+        "tier": "gui",
+        "tests": 64,
+        "receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/source-checks/generation-final-gui/check.json",
+        "tooling_sha256": "79a1a726f1722828e07313076156abb446d4ab959609013230ad9ff89a35d0ae"
+      }
+    ],
+    "inventory": "/mnt/d/kb_local_chatGPT/salam/track-a-generation-20261106/SOURCE_TEST_INVENTORY.json"
+  },
+  "implementation_freeze": "/home/jslycord/projects/salam-track-a-generation-20261106/IMPLEMENTATION_FREEZE.json",
+  "simulator_cpp_changed": false,
+  "simulator_rebuilt": false,
+  "binary_reuse_receipt": "/home/jslycord/projects/salam-track-a-generation-20261106/binary-reuse/build.json",
+  "binary_sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91",
+  "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+  "scope": "One normalized configuration drives GEMM headers, full-system wrapper and freshly checked typed-ABI construction; NonCoherent DMA/SPM and LocalBus PIO.",
+  "limits": [
+    "Existing maintained board/system template is a text resource; no new stdlib board.",
+    "Raw full ELF hashes can differ in debug metadata; every load segment and entry/flags are compared.",
+    "General memory/topology breadth, generic Params, SCons generation and calibrated PPA remain later scopes.",
+    "No Track B code has been integrated."
+  ]
+}

@@ -238,32 +238,74 @@ static void m5_exit(void) {
             self.skipTest(
                 "A host C++ compiler is required for UART write contract test"
             )
-        body = repair_uart_write(self.UART_SOURCE)
+        actual_syscalls = (
+            Path(__file__).resolve().parents[2] / "benchmarks" / "common" / "syscalls.c"
+        ).read_text(encoding="utf-8")
+        body_from_legacy = repair_uart_write(self.UART_SOURCE)
+        body_from_actual = repair_uart_write(actual_syscalls)
+        self.assertIn(body_from_legacy.strip(), body_from_actual)
         harness = (
             """
 #include <cerrno>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
-struct _reent {};
+struct _reent { int _errno; };
 std::vector<unsigned int> observed;
 struct Sink { void operator=(unsigned int value) { observed.push_back(value); } };
 Sink sink;
 Sink *UART0DR = &sink;
 """
-            + body
+            + body_from_legacy
             + """
 int main() {
-    char stale[] = {'a','b','X','Y',0};
-    if (_write_r(NULL,1,stale,2) != 2 || observed.size()!=2 ||
-        observed[0]!='a' || observed[1]!='b') return 1;
+    struct _reent ctx = {0};
+    // 1. Non-terminated slice with trailing canary bytes.
+    char stale[] = {'a','b','X','Y'};
+    errno = 0;
+    if (_write_r(&ctx, 1, stale, 2) != 2 || ctx._errno != 0 || errno != 0 ||
+        observed.size() != 2 || observed[0] != 'a' || observed[1] != 'b')
+        return 1;
     observed.clear();
-    char embedded[] = {'a',0,'b','X',0};
-    if (_write_r(NULL,1,embedded,3)!=3 || observed.size()!=3 ||
-        observed[0]!='a' || observed[1]!=0 || observed[2]!='b') return 2;
+
+    // 2. Embedded NUL byte preserved across full requested length.
+    char embedded[] = {'a', 0, 'b', 'X'};
+    if (_write_r(&ctx, 1, embedded, 3) != 3 || ctx._errno != 0 || errno != 0 ||
+        observed.size() != 3 || observed[0] != 'a' || observed[1] != 0 ||
+        observed[2] != 'b')
+        return 2;
     observed.clear();
-    if (_write_r(NULL,1,NULL,0)!=0 || !observed.empty()) return 3;
-    if (_write_r(NULL,1,stale,-1)!=-1 || errno!=EINVAL || !observed.empty()) return 4;
-    if (_write_r(NULL,1,NULL,1)!=-1 || errno!=EINVAL || !observed.empty()) return 5;
+
+    // 3. len == 0 returns 0 without dereferencing NULL or invalid pointer.
+    char *unmapped = reinterpret_cast<char *>(static_cast<uintptr_t>(0x1u));
+    if (_write_r(&ctx, 1, NULL, 0) != 0 || ctx._errno != 0 || errno != 0 ||
+        !observed.empty())
+        return 3;
+    if (_write_r(&ctx, 1, unmapped, 0) != 0 || ctx._errno != 0 || errno != 0 ||
+        !observed.empty())
+        return 4;
+
+    // 4. len < 0 returns -1 and reports EINVAL through _reent and errno.
+    ctx._errno = 0;
+    errno = 0;
+    if (_write_r(&ctx, 1, stale, -1) != -1 || ctx._errno != EINVAL ||
+        errno != EINVAL || !observed.empty())
+        return 5;
+    errno = 0;
+    if (_write_r(NULL, 1, unmapped, -5) != -1 || errno != EINVAL ||
+        !observed.empty())
+        return 6;
+
+    // 5. Null buffer with positive length returns -1 and reports EFAULT.
+    ctx._errno = 0;
+    errno = 0;
+    if (_write_r(&ctx, 1, NULL, 1) != -1 || ctx._errno != EFAULT ||
+        errno != EFAULT || !observed.empty())
+        return 7;
+    errno = 0;
+    if (_write_r(NULL, 1, NULL, 4) != -1 || errno != EFAULT ||
+        !observed.empty())
+        return 8;
     return 0;
 }
 """
@@ -290,6 +332,19 @@ int main() {
             repair_uart_write(
                 self.UART_SOURCE.replace("gem5_print(ptr)", "different_write(ptr,len)")
             )
+        actual_syscalls = (
+            Path(__file__).resolve().parents[2] / "benchmarks" / "common" / "syscalls.c"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(repair_uart_write(actual_syscalls), actual_syscalls)
+        for tampered in (
+            actual_syscalls.replace("EFAULT", "EINVAL"),
+            actual_syscalls.replace("if (len == 0)\n        return 0;\n", ""),
+            actual_syscalls
+            + "\nint _write_r(struct _reent *r, int f, char *p, int n) { return 0; }\n",
+        ):
+            with self.subTest(tampered=tampered[:40]):
+                with self.assertRaises(ValueError):
+                    repair_uart_write(tampered)
 
     def test_arm_exit_initializes_both_delay_words_and_declares_asm_effects(self):
         repaired = repair_arm_exit(self.M5OPS_SOURCE)

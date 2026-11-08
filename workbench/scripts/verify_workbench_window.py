@@ -16,6 +16,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PROJECT = Path(__file__).resolve().parents[1]
@@ -428,6 +429,7 @@ def _run_case(
     input_seed=None,
     require_rebuilds=False,
     verify_rebuilt_profiles=False,
+    verify_timeline_export=False,
 ):
     started = time.monotonic()
     deadline = started + timeout
@@ -650,6 +652,52 @@ def _run_case(
                         raise ValueError(
                             "GUI trace-budget override did not reach the checked backend"
                         )
+        if verify_timeline_export:
+            workload = benchmark.rsplit("/", 1)[-1]
+            matches = [
+                index
+                for index in range(window.timeline_combo.count())
+                if ("." + workload + ".invocation-")
+                in window.timeline_combo.itemText(index)
+            ]
+            if len(matches) != 1:
+                raise ValueError("Expected one checked leaf FU trace in Results")
+            window.timeline_combo.setCurrentIndex(matches[0])
+            window._last_timeline = None
+            if not window.timeline_btn.isEnabled():
+                raise ValueError("Actual timeline export button is unavailable")
+            # Suppress only the external browser opener. The real Qt button,
+            # worker, complete replay and HTML exporter all execute unchanged.
+            with patch(
+                "salam_workbench.workbench_window.QDesktopServices.openUrl",
+                return_value=True,
+            ) as opener:
+                window.timeline_btn.click()
+                _wait(
+                    app,
+                    window,
+                    lambda: not window._timeline_running and _quiet(window),
+                    deadline,
+                    "Timeline export worker",
+                )
+                if not window._last_timeline:
+                    raise ValueError(
+                        "Timeline export failed: " + window.statusBar().currentMessage()
+                    )
+                if opener.call_count != 1:
+                    raise ValueError("Successful export did not request one HTML open")
+            timeline = window._last_timeline
+            if (
+                timeline["state"] != "exported"
+                or timeline["exporter"]["validation"]["state"] != "passed"
+                or not Path(timeline["html"]).is_file()
+            ):
+                raise ValueError("Timeline output or complete replay is missing")
+            case["timeline_export"] = timeline
+            case[
+                "timeline_browser"
+            ] = "External opener suppressed; HTML browser rendering not verified"
+            _save(directory / "timeline-export.json", timeline)
         case["rendered_metrics"] = _tree_rows(window.metrics)
         case["rendered_checks"] = _tree_rows(window.checks)
         window.pages.setCurrentIndex(2)
@@ -719,6 +767,11 @@ def main(argv=None):
         "--verify-rebuilt-profiles",
         action="store_true",
         help="Verify GUI-driven FFT/stencil runs using rebuilt profiles; fingerprint-checked cached variants are allowed and reported explicitly",
+    )
+    parser.add_argument(
+        "--verify-timeline-export",
+        action="store_true",
+        help="Exercise the actual Results export button and worker; suppress external browser opening",
     )
     args = parser.parse_args(argv)
     if args.timeout <= 0:
@@ -835,6 +888,7 @@ def main(argv=None):
             args.input_seed,
             args.require_rebuilds,
             args.verify_rebuilt_profiles,
+            args.verify_timeline_export,
         )
         case["event_loop_ticks"] = ticks[0] - ticks_before
         if case["event_loop_ticks"] < 1:

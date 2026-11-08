@@ -28,9 +28,10 @@
 
 from slicc.ast.ExprAST import ExprAST
 
+
 class OodAST(ExprAST):
     def __init__(self, slicc):
-        super(OodAST, self).__init__(slicc)
+        super().__init__(slicc)
 
     def __repr__(self):
         return "[Ood:]"

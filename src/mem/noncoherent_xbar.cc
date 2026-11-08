@@ -107,8 +107,8 @@ NoncoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
     // we should never see express snoops on a non-coherent crossbar
     assert(!pkt->isExpressSnoop());
 
-    // determine the destination based on the address
-    PortID mem_side_port_id = findPort(pkt->getAddrRange());
+    // determine the destination port
+    PortID mem_side_port_id = findPort(pkt);
 
     // test if the layer should be considered occupied for the current
     // port
@@ -255,7 +255,7 @@ NoncoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
     unsigned int pkt_cmd = pkt->cmdToIndex();
 
     // determine the destination port
-    PortID mem_side_port_id = findPort(pkt->getAddrRange());
+    PortID mem_side_port_id = findPort(pkt);
 
     // stats updates for the request
     pktCount[cpu_side_port_id][mem_side_port_id]++;
@@ -264,9 +264,10 @@ NoncoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
 
     // forward the request to the appropriate destination
     auto mem_side_port = memSidePorts[mem_side_port_id];
-    Tick response_latency = backdoor ?
-        mem_side_port->sendAtomicBackdoor(pkt, *backdoor) :
-        mem_side_port->sendAtomic(pkt);
+    Tick response_latency =
+        (enableBackdoor && backdoor)
+            ? mem_side_port->sendAtomicBackdoor(pkt, *backdoor)
+            : mem_side_port->sendAtomic(pkt);
 
     // add the response data
     if (pkt->isResponse()) {
@@ -282,6 +283,16 @@ NoncoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
     // @todo: Not setting first-word time
     pkt->payloadDelay = response_latency;
     return response_latency;
+}
+
+void
+NoncoherentXBar::recvMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &backdoor)
+{
+    if (enableBackdoor) {
+        PortID dest_id = findPort(req.range());
+        memSidePorts[dest_id]->sendMemBackdoorReq(req, backdoor);
+    }
 }
 
 void
@@ -308,7 +319,7 @@ NoncoherentXBar::recvFunctional(PacketPtr pkt, PortID cpu_side_port_id)
     }
 
     // determine the destination port
-    PortID dest_id = findPort(pkt->getAddrRange());
+    PortID dest_id = findPort(pkt);
 
     // forward the request to the appropriate destination
     memSidePorts[dest_id]->sendFunctional(pkt);

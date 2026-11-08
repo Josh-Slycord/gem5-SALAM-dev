@@ -31,12 +31,13 @@
 
 #include "base/types.hh"
 #include "cpu/nativetrace.hh"
-#include "params/ArmNativeTrace.hh"
 
 namespace gem5
 {
 
-namespace Trace {
+struct ArmNativeTraceParams;
+
+namespace trace {
 
 class ArmNativeTrace : public NativeTrace
 {
@@ -103,14 +104,12 @@ class ArmNativeTrace : public NativeTrace
   public:
     using Params = ArmNativeTraceParams;
 
-    ArmNativeTrace(const Params &p) :
-        NativeTrace(p), stopOnPCError(p.stop_on_pc_error)
-    {}
+    ArmNativeTrace(const Params &p);
 
     void check(NativeTraceRecord *record);
 };
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5
 
 #endif // __ARCH_ARM_NATIVETRACE_HH__

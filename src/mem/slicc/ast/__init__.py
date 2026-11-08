@@ -1,4 +1,4 @@
-# Copyright (c) 2021 ARM Limited
+# Copyright (c) 2021,2026 Arm Limited
 # All rights reserved.
 #
 # The license below extends only to copyright in the software and shall
@@ -36,13 +36,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from slicc.ast.AST import *
-
 # actual ASTs
 from slicc.ast.ActionDeclAST import *
 from slicc.ast.AssignStatementAST import *
+from slicc.ast.AST import *
 from slicc.ast.CheckAllocateStatementAST import *
 from slicc.ast.CheckNextCycleAST import *
+from slicc.ast.CheckProbeStatementAST import *
 from slicc.ast.DeclAST import *
 from slicc.ast.DeclListAST import *
 from slicc.ast.DeferEnqueueingStatementAST import *
@@ -63,8 +63,8 @@ from slicc.ast.MachineAST import *
 from slicc.ast.MemberExprAST import *
 from slicc.ast.MethodCallExprAST import *
 from slicc.ast.NewExprAST import *
-from slicc.ast.OodAST import *
 from slicc.ast.ObjDeclAST import *
+from slicc.ast.OodAST import *
 from slicc.ast.OperatorExprAST import *
 from slicc.ast.OutPortDeclAST import *
 from slicc.ast.PairAST import *
@@ -72,11 +72,11 @@ from slicc.ast.PairListAST import *
 from slicc.ast.PeekStatementAST import *
 from slicc.ast.ReturnStatementAST import *
 from slicc.ast.StallAndWaitStatementAST import *
-from slicc.ast.WakeupPortStatementAST import *
 from slicc.ast.StateDeclAST import *
 from slicc.ast.StatementAST import *
 from slicc.ast.StatementListAST import *
 from slicc.ast.StaticCastAST import *
+from slicc.ast.ThisExprAST import *
 from slicc.ast.TransitionDeclAST import *
 from slicc.ast.TypeAST import *
 from slicc.ast.TypeDeclAST import *
@@ -84,4 +84,4 @@ from slicc.ast.TypeFieldAST import *
 from slicc.ast.TypeFieldEnumAST import *
 from slicc.ast.TypeFieldStateAST import *
 from slicc.ast.VarExprAST import *
-from slicc.ast.CheckProbeStatementAST import *
+from slicc.ast.WakeupPortStatementAST import *

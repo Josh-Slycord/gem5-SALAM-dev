@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019 ARM Limited
+ * Copyright (c) 2017-2019, 2023, 2025-2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -47,7 +47,7 @@ namespace gem5
 
 using namespace ArmISA;
 
-namespace Trace {
+namespace trace {
 
 // TARMAC Instruction Record static variables
 uint64_t TarmacTracerRecord::TraceInstEntry::instCount = 0;
@@ -111,7 +111,7 @@ opModeToStr(OperatingMode opMode)
 // TarmacTracerRecord ctor
 TarmacTracerRecord::TarmacTracerRecord(Tick _when, ThreadContext *_thread,
                                      const StaticInstPtr _staticInst,
-                                     PCState _pc,
+                                     const PCStateBase &_pc,
                                      TarmacTracer& _tracer,
                                      const StaticInstPtr _macroStaticInst)
     : TarmacBaseRecord(_when, _thread, _staticInst,
@@ -123,7 +123,8 @@ TarmacTracerRecord::TarmacTracerRecord(Tick _when, ThreadContext *_thread,
 TarmacTracerRecord::TraceInstEntry::TraceInstEntry(
     const TarmacContext& tarmCtx,
     bool predicate)
-      : InstEntry(tarmCtx.thread, tarmCtx.pc, tarmCtx.staticInst, predicate)
+      : InstEntry(tarmCtx.thread, *tarmCtx.pc, tarmCtx.staticInst, predicate),
+        disassemble(tarmCtx.tracer.disassemble(tarmCtx.staticInst, *tarmCtx.pc))
 {
     secureMode = isSecure(tarmCtx.thread);
 
@@ -140,6 +141,11 @@ TarmacTracerRecord::TraceInstEntry::TraceInstEntry(
     // for 16bit (Thumb) instruction.
     opcode = arm_inst->encoding();
 
+    // In Tarmac, instruction names are printed in capital
+    // letters.
+    std::for_each(disassemble.begin(), disassemble.end(),
+                  [](char& c) { c = toupper(c); });
+
     // Update the instruction count: number of executed
     // instructions.
     instCount++;
@@ -153,42 +159,38 @@ TarmacTracerRecord::TraceMemEntry::TraceMemEntry(
 {
 }
 
-TarmacTracerRecord::TraceRegEntry::TraceRegEntry(
-    const TarmacContext& tarmCtx,
-    const RegId& reg)
-      : RegEntry(tarmCtx.pc),
-        regValid(false),
-        regClass(reg.classValue()),
-        regRel(reg.index())
+TarmacTracerRecord::TraceRegEntry::TraceRegEntry(const TarmacContext &tarmCtx,
+                                                 const RegId &reg)
+    : RegEntry(*tarmCtx.pc), regValid(false), regId(reg), matRegValid(false)
 {
 }
 
 void
-TarmacTracerRecord::TraceRegEntry::update(
-    const TarmacContext& tarmCtx
-)
+TarmacTracerRecord::TraceRegEntry::update(const TarmacContext& tarmCtx)
 {
     // Fill the register entry data, according to register
     // class.
-    switch (regClass) {
+    switch (regId.classValue()) {
       case CCRegClass:
-        updateCC(tarmCtx, regRel);
+        updateCC(tarmCtx);
         break;
       case FloatRegClass:
-        updateFloat(tarmCtx, regRel);
+        updateFloat(tarmCtx);
         break;
       case IntRegClass:
-        updateInt(tarmCtx, regRel);
+        updateInt(tarmCtx);
         break;
       case MiscRegClass:
-        updateMisc(tarmCtx, regRel);
+        updateMisc(tarmCtx);
         break;
       case VecRegClass:
-        updateVec(tarmCtx, regRel);
+        updateVec(tarmCtx);
         break;
       case VecPredRegClass:
-        updatePred(tarmCtx, regRel);
+        updatePred(tarmCtx);
         break;
+      case MatRegClass:
+          updateMatrix(tarmCtx);
       default:
         // If unsupported format, do nothing: non updating
         // the register will prevent it to be printed.
@@ -197,26 +199,23 @@ TarmacTracerRecord::TraceRegEntry::update(
 }
 
 void
-TarmacTracerRecord::TraceRegEntry::updateMisc(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecord::TraceRegEntry::updateMisc(const TarmacContext& tarmCtx)
 {
     auto thread = tarmCtx.thread;
 
     regValid = true;
-    regName = miscRegName[regRelIdx];
-    values[Lo] = thread->readMiscRegNoEffect(regRelIdx);
+    regName = miscRegName[regId.index()];
+    values[Lo] = thread->readMiscRegNoEffect(regId.index());
 
     // If it is the CPSR:
     // update the value of the CPSR register and add
     // the CC flags on top of the value
-    if (regRelIdx == MISCREG_CPSR) {
+    if (regId.index() == MISCREG_CPSR) {
         CPSR cpsr = thread->readMiscRegNoEffect(MISCREG_CPSR);
-        cpsr.nz = thread->readCCReg(CCREG_NZ);
-        cpsr.c = thread->readCCReg(CCREG_C);
-        cpsr.v = thread->readCCReg(CCREG_V);
-        cpsr.ge = thread->readCCReg(CCREG_GE);
+        cpsr.nz = thread->getReg(cc_reg::Nz);
+        cpsr.c = thread->getReg(cc_reg::C);
+        cpsr.v = thread->getReg(cc_reg::V);
+        cpsr.ge = thread->getReg(cc_reg::Ge);
 
         // update the entry value
         values[Lo] = cpsr;
@@ -224,36 +223,25 @@ TarmacTracerRecord::TraceRegEntry::updateMisc(
 }
 
 void
-TarmacTracerRecord::TraceRegEntry::updateCC(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecord::TraceRegEntry::updateCC(const TarmacContext& tarmCtx)
 {
     auto thread = tarmCtx.thread;
 
     regValid = true;
-    regName = ccRegName[regRelIdx];
-    values[Lo] = thread->readCCReg(regRelIdx);
+    regName = cc_reg::RegName[regId.index()];
+    values[Lo] = thread->getReg(regId);
 }
 
 void
-TarmacTracerRecord::TraceRegEntry::updateFloat(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecord::TraceRegEntry::updateFloat(const TarmacContext& tarmCtx)
 {
-    auto thread = tarmCtx.thread;
-
     regValid = true;
-    regName  = "f" + std::to_string(regRelIdx);
-    values[Lo] = bitsToFloat32(thread->readFloatReg(regRelIdx));
+    regName  = "f" + std::to_string(regId.index());
+    panic("ARM doesn't support float registers.");
 }
 
 void
-TarmacTracerRecord::TraceRegEntry::updateInt(
-    const TarmacContext& tarmCtx,
-    RegIndex regRelIdx
-)
+TarmacTracerRecord::TraceRegEntry::updateInt(const TarmacContext& tarmCtx)
 {
     auto thread = tarmCtx.thread;
 
@@ -269,8 +257,8 @@ TarmacTracerRecord::TraceRegEntry::updateInt(
     }
 
     regValid = true;
-    switch (regRelIdx) {
-      case PCReg:
+    switch (regId.index()) {
+      case int_reg::Pc:
         regName = "pc";
         break;
       case StackPointerReg:
@@ -283,10 +271,10 @@ TarmacTracerRecord::TraceRegEntry::updateInt(
         regName = "lr" + reg_suffix;
         break;
       default:
-        regName  = "r" + std::to_string(regRelIdx);
+        regName  = "r" + std::to_string(regId.index());
         break;
     }
-    values[Lo] = thread->readIntReg(regRelIdx);
+    values[Lo] = thread->getReg(regId);
 }
 
 void
@@ -349,9 +337,10 @@ TarmacTracerRecord::dump()
     auto &regQueue = tracer.regQueue;
 
     const TarmacContext tarmCtx(
+        tracer,
         thread,
         staticInst->isMicroop()? macroStaticInst : staticInst,
-        pc
+        *pc
     );
 
     if (!staticInst->isMicroop()) {
@@ -391,7 +380,7 @@ template<typename Queue>
 void
 TarmacTracerRecord::flushQueues(Queue& queue)
 {
-    std::ostream &outs = Trace::output();
+    std::ostream &outs = tracer.output();
 
     for (const auto &single_entry : queue) {
         single_entry->print(outs);
@@ -463,5 +452,5 @@ TarmacTracerRecord::TraceRegEntry::print(
                  values[Lo]);                  /* Register value */
 }
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5

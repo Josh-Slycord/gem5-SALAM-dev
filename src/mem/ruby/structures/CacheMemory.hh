@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 ARM Limited
+ * Copyright (c) 2020-2021, 2026 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -42,7 +42,6 @@
 #ifndef __MEM_RUBY_STRUCTURES_CACHEMEMORY_HH__
 #define __MEM_RUBY_STRUCTURES_CACHEMEMORY_HH__
 
-#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -52,9 +51,8 @@
 #include "mem/ruby/common/DataBlock.hh"
 #include "mem/ruby/protocol/CacheRequestType.hh"
 #include "mem/ruby/protocol/CacheResourceType.hh"
-#include "mem/ruby/protocol/RubyRequest.hh"
 #include "mem/ruby/slicc_interface/AbstractCacheEntry.hh"
-#include "mem/ruby/slicc_interface/RubySlicc_ComponentMapping.hh"
+#include "mem/ruby/structures/ALUFreeListArray.hh"
 #include "mem/ruby/structures/BankedArray.hh"
 #include "mem/ruby/system/CacheRecorder.hh"
 #include "params/RubyCache.hh"
@@ -110,6 +108,13 @@ class CacheMemory : public SimObject
     // Explicitly free up this address
     void deallocate(Addr address);
 
+    // Explicitly free up this entry
+    void deallocate(AbstractCacheEntry *entry);
+
+    // Flush all entries within the cache.
+    // Mainly used for debug purposes
+    void flushEntries();
+
     // Returns with the physical address of the conflicting cache line
     Addr cacheProbe(Addr address) const;
 
@@ -153,6 +158,8 @@ class CacheMemory : public SimObject
     void htmAbortTransaction();
     void htmCommitTransaction();
 
+    void setRubySystem(RubySystem* rs);
+
   public:
     int getCacheSize() const { return m_cache_size; }
     int getCacheAssoc() const { return m_cache_assoc; }
@@ -186,6 +193,7 @@ class CacheMemory : public SimObject
 
     BankedArray dataArray;
     BankedArray tagArray;
+    ALUFreeListArray atomicALUArray;
 
     int m_cache_size;
     int m_cache_num_sets;
@@ -194,6 +202,7 @@ class CacheMemory : public SimObject
     int m_start_index_bit;
     bool m_resource_stalls;
     int m_block_size;
+    bool m_is_power_of_2_sets;
 
     /**
      * We store all the ReplacementData in a 2-dimensional array. By doing
@@ -211,6 +220,14 @@ class CacheMemory : public SimObject
      */
     bool m_use_occupancy;
 
+    RubySystem *m_ruby_system = nullptr;
+
+    Addr
+    makeLineAddress(Addr addr) const
+    {
+        return ruby::makeLineAddress(addr, floorLog2(m_block_size));
+    }
+
     private:
       struct CacheMemoryStats : public statistics::Group
       {
@@ -223,6 +240,9 @@ class CacheMemory : public SimObject
 
           statistics::Scalar numTagArrayStalls;
           statistics::Scalar numDataArrayStalls;
+
+          statistics::Scalar numAtomicALUOperations;
+          statistics::Scalar numAtomicALUArrayStalls;
 
           // hardware transactional memory
           statistics::Histogram htmTransCommitReadSet;

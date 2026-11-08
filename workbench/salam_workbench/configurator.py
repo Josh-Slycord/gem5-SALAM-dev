@@ -21,10 +21,21 @@ import yaml
 from .regression import _command, _environment, _now, _save
 from .report import parse_stats
 from .runner import EXPECTED_EXIT_REASON, file_hash, run_experiment
+from .toolchain_profile import (
+    build_argv,
+    is_modern,
+    load_toolchain,
+    normalize_system_options,
+    record_toolchain,
+)
 
 PROJECT = Path(__file__).resolve().parents[1]
-PYTHON = "/usr/bin/python3.8"
-BUILD_DIRS = ("src", "ext", "build_opts", "site_scons")
+PYTHON = load_toolchain(PROJECT)["python"]
+BUILD_DIRS = ("src", "ext", "build_opts", "site_scons", "build_tools", "include")
+# PLY derives these two files; grammar and other Python sources remain inputs.
+DERIVED_BUILD_PATHS = frozenset(
+    ("src/mem/slicc/parser.out", "src/mem/slicc/parsetab.py")
+)
 OMIT_DIRS = {".git", "__pycache__", "build", "m5out", "outputs"}
 OMIT_SUFFIXES = {".o", ".elf", ".ll", ".pyc", ".a", ".so"}
 SYSTEM_DEFAULTS = {
@@ -47,6 +58,9 @@ RESERVED_OPTIONS = {
     "script",
     "restore-with-cpu",
     "checkpoint-dir",
+    "salam-builder",
+    "salam-config",
+    "salam-base-address",
 }
 
 
@@ -75,6 +89,7 @@ def validate_spec(data):
         "import_format",
         "configuration_documents",
         "benchmark_input",
+        "builder",
     }
     if (
         not isinstance(data, dict)
@@ -82,6 +97,8 @@ def validate_spec(data):
         or data.get("schema_version") != 1
     ):
         raise ValueError("Unsupported configuration specification or unknown fields")
+    if data.get("builder", "generated") not in ("generated", "native"):
+        raise ValueError("builder must be generated or native")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", data.get("name", "")):
         raise ValueError("name must be a Python identifier")
     benchmark = _relative(data.get("benchmark"))
@@ -136,6 +153,10 @@ def validate_spec(data):
                 raise ValueError("Parameters must be named scalar values")
             if isinstance(value, float) and not math.isfinite(value):
                 raise ValueError("Nonfinite parameter")
+            if name == "clock_period" and (
+                type(value) is not int or not 1 <= value <= 1000000
+            ):
+                raise ValueError("SALAM clock_period must be 1..1000000 integer ns")
     cache_keys = {
         "assoc",
         "tag_latency",
@@ -232,6 +253,7 @@ def compiled_identity(engine):
                 if p.is_file()
                 and not set(p.relative_to(directory).parts) & {".git", "__pycache__"}
                 and p.suffix not in {".pyc", ".o", ".a", ".so"}
+                and p.relative_to(engine).as_posix() not in DERIVED_BUILD_PATHS
             )
     files.extend(
         p
@@ -239,6 +261,7 @@ def compiled_identity(engine):
         if p.is_file()
         and (p.name.startswith("SConstruct") or p.name.startswith("SConscript"))
     )
+    files.extend(path for path in engine.glob("Kconfig*") if path.is_file())
     if not (engine / "SConstruct").is_file() or not files:
         raise ValueError("Not a complete simulator source tree")
     hashes = {
@@ -436,38 +459,33 @@ def build_engine(engine, directory, *, jobs=8, timeout=7200):
             raise ValueError("jobs must be 1..32")
         before = compiled_identity(engine)
         _save(directory / "source-inputs.json", before)
-        receipt["toolchain"] = [
-            _record(Path(p).resolve(strict=True))
-            for p in (
-                PYTHON,
-                "/usr/bin/scons",
-                "/usr/bin/g++",
-                "/usr/bin/python3.8-config",
-                "/usr/bin/ld",
-            )
-        ]
+        selected_profile = load_toolchain(PROJECT)
+        selected_tools = record_toolchain(
+            selected_profile, environment=_environment(engine), versions=True
+        )
+        receipt["selected_toolchain"] = selected_tools
+        receipt["toolchain"] = list(
+            selected_tools["tools"].values()
+        ) + selected_tools.get("llvm_shared_libraries", {}).get("libraries", [])
         receipt["toolchain_record"] = _record(PROJECT / "evidence/toolchain.json")
         receipt["command"] = _run_build_with_debug_recovery(
             engine,
             directory,
-            [
-                PYTHON,
-                "/usr/bin/scons",
-                "build/ARM/gem5.opt",
-                "-j" + str(jobs),
-                "CXX=/usr/bin/g++",
-                "PYTHON_CONFIG=/usr/bin/python3.8-config",
-                "USE_KVM=0",
-                "PROTOCOL=CHI",
-            ],
+            build_argv(selected_profile, jobs=jobs),
             _environment(engine),
             timeout,
             receipt,
         )
         if before != compiled_identity(engine):
             raise ValueError("Simulator sources changed during build")
+        if selected_profile != load_toolchain(PROJECT):
+            raise ValueError("Selected toolchain profile changed during compilation")
         if any(file_hash(i["path"]) != i["sha256"] for i in receipt["toolchain"]):
             raise ValueError("Build toolchain changed during compilation")
+        if is_modern(selected_profile):
+            receipt["build_configuration"] = _modern_build_configuration(
+                engine, directory
+            )
         receipt.update(
             state="built",
             binary=_record(engine / "build/ARM/gem5.opt"),
@@ -482,7 +500,40 @@ def build_engine(engine, directory, *, jobs=8, timeout=7200):
     return receipt
 
 
-def verify_engine(engine, configured_receipt=None):
+def _modern_build_configuration(engine, directory):
+    """Retain the exact generated gem5 26 Kconfig inputs alongside the build."""
+    snapshots = []
+    for name in ("config", "Kconfig"):
+        path = engine / "build/ARM/gem5.build" / name
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(engine)
+        if resolved != path or not path.is_file():
+            raise ValueError("Modern build configuration is not a regular local file")
+        before = _record(path)
+        snapshot = directory / "build-configuration" / name
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("rb") as incoming, snapshot.open("xb") as outgoing:
+            shutil.copyfileobj(incoming, outgoing)
+        if (
+            file_hash(snapshot) != before["sha256"]
+            or file_hash(path) != before["sha256"]
+        ):
+            raise ValueError("Modern build configuration changed while recording")
+        snapshots.append(dict(before, snapshot=_record(snapshot)))
+    return snapshots
+
+
+def verify_engine(engine, configured_receipt=None, *, toolchain_profile=None):
+    # Bootstrap verifies a new binding before workspace.json exists. Use its
+    # explicit source profile instead of silently selecting this checkout's
+    # legacy default. Ordinary callers retain their current workspace profile.
+    profile = (
+        load_toolchain(PROJECT)
+        if toolchain_profile is None
+        else load_toolchain(
+            manifest={"configuration_engine": {"toolchain_profile": toolchain_profile}}
+        )
+    )
     if configured_receipt:
         path = Path(configured_receipt).resolve(strict=True)
         receipt = json.loads(path.read_text())
@@ -495,6 +546,39 @@ def verify_engine(engine, configured_receipt=None):
             raise ValueError("Configured simulator binary changed")
         if receipt["compiled_source_sha256"] != compiled_identity(engine)["sha256"]:
             raise ValueError("Configured simulator sources changed; rebuild required")
+        selected = receipt.get("selected_toolchain")
+        if selected is None and is_modern(profile):
+            raise ValueError(
+                "Modern configured builds require a selected-toolchain receipt"
+            )
+        if selected is not None:
+            if selected.get("profile") != profile:
+                raise ValueError(
+                    "Configured simulator selected a different toolchain profile"
+                )
+            dependencies = list(selected.get("tools", {}).values()) + selected.get(
+                "llvm_shared_libraries", {}
+            ).get("libraries", [])
+            if not dependencies or any(
+                item.get("sha256") != file_hash(item["path"]) for item in dependencies
+            ):
+                raise ValueError(
+                    "Configured build toolchain or linked LLVM library changed"
+                )
+        if is_modern(profile):
+            configurations = receipt.get("build_configuration", [])
+            expected = {
+                str(engine / "build/ARM/gem5.build" / name)
+                for name in ("config", "Kconfig")
+            }
+            if {item.get("path") for item in configurations} != expected or any(
+                file_hash(item["path"]) != item.get("sha256")
+                or file_hash(item["snapshot"]["path"]) != item.get("sha256")
+                for item in configurations
+            ):
+                raise ValueError(
+                    "Configured gem5 26 Kconfig build inputs changed or are unrecorded"
+                )
         return {
             "receipt": _record(path),
             "binary": _record(engine / "build/ARM/gem5.opt"),
@@ -626,6 +710,16 @@ def stage_configuration(engine, workspace, spec):
     # The contract examines the actual declarations and C++ consumer too.
     files.update((engine / "src/hwacc").glob("*.py"))
     files.add(engine / "src/hwacc/LLVMRead/src/instruction.hh")
+    # Native construction uses the same pure model module as the host.
+    # Stage it with the run so the simulator never imports a moving checkout.
+    if (engine / "configs/SALAM/native_factory.py").is_file():
+        for name in ("__init__.py", "native_config.py"):
+            module = engine / "workbench/salam_workbench" / name
+            if not module.is_file():
+                raise ValueError(
+                    "Native builder model module is missing: " + str(module)
+                )
+            files.add(module)
     from .fu_capability import capability_source_paths
 
     files.update(engine / relative for relative in capability_source_paths(engine))
@@ -639,6 +733,8 @@ def stage_configuration(engine, workspace, spec):
         if file_hash(destination) != record["sha256"]:
             raise ValueError("Staged input mismatch")
         inputs.append(record)
+    if is_modern(load_toolchain(PROJECT)):
+        inputs.extend(stage_modern_bootloaders(engine, workspace))
     config = workspace / spec["benchmark"] / "config.yml"
     if "configuration_documents" in spec:
         docs = json.loads(json.dumps(spec["configuration_documents"], allow_nan=False))
@@ -668,6 +764,38 @@ def stage_configuration(engine, workspace, spec):
         "inputs": inputs,
         "configuration": _record(config),
     }
+
+
+def stage_modern_bootloaders(engine, workspace):
+    """Supply VExpress's two bootloader names inside the run's M5_PATH."""
+    records = []
+    for relative in (
+        "system/arm/bootloader/arm/boot.arm",
+        "system/arm/bootloader/arm64/boot.arm64",
+    ):
+        source = engine / relative
+        resolved = source.resolve(strict=True)
+        resolved.relative_to(engine)
+        if resolved != source or not source.is_file():
+            raise ValueError(
+                "Modern bootloader must be a regular file in the selected engine"
+            )
+        destination = workspace / "binaries" / source.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        before = _record(source)
+        with source.open("rb") as incoming, destination.open("xb") as outgoing:
+            shutil.copyfileobj(incoming, outgoing)
+        if (
+            file_hash(destination) != before["sha256"]
+            or file_hash(source) != before["sha256"]
+        ):
+            raise ValueError("Modern bootloader changed during staging")
+        records.append(
+            dict(
+                before, staged=str(destination), role="gem5_vexpress_default_bootloader"
+            )
+        )
+    return records
 
 
 def inspect_generated(workspace, spec):
@@ -772,8 +900,7 @@ def wire_runtime(workspace, spec, evidence):
         str(PROJECT / "salam_workbench/system_witness.py"),
         str(workspace / "configs/SALAM/workbench_system_witness.py"),
     )
-    system_options = dict(SYSTEM_DEFAULTS)
-    system_options.update(spec.get("system", {}))
+    system_configuration = effective_system_configuration(spec)
     request = evidence / "runtime-request.json"
     _save(
         request,
@@ -781,7 +908,10 @@ def wire_runtime(workspace, spec, evidence):
             "parameters": spec.get("parameters", {}),
             "witness_path": str(evidence / "runtime-applied.json"),
             "system_witness_path": str(evidence / "system-live.json"),
-            "system_options": system_options,
+            "system_options": system_configuration["effective"],
+            "requested_system_options": system_configuration["requested"],
+            "system_option_normalizations": system_configuration["normalizations"],
+            "toolchain_profile": system_configuration["toolchain_profile"],
             "result_file_transport": "gem5_semihosting_writefile_text_v1"
             if "benchmark_input" in spec
             else None,
@@ -801,11 +931,29 @@ def wire_runtime(workspace, spec, evidence):
     )
     ast.parse(text)
     fs.write_text(text)
+    return {
+        "request": _record(request),
+        "modules": [
+            dict(
+                staged=_record(workspace / "configs/SALAM" / destination),
+                selected=_record(PROJECT / "salam_workbench" / source),
+            )
+            for source, destination in (
+                ("configurator_runtime.py", "workbench_runtime.py"),
+                ("system_witness.py", "workbench_system_witness.py"),
+            )
+        ],
+    }
+
+
+def effective_system_configuration(spec):
+    options = dict(SYSTEM_DEFAULTS)
+    options.update(spec.get("system", {}))
+    return normalize_system_options(load_toolchain(PROJECT), options)
 
 
 def simulator_args(engine, workspace, spec):
-    options = dict(SYSTEM_DEFAULTS)
-    options.update(spec.get("system", {}))
+    options = effective_system_configuration(spec)["effective"]
     args = [str(workspace / "configs/SALAM/generated" / ("fs_" + spec["name"] + ".py"))]
     for key, value in sorted(options.items()):
         if value is True:
@@ -818,6 +966,12 @@ def simulator_args(engine, workspace, spec):
         "--accpath=" + str((workspace / spec["benchmark"]).parent),
         "--accbench=" + Path(spec["benchmark"]).name,
     ]
+    if spec.get("builder", "generated") == "native":
+        args += [
+            "--salam-builder=native",
+            "--salam-config=" + str(workspace / spec["benchmark"] / "config.yml"),
+            "--salam-base-address=" + str(spec.get("base_address", "0x10020000")),
+        ]
     return args
 
 
@@ -936,6 +1090,8 @@ def run_configuration(
     _save(directory / "configuration.json", result)
     try:
         spec = validate_spec(json.loads(spec_path.read_text(encoding="utf-8-sig")))
+        native = spec.get("builder", "generated") == "native"
+        result["system_configuration"] = effective_system_configuration(spec)
         from .fu_capability import inspect_fu_capability, validate_limit_parameters
 
         validate_limit_parameters(
@@ -952,28 +1108,39 @@ def run_configuration(
         result["stage"] = "source_staging"
         workspace = directory / "workspace"
         result["staging"] = stage_configuration(engine, workspace, spec)
-        from .topology_adapter import adapt_staged_configpaths
+        if native:
+            result["configpath_adapter"] = {
+                "state": "not_required",
+                "referenced_inputs": [],
+                "reason": "Native model explicitly rejects ConfigPath inputs",
+            }
+            result["registerbank_adapter"] = {
+                "state": "not_required",
+                "reason": "Native model explicitly rejects RegisterBank inputs",
+            }
+        else:
+            from .topology_adapter import adapt_staged_configpaths
 
-        result["configpath_adapter"] = adapt_staged_configpaths(
-            engine,
-            workspace,
-            spec["benchmark"],
-            receipt_path=directory / "configpath-adapter.json",
-            source_config_relative=spec.get(
-                "config", spec["benchmark"] + "/config.yml"
-            ),
-        )
-        result["staging"]["inputs"].extend(
-            result["configpath_adapter"]["referenced_inputs"]
-        )
-        from .registerbank_adapter import adapt_configured_registerbanks
+            result["configpath_adapter"] = adapt_staged_configpaths(
+                engine,
+                workspace,
+                spec["benchmark"],
+                receipt_path=directory / "configpath-adapter.json",
+                source_config_relative=spec.get(
+                    "config", spec["benchmark"] + "/config.yml"
+                ),
+            )
+            result["staging"]["inputs"].extend(
+                result["configpath_adapter"]["referenced_inputs"]
+            )
+            from .registerbank_adapter import adapt_configured_registerbanks
 
-        result["registerbank_adapter"] = adapt_configured_registerbanks(
-            workspace,
-            spec["benchmark"],
-            source_engine=engine,
-            receipt_path=directory / "registerbank-adapter.json",
-        )
+            result["registerbank_adapter"] = adapt_configured_registerbanks(
+                workspace,
+                spec["benchmark"],
+                source_engine=engine,
+                receipt_path=directory / "registerbank-adapter.json",
+            )
         config = workspace / spec["benchmark"] / "config.yml"
         contract = analyze_configuration(
             config,
@@ -986,52 +1153,69 @@ def run_configuration(
                 "Configuration contract rejected: " + repr(contract["issues"])
             )
         result["required_actions"] = contract["required_actions"]
-        result["stage"] = "topology_generation"
         base = spec.get("base_address", "0x10020000")
         env = _environment(workspace)
-        result["commands"].append(
-            _command(
-                [
-                    PYTHON,
-                    "-B",
-                    "SALAM-Configurator/systembuilder.py",
-                    "--sysName",
-                    spec["name"],
-                    "--benchDir",
-                    spec["benchmark"],
-                    "--output-dir",
-                    str(workspace),
-                    "--base-address",
-                    str(base),
-                ],
+        native_generation = None
+        if native:
+            from .native_generation import inspect_outputs, prepare_headers
+
+            result["stage"] = "normalized_header_generation"
+            native_generation = prepare_headers(workspace, spec, directory)
+            result["generated"] = inspect_outputs(
+                workspace, spec, directory, native_generation
+            )
+            result["native_generation"] = native_generation
+        else:
+            result["stage"] = "topology_generation"
+            base = spec.get("base_address", "0x10020000")
+            env = _environment(workspace)
+            result["commands"].append(
+                _command(
+                    [
+                        PYTHON,
+                        "-B",
+                        "SALAM-Configurator/systembuilder.py",
+                        "--sysName",
+                        spec["name"],
+                        "--benchDir",
+                        spec["benchmark"],
+                        "--output-dir",
+                        str(workspace),
+                        "--base-address",
+                        str(base),
+                    ],
+                    workspace,
+                    directory,
+                    "generate",
+                    env,
+                    120,
+                )
+            )
+            result["generated"] = inspect_generated(workspace, spec)
+            generated_contract = analyze_configuration(
+                config,
                 workspace,
-                directory,
-                "generate",
-                env,
-                120,
+                generated_root=workspace,
+                base_address=int(str(base), 0),
+                system_name=spec["name"],
             )
-        )
-        result["generated"] = inspect_generated(workspace, spec)
-        generated_contract = analyze_configuration(
-            config,
-            workspace,
-            generated_root=workspace,
-            base_address=int(str(base), 0),
-            system_name=spec["name"],
-        )
-        _save(directory / "contract-generated.json", generated_contract)
-        if not generated_contract["valid"]:
-            raise ValueError(
-                "Generated configuration contract rejected: "
-                + repr(generated_contract["issues"])
-            )
+            _save(directory / "contract-generated.json", generated_contract)
+            if not generated_contract["valid"]:
+                raise ValueError(
+                    "Generated configuration contract rejected: "
+                    + repr(generated_contract["issues"])
+                )
         from .build_inputs import rebind_cluster_header
 
         result["cluster_header_adapter"] = rebind_cluster_header(
             engine, workspace, spec, contract, directory
         )
         if "benchmark_input" in spec:
-            from .benchmark_inputs import stage_benchmark_inputs
+            from .benchmark_inputs import (
+                LEGACY_WRITEFILE_ABI,
+                MODERN_WRITEFILE_ABI,
+                stage_benchmark_inputs,
+            )
             from .benchmark_validation import fixture_for_spec
 
             fixture = fixture_for_spec(spec)
@@ -1044,9 +1228,25 @@ def run_configuration(
                 fixture,
                 inject_mismatch=spec["benchmark_input"].get("inject_mismatch", False),
                 force_guest_pass=spec["benchmark_input"].get("force_guest_pass", False),
+                output_abi=MODERN_WRITEFILE_ABI
+                if is_modern(load_toolchain(PROJECT))
+                else LEGACY_WRITEFILE_ABI,
             )
             _save(directory / "benchmark-inputs.json", result["benchmark_inputs"])
-        wire_runtime(workspace, spec, directory)
+        if not native:
+            wire_runtime(workspace, spec, directory)
+        if is_modern(load_toolchain(PROJECT)):
+            from .ir_toolchain import adapt_ir_toolchain
+
+            result["stage"] = "ir_toolchain_adaptation"
+            result["ir_toolchain_adapter"] = adapt_ir_toolchain(
+                workspace,
+                spec["benchmark"],
+                directory / "ir-toolchain",
+                profile=load_toolchain(PROJECT),
+                source_engine=engine,
+                environment=env,
+            )
         result["stage"] = "workload_build"
         for label, relative, target in (
             ("build-ir", "hw", "build"),
@@ -1072,6 +1272,16 @@ def run_configuration(
             payload = Path(path).read_text()
             if not re.search(r'^target triple = "armv7-[^"]+"$', payload, re.M):
                 raise ValueError("Accelerator IR not freshly built for ARM: " + path)
+        if is_modern(load_toolchain(PROJECT)):
+            from .ir_toolchain import preflight_known_ir_incompatibilities
+
+            result["stage"] = "ir_compatibility_preflight"
+            result["ir_compatibility_preflight"] = preflight_known_ir_incompatibilities(
+                result["generated"]["ir_bindings"],
+                workspace,
+                directory / "ir-compatibility-preflight.json",
+                profile=load_toolchain(PROJECT),
+            )
         if not (workspace / spec["benchmark"] / "sw/main.elf").is_file():
             raise ValueError("Fresh guest ELF missing")
         from .build_inputs import witness_build_inputs
@@ -1083,7 +1293,26 @@ def run_configuration(
             directory / "build-input-witness.json",
             result["build_input_witness"],
         )
-        result["generated_after_build"] = inspect_generated(workspace, spec)
+        if native:
+            from .native_generation import finalize_wrapper
+
+            result["stage"] = "normalized_wrapper_generation"
+            native_generation = finalize_wrapper(
+                workspace, spec, directory, native_generation
+            )
+            from .native_generation import bind_runtime
+
+            native_generation = bind_runtime(
+                workspace, spec, directory, native_generation
+            )
+            result["generated_after_build"] = inspect_outputs(
+                workspace, spec, directory, native_generation, final=True
+            )
+            result["native_generation"] = json.loads(
+                (directory / "native-generation.json").read_text()
+            )
+        else:
+            result["generated_after_build"] = inspect_generated(workspace, spec)
         result["state"], result["stage"] = "prepared", "complete"
         if simulate:
             result["stage"] = "simulator_identity"
@@ -1098,6 +1327,13 @@ def run_configuration(
             ]
             if "benchmark_input" in spec:
                 required.append("simulator/salam-results.txt")
+            if native:
+                required.extend(
+                    [
+                        "simulator/native_factory.json",
+                        "simulator/native_configuration.json",
+                    ]
+                )
             fu_artifacts = []
             if capability.get("supported"):
                 for cluster in contract["components"]["clusters"]:
@@ -1128,6 +1364,11 @@ def run_configuration(
                 [_record(p) for p in inputs],
             )
             result["stage"] = "simulation"
+            simulation_environment = {"M5_PATH": str(workspace), "PATH": env["PATH"]}
+            if is_modern(load_toolchain(PROJECT)):
+                simulation_environment.update(
+                    PYTHONNOUSERSITE="1", PYTHONDONTWRITEBYTECODE="1"
+                )
             run = run_experiment(
                 [str(engine / "build/ARM/gem5.opt")],
                 simulator_args(engine, workspace, spec),
@@ -1147,7 +1388,7 @@ def run_configuration(
                     ],
                 },
                 input_paths=inputs,
-                env_overrides={"M5_PATH": str(workspace), "PATH": env["PATH"]},
+                env_overrides=simulation_environment,
                 timeout_seconds=spec.get("timeout_seconds", 600),
                 snapshot_inputs=True,
                 required_artifacts=required,
@@ -1183,6 +1424,16 @@ def run_configuration(
                 result["numerical_correctness"] = "independent_full_output_passed"
             result["stage"] = "effective_configuration"
             ini = Path(run["run_directory"]) / "simulator/config.ini"
+            if native:
+                from .native_generation import witness_factory_binding
+
+                result["native_generation_binding"] = witness_factory_binding(
+                    workspace, native_generation, ini.parent
+                )
+                _save(
+                    directory / "native-generation-binding.json",
+                    result["native_generation_binding"],
+                )
             if fu_artifacts:
                 from .fu_experiments import inspect_fu_invocation
 
@@ -1231,10 +1482,14 @@ def run_configuration(
             effective = analyze_configuration(
                 config,
                 workspace,
-                generated_root=workspace,
+                generated_root=None if native else workspace,
                 base_address=int(str(spec.get("base_address", "0x10020000")), 0),
                 system_name=spec["name"],
             )
+            if native:
+                effective["witnesses"]["generated"] = inspect_outputs(
+                    workspace, spec, directory, native_generation, final=True
+                )
             effective = witness_layered_contract(effective, ini, applied)
             _save(directory / "contract-effective.json", effective)
             if (
@@ -1244,14 +1499,19 @@ def run_configuration(
                 raise ValueError("Effective configuration witness failed")
             from .system_witness import witness_system
 
-            system_options = dict(SYSTEM_DEFAULTS)
-            system_options.update(spec.get("system", {}))
+            system_configuration = effective_system_configuration(spec)
             result["system_witness"] = witness_system(
                 ini,
-                system_options,
+                system_configuration["effective"],
                 stats_path=ini.parent / "stats.txt",
                 runtime_system=directory / "system-live.json",
             )
+            result["system_witness"]["requested_system_options"] = system_configuration[
+                "requested"
+            ]
+            result["system_witness"]["normalizations"] = system_configuration[
+                "normalizations"
+            ]
             _save(directory / "system-witness.json", result["system_witness"])
             result["runtime_witnesses"] = [
                 _record(directory / p)
@@ -1334,6 +1594,7 @@ def main():
             model=args.model,
             period=args.period,
             profile=args.profile,
+            python_executable=PYTHON,
         )
     elif args.action == "install":
         if not args.generation:

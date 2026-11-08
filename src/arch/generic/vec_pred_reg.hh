@@ -1,4 +1,4 @@
-// Copyright (c) 2017 ARM Limited
+// Copyright (c) 2017, 2021 Arm Limited
 // All rights reserved
 //
 // The license below extends only to copyright in the software and shall
@@ -44,6 +44,7 @@
 #include <vector>
 
 #include "base/cprintf.hh"
+#include "base/types.hh"
 #include "sim/serialize_handlers.hh"
 
 namespace gem5
@@ -242,7 +243,7 @@ class VecPredRegContainer
     using MyClass = VecPredRegContainer<NumBits, Packed>;
 
   public:
-    VecPredRegContainer() {}
+    VecPredRegContainer() { reset(); }
     VecPredRegContainer(const VecPredRegContainer &) = default;
 
     MyClass&
@@ -344,23 +345,25 @@ class VecPredRegContainer
     /// @tparam VecElem Type of the vector elements.
     /// @{
     template <typename VecElem>
-    VecPredRegT<VecElem, NumBits / sizeof(VecElem), Packed, true>
+    auto
     as() const
     {
         static_assert(NumBits % sizeof(VecElem) == 0,
                 "Container size incompatible with view size.");
-        return VecPredRegT<VecElem, NumBits / sizeof(VecElem), Packed, true>(
-                *this);
+        return VecPredRegT<VecElem,
+                           Packed ? NumBits : (NumBits / sizeof(VecElem)),
+                           Packed, true>(*this);
     }
 
     template <typename VecElem>
-    VecPredRegT<VecElem, NumBits / sizeof(VecElem), Packed, false>
+    auto
     as()
     {
         static_assert(NumBits % sizeof(VecElem) == 0,
                 "Container size incompatible with view size.");
-        return VecPredRegT<VecElem, NumBits / sizeof(VecElem), Packed, false>(
-                *this);
+        return VecPredRegT<VecElem,
+                           Packed ? NumBits : (NumBits / sizeof(VecElem)),
+                           Packed, false>(*this);
     }
     /// @}
 };
@@ -392,7 +395,29 @@ struct ShowParam<VecPredRegContainer<NumBits, Packed>>
 /// Dummy type aliases and constants for architectures that do not implement
 /// vector predicate registers.
 /// @{
-using DummyVecPredRegContainer = VecPredRegContainer<8, false>;
+struct DummyVecPredRegContainer
+{
+    RegVal filler = 0;
+    bool operator == (const DummyVecPredRegContainer &d) const { return true; }
+    bool operator != (const DummyVecPredRegContainer &d) const { return true; }
+    template <typename VecElem>
+    VecElem *as() { return nullptr; }
+};
+template <>
+struct ParseParam<DummyVecPredRegContainer>
+{
+    static bool
+    parse(const std::string &s, DummyVecPredRegContainer &value)
+    {
+        return false;
+    }
+};
+static_assert(sizeof(DummyVecPredRegContainer) == sizeof(RegVal));
+static inline std::ostream &
+operator<<(std::ostream &os, const DummyVecPredRegContainer &d)
+{
+    return os;
+}
 /// @}
 
 } // namespace gem5

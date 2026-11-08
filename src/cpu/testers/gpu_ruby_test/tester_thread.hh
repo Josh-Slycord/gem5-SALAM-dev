@@ -2,8 +2,6 @@
  * Copyright (c) 2017-2021 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -38,6 +36,7 @@
 #ifndef CPU_TESTERS_PROTOCOL_TESTER_TESTER_THREAD_HH_
 #define CPU_TESTERS_PROTOCOL_TESTER_TESTER_THREAD_HH_
 
+#include "base/random.hh"
 #include "cpu/testers/gpu_ruby_test/address_manager.hh"
 #include "cpu/testers/gpu_ruby_test/episode.hh"
 #include "cpu/testers/gpu_ruby_test/protocol_tester.hh"
@@ -134,6 +133,7 @@ class TesterThread : public ClockedObject
         {}
     };
 
+    int cacheLineSize;
     // the unique global id of this thread
     int threadId;
     // width of this thread (1 for cpu thread & wf size for gpu wavefront)
@@ -180,6 +180,7 @@ class TesterThread : public ClockedObject
     // constraints and is ready to issue
     bool isNextActionReady();
     void issueNextAction();
+    int getTokensNeeded();
 
     // issue Ops to Ruby memory
     // must be implemented by a child class
@@ -205,6 +206,11 @@ class TesterThread : public ClockedObject
 
     void printOutstandingReqs(const OutstandingReqTable& table,
                               std::stringstream& ss) const;
+
+    std::string printAddress(Addr addr) const;
+
+  private:
+    Random::RandomPtr rng = Random::genRandom();
 };
 
 } // namespace gem5

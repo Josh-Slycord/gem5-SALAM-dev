@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 ARM Limited
+ * Copyright (c) 2020, 2024 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -42,28 +42,45 @@
 
 #include <vector>
 
+#include "arch/generic/pcstate.hh"
+#include "base/logging.hh"
 #include "cpu/reg_class.hh"
-#include "enums/VecRegRenameMode.hh"
+#include "mem/packet.hh"
+#include "mem/request.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
 {
 
 class ThreadContext;
+class ExecContext;
 
 class BaseISA : public SimObject
 {
   public:
-    typedef std::vector<RegClassInfo> RegClasses;
+    typedef std::vector<const RegClass *> RegClasses;
 
   protected:
-    using SimObject::SimObject;
+    BaseISA(const SimObjectParams &p, const std::string &name)
+      : SimObject(p), isaName(name)
+    {}
 
     ThreadContext *tc = nullptr;
 
     RegClasses _regClasses;
 
+    std::string isaName;
+
   public:
+    virtual PCStateBase *newPCState(Addr new_inst_addr=0) const = 0;
+    virtual void clear() {}
+
+    virtual RegVal readMiscRegNoEffect(RegIndex idx) const = 0;
+    virtual RegVal readMiscReg(RegIndex idx) = 0;
+
+    virtual void setMiscRegNoEffect(RegIndex idx, RegVal val) = 0;
+    virtual void setMiscReg(RegIndex idx, RegVal val) = 0;
+
     virtual void takeOverFrom(ThreadContext *new_tc, ThreadContext *old_tc) {}
     virtual void setThreadContext(ThreadContext *_tc) { tc = _tc; }
 
@@ -71,19 +88,64 @@ class BaseISA : public SimObject
     virtual bool inUserMode() const = 0;
     virtual void copyRegsFrom(ThreadContext *src) = 0;
 
-    virtual enums::VecRegRenameMode
-    initVecRegRenameMode() const
-    {
-        return enums::Full;
-    }
-
-    virtual enums::VecRegRenameMode
-    vecRegRenameMode(ThreadContext *_tc) const
-    {
-        return initVecRegRenameMode();
-    }
+    virtual void resetThread() { panic("Thread reset not implemented."); }
 
     const RegClasses &regClasses() const { return _regClasses; }
+    const std::string &getIsaName() const { return isaName; }
+
+    // Locked memory handling functions.
+    virtual void handleLockedRead(const RequestPtr &req) {}
+    virtual void
+    handleLockedRead(ExecContext *xc, const RequestPtr &req)
+    {
+        handleLockedRead(req);
+    }
+    virtual bool
+    handleLockedWrite(const RequestPtr &req, Addr cacheBlockMask)
+    {
+        return true;
+    }
+    virtual bool
+    handleLockedWrite(ExecContext *xc, const RequestPtr &req,
+            Addr cacheBlockMask)
+    {
+        return handleLockedWrite(req, cacheBlockMask);
+    }
+
+    virtual void handleLockedSnoop(PacketPtr pkt, Addr cacheBlockMask) {}
+    virtual void
+    handleLockedSnoop(ExecContext *xc, PacketPtr pkt, Addr cacheBlockMask)
+    {
+        handleLockedSnoop(pkt, cacheBlockMask);
+    }
+    virtual void handleLockedSnoopHit() {}
+    virtual void
+    handleLockedSnoopHit(ExecContext *xc)
+    {
+        handleLockedSnoopHit();
+    }
+
+    virtual void globalClearExclusive() {}
+    virtual void
+    globalClearExclusive(ExecContext *xc)
+    {
+        globalClearExclusive();
+    }
+
+    void
+    serialize(CheckpointOut &cp) const override
+    {
+        SERIALIZE_SCALAR(isaName);
+    }
+
+    /**
+     * This function returns the vector length of the Vector Length Agnostic
+     * extension of the ISA.
+     * For ARM ISA, this function returns the SVE/SVE2 vector length.
+     * For RISC-V ISA, this function returns the RVV vector length.
+     * For other ISAs, this function returns -1.
+     */
+    virtual int64_t getVectorLengthInBytes() const { return -1; }
 };
 
 } // namespace gem5

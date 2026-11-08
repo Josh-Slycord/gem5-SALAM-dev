@@ -38,15 +38,6 @@
 
 #include <cassert>
 
-/**
- * When building the debug binary, we need to undo the command-line
- * definition of DEBUG not to clash with DRAMsim3 print macros that
- * are included for no obvious reason.
- */
-#ifdef DEBUG
-#undef DEBUG
-#endif
-
 #include "mem/dramsim3_wrapper.hh"
 
 #include <fstream>
@@ -129,7 +120,7 @@ DRAMsim3Wrapper::canAccept(uint64_t addr, bool is_write) const
 void
 DRAMsim3Wrapper::enqueue(uint64_t addr, bool is_write)
 {
-    GEM5_VAR_USED bool success = dramsim->AddTransaction(addr, is_write);
+    [[maybe_unused]] bool success = dramsim->AddTransaction(addr, is_write);
     assert(success);
 }
 

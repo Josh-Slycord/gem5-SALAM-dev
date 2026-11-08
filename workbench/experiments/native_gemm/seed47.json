@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "native_gemm_seed47",
+  "benchmark": "benchmarks/sys_validation/gemm",
+  "builder": "native",
+  "base_address": "0x10020000",
+  "system": {
+    "cpu-clock": "2GHz",
+    "sys-clock": "1GHz",
+    "cacheline_size": 64
+  },
+  "benchmark_input": {
+    "dataset": "seeded",
+    "seed": 47
+  },
+  "correctness": {
+    "expected_passed_markers": 1,
+    "description": "All64int32GEMMoutputs independently checked from the seeded fixture."
+  }
+}

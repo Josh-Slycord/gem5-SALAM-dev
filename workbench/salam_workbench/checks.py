@@ -16,21 +16,31 @@ import uuid
 from pathlib import Path
 
 from .runner import ENV_ALLOWLIST, _terminate_owned_process, _write_json, file_hash
+from .toolchain_profile import require_legacy_harness
 
 PROJECT = Path(__file__).resolve().parents[1]
 TIERS = ("fast", "config", "gui", "collector", "gemm")
 FAST_MODULES = (
     "test_benchmark_oracles",
+    "test_execution_visualizer",
+    "test_timeline_export",
+    "test_checkpoint_integration",
     "test_benchmark_inputs",
     "test_configurable_breadth",
     "test_benchmark_overlays",
     "test_builds",
     "test_checks",
     "test_doctor",
+    "test_toolchain_profile",
+    "test_legacy_harness_guards",
+    "test_linker_selection",
+    "test_numpy_outputs",
     "test_observability",
     "test_observability_report",
     "test_offline_viewer",
     "test_provenance",
+    "test_candidate_provenance",
+    "test_guest_uart_verifier",
     "test_regression",
     "test_regression_negative",
     "test_release",
@@ -49,14 +59,28 @@ CONFIG_MODULES = (
     "test_variant_report",
     "test_config_contract",
     "test_configurator",
+    "test_modern_build_identity",
+    "test_native_clock_binding",
+    "test_native_config",
+    "test_native_factory",
+    "test_native_builder_integration",
+    "test_native_gemm_checks",
+    "test_native_codegen",
+    "test_native_wrapper",
+    "test_native_bound_model",
+    "test_native_generation_study",
+    "test_native_generation_integration",
     "test_configurator_review",
     "test_hardware_codegen",
     "test_system_witness",
     "test_configuration_import",
     "test_topology_adapter",
+    "test_systembuilder_template",
     "test_profile_witness",
     "test_configurator_gui_bridge",
     "test_build_inputs",
+    "test_ir_toolchain",
+    "test_output_transport_abi",
     "test_gui_execution",
     "test_gui_editor",
     "test_gui_effective",
@@ -70,6 +94,7 @@ CONFIG_MODULES = (
 GUI_MODULES = (
     "test_offline_viewer",
     "test_gui_editor_qt",
+    "test_toolchain_gui",
     "test_workbench_window",
     "test_workbench_topology",
     "test_process_view",
@@ -94,13 +119,29 @@ def source_identity(project, engine=None, tier="fast"):
     """Fingerprint actual local tooling files, without Git writes or shell state."""
     project = Path(project).resolve()
     sources = []
-    for directory in ("salam_workbench", "tests"):
+    for directory in ("salam_workbench", "tests", "visualizer"):
         sources.extend(
             path
             for path in (project / directory).rglob("*.py")
             if "__pycache__" not in path.parts
         )
     sources.extend(project.glob("requirements*.txt"))
+    for name in (
+        "verify_numpy_outputs.py",
+        "verify_native_gemm.py",
+        "run_native_gemm.py",
+        "run_native_generation.py",
+        "verify_guest_uart.py",
+        "audit_candidate_provenance.py",
+    ):
+        independent_checker = project / "scripts" / name
+        if independent_checker.is_file():
+            sources.append(independent_checker)
+    sources.extend(
+        path
+        for path in (project / "experiments/native_gemm").rglob("*")
+        if path.is_file() and path.suffix in (".cpp", ".h")
+    )
     sources.extend(
         path
         for path in (project / "experiments/breadth/overlays").rglob("*")
@@ -166,10 +207,13 @@ def build_plan(
     jobs=8,
 ):
     project, evidence = Path(project).resolve(), Path(evidence).resolve()
-    python = str(Path(sys.executable).resolve())
+    # Preserve the venv invocation; _execute_step hashes the resolved file.
+    python = str(Path(sys.executable).absolute())
     prefix = [python, "-B", "-m", "salam_workbench.checks"]
     if tier not in TIERS:
         raise ValueError("Unknown check tier")
+    if tier == "gemm":
+        require_legacy_harness(project, "checks --tier gemm")
     if build_engine and (tier != "gemm" or not allow_simulation):
         raise ValueError("--build-engine requires the gemm tier and --allow-simulation")
     if type(jobs) is not int or not 1 <= jobs <= 32:

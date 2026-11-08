@@ -1,0 +1,1227 @@
+{
+  "schema_version": 1,
+  "kind": "gemini_integration_checkpoint",
+  "state": "qualified_for_retained_gem5_26_upgrade_branch",
+  "recorded_at": "2026-11-05T19:45:05.024618+00:00",
+  "qualified_source_commit": "b73fb354a0cb80c640666788f4bb1269261145b4",
+  "working_main_preserved": "48fe84fa2f1c52e95fbc2382d62f26013fa78cd7",
+  "previous_checkpoint_preserved": "85045fe8b7695b8d2c5bb618553ecd1cff7c24d8",
+  "gemini_final_snapshot": "b9c798893d53e8565943aed6678a151434d4a5f1",
+  "gemini_original_modified": false,
+  "official_repositories_modified": false,
+  "pull_request": "https://github.com/Josh-Slycord/gem5-SALAM-dev/pull/4",
+  "base_build": {
+    "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-base-build/build.json",
+    "sha256": "b0b580c611fe7c76f081b72f2c452f6afcc459a28efa096dbca9d0c14964e89c",
+    "bytes": 16977
+  },
+  "base_binary": {
+    "path": "/home/jslycord/projects/salam-gemini-integration-20261105/engine/build/ARM/gem5.opt",
+    "sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91",
+    "bytes": 1315245888
+  },
+  "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+  "source_tests": {
+    "total": 742,
+    "fast": 352,
+    "config": 326,
+    "gui": 64,
+    "skips": 0,
+    "inventory": {
+      "path": "/home/jslycord/projects/salam-gemini-integration-source-test-evidence-20261105-registerbank-fix/test-inventory.json",
+      "sha256": "c2b4bb5693a544d6b8efa8a8d04fd9e834c545a8ca141ca2b06f4c352bea2720",
+      "bytes": 152367
+    },
+    "source_only": true,
+    "baseline_ci_runs": [
+      42085821685,
+      42085867896
+    ],
+    "baseline_ci_source_commit": "342872e01538f211e861ac66b976cce7f4b532f5",
+    "baseline_ci_source_tests": 738,
+    "final_exact_head_ci_required_before_merge": true,
+    "final_ci_checks_url": "https://github.com/Josh-Slycord/gem5-SALAM-dev/pull/4/checks"
+  },
+  "native_scons": {
+    "tests": 28,
+    "receipt": {
+      "path": "/home/jslycord/projects/salam-gemini-integration-20261105/native-scons-tests/validation.json",
+      "sha256": "3d2be966c3596d228ff6c16b336400aeaa43ce9e2c6aafa1ea13d3d007dd2768",
+      "bytes": 2284
+    }
+  },
+  "native_sanitizer": {
+    "tests": 28,
+    "receipt": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/gemini-integration-20261105/native-script-with-fu-final-engine/validation.json",
+      "sha256": "b2ecc9a74cc192a85e1a0762f6e7d59f5b0c3f1be1ea8ea2aabcbb9553438737",
+      "bytes": 26429
+    },
+    "whole_engine_sanitized": false
+  },
+  "default_generation": {
+    "outputs_exact": 129,
+    "receipt": {
+      "path": "/home/jslycord/projects/salam-gemini-integration-20261105/default-generation/hardware-codegen.json",
+      "sha256": "ba47a563ae65aa2f574bbc03c6e2e755cae8fe438f3db7ff32a336cff9442ffc",
+      "bytes": 59386
+    }
+  },
+  "registerbank_adapter_followup": {
+    "receipt": {
+      "path": "/home/jslycord/projects/salam-registerbank-adapter-fix-20261105/validation.json",
+      "sha256": "ddf64dd8bab767f4465fac05b172c7cd617872083e5db3f2dbdab62015d1ad9e",
+      "bytes": 2041
+    },
+    "scope": "Actual current typed-parser stencil preflight and fail-closed compatibility tests"
+  },
+  "configuration_generation": {
+    "executions": 20,
+    "scope": "actual generation/AST; not 20 simulations",
+    "receipt": {
+      "path": "/home/jslycord/projects/salam-phase4-config-final-evidence-20261105/validation.json",
+      "sha256": "aa34cfa8f4af1bd6e2af1bc50f0eec4715bf40b53e4226c7ab4d86ef5a4ec7e0",
+      "bytes": 10357
+    }
+  },
+  "gui_runs": [
+    {
+      "benchmark": "gemm",
+      "input_seed": 47,
+      "outputs_compared": 64,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-gui-v4-gemm-seed47/acceptance.json",
+        "sha256": "6410139c933c9cee6d06d6f0e78b83daf818865a29550c49e4ab68315bf06ea5",
+        "bytes": 1551586
+      },
+      "gui_execution": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192707-9e24ac97/gui-execution.json",
+        "sha256": "f01007407d2a141817526be24a2c2792b793cd2d2286be4bc0ebc5b5997c0db9",
+        "bytes": 419266
+      },
+      "numpy": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/numpy-gemm.json",
+        "sha256": "209bd5f637b46f014df23456df871d669e071fc703d282c84b2a54743e50e8dc",
+        "bytes": 2333
+      },
+      "native_reconciliation": [
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-gemm-system.gemm_clstr.gemm.json",
+          "sha256": "6160b76ef5f7566a0be56e91f718e5ce41a36ec37295b8f4535c8a99796d60aa",
+          "bytes": 1601
+        },
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-gemm-system.gemm_clstr.top.json",
+          "sha256": "c3c4709ac9fa21a6b4619cb9763a6979708030e24fe059d263533662117f96fc",
+          "bytes": 1586
+        }
+      ],
+      "clock_domains": [
+        {
+          "object": "system.gemm_clstr.dma",
+          "type": "NoncoherentDma",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.gemm_clstr.dma.clk_domain"
+        },
+        {
+          "object": "system.gemm_clstr.gemm",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.gemm_clstr.gemm.clk_domain"
+        },
+        {
+          "object": "system.gemm_clstr.gemm.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.gemm_clstr.gemm.llvm_interface.clk_domain"
+        },
+        {
+          "object": "system.gemm_clstr.top",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.gemm_clstr.top.clk_domain"
+        },
+        {
+          "object": "system.gemm_clstr.top.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.gemm_clstr.top.llvm_interface.clk_domain"
+        }
+      ],
+      "hardware_state": "reused_base",
+      "build_receipt": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-base-build/build.json",
+        "sha256": "b0b580c611fe7c76f081b72f2c452f6afcc459a28efa096dbca9d0c14964e89c",
+        "bytes": 16977
+      },
+      "binary": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/engine/build/ARM/gem5.opt",
+        "sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91",
+        "bytes": 1315245888
+      },
+      "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+      "timeline_export": {
+        "kind": "derived_execution_timeline",
+        "schema_version": 1,
+        "state": "exported",
+        "source_receipt": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192707-9e24ac97/gui-execution.json",
+        "source_receipt_sha256": "f01007407d2a141817526be24a2c2792b793cd2d2286be4bc0ebc5b5997c0db9",
+        "source_trace": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192707-9e24ac97/pipeline/runs/20261105T192731-88cb81dcede1/simulator/observability/fu-scheduling-system.gemm_clstr.gemm.invocation-1.json",
+        "source_trace_sha256": "2aac0377237d57f5ff62e7e70aefc1b8c2297bc98adb84285958276dc582020d",
+        "recorded_run_state": "passed",
+        "recorded_evidence_assessment": "checked_recorded_evidence",
+        "scope": "FU trace replay and visualization; not a numerical correctness check",
+        "html": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T192757-de7a20a0d3/timeline.html",
+        "exporter": {
+          "source": {
+            "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192707-9e24ac97/pipeline/runs/20261105T192731-88cb81dcede1/simulator/observability/fu-scheduling-system.gemm_clstr.gemm.invocation-1.json",
+            "sha256": "2aac0377237d57f5ff62e7e70aefc1b8c2297bc98adb84285958276dc582020d",
+            "bytes": 3750796
+          },
+          "validation": {
+            "state": "passed",
+            "scope": "FU scheduling trace only",
+            "numerical_correctness": "not evaluated",
+            "events_replayed": 41264
+          },
+          "preview": {
+            "rendered_spans": 2176,
+            "total_spans": 2176,
+            "limited": false,
+            "max_spans": 20000
+          },
+          "output": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T192757-de7a20a0d3/timeline.html"
+        },
+        "html_sha256": "2fabf7b5d6dc7adbe671339bb8f8d49eeb6cf5db1400b2ffbac00d5138c2b7fc"
+      },
+      "topology_valid": true
+    },
+    {
+      "benchmark": "fft",
+      "input_seed": 47,
+      "outputs_compared": 1024,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-gui-v4-fft-seed47/acceptance.json",
+        "sha256": "d436b6ba9545fe10be61204a46eed8c24c5a32d743084de61067022d2f7cbd25",
+        "bytes": 1590223
+      },
+      "gui_execution": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192800-944d491c/gui-execution.json",
+        "sha256": "f739bfca29af8ca415015c80555c526672ce79e00409633c3d6b9967af95698a",
+        "bytes": 463813
+      },
+      "numpy": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/numpy-fft.json",
+        "sha256": "66a41cb15c462d28ddae92ba49b5dfae11b6ff343e53febcd8e0bb1b861e6eb3",
+        "bytes": 2384
+      },
+      "native_reconciliation": [
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-fft-system.fft_clstr.fft.json",
+          "sha256": "3b70bd7b43e0a320526f66ef1c9ff05a993104a7a2a76fc2dcfd447154c17955",
+          "bytes": 1596
+        },
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-fft-system.fft_clstr.top.json",
+          "sha256": "f142e8bfe5fca996bc8d0334e2081b450fa51b476e5f064d84fcfc82cb48cbd3",
+          "bytes": 1587
+        }
+      ],
+      "clock_domains": [
+        {
+          "object": "system.fft_clstr.dma",
+          "type": "NoncoherentDma",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.fft_clstr.dma.clk_domain"
+        },
+        {
+          "object": "system.fft_clstr.fft",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.fft_clstr.fft.clk_domain"
+        },
+        {
+          "object": "system.fft_clstr.fft.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.fft_clstr.fft.llvm_interface.clk_domain"
+        },
+        {
+          "object": "system.fft_clstr.top",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.fft_clstr.top.clk_domain"
+        },
+        {
+          "object": "system.fft_clstr.top.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.fft_clstr.top.llvm_interface.clk_domain"
+        }
+      ],
+      "hardware_state": "reused",
+      "build_receipt": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/hardware-variant-642078227c35134a-b916582f/build/build.json",
+        "sha256": "075816c7fd77f32e644ea6953d4834e5b1e9b5e6a236adc78cf1c23ff31700bf",
+        "bytes": 17583
+      },
+      "binary": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/gui-variants/642078227c35134ab35dfd6d216d01710519820dcadb0d0e279dc64d1ccd07db/build/ARM/gem5.opt",
+        "sha256": "d11d17541e8c0714b3becc897ab06c980185c325be43cf56090dd81d1e5da790",
+        "bytes": 1315277000
+      },
+      "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+      "timeline_export": {
+        "kind": "derived_execution_timeline",
+        "schema_version": 1,
+        "state": "exported",
+        "source_receipt": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192800-944d491c/gui-execution.json",
+        "source_receipt_sha256": "f739bfca29af8ca415015c80555c526672ce79e00409633c3d6b9967af95698a",
+        "source_trace": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192800-944d491c/pipeline/runs/20261105T192831-b4fadc24fde3/simulator/observability/fu-scheduling-system.fft_clstr.fft.invocation-1.json",
+        "source_trace_sha256": "174f9191eac958c6cd22ad41c47fee393468fd06f78e97530b1ff919ca591f8c",
+        "recorded_run_state": "passed",
+        "recorded_evidence_assessment": "checked_recorded_evidence",
+        "scope": "FU trace replay and visualization; not a numerical correctness check",
+        "html": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T192945-23faa0ccec/timeline.html",
+        "exporter": {
+          "source": {
+            "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192800-944d491c/pipeline/runs/20261105T192831-b4fadc24fde3/simulator/observability/fu-scheduling-system.fft_clstr.fft.invocation-1.json",
+            "sha256": "174f9191eac958c6cd22ad41c47fee393468fd06f78e97530b1ff919ca591f8c",
+            "bytes": 14715917
+          },
+          "validation": {
+            "state": "passed",
+            "scope": "FU scheduling trace only",
+            "numerical_correctness": "not evaluated",
+            "events_replayed": 149558
+          },
+          "preview": {
+            "rendered_spans": 20000,
+            "total_spans": 70682,
+            "limited": true,
+            "max_spans": 20000
+          },
+          "output": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T192945-23faa0ccec/timeline.html"
+        },
+        "html_sha256": "4c62ae269e7051a1d3818ef55e886e03d9342bd2c7036ba92f72079c02c27086"
+      },
+      "topology_valid": true
+    },
+    {
+      "benchmark": "stencil3d",
+      "input_seed": 47,
+      "outputs_compared": 16384,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-gui-v4-stencil3d-seed47/acceptance.json",
+        "sha256": "1f78c99d5435fc6a2596ae0491e8a6245c7a2d1d0cc8f0f00a5153e7fd288efa",
+        "bytes": 1577366
+      },
+      "gui_execution": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192949-14065bf0/gui-execution.json",
+        "sha256": "b19392f1d431aab80687b84770c88a9a629f31670fb5fb0c551b84bd3d94808f",
+        "bytes": 461633
+      },
+      "numpy": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/numpy-stencil3d.json",
+        "sha256": "18f47f2a0e04fe3705cb5ffd724a2240fcde1a718295497e99b2106dfeced11a",
+        "bytes": 2392
+      },
+      "native_reconciliation": [
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-stencil3d-system.stencil3d_clstr.stencil3d.json",
+          "sha256": "70c98e0f0aa63f762ef52f3373fb9cffa2daa91c2e95f626e221755a6147de4e",
+          "bytes": 1740
+        },
+        {
+          "path": "/home/jslycord/projects/salam-gemini-integration-20261105/qualification-v4/native-stencil3d-system.stencil3d_clstr.top.json",
+          "sha256": "092088792265be18eb2244841aedf978259cc56a96bb61e802c27b974a1d7e0b",
+          "bytes": 1660
+        }
+      ],
+      "clock_domains": [
+        {
+          "object": "system.stencil3d_clstr.dma",
+          "type": "NoncoherentDma",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.stencil3d_clstr.dma.clk_domain"
+        },
+        {
+          "object": "system.stencil3d_clstr.stencil3d",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.stencil3d_clstr.stencil3d.clk_domain"
+        },
+        {
+          "object": "system.stencil3d_clstr.stencil3d.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.stencil3d_clstr.stencil3d.llvm_interface.clk_domain"
+        },
+        {
+          "object": "system.stencil3d_clstr.top",
+          "type": "CommInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.stencil3d_clstr.top.clk_domain"
+        },
+        {
+          "object": "system.stencil3d_clstr.top.llvm_interface",
+          "type": "LLVMInterface",
+          "legacy_period_ns": 10,
+          "native_period_ticks": 10000,
+          "domain": "system.stencil3d_clstr.top.llvm_interface.clk_domain"
+        }
+      ],
+      "hardware_state": "reused",
+      "build_receipt": {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/hardware-variant-72b013192d2e54e4-ce660cc0/build/build.json",
+        "sha256": "d5e2c63a769fe31987595c80d3e1ee4ef21d2517d62ddc2b8fdc2e8087a5630e",
+        "bytes": 17583
+      },
+      "binary": {
+        "path": "/home/jslycord/projects/salam-gemini-integration-20261105/gui-variants/72b013192d2e54e43025304e7abb6f10adc8f9d2cc2baca561f6a0789884c5dd/build/ARM/gem5.opt",
+        "sha256": "c9a58787f039a0528334cdc0faeb9613167a7a9faa94a7053145535d3f8fa064",
+        "bytes": 1315277088
+      },
+      "compiled_source_sha256": "90c6138cdf090f3857a450f71c3504e10290efa7ae6144fba378750f2ebf8cb6",
+      "timeline_export": {
+        "kind": "derived_execution_timeline",
+        "schema_version": 1,
+        "state": "exported",
+        "source_receipt": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192949-14065bf0/gui-execution.json",
+        "source_receipt_sha256": "b19392f1d431aab80687b84770c88a9a629f31670fb5fb0c551b84bd3d94808f",
+        "source_trace": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192949-14065bf0/pipeline/runs/20261105T193020-cc80f0088abb/simulator/observability/fu-scheduling-system.stencil3d_clstr.stencil3d.invocation-1.json",
+        "source_trace_sha256": "16696762168a30ecb7202ec50af04498054768b0ca8aa5ba9e45646a6343c98a",
+        "recorded_run_state": "passed",
+        "recorded_evidence_assessment": "checked_recorded_evidence",
+        "scope": "FU trace replay and visualization; not a numerical correctness check",
+        "html": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T193540-d50f013fa6/timeline.html",
+        "exporter": {
+          "source": {
+            "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gui-apply-20261105T192949-14065bf0/pipeline/runs/20261105T193020-cc80f0088abb/simulator/observability/fu-scheduling-system.stencil3d_clstr.stencil3d.invocation-1.json",
+            "sha256": "16696762168a30ecb7202ec50af04498054768b0ca8aa5ba9e45646a6343c98a",
+            "bytes": 204702172
+          },
+          "validation": {
+            "state": "passed",
+            "scope": "FU scheduling trace only",
+            "numerical_correctness": "not evaluated",
+            "events_replayed": 2112201
+          },
+          "preview": {
+            "rendered_spans": 20000,
+            "total_spans": 205362,
+            "limited": true,
+            "max_spans": 20000
+          },
+          "output": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/execution-timelines/20261105T193540-d50f013fa6/timeline.html"
+        },
+        "html_sha256": "84466e7e7faa59d7211b4e74fc688c21dc31ebe1e6acb5edc7c9030f59b2650a"
+      },
+      "topology_valid": true
+    }
+  ],
+  "gui_outputs_total": 17472,
+  "reset_clock_runs": [
+    {
+      "period_ns": 10,
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/gemini-integration-20261105/native-reset-10ns-uart-fixed/complete-qualification.json",
+        "sha256": "a6503ff619515434c16376432a10f473e11045dc3f39ba1fd9a97fa42c5a9fdc",
+        "bytes": 9829
+      },
+      "launches": 2,
+      "seeds": [
+        11,
+        29
+      ],
+      "positive_outputs": 128,
+      "native_windows": 4
+    },
+    {
+      "period_ns": 3,
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/gemini-integration-20261105/native-reset-3ns-uart-fixed/complete-qualification.json",
+        "sha256": "94c6289d346c8069418f4e401334a5723798cea7a8c2ee123592f2258f15d772",
+        "bytes": 9819
+      },
+      "launches": 2,
+      "seeds": [
+        11,
+        29
+      ],
+      "positive_outputs": 128,
+      "native_windows": 4
+    }
+  ],
+  "real_wrong_output_control": {
+    "path": "/mnt/d/kb_local_chatGPT/salam/gemini-integration-20261105/native-reset-3ns-negative/complete-negative-control.json",
+    "sha256": "54841be3a41260dd3c01336c81af274d39f1e81b300efb4d5715a3f601aa82df",
+    "bytes": 26454
+  },
+  "unsupported_ir_controls": {
+    "path": "/mnt/d/kb_local_chatGPT/salam/gemini-integration-20261105/native-ir-negative-20261105T1900Z/qualification.json",
+    "sha256": "ef3e2527272f38e3588d5145b4263c0c92754a74ce14cb9be0fa8caa64daf68a",
+    "bytes": 7221
+  },
+  "derived_gui_wrong_output_controls": {
+    "path": "/home/jslycord/projects/gem5-salam-gemini-integration/workbench/evidence/gemini-integration-v4-wrong-output-controls/controls.json",
+    "sha256": "4b5d04e550eb1c1e37ccc93be80e95352c18ae886d4d45f0e4ceef045b3ed5d2",
+    "bytes": 14595
+  },
+  "private_preservation": {
+    "standalone": {
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/preservation-integration-20261105/standalone/PRIVATE_PUBLICATION.json",
+        "sha256": "c79023ce5b29e4cb4eab7742e0202b1443b97303a6bc6fe7ca4624e521a8f517",
+        "bytes": 836
+      },
+      "publication": {
+        "kind": "private_standalone_history_publication",
+        "state": "published",
+        "repository": "Josh-Slycord/gem5-SALAM-dev-private",
+        "visibility": "private",
+        "branch": "preservation/standalone-workbench-20261105",
+        "head": "961182113f5b2cec837b3b0df36e606c00ae01dc",
+        "source_head": "62bcd16bc90d5b6dac993c4a5c7ff559a2c771df",
+        "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/standalone-workbench-20261105",
+        "history_preserved": true,
+        "metadata_files": 10,
+        "private_main_unchanged": true,
+        "source_repository_modified": false,
+        "remote_readback_verified": true,
+        "readback_sha": "961182113f5b2cec837b3b0df36e606c00ae01dc",
+        "bundle_sha256": "875069ef4a2bdf831d811aeaf473481a7243e68b88a626045d04736580a2c52f",
+        "published_at_utc": "2026-11-05T17:51:22.881867+00:00"
+      }
+    },
+    "finished_gemini": {
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/preservation-integration-20261105/FINAL_GEMINI_PUBLICATION.json",
+        "sha256": "eb98be4e43ba9fbe0f770fbf8e57e2be21dc8f8d9cbebb814bc3aa42f91783cf",
+        "bytes": 421
+      },
+      "publication": {
+        "head": "b6ca7ab0a55f0236a81fba6d26fa2e7163607fba",
+        "source_head": "b9c798893d53e8565943aed6678a151434d4a5f1",
+        "private_branch": "preservation/gemini-final-20261105",
+        "remote_readback": "b6ca7ab0a55f0236a81fba6d26fa2e7163607fba",
+        "snapshot": "/mnt/d/kb_local_chatGPT/salam/preservation-integration-20261105/gemini-20261105T181319Z-b9c798893d-1",
+        "source_modified": false,
+        "review_notes_preserved": true
+      }
+    },
+    "all_git_bundles": {
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/preservation-integration-20261105/PRIVATE_RECOVERY_PUBLICATION.json",
+        "sha256": "54fd9cdc9712225031dfde575a06656540f3b269247a457f377ed3b88a12404b",
+        "bytes": 23321
+      },
+      "publication": {
+        "branch": "preservation/recovery-bundles-20261105",
+        "bundle_count": 3,
+        "content_manifest_sha256": "9411ad8c068af73a3a10fe757ba48cae66c32c3621bd6974eca378e51dfcefd3",
+        "fsck_stderr": "notice: HEAD points to an unborn branch (master)\n",
+        "fsck_stdout": "",
+        "head": "1f38236cc9c507df4de0faffd0334de8551c7b0e",
+        "kind": "private_recovery_bundle_publication",
+        "original_sources_modified": false,
+        "payload_manifest_sha256": "f0b8c748495d9505028a7f0ee3dab3944b7f4c685fe6de8e95114c4ef539f1e7",
+        "private_main_unchanged": true,
+        "published_at": "2026-11-05T18:45:36.162980+00:00",
+        "raw_results_offsite_claim": false,
+        "remote_blob_readback_verified": true,
+        "remote_readback_head": "1f38236cc9c507df4de0faffd0334de8551c7b0e",
+        "repository": "Josh-Slycord/gem5-SALAM-dev-private",
+        "state": "published",
+        "url": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/preservation/recovery-bundles-20261105",
+        "verified_files": [
+          {
+            "bytes": 9,
+            "git_blob": "625449502ba4b4d7c229c6ccee42e3ec41cc780c",
+            "git_mode": "100644",
+            "path": ".gitattributes",
+            "sha256": "8b9c3028d6467ff3be7c793141927841d70f47f52d0590677438f488ca154992"
+          },
+          {
+            "bytes": 23059,
+            "git_blob": "f18465094d9d18b1e7931512dbb11fa79a15843e",
+            "git_mode": "100644",
+            "path": "CONTENT_MANIFEST.json",
+            "sha256": "9411ad8c068af73a3a10fe757ba48cae66c32c3621bd6974eca378e51dfcefd3"
+          },
+          {
+            "bytes": 529,
+            "git_blob": "9c86235af02bc3d4429cae60eb99521e4a22734c",
+            "git_mode": "100644",
+            "path": "CREDENTIAL_PATH_AUDIT.json",
+            "sha256": "e601b78e17976116e899502db95ea42a6009568edfdfe96e517cb8286b335bb2"
+          },
+          {
+            "bytes": 31788,
+            "git_blob": "3feb58c5616c2aa659e5171751256b92770a3be7",
+            "git_mode": "100644",
+            "path": "PAYLOAD_MANIFEST.json",
+            "sha256": "f0b8c748495d9505028a7f0ee3dab3944b7f4c685fe6de8e95114c4ef539f1e7"
+          },
+          {
+            "bytes": 2220,
+            "git_blob": "be285367f3ed4ccdc3b8753888faa2788b8f5579",
+            "git_mode": "100644",
+            "path": "README.md",
+            "sha256": "190c3afe5d1768e02aea2563d405b718e74a2bc43d88f73b4e4c71fa0d190145"
+          },
+          {
+            "bytes": 3439,
+            "git_blob": "c0cadb053d1c57c22512e25c9b3f0f86ddf19c91",
+            "git_mode": "100644",
+            "path": "RESTORE_PROOF.json",
+            "sha256": "c6762a013ea816df48fececc3fa6f5815d0e814633d1980f433fdf9bede41cf1"
+          },
+          {
+            "bytes": 1570,
+            "git_blob": "5967f5c401a90959b71a845c742dd09bfd203f6d",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/MANIFEST.json",
+            "sha256": "d7b1a1cc8e4c2a3b577d96ab9c34e12b6d4cb20464644e31e3105da0a97b6145"
+          },
+          {
+            "bytes": 279,
+            "git_blob": "e1593de5241cb62c673c25115da275f8c9a9174d",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/bundle-verify.txt",
+            "sha256": "856a65ac1e8ba8cd77a21ddf3af69cc4440b22a0dff94224f0ebab4928caa267"
+          },
+          {
+            "bytes": 38258,
+            "git_blob": "65ff04b72512e1ca95b164fc9b6bb214d1ff0367",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/gemini-commits.bundle",
+            "sha256": "3402431f9b875fe919f79dbf744ea84c5c8452126708ebba3de4373be1928753"
+          },
+          {
+            "bytes": 77,
+            "git_blob": "d693c75a765105fe1ba864f484b7bf5e416a8bce",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/status.porcelain",
+            "sha256": "f4b13c073ed891c01a90e05ab7bbe9fc22991ce68e8ba37d7bf5177ead80c494"
+          },
+          {
+            "bytes": 28231,
+            "git_blob": "ef277db531317b927b1591c291e92b0f6c90415b",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/working-files/SALAM-Configurator/parser.py",
+            "sha256": "62e2e67deefa536cd9e6df5037467936e53c2c0a7906fe21a06faf7a569c329d"
+          },
+          {
+            "bytes": 27368,
+            "git_blob": "15dffc2b7cc4d2f01e28dbeae814b372f1dad4de",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/working-files/tools/SALAM-Configurator/config_parser.py",
+            "sha256": "6ed3dc5f7b07f0c24a75b6d363c199145301fb7b0bdd523d57c50f9757978209"
+          },
+          {
+            "bytes": 9622,
+            "git_blob": "98798333863dee1af4e6baca0a686ea8462d5de3",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T174435Z-d3d4930593-1/working-tree.patch",
+            "sha256": "910e761f712bb65cdc7485008426ba5476d7f4324c92d177aa680ef23552b942"
+          },
+          {
+            "bytes": 1538,
+            "git_blob": "3115ff0a78de09fa99b4a5df0ed6779cb8aeed63",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/MANIFEST.json",
+            "sha256": "9fde8e247750a9352e2709d69e1b487d94e2fc2405d35aebbd7b7fc4da3a6f21"
+          },
+          {
+            "bytes": 279,
+            "git_blob": "68aa70c808d4a5df9ed9aeed0d896659d10c25f7",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/bundle-verify.txt",
+            "sha256": "93d731898bb47b45a37fcccf9947df5114d791cdc31c69abb41f3b37c0ec2601"
+          },
+          {
+            "bytes": 51576,
+            "git_blob": "c78e35d103f5544d3cd47bc2d292b4bd2cb3bd96",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/gemini-commits.bundle",
+            "sha256": "0296204b3e93c891a6c404aff23b9e07ef07400662546d189d523c9660f12114"
+          },
+          {
+            "bytes": 2268,
+            "git_blob": "f9247736cf6264225f0dd4a0e0d53edfce22ee6c",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/review-notes/REVIEW_NOTES_MANIFEST.json",
+            "sha256": "e925ec0ddb009dab85ba22011b7b312d7400c5afc374e92108383eac0fd7f87a"
+          },
+          {
+            "bytes": 36190,
+            "git_blob": "69c6c78c2b8c0e41818db11b6a0c1241f402e6eb",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/review-notes/pr2429_compliance_plan.md",
+            "sha256": "ec5b1581ff659da30023306349ff43727e2c899a299ee8fcd0ba2b4bdc83a97e"
+          },
+          {
+            "bytes": 4972,
+            "git_blob": "9fd94883f481790576e2227b4888f8f80240f231",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/review-notes/task.md",
+            "sha256": "9ce23aae046b8800f883e6284352d1ae21818d0a7b03bbf94a183ff5c3ec7269"
+          },
+          {
+            "bytes": 0,
+            "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/status.porcelain",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "bytes": 0,
+            "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+            "git_mode": "100644",
+            "path": "gemini/gemini-20261105T181319Z-b9c798893d-1/working-tree.patch",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          {
+            "bytes": 300,
+            "git_blob": "96ed363bf7dcfb1cc4253c83c7a9ce8eb4fa2685",
+            "git_mode": "100644",
+            "path": "standalone/CREDENTIAL_PATH_CHECK.json",
+            "sha256": "c2bc7b645c5d6e4961050a30e574a55206c53274b5d60fb99a48827110553a0d"
+          },
+          {
+            "bytes": 2621,
+            "git_blob": "43ad169c8084f240c97c1b62a902d4547f18c644",
+            "git_mode": "100644",
+            "path": "standalone/INTEGRATION_RECOMMENDATIONS.json",
+            "sha256": "4421e7b48392e8a049ecb9e0655a2c4312cee9b7e541f6e31cee63e3f08dc970"
+          },
+          {
+            "bytes": 101126,
+            "git_blob": "0e1a78c50d182582978a18b2e0c7b85dd119766d",
+            "git_mode": "100644",
+            "path": "standalone/MANIFEST.json",
+            "sha256": "e643d404f49f6d406cee5970e425c338ba814ba6fd2bf0f617f2599a716b69d5"
+          },
+          {
+            "bytes": 15310,
+            "git_blob": "139ad8d7b56e5162c8535fc404533b1a227d00b8",
+            "git_mode": "100644",
+            "path": "standalone/MISSING_DOCUMENT_PATHS.json",
+            "sha256": "7041fe7d1694994fdd669a2d8f50b76248562084455eb55bf35bbb9ba350a441"
+          },
+          {
+            "bytes": 836,
+            "git_blob": "0204d7bce9b3701ca6d8761915d01bd07e285612",
+            "git_mode": "100644",
+            "path": "standalone/PRIVATE_PUBLICATION.json",
+            "sha256": "c79023ce5b29e4cb4eab7742e0202b1443b97303a6bc6fe7ca4624e521a8f517"
+          },
+          {
+            "bytes": 3658,
+            "git_blob": "b4bd192faaea74413221675eed810949546b60ce",
+            "git_mode": "100644",
+            "path": "standalone/README.md",
+            "sha256": "8150c7b7042d9a6639cdfbc8658c9a5b7ecc787b0eda09d44696bfe0f28eec57"
+          },
+          {
+            "bytes": 515,
+            "git_blob": "97502325de2d0b19fca21ddcfd4cfdc9e9ef7136",
+            "git_mode": "100644",
+            "path": "standalone/RESTORE_VERIFICATION.json",
+            "sha256": "0913b9061ef75bb4824f2bee0ab93ad970535d81f221e27ef93adf02f180c869"
+          },
+          {
+            "bytes": 345,
+            "git_blob": "8acb4bbb11f030a82251f0eca6b30dfab79eed1d",
+            "git_mode": "100644",
+            "path": "standalone/bundle-verify.txt",
+            "sha256": "da35de8ecb1e77bff65e1302bec163d1a3d75220d3be2d5970a4739eace7550f"
+          },
+          {
+            "bytes": 1738,
+            "git_blob": "bd4ed697c1a781128243988f92b49a6dd2ed0717",
+            "git_mode": "100644",
+            "path": "standalone/commit-history.txt",
+            "sha256": "a29fae7c428ea0ac07d831740771be66c2981af456a3227957ade3b275d79306"
+          },
+          {
+            "bytes": 73,
+            "git_blob": "b6d83f83fb9d20af1d85477309e2e2e56ee10a9c",
+            "git_mode": "100644",
+            "path": "standalone/source-refs.txt",
+            "sha256": "97b4ea341a6edc773c134bd558154e37e6fe03a7ba7a22d27a51c2e0c78160c2"
+          },
+          {
+            "bytes": 265,
+            "git_blob": "40033c494eaca3f0ea0e59564d6c6cd6ded503c0",
+            "git_mode": "100644",
+            "path": "standalone/source-status-before.txt",
+            "sha256": "c50bebd4b79794d59762b174e939f4619be163908a3ed27cd373f735e9274c3e"
+          },
+          {
+            "bytes": 1406248,
+            "git_blob": "0d7352117c3ebbffd601b521994c85e05b4bbb09",
+            "git_mode": "100644",
+            "path": "standalone/standalone-all-refs.bundle",
+            "sha256": "875069ef4a2bdf831d811aeaf473481a7243e68b88a626045d04736580a2c52f"
+          },
+          {
+            "bytes": 421,
+            "git_blob": "d85251eee83b57d1d0a2b050a146bb81c77163e1",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/FINAL_GEMINI_PUBLICATION.json",
+            "sha256": "eb98be4e43ba9fbe0f770fbf8e57e2be21dc8f8d9cbebb814bc3aa42f91783cf"
+          },
+          {
+            "bytes": 171,
+            "git_blob": "e5efcff3516467468e9d25cb82a85df6e63f0695",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/LATEST_GEMINI_SNAPSHOT.json",
+            "sha256": "c92d1ba619442c9a05581d026365fc29c579a46e9ac5991ec0934d4a04330713"
+          },
+          {
+            "bytes": 87,
+            "git_blob": "fa6c23a5bc4bfb0460667687324386d434ab2490",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/PUBLIC_SOURCE_CHECKPOINT.json",
+            "sha256": "71519434d0fd084736f4d17dffef2bd16a51dbc56bb4d40272d05b9d641b79d1"
+          },
+          {
+            "bytes": 866,
+            "git_blob": "28629744b4499a62a49a2c02a274784691d71d6b",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/add_native_ci.py",
+            "sha256": "a642413218dfae4f00255404daaa0a5d4d99f7358cee1d55947bad7b1c8ba4dc"
+          },
+          {
+            "bytes": 6577,
+            "git_blob": "719e75c9ed54bebb043df69fd2e545e5d3af84e4",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/apply_phase3_contract.py",
+            "sha256": "0e488a7e968f63fe3eb394cc6f97b6726cd26e68b8e7f826cae8b8abc212171c"
+          },
+          {
+            "bytes": 4151,
+            "git_blob": "30c6961ac55d0e6bcdf75e1e625d4889d3eb5dbc",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/capture_gemini.py",
+            "sha256": "6f6c7e22119c0eb5f4a5851979e6ece5f45020ac41efaff0194dc644ec09df03"
+          },
+          {
+            "bytes": 1689,
+            "git_blob": "c9d685c3f3305e46d7bea9ddceecdcb34d2d4c77",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/check_standalone_publication.py",
+            "sha256": "e2606f59d6e2a3640cbf59b1e765b8d18628b0f6368f898b3711651fae3ad10e"
+          },
+          {
+            "bytes": 2033,
+            "git_blob": "d18af6fca020242a5dbdceaedf5a6da3d69e3c72",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/commit_review_repairs.py",
+            "sha256": "872eabbdcc32425a50f30a92eed1d6b44b387e0d2a35b28fd80dfc8a6376ed54"
+          },
+          {
+            "bytes": 1760,
+            "git_blob": "cc1cdba3fe1dae64c24106894a4e7a971f2205c6",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/final_gui_tier.py",
+            "sha256": "e7283044223e8e8d19ebc11e27c4f3308314b4c7cbf7a176adfdce64232e4cd1"
+          },
+          {
+            "bytes": 1257,
+            "git_blob": "f8e9790c825220d0646d762d2f806d6b89ad80a5",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/final_regenerate_phase3.py",
+            "sha256": "c0fbbee3491bbc4336fc81dab8fe8610a3f4c3dfbaa1d70622b16fb8a287b17b"
+          },
+          {
+            "bytes": 2002,
+            "git_blob": "cfa28159c0c0515a762c0d6f3fe9822453607970",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/finish_phase4_evidence.py",
+            "sha256": "72865fa8a75bcff2e61063f9a19fcbf65e793d55f0cf3fa20f45ea1b1bb31e14"
+          },
+          {
+            "bytes": 3107,
+            "git_blob": "d9ffae36f870e848a8f46d4868de44be3d0c75e5",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/finish_source_tiers.py",
+            "sha256": "94b82d6c85c612ad3fe21fa765473580e64cb14670690c54527a3550ea9d6c71"
+          },
+          {
+            "bytes": 6725,
+            "git_blob": "f4e1d659aa8f604445d5a8eb0449ef151c113266",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/finish_standalone_preservation.py",
+            "sha256": "9e64ce6ac4427f3ae342c86b81c1bc3d1ea61b80fc300470642987356bb102df"
+          },
+          {
+            "bytes": 955,
+            "git_blob": "54f4aa497916491098b58c5eb6c203021e6de910",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/fix_local_generation_binding.py",
+            "sha256": "a004cb0c44cce3ac14478665560ef903478f577cddd2f8ddd0a8e262d5b92273"
+          },
+          {
+            "bytes": 7919,
+            "git_blob": "5cc02ef12ab76269012648230f016f05ce174b7a",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/fix_variant_config_fingerprint.py",
+            "sha256": "cf71ef278ee916eebb509133df7fac92e62307d06bc7d8c232001fdc420b197a"
+          },
+          {
+            "bytes": 1409,
+            "git_blob": "dc4687da945c0ad41f93acbc03f0da692ffcfad1",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/integrate_phase4.py",
+            "sha256": "91c6a7cd42205644350c8956baa9ba22d1b0f02e55716952e7a98c364e7f8f84"
+          },
+          {
+            "bytes": 8038,
+            "git_blob": "264643b8540deab83fe3716517c2911d7a8df136",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/native_clock_binding.py",
+            "sha256": "e98390489847437a2109fc78be2d5abe994e1996921f7ebffc030633f467244f"
+          },
+          {
+            "bytes": 3768,
+            "git_blob": "0347536b58cc055e8b2c807f782360eacb962e7a",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/overlay_build_integration.py",
+            "sha256": "5ffc61eb0e72711b204c552e047d64262735cbf9916b1a19f869d0c2433a7098"
+          },
+          {
+            "bytes": 7031,
+            "git_blob": "0d0f0568ad195bf3d93d36509a9cc7f8c645c7af",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/package_recovery_bundles.py",
+            "sha256": "e6933833bd7251332a88c9b74577b3f893ad104958363bb6fd0729f9ed7ba320"
+          },
+          {
+            "bytes": 656,
+            "git_blob": "010032eb417d7d2d2a1da5d67fe89b040956e340",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/phase3_preflight.py",
+            "sha256": "109cfe993c10641b9cc3edac1011f7a3cbbb2d6ce1718d79b6c24524e634dcfe"
+          },
+          {
+            "bytes": 11301,
+            "git_blob": "7d74ac8e7838ce874ead5e6904df4a946a05db43",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/phase3_tests.py",
+            "sha256": "72953c96575459a9a595c56192c0e2d1da920fbada4f8fbf4869fddfe11a62b3"
+          },
+          {
+            "bytes": 2057,
+            "git_blob": "90f8eae14e9abe9e48516f23dca2e52c4e751b93",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/phase4_clock_followup.py",
+            "sha256": "2b804c6abf541d9d033a8ec9b2a18fe95f4f8cf422b3e7e4e937557717f78812"
+          },
+          {
+            "bytes": 1767,
+            "git_blob": "a97c547afd9d1951f94c7927059b64e2b3da9d1a",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/phase4_parser_controls.py",
+            "sha256": "eb24f314a9bb7adf22384fc57502c998c0aaec532fddbe274e461c3d912e2b52"
+          },
+          {
+            "bytes": 7213,
+            "git_blob": "b40ad881d422ee09ba529c282ba9e4c489b58f74",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/phase4_regressions.py",
+            "sha256": "2c6beb1ff106446b9de0403733076fda4d53852df817af81cbd768932980d20a"
+          },
+          {
+            "bytes": 1577,
+            "git_blob": "1ee989427d1dbd4af5a3f3d3290afedab9114f95",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/prepare_integration_runtime.py",
+            "sha256": "373697f15e5f2dea633c24f4ddf17e63b8c82d63df85dc92c8d2047cf2820cf8"
+          },
+          {
+            "bytes": 2447,
+            "git_blob": "b1419bb9740b36d597ece5054b54a4af5d524919",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/preserve_publish_gemini.py",
+            "sha256": "1ba8fcc4f42f018b4fc2911690320be69944a78edcba085dd4a44577d085a51a"
+          },
+          {
+            "bytes": 6022,
+            "git_blob": "8ff9c9123858a34d4cf4f2d4d7521af5743e68c4",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/preserve_standalone.py",
+            "sha256": "2e9f31e08f4c7fdae3a6d0e1cae0acd2c3aa7e0b18c5184430dc7cad2a99b891"
+          },
+          {
+            "bytes": 2405,
+            "git_blob": "a8e770e66ded5c41a8c8b12fc505bf372240d5b8",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/publish_final_gemini.py",
+            "sha256": "f9df13df9bc9585601ce075639c080db7b6518c54045e37a508c490e4443e21e"
+          },
+          {
+            "bytes": 1608,
+            "git_blob": "f82ca39a7374fa79aab1d982c3597ffad5190704",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/publish_gemini_notes.py",
+            "sha256": "ef4e39ea57519358085f9aa285c2c5732b11bd2ebb6e7d813c8f7f6ed9d2bb2e"
+          },
+          {
+            "bytes": 2623,
+            "git_blob": "31274fac59133a75156aea7dbceef3922e3b72a5",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/publish_integrated_source.py",
+            "sha256": "c6459bce0bdf3f06b325afa9217fc8eefaf1b23271ca17a79b4ea7846cc486ab"
+          },
+          {
+            "bytes": 6545,
+            "git_blob": "0eb3e8ebd4682a5a58f279434d61dc35c6c551bd",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/publish_recovery_bundles_private.py",
+            "sha256": "9e5313c1811c79fd84149aae13b947c3c8091d1b0ac9b0d4b2875dd57625d306"
+          },
+          {
+            "bytes": 5621,
+            "git_blob": "58143dd70570a8268ed4d5362275c2e6bfb75c29",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/publish_standalone_private.py",
+            "sha256": "64cfadcb8d7c923b00308ae279ee74fe3807b3370fc5f8076c65df4116a8ace9"
+          },
+          {
+            "bytes": 5177,
+            "git_blob": "f190ef6e237edc125fe51574d754d84d89635b3a",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/qualify_gui_integration.py",
+            "sha256": "cdee935c4fc04bb2deb58f87fe80f81630b2ef57ea5ff4013915f0151a70628e"
+          },
+          {
+            "bytes": 5186,
+            "git_blob": "2480f63b17f293f438e408b21df40446be1d74cb",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/qualify_gui_integration_v2.py",
+            "sha256": "7745f1fb2612eb28c0e9b52703942f8702540d629b755485271ea763a9fedaaf"
+          },
+          {
+            "bytes": 2170,
+            "git_blob": "c7c603833dd556b5427b2cafc620d4ecd7918ae7",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/qualify_native_scons.py",
+            "sha256": "8bde24550eb35f5f404b18c45b4255ebd8bf770148c33ccecf37fb05a769ff8f"
+          },
+          {
+            "bytes": 1362,
+            "git_blob": "5f20d0764659c17553b147bfab6717d48409e13b",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/regenerate_phase3.py",
+            "sha256": "d24445c60838a626b05e48939a9b0b86a768a53d7cf122e145d93ffbdd0e1063"
+          },
+          {
+            "bytes": 3273,
+            "git_blob": "1c2534e7247b0f29646809fb71c7cc682a2ee68a",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/restore_recovery_bundles_private.py",
+            "sha256": "93dc0c36fddbfafa1e39fb519021aa07d82a43159cdc9e0ceb9a07441ac4448d"
+          },
+          {
+            "bytes": 4440,
+            "git_blob": "71cebfddb70db8ab1342fdd398394dfd14c661f4",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/resync_final_source_tiers.py",
+            "sha256": "513742333536de9a90d49deb2fc22275594434a65774118367903dec0e741ff9"
+          },
+          {
+            "bytes": 5111,
+            "git_blob": "243509a49aba4eb7b80d939aeeb2a17fc2f0a837",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/run_source_tiers.py",
+            "sha256": "a4e7e818c320a00aaa314da96e65e56ccbf2cba437235e62bba2bcac1df562da"
+          },
+          {
+            "bytes": 1666,
+            "git_blob": "d05996c99f7aea88fa4d9c3cee9f5dac2c89f562",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/setup_worktrees.py",
+            "sha256": "7d7d00eea75b1c1b03442e3cf4d51b25c0ddf71cb8fbdbde0690b9de963323c8"
+          },
+          {
+            "bytes": 987,
+            "git_blob": "531ecae0b6a98905ef460c36a2896cdb07e98e12",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/sync_final_clock_config.py",
+            "sha256": "2e3e08a0722514b6d3245f653f4118587087b24de800c84c41207d1e2fb11a2d"
+          },
+          {
+            "bytes": 1206,
+            "git_blob": "f5222b739081b350250abaee1a4d4f90f5858de2",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/validate_final_phase4.py",
+            "sha256": "d3b39cc0a6c7d847d2562ea22b9fce528134b4d4f34aa5ee56ece29fe9be79bd"
+          },
+          {
+            "bytes": 3052,
+            "git_blob": "2fa3316ca6b636908d67d4346b4c5cab26f07827",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/validate_phase3_overrides.py",
+            "sha256": "d206c78b770e0a52565dd65046734d7a29eab0630e20298b0fa1ee9b80010e18"
+          },
+          {
+            "bytes": 6977,
+            "git_blob": "26201d8ae49bc807d4f29a6c08cf9fcc69aa374b",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/validate_phase4.py",
+            "sha256": "837ed3ac5b5f2ee6a9b07c9411b32dfd2bf165c4a3bfef978ec03bd05e75c9ba"
+          },
+          {
+            "bytes": 8223,
+            "git_blob": "982cc8ed43a47e7fa22b517896ad367b9323fc5b",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/write_comparison.py",
+            "sha256": "942b89904665d2204f7a1c1ec54cc00c48c49ca629959ce5efc20209423c03bd"
+          },
+          {
+            "bytes": 4511,
+            "git_blob": "f95e87fba4c4cf6f4775b236ac4e914bf91b7981",
+            "git_mode": "100644",
+            "path": "task-scripts-and-checkpoints/write_legacy_preservation_doc.py",
+            "sha256": "882dde617e692bda2edc8dc7de3dd2e5020184c2a76f4953460af7a8aed38d9c"
+          }
+        ],
+        "visibility": "private"
+      }
+    },
+    "native_qualification": {
+      "receipt": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/preservation-integration-20261105/NATIVE_QUALIFICATION_PUBLICATION.json",
+        "sha256": "9e4becd878622f02d6eb88b63c924e7c46b27a706738ec9607aace3315e0f55e",
+        "bytes": 4941
+      },
+      "publication": {
+        "schema_version": 1,
+        "kind": "private_native_qualification_publication",
+        "state": "published_and_verified",
+        "verified": true,
+        "repository": "Josh-Slycord/gem5-SALAM-dev-private",
+        "repository_visibility": "PRIVATE",
+        "remote_url": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private.git",
+        "branch": "preservation/gemini-integration-qualification-20261105",
+        "head": "2b81cd0246266764e52b08f69b850738eb491ce6",
+        "commit": "2b81cd0246266764e52b08f69b850738eb491ce6",
+        "remote_head": "2b81cd0246266764e52b08f69b850738eb491ce6",
+        "archive_base_commit": "b6ca7ab0a55f0236a81fba6d26fa2e7163607fba",
+        "archive_path": "preservation/gemini-integration-qualification-20261105",
+        "archive_url": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/2b81cd0246266764e52b08f69b850738eb491ce6/preservation/gemini-integration-qualification-20261105",
+        "worktree": "/home/jslycord/projects/gem5-salam-qualification-preservation-20261105",
+        "recorded_utc": "2026-11-05T19:43:14.152621+00:00",
+        "payload_files": 568,
+        "payload_bytes": 46257637,
+        "archive_files_verified": 582,
+        "archive_bytes_verified": 51384561,
+        "local_payload_originals_rechecked_unchanged": 529,
+        "content_manifest_sha256": "5d02129ff34b05b52418e144ca63beffaf0c5cbd5a6e36f038958e5b289b60d7",
+        "payload_manifest_sha256": "df6cec7ecc8ff2fc8407a1b14433979ed36cc944596a0acae6779aec7a37fe9a",
+        "omitted_files": 6772,
+        "omitted_bytes": 4624214711,
+        "credential_audit": {
+          "kind": "filename-only",
+          "pattern_matches": 16,
+          "matching_file_contents_read": false,
+          "matching_files_hashed": false,
+          "note": "Conservative matches include duplicate MOESI_CMP_token.py coherence examples; no secret finding is inferred."
+        },
+        "private_main_before": "42539ecca54ff0fed455a7afe0bda0603554e360",
+        "private_main_after": "42539ecca54ff0fed455a7afe0bda0603554e360",
+        "private_main_unchanged": true,
+        "public_source_repo_targeted": false,
+        "originals_removed": false,
+        "remote_readback": {
+          "state": "passed",
+          "method": "fresh independent private-GitHub fetch; every original+append Git blob/mode and restored byte SHA checked",
+          "shared_object_alternates": false,
+          "bare_repository": "/mnt/d/kb_local_chatGPT/salam/qualification-publication-20261105/independent-remote-readback-gui-v4.git",
+          "restored_directory": "/mnt/d/kb_local_chatGPT/salam/qualification-publication-20261105/restored-remote-payload-gui-v4",
+          "previous_files_unchanged": 416,
+          "new_append_files_verified": 166,
+          "blob_readback_manifest": "/mnt/d/kb_local_chatGPT/salam/qualification-publication-20261105/GUI_V4_REMOTE_BLOB_READBACK.json",
+          "blob_readback_sha256": "535d0272c8b5c34adc86b3b5795aff696d8cfbe84dc0e911a031be61de7f3c1e",
+          "restore_verifier_stdout": [
+            "Verified 415 archival files",
+            "Verified 165 archival files"
+          ]
+        },
+        "qualification_scope": {
+          "native_tests_pure": 24,
+          "native_tests_with_fu_params": 28,
+          "positive_numerical_invocations": 4,
+          "positive_values_checked": 256,
+          "native_reset_windows": 8,
+          "positive_fu_trace_replays": 8,
+          "real_corrupt_output_control": "expected second-invocation rejection",
+          "real_unsupported_ir_cases": [
+            "atomicrmw",
+            "integer128",
+            "vector2i32"
+          ],
+          "whole_engine_asan_claimed": false,
+          "whole_engine_leak_freedom_claimed": false
+        },
+        "previous_head": "762268b64e621cf551be218bb51bcf603f309a5e",
+        "gui_append_path": "preservation/gemini-integration-qualification-20261105/gui-qualification-v4-20261105",
+        "gui_archive_url": "https://github.com/Josh-Slycord/gem5-SALAM-dev-private/tree/2b81cd0246266764e52b08f69b850738eb491ce6/preservation/gemini-integration-qualification-20261105/gui-qualification-v4-20261105",
+        "gui_source_commit": "b73fb354a0cb80c640666788f4bb1269261145b4",
+        "previous_archive_files_unchanged": 416,
+        "new_gui_append_files_verified": 166,
+        "gui_content_manifest_sha256": "ff50584ea9463b4d1310279d5f2a74574e360ace488c5c5b668922d2f332ffec",
+        "gui_payload_manifest_sha256": "5914fd6f9f147ec9c1cfff70357ae7b85e9cae4caa3fb322511188d76a24767c",
+        "omitted_bytes_scope": "Sum of file records, including duplicate references; not unique disk space or reclaimed space",
+        "final_gui_qualification": {
+          "source_commit": "b73fb354a0cb80c640666788f4bb1269261145b4",
+          "actual_gui_cases": 3,
+          "dataset": "seeded",
+          "seed": 47,
+          "benchmarks": [
+            "gemm",
+            "fft",
+            "stencil3d"
+          ],
+          "checked_outputs": 17472,
+          "mismatched_outputs": 0,
+          "native_accelerator_reconciliations": 6,
+          "clock_domains_per_case": 5,
+          "source_test_checks": 742,
+          "source_test_simulation_evidence": false,
+          "derived_gui_wrong_output_controls": 2,
+          "derived_controls_simulation_rerun": false,
+          "failed_stencil_preflight_retained": true,
+          "whole_engine_asan_claimed": false,
+          "gui_case_index_sha256": "0b5046e302c90854056e33302d0f17d8e2b743a9b709f0133e5e340c4a1e7ad7"
+        }
+      }
+    }
+  },
+  "limits": [
+    "Cache GUI controls, stdlib board and SCons-native generation remain unfinished.",
+    "Whole-engine ASan/leak freedom, forced timing-port backpressure, bypass and drain remain unqualified.",
+    "Full LLVM opcode/type/external-call matrix is not established by three negative fixtures.",
+    "Legacy _write_r ignores length; external reset guest uses bounded UART without repairing the production syscall.",
+    "Configured PPA coefficients are uncalibrated; no aggregate physical power/energy accuracy is claimed.",
+    "Large raw traces/build outputs stay local; private archive is curated.",
+    "Historical GCC13 ICE/debug-object and monolithic stencil audit limits remain documented; this checkpoint does not erase them."
+  ]
+}

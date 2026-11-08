@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2019 ARM Limited
+ * Copyright (c) 2017, 2019, 2023 Arm Limited
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -43,22 +43,55 @@
 #include <iomanip>
 #include <sstream>
 
+#include "arch/generic/mmu.hh"
+#include "arch/generic/pcstate.hh"
+#include "base/cprintf.hh"
 #include "base/loader/symtab.hh"
-#include "config/the_isa.hh"
+#include "base/trace.hh"
+#include "base/types.hh"
 #include "cpu/base.hh"
 #include "cpu/static_inst.hh"
+#include "cpu/static_inst_fwd.hh"
 #include "cpu/thread_context.hh"
-#include "debug/ExecAll.hh"
-#include "debug/FmtTicksOff.hh"
+#include "debug/ExecAsid.hh"
+#include "debug/ExecCPSeq.hh"
+#include "debug/ExecEffAddr.hh"
+#include "debug/ExecEnable.hh"
+#include "debug/ExecFetchSeq.hh"
+#include "debug/ExecFaulting.hh"
+#include "debug/ExecFlags.hh"
+#include "debug/ExecKernel.hh"
+#include "debug/ExecMacro.hh"
+#include "debug/ExecMicro.hh"
+#include "debug/ExecOpClass.hh"
+#include "debug/ExecResult.hh"
+#include "debug/ExecSymbol.hh"
+#include "debug/ExecThread.hh"
+#include "debug/ExecUser.hh"
 #include "enums/OpClass.hh"
+#include "sim/full_system.hh"
+#include "sim/insttracer.hh"
 
 namespace gem5
 {
 
-namespace Trace {
+namespace trace {
+
+InstRecord *
+ExeTracer::getInstRecord(Tick when, ThreadContext *tc,
+                         const StaticInstPtr staticInst, const PCStateBase &pc,
+                         const StaticInstPtr macroStaticInst)
+{
+    if (!debug::ExecEnable) {
+        return NULL;
+    }
+
+    return new ExeTracerRecord(when, tc, staticInst, pc, *this,
+                               macroStaticInst);
+}
 
 void
-Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
+ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
 {
     std::stringstream outs;
 
@@ -76,21 +109,22 @@ Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
     if (debug::ExecThread)
         outs << "T" << thread->threadId() << " : ";
 
-    Addr cur_pc = pc.instAddr();
+    Addr cur_pc = thread->getMMUPtr()->getValidAddr(
+        pc->instAddr(), thread, BaseMMU::Execute);
     loader::SymbolTable::const_iterator it;
     ccprintf(outs, "%#x", cur_pc);
     if (debug::ExecSymbol && (!FullSystem || !in_user_mode) &&
             (it = loader::debugSymbolTable.findNearest(cur_pc)) !=
                 loader::debugSymbolTable.end()) {
-        Addr delta = cur_pc - it->address;
+        Addr delta = cur_pc - it->address();
         if (delta)
-            ccprintf(outs, " @%s+%d", it->name, delta);
+            ccprintf(outs, " @%s+%d", it->name(), delta);
         else
-            ccprintf(outs, " @%s", it->name);
+            ccprintf(outs, " @%s", it->name());
     }
 
     if (inst->isMicroop()) {
-        ccprintf(outs, ".%2d", pc.microPC());
+        ccprintf(outs, ".%2d", pc->microPC());
     } else {
         ccprintf(outs, "   ");
     }
@@ -102,7 +136,7 @@ Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
     //
 
     outs << std::setw(26) << std::left;
-    outs << inst->disassemble(cur_pc, &loader::debugSymbolTable);
+    outs << tracer.disassemble(inst, *pc, &loader::debugSymbolTable);
 
     if (ran) {
         outs << " : ";
@@ -115,17 +149,15 @@ Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
             outs << "Predicated False";
         }
 
-        if (debug::ExecResult && data_status != DataInvalid) {
-            switch (data_status) {
-              case DataVec:
-                ccprintf(outs, " D=%s", *data.as_vec);
-                break;
-              case DataVecPred:
-                ccprintf(outs, " D=%s", *data.as_pred);
-                break;
-              default:
-                ccprintf(outs, " D=%#018x", data.as_int);
-                break;
+        if (debug::ExecResult && dataStatus != DataInvalid) {
+            if (dataStatus == DataReg) {
+                if (vectorLengthInBytes > 0 && inst->isVector()) {
+                    outs << " D=" << data.asReg.asString(vectorLengthInBytes);
+                } else {
+                    ccprintf(outs, " D=%s", data.asReg.asString());
+                }
+            } else {
+                ccprintf(outs, " D=%#018x", data.asInt);
             }
         }
 
@@ -143,6 +175,10 @@ Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
             inst->printFlags(outs, "|");
             outs << ")";
         }
+
+        if (debug::ExecFaulting && faulting) {
+            outs << "  FAULTING";
+        }
     }
 
     //
@@ -150,13 +186,13 @@ Trace::ExeTracerRecord::traceInst(const StaticInstPtr &inst, bool ran)
     //
     outs << std::endl;
 
-    Trace::getDebugLogger()->dprintf_flag(
+    trace::getDebugLogger()->dprintf_flag(
         when, thread->getCpuPtr()->name(), "ExecEnable", "%s",
         outs.str().c_str());
 }
 
 void
-Trace::ExeTracerRecord::dump()
+ExeTracerRecord::dump()
 {
     /*
      * The behavior this check tries to achieve is that if ExecMacro is on,
@@ -178,5 +214,5 @@ Trace::ExeTracerRecord::dump()
     }
 }
 
-} // namespace Trace
+} // namespace trace
 } // namespace gem5

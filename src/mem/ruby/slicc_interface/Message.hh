@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 ARM Limited
+ * Copyright (c) 2021, 2026 Arm Limited
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -62,10 +62,13 @@ typedef std::shared_ptr<Message> MsgPtr;
 class Message
 {
   public:
-    Message(Tick curTime)
-        : m_time(curTime),
+    Message(Tick curTime, int block_size, const RubySystem *rs)
+        : m_block_size(block_size),
+          m_time(curTime),
           m_LastEnqueueTime(curTime),
-          m_DelayedTicks(0), m_msg_counter(0)
+          m_DelayedTicks(0),
+          m_msg_counter(0),
+          m_transaction_time(MaxTick)
     { }
 
     Message(const Message &other) = default;
@@ -110,6 +113,17 @@ class Message
     void setMsgCounter(uint64_t c) { m_msg_counter = c; }
     uint64_t getMsgCounter() const { return m_msg_counter; }
 
+    void
+    setTransactionTime(Tick time)
+    {
+        m_transaction_time = time;
+    }
+    Tick
+    getTransactionTime() const
+    {
+        return m_transaction_time;
+    }
+
     // Functions related to network traversal
     virtual const NetDest& getDestination() const
     { panic("getDestination() called on wrong message!"); }
@@ -121,11 +135,16 @@ class Message
     int getVnet() const { return vnet; }
     void setVnet(int net) { vnet = net; }
 
+  protected:
+    int m_block_size = 0;
+
   private:
     Tick m_time;
     Tick m_LastEnqueueTime; // my last enqueue time
     Tick m_DelayedTicks; // my delayed cycles
     uint64_t m_msg_counter; // FIXME, should this be a 64-bit value?
+    Tick m_transaction_time; // timestamp of the transaction that generated
+                             // this msg
 
     // Variables for required network traversal
     int incoming_link;
@@ -139,7 +158,10 @@ operator>(const MsgPtr &lhs, const MsgPtr &rhs)
     const Message *r = rhs.get();
 
     if (l->getLastEnqueueTime() == r->getLastEnqueueTime()) {
-        return l->getMsgCounter() > r->getMsgCounter();
+        if (l->getTransactionTime() == r->getTransactionTime()) {
+            return l->getMsgCounter() > r->getMsgCounter();
+        }
+        return l->getTransactionTime() > r->getTransactionTime();
     }
     return l->getLastEnqueueTime() > r->getLastEnqueueTime();
 }

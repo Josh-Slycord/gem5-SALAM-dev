@@ -1,4 +1,16 @@
 /*
+ * Copyright (c) 2021, 2024 Arm Limited
+ * All rights reserved
+ *
+ * The license below extends only to copyright in the software and shall
+ * not be construed as granting a license to any other intellectual
+ * property including but not limited to intellectual property relating
+ * to a hardware implementation of the functionality of the software
+ * licensed hereunder.  You may use the software subject to the license
+ * terms below provided that you ensure that this notice is replicated
+ * unmodified and in its entirety in all distributions of the software,
+ * modified or unmodified, in source code or in binary form.
+ *
  * Copyright (c) 2004-2009 The Regents of The University of Michigan
  * All rights reserved.
  *
@@ -54,7 +66,7 @@ class Linux : public OperatingSystem
     //@{
     /// Basic Linux types.
     typedef uint64_t size_t;
-    typedef uint64_t off_t;
+    typedef int64_t off_t;
     typedef int64_t time_t;
     typedef int64_t clock_t;
     typedef uint32_t uid_t;
@@ -244,7 +256,7 @@ class Linux : public OperatingSystem
     };
 
     // For /dev/urandom accesses
-    static Random random;
+    static Random::RandomPtr random;
 
     static int openSpecialFile(std::string path, Process *process,
                                ThreadContext *tc);
@@ -283,7 +295,11 @@ class Linux : public OperatingSystem
     static const unsigned TGT_FUTEX_OP_CMP_GE = 5;
 
     // for *at syscalls
-    static const int TGT_AT_FDCWD   = -100;
+    static const int TGT_AT_FDCWD     = -100;
+    static const int TGT_AT_REMOVEDIR = 0x200;
+    static const int TGT_AT_SYMLINK_FOLLOW = 0x400;
+    static const int TGT_AT_NO_AUTOMOUNT = 0x800;
+    static const int TGT_AT_EMPTY_PATH = 0x1000;
 
     // for MREMAP
     static const unsigned TGT_MREMAP_MAYMOVE    = 0x1;
@@ -293,6 +309,7 @@ class Linux : public OperatingSystem
     static const unsigned TGT_CLONE_FS              = 0x00000200;
     static const unsigned TGT_CLONE_FILES           = 0x00000400;
     static const unsigned TGT_CLONE_SIGHAND         = 0x00000800;
+    static const unsigned TGT_CLONE_PIDFD           = 0x00001000;
     static const unsigned TGT_CLONE_PTRACE          = 0x00002000;
     static const unsigned TGT_CLONE_VFORK           = 0x00004000;
     static const unsigned TGT_CLONE_PARENT          = 0x00008000;
@@ -319,6 +336,19 @@ class Linux : public OperatingSystem
     static const unsigned TGT_WEXITED               = 0x00000004;
     static const unsigned TGT_WCONTINUED            = 0x00000008;
     static const unsigned TGT_WNOWAIT               = 0x01000000;
+
+    static const unsigned TGT_CLOCK_REALTIME = 0x00000000;
+    static const unsigned TGT_CLOCK_MONOTONIC = 0x00000001;
+    static const unsigned TGT_CLOCK_PROCESS_CPUTIME = 0x00000002;
+    static const unsigned TGT_CLOCK_THREAD_CPUTIME = 0x00000003;
+    static const unsigned TGT_CLOCK_MONOTONIC_RAW = 0x00000004;
+    static const unsigned TGT_CLOCK_REALTIME_COARSE = 0x00000005;
+    static const unsigned TGT_CLOCK_MONOTONIC_COARSE = 0x00000006;
+    static const unsigned TGT_CLOCK_BOOTTIME = 0x00000007;
+    static const unsigned TGT_CLOCK_REALTIME_ALARM = 0x00000008;
+    static const unsigned TGT_CLOCK_BOOTTIME_ALARM = 0x00000009;
+    static const unsigned TGT_CLOCK_TAI = 0x0000000b;
+    static const unsigned TGT_MAX_CLOCKS = 0x00000010;
 };  // class Linux
 
 } // namespace gem5

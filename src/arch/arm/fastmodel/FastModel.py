@@ -23,23 +23,30 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from m5.objects.SystemC import SystemC_ScModule
+from m5.objects.Tlm import (
+    TlmInitiatorSocket,
+    TlmTargetSocket,
+)
 from m5.params import *
 from m5.proxy import *
 
-from m5.objects.SystemC import SystemC_ScModule
-from m5.objects.Tlm import TlmInitiatorSocket, TlmTargetSocket
 
 def AMBA_TARGET_ROLE(width):
-    return 'AMBA TARGET %d' % width
+    return "AMBA TARGET %d" % width
+
 
 def AMBA_INITIATOR_ROLE(width):
-    return 'AMBA INITIATOR %d' % width
+    return "AMBA INITIATOR %d" % width
+
 
 def SC_REQUEST_PORT_ROLE(port_type):
-    return 'SC REQUEST PORT for %s' % port_type
+    return f"SC REQUEST PORT for {port_type}"
+
 
 def SC_RESPONSE_PORT_ROLE(port_type):
-    return 'SC RESPONSE PORT for %s' % port_type
+    return f"SC RESPONSE PORT for {port_type}"
+
 
 class AmbaTargetSocket(Port):
     def __init__(self, width, desc):
@@ -47,7 +54,8 @@ class AmbaTargetSocket(Port):
         peer_role = AMBA_TARGET_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(AmbaTargetSocket, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class VectorAmbaTargetSocket(VectorPort):
     def __init__(self, width, desc):
@@ -55,7 +63,8 @@ class VectorAmbaTargetSocket(VectorPort):
         peer_role = AMBA_TARGET_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(VectorAmbaTargetSocket, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class AmbaInitiatorSocket(Port):
     def __init__(self, width, desc):
@@ -63,8 +72,8 @@ class AmbaInitiatorSocket(Port):
         peer_role = AMBA_INITIATOR_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(AmbaInitiatorSocket, self).__init__(
-                my_role, desc, is_source=True)
+        super().__init__(my_role, desc, is_source=True)
+
 
 class VectorAmbaInitiatorSocket(VectorPort):
     def __init__(self, width, desc):
@@ -72,8 +81,8 @@ class VectorAmbaInitiatorSocket(VectorPort):
         peer_role = AMBA_INITIATOR_ROLE(width)
         Port.compat(my_role, peer_role)
 
-        super(VectorAmbaInitiatorSocket, self).__init__(
-                my_role, desc, is_source=True)
+        super().__init__(my_role, desc, is_source=True)
+
 
 class ScRequestPort(Port):
     def __init__(self, desc, port_type):
@@ -81,7 +90,8 @@ class ScRequestPort(Port):
         peer_role = SC_RESPONSE_PORT_ROLE(port_type)
         Port.compat(my_role, peer_role)
 
-        super(ScRequestPort, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class ScResponsePort(Port):
     def __init__(self, desc, port_type):
@@ -89,20 +99,26 @@ class ScResponsePort(Port):
         peer_role = SC_REQUEST_PORT_ROLE(port_type)
         Port.compat(my_role, peer_role)
 
-        super(ScResponsePort, self).__init__(my_role, desc)
+        super().__init__(my_role, desc)
+
 
 class AmbaToTlmBridge64(SystemC_ScModule):
-    type = 'AmbaToTlmBridge64'
-    cxx_class = 'gem5::fastmodel::AmbaToTlmBridge64'
-    cxx_header = 'arch/arm/fastmodel/amba_to_tlm_bridge.hh'
+    type = "AmbaToTlmBridge64"
+    cxx_class = "gem5::fastmodel::AmbaToTlmBridge64"
+    cxx_header = "arch/arm/fastmodel/amba_to_tlm_bridge.hh"
 
-    amba = AmbaTargetSocket(64, 'AMBA PV target socket')
-    tlm = TlmInitiatorSocket(64, 'TLM initiator socket')
+    amba = AmbaTargetSocket(64, "AMBA PV target socket")
+    tlm = TlmInitiatorSocket(64, "TLM initiator socket")
+
+    set_stream_id = Param.Bool(
+        False, "Set this true to forward stream ID to gem5 world"
+    )
+
 
 class AmbaFromTlmBridge64(SystemC_ScModule):
-    type = 'AmbaFromTlmBridge64'
-    cxx_class = 'gem5::fastmodel::AmbaFromTlmBridge64'
-    cxx_header = 'arch/arm/fastmodel/amba_from_tlm_bridge.hh'
+    type = "AmbaFromTlmBridge64"
+    cxx_class = "gem5::fastmodel::AmbaFromTlmBridge64"
+    cxx_header = "arch/arm/fastmodel/amba_from_tlm_bridge.hh"
 
-    tlm = TlmTargetSocket(64, 'TLM target socket')
-    amba = AmbaInitiatorSocket(64, 'AMBA PV initiator socket')
+    tlm = TlmTargetSocket(64, "TLM target socket")
+    amba = AmbaInitiatorSocket(64, "AMBA PV initiator socket")

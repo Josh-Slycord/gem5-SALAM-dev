@@ -40,7 +40,6 @@
 #include "base/loader/memory_image.hh"
 #include "base/statistics.hh"
 #include "base/types.hh"
-#include "mem/se_translating_port_proxy.hh"
 #include "sim/fd_array.hh"
 #include "sim/fd_entry.hh"
 #include "sim/mem_state.hh"
@@ -49,7 +48,6 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Loader, loader);
 namespace loader
 {
 class ObjectFile;
@@ -59,6 +57,7 @@ struct ProcessParams;
 
 class EmulatedDriver;
 class EmulationPageTable;
+class SEWorkload;
 class SyscallDesc;
 class SyscallReturn;
 class System;
@@ -88,6 +87,7 @@ class Process : public SimObject
     inline uint64_t pgid() { return _pgid; }
     inline void pgid(uint64_t pgid) { _pgid = pgid; }
     inline uint64_t tgid() { return _tgid; }
+    inline uint64_t secondsSinceEpoch() const { return _secondsSinceEpoch; }
 
     const char *progName() const { return executable.c_str(); }
 
@@ -107,7 +107,24 @@ class Process : public SimObject
     Addr getStartPC();
     loader::ObjectFile *getInterpreter();
 
-    void allocateMem(Addr vaddr, int64_t size, bool clobber = false);
+    // This function allocates physical memory as backing store, and then maps
+    // it into the virtual address space of the process. The range of virtual
+    // addresses being configured starts at the address "vaddr" and is of size
+    // "size" bytes. If some part of this range of virtual addresses is already
+    // configured, this function will error out unless "clobber" is set. If
+    // clobber is set, then those existing mappings will be replaced.
+    //
+    // If the beginning or end of the virtual address range does not perfectly
+    // align to page boundaries, it will be expanded in either direction until
+    // it does. This function will therefore set up *at least* the range
+    // requested, and may configure more if necessary.
+    void allocateMem(Addr vaddr, int64_t size, bool clobber=false);
+
+    /**
+     * Unmap the given virtual address range and deallocate any physical
+     * pages that it mapped to.
+     */
+    void deallocateMem(Addr vaddr, int64_t size);
 
     /// Attempt to fix up a fault at vaddr by allocating a page on the stack.
     /// @return Whether the fault has been fixed.
@@ -147,7 +164,7 @@ class Process : public SimObject
      * @return True if the map operation was successful.  (At this
      *           point in time, the map operation always succeeds.)
      */
-    bool map(Addr vaddr, Addr paddr, int size, bool cacheable = true);
+    bool map(Addr vaddr, Addr paddr, int64_t size, bool cacheable = true);
 
     void replicatePage(Addr vaddr, Addr new_paddr, ThreadContext *old_tc,
                        ThreadContext *new_tc, bool alloc_page);
@@ -161,12 +178,20 @@ class Process : public SimObject
     // system object which owns this process
     System *system;
 
+    SEWorkload *seWorkload;
+
     // flag for using architecture specific page table
     bool useArchPT;
     // running KVM requires special initialization
     bool kvmInSE;
     // flag for using the process as a thread which shares page tables
     bool useForClone;
+
+    /**
+     * Whether to ensure that all newly allocated pages are zero-filled.
+     * glibc malloc generally requires this. Disable at your own risk.
+     */
+    bool zeroPages;
 
     EmulationPageTable *pTable;
 
@@ -254,6 +279,9 @@ class Process : public SimObject
 
     // Syscall emulation uname release.
     std::string release;
+
+    // Epoch start timestamp in seconds for SE syscalls
+    const uint64_t _secondsSinceEpoch;
 
     // Id of the owner of the process
     uint64_t _uid;

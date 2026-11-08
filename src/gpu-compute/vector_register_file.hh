@@ -2,8 +2,6 @@
  * Copyright (c) 2015-2017 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
- * For use for simulation and test purposes only
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
@@ -36,6 +34,7 @@
 
 #include "arch/gpu_isa.hh"
 #include "config/the_gpu_isa.hh"
+#include "debug/GPUTrace.hh"
 #include "debug/GPUVRF.hh"
 #include "gpu-compute/register_file.hh"
 #include "gpu-compute/wavefront.hh"
@@ -52,7 +51,7 @@ class VectorRegisterFile : public RegisterFile
     using VecRegContainer = TheGpuISA::VecRegContainerU32;
 
     VectorRegisterFile(const VectorRegisterFileParams &p);
-    ~VectorRegisterFile() { }
+    ~VectorRegisterFile() {}
 
     virtual bool operandsReady(Wavefront *w, GPUDynInstPtr ii) const override;
     virtual void scheduleWriteOperands(Wavefront *w,
@@ -68,14 +67,14 @@ class VectorRegisterFile : public RegisterFile
     }
 
     // Read a register that is writeable (e.g., a DST operand)
-    VecRegContainer&
+    VecRegContainer &
     readWriteable(int regIdx)
     {
         return regFile[regIdx];
     }
 
     // Read a register that is not writeable (e.g., src operand)
-    const VecRegContainer&
+    const VecRegContainer &
     read(int regIdx) const
     {
         return regFile[regIdx];
@@ -98,8 +97,12 @@ class VectorRegisterFile : public RegisterFile
         for (int lane = 0; lane < TheGpuISA::NumVecElemPerVecReg; ++lane) {
             if (wf->execMask(lane)) {
                 DPRINTF(GPUVRF, "WF[%d][%d]: WV[%d] v[%d][%d] = %#x\n",
-                    wf->simdId, wf->wfSlotId, wf->wfDynId, regIdx, lane,
-                    vgpr[lane]);
+                        wf->simdId, wf->wfSlotId, wf->wfDynId, regIdx, lane,
+                        vgpr[lane]);
+                DPRINTF(GPUTrace, "WF[%d][%d]: WV[%d] v[%d][%d] = %#x (%f)\n",
+                        wf->simdId, wf->wfSlotId, wf->wfDynId, regIdx, lane,
+                        vgpr[lane],
+                        *reinterpret_cast<const float *>(&vgpr[lane]));
             }
         }
 #endif

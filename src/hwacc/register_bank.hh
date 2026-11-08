@@ -36,7 +36,7 @@ class RegisterBank : public AbstractMemory
         RegisterBank * memory;
       public:
         RegPort(const std::string& _name, RegisterBank * _memory, PortID id=InvalidPortID) :
-            ResponsePort(_name, _memory, id), memory(_memory) {}
+            ResponsePort(_name, id), memory(_memory) {}
       protected:
         Tick recvAtomic(PacketPtr pkt) override { return memory->recvAtomic(pkt); };
         Tick recvAtomicBackdoor(
@@ -100,6 +100,8 @@ class RegisterBank : public AbstractMemory
      * the port where it will be sent as soon as possible.
      */
     void dequeue();
+    void scheduleNextResponse();
+    bool responseInProgress = false;
     EventFunctionWrapper dequeueEvent;
 
     /**
@@ -108,6 +110,7 @@ class RegisterBank : public AbstractMemory
      * Calls dequeue() to send packet responses.
      */
     void delta();
+    void tryCompleteDrain();
     EventFunctionWrapper deltaEvent;
 
   public:

@@ -1,3 +1,15 @@
+# Copyright (c) 2025 Arm Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 2012 The Regents of The University of Michigan
 # Copyright (c) 2016 Centre National de la Recherche Scientifique
 # All rights reserved.
@@ -27,84 +39,123 @@
 
 from m5.objects import *
 
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
 #                ex5 big core (based on the ARM Cortex-A15)
-#-----------------------------------------------------------------------
+# -----------------------------------------------------------------------
+
 
 # Simple ALU Instructions have a latency of 1
 class ex5_big_Simple_Int(FUDesc):
-    opList = [ OpDesc(opClass='IntAlu', opLat=1) ]
+    opList = [OpDesc(opClass="IntAlu", opLat=1)]
     count = 2
+
 
 # Complex ALU instructions have a variable latencies
 class ex5_big_Complex_Int(FUDesc):
-    opList = [ OpDesc(opClass='IntMult', opLat=4, pipelined=True),
-               OpDesc(opClass='IntDiv', opLat=11, pipelined=False),
-               OpDesc(opClass='IprAccess', opLat=3, pipelined=True) ]
+    opList = [
+        OpDesc(opClass="IntMult", opLat=4, pipelined=True),
+        OpDesc(opClass="IntDiv", opLat=11, pipelined=False),
+        OpDesc(opClass="System", opLat=3, pipelined=True),
+    ]
     count = 1
+
 
 # Floating point and SIMD instructions
 class ex5_big_FP(FUDesc):
-    opList = [ OpDesc(opClass='SimdAdd', opLat=3),
-               OpDesc(opClass='SimdAddAcc', opLat=4),
-               OpDesc(opClass='SimdAlu', opLat=4),
-               OpDesc(opClass='SimdCmp', opLat=4),
-               OpDesc(opClass='SimdCvt', opLat=3),
-               OpDesc(opClass='SimdMisc', opLat=3),
-               OpDesc(opClass='SimdMult',opLat=6),
-               OpDesc(opClass='SimdMultAcc',opLat=5),
-               OpDesc(opClass='SimdShift',opLat=3),
-               OpDesc(opClass='SimdShiftAcc', opLat=3),
-               OpDesc(opClass='SimdSqrt', opLat=9),
-               OpDesc(opClass='SimdFloatAdd',opLat=6),
-               OpDesc(opClass='SimdFloatAlu',opLat=5),
-               OpDesc(opClass='SimdFloatCmp', opLat=3),
-               OpDesc(opClass='SimdFloatCvt', opLat=3),
-               OpDesc(opClass='SimdFloatDiv', opLat=21),
-               OpDesc(opClass='SimdFloatMisc', opLat=3),
-               OpDesc(opClass='SimdFloatMult', opLat=6),
-               OpDesc(opClass='SimdFloatMultAcc',opLat=1),
-               OpDesc(opClass='SimdFloatSqrt', opLat=9),
-               OpDesc(opClass='FloatAdd', opLat=6),
-               OpDesc(opClass='FloatCmp', opLat=5),
-               OpDesc(opClass='FloatCvt', opLat=5),
-               OpDesc(opClass='FloatDiv', opLat=12, pipelined=False),
-               OpDesc(opClass='FloatSqrt', opLat=33, pipelined=False),
-               OpDesc(opClass='FloatMult', opLat=8) ]
+    opList = [
+        OpDesc(opClass="SimdAdd", opLat=3),
+        OpDesc(opClass="SimdAddAcc", opLat=4),
+        OpDesc(opClass="SimdAlu", opLat=4),
+        OpDesc(opClass="SimdCmp", opLat=4),
+        OpDesc(opClass="SimdCvt", opLat=3),
+        OpDesc(opClass="SimdMisc", opLat=3),
+        OpDesc(opClass="SimdMult", opLat=6),
+        OpDesc(opClass="SimdMultAcc", opLat=5),
+        OpDesc(opClass="SimdMatMultAcc", opLat=5),
+        OpDesc(opClass="SimdShift", opLat=3),
+        OpDesc(opClass="SimdShiftAcc", opLat=3),
+        OpDesc(opClass="SimdSqrt", opLat=9),
+        OpDesc(opClass="SimdFloatAdd", opLat=6),
+        OpDesc(opClass="SimdFloatAlu", opLat=5),
+        OpDesc(opClass="SimdFloatCmp", opLat=3),
+        OpDesc(opClass="SimdFloatCvt", opLat=3),
+        OpDesc(opClass="SimdFloatDiv", opLat=21),
+        OpDesc(opClass="SimdFloatMisc", opLat=3),
+        OpDesc(opClass="SimdFloatMult", opLat=6),
+        OpDesc(opClass="SimdFloatMultAcc", opLat=1),
+        OpDesc(opClass="SimdFloatMatMultAcc", opLat=1),
+        OpDesc(opClass="SimdFloatSqrt", opLat=9),
+        OpDesc(opClass="FloatAdd", opLat=6),
+        OpDesc(opClass="FloatCmp", opLat=5),
+        OpDesc(opClass="FloatCvt", opLat=5),
+        OpDesc(opClass="FloatDiv", opLat=12, pipelined=False),
+        OpDesc(opClass="FloatSqrt", opLat=33, pipelined=False),
+        OpDesc(opClass="FloatMult", opLat=8),
+    ]
     count = 2
 
 
 # Load/Store Units
 class ex5_big_Load(FUDesc):
-    opList = [ OpDesc(opClass='MemRead',opLat=2) ]
+    opList = [OpDesc(opClass="MemRead", opLat=2)]
     count = 1
 
+
 class ex5_big_Store(FUDesc):
-    opList = [OpDesc(opClass='MemWrite',opLat=2) ]
+    opList = [OpDesc(opClass="MemWrite", opLat=2)]
     count = 1
+
 
 # Functional Units for this CPU
 class ex5_big_FUP(FUPool):
-    FUList = [ex5_big_Simple_Int(), ex5_big_Complex_Int(),
-              ex5_big_Load(), ex5_big_Store(), ex5_big_FP()]
+    FUList = [
+        ex5_big_Simple_Int(),
+        ex5_big_Complex_Int(),
+        ex5_big_Load(),
+        ex5_big_Store(),
+        ex5_big_FP(),
+    ]
+
+
+class ex5_big_BTB(SimpleBTB):
+    numEntries = 4096
+    tagBits = 18
+    associativity = 1
+    instShiftAmt = 2
+    btbReplPolicy = LRURP()
+    btbIndexingPolicy = BTBSetAssociative(
+        num_entries=Parent.numEntries,
+        set_shift=Parent.instShiftAmt,
+        assoc=Parent.associativity,
+        tag_bits=Parent.tagBits,
+    )
+
 
 # Bi-Mode Branch Predictor
-class ex5_big_BP(BiModeBP):
-    globalPredictorSize = 4096
-    globalCtrBits = 2
-    choicePredictorSize = 1024
-    choiceCtrBits = 3
-    BTBEntries = 4096
-    BTBTagSize = 18
-    RASSize = 48
+class ex5_big_BP(BranchPredictor):
+    conditionalBranchPred = BiModeBP(
+        globalPredictorSize=4096,
+        globalCtrBits=2,
+        choicePredictorSize=1024,
+        choiceCtrBits=3,
+    )
+    btb = ex5_big_BTB()
+    ras = ReturnAddrStack(numEntries=48)
     instShiftAmt = 2
 
-class ex5_big(DerivO3CPU):
+
+# Instruction Queue
+class ex5_big_IQ(IQUnit):
+    fuPool = ex5_big_FUP()
+    numEntries = 48
+
+
+class ex5_big(ArmO3CPU):
     LQEntries = 16
     SQEntries = 16
     LSQDepCheckShift = 0
     LFSTSize = 1024
-    SSITSize = 1024
+    SSITSize = "1024"
     decodeToFetchDelay = 1
     renameToFetchDelay = 1
     iewToFetchDelay = 1
@@ -126,7 +177,6 @@ class ex5_big(DerivO3CPU):
     dispatchWidth = 6
     issueWidth = 8
     wbWidth = 8
-    fuPool = ex5_big_FUP()
     iewToCommitDelay = 1
     renameToROBDelay = 1
     commitWidth = 8
@@ -136,11 +186,12 @@ class ex5_big(DerivO3CPU):
     forwardComSize = 5
     numPhysIntRegs = 90
     numPhysFloatRegs = 256
-    numIQEntries = 48
     numROBEntries = 60
 
     switched_out = False
     branchPred = ex5_big_BP()
+    instQueues = ex5_big_IQ()
+
 
 class L1Cache(Cache):
     tag_latency = 2
@@ -150,34 +201,22 @@ class L1Cache(Cache):
     # Consider the L2 a victim cache also for clean lines
     writeback_clean = True
 
+
 # Instruction Cache
 class L1I(L1Cache):
     mshrs = 2
-    size = '32kB'
+    size = "32KiB"
     assoc = 2
     is_read_only = True
+
 
 # Data Cache
 class L1D(L1Cache):
     mshrs = 6
-    size = '32kB'
+    size = "32KiB"
     assoc = 2
     write_buffers = 16
 
-# TLB Cache
-# Use a cache as a L2 TLB
-class WalkCache(Cache):
-    tag_latency = 4
-    data_latency = 4
-    response_latency = 4
-    mshrs = 6
-    tgts_per_mshr = 8
-    size = '1kB'
-    assoc = 8
-    write_buffers = 16
-    is_read_only = True
-    # Writeback clean lines as well
-    writeback_clean = True
 
 # L2 Cache
 class L2(Cache):
@@ -186,12 +225,11 @@ class L2(Cache):
     response_latency = 15
     mshrs = 16
     tgts_per_mshr = 8
-    size = '2MB'
+    size = "2MiB"
     assoc = 16
     write_buffers = 8
-    prefetch_on_access = True
-    clusivity = 'mostly_excl'
+    clusivity = "mostly_excl"
     # Simple stride prefetcher
-    prefetcher = StridePrefetcher(degree=8, latency = 1)
+    prefetcher = StridePrefetcher(degree=8, latency=1, prefetch_on_access=True)
     tags = BaseSetAssoc()
     replacement_policy = RandomRP()

@@ -44,17 +44,20 @@
 #include <unistd.h>
 #include <zlib.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
 #include <iostream>
 #include <string>
 
+#include "base/intmath.hh"
 #include "base/trace.hh"
 #include "debug/AddrRanges.hh"
 #include "debug/Checkpoint.hh"
 #include "mem/abstract_mem.hh"
 #include "sim/serialize.hh"
+#include "sim/sim_exit.hh"
 
 /**
  * On Linux, MAP_NORESERVE allow us to simulate a very large memory
@@ -74,13 +77,25 @@ namespace gem5
 namespace memory
 {
 
-PhysicalMemory::PhysicalMemory(const std::string& _name,
-                               const std::vector<AbstractMemory*>& _memories,
+PhysicalMemory::PhysicalMemory(const std::string &_name,
+                               const std::vector<AbstractMemory *> &_memories,
                                bool mmap_using_noreserve,
-                               const std::string& shared_backstore) :
-    _name(_name), size(0), mmapUsingNoReserve(mmap_using_noreserve),
-    sharedBackstore(shared_backstore)
+                               const std::string &shared_backstore,
+                               bool auto_unlink_shared_backstore,
+                               bool is_sparse_restore)
+    : _name(_name),
+      size(0),
+      mmapUsingNoReserve(mmap_using_noreserve),
+      sharedBackstore(shared_backstore),
+      sharedBackstoreSize(0),
+      pageSize(sysconf(_SC_PAGE_SIZE)),
+      isSparseRestore(is_sparse_restore)
 {
+    // Register cleanup callback if requested.
+    if (auto_unlink_shared_backstore && !sharedBackstore.empty()) {
+        registerExitCallback([=]() { shm_unlink(shared_backstore.c_str()); });
+    }
+
     if (mmap_using_noreserve)
         warn("Not reserving swap space. May cause SIGSEGV on actual usage\n");
 
@@ -99,6 +114,11 @@ PhysicalMemory::PhysicalMemory(const std::string& _name,
             fatal_if(addrMap.insert(m->getAddrRange(), m) == addrMap.end(),
                      "Memory address range for %s is overlapping\n",
                      m->name());
+
+            const auto &sub_ranges = m->getAddrRange().subRanges();
+            panic_if(sub_ranges.empty(), "Memory range has no subranges\n");
+            validAddrMap.insert(validAddrMap.end(), sub_ranges.begin(),
+                                sub_ranges.end());
         } else {
             // this type of memory is used e.g. as reference memory by
             // Ruby, and they also needs a backing store, but should
@@ -130,40 +150,43 @@ PhysicalMemory::PhysicalMemory(const std::string& _name,
     for (const auto& r : addrMap) {
         // simply skip past all memories that are null and hence do
         // not need any backing store
-        if (!r.second->isNull()) {
-            // if the range is interleaved then save it for now
-            if (r.first.interleaved()) {
-                // if we already got interleaved ranges that are not
-                // part of the same range, then first do a merge
-                // before we add the new one
-                if (!intlv_ranges.empty() &&
-                    !intlv_ranges.back().mergesWith(r.first)) {
-                    AddrRange merged_range(intlv_ranges);
+        if (r.second->isNull()) {
+            continue;
+        }
 
-                    AbstractMemory *f = curr_memories.front();
-                    for (const auto& c : curr_memories)
-                        if (f->isConfReported() != c->isConfReported() ||
-                            f->isInAddrMap() != c->isInAddrMap() ||
-                            f->isKvmMap() != c->isKvmMap())
-                            fatal("Inconsistent flags in an interleaved "
-                                  "range\n");
+        // if the range is interleaved then save it for now
+        if (r.first.interleaved()) {
+            // if we already got interleaved ranges that are not
+            // part of the same range, then first do a merge
+            // before we add the new one
+            if (!intlv_ranges.empty() &&
+                !intlv_ranges.back().mergesWith(r.first)) {
+                AddrRange merged_range(intlv_ranges);
 
-                    createBackingStore(merged_range, curr_memories,
-                                       f->isConfReported(), f->isInAddrMap(),
-                                       f->isKvmMap());
-
-                    intlv_ranges.clear();
-                    curr_memories.clear();
+                AbstractMemory *f = curr_memories.front();
+                for (const auto &c : curr_memories) {
+                    if (f->isConfReported() != c->isConfReported() ||
+                        f->isInAddrMap() != c->isInAddrMap() ||
+                        f->isKvmMap() != c->isKvmMap()) {
+                        fatal("Inconsistent flags in an interleaved "
+                              "range\n");
+                    }
                 }
-                intlv_ranges.push_back(r.first);
-                curr_memories.push_back(r.second);
-            } else {
-                std::vector<AbstractMemory*> single_memory{r.second};
-                createBackingStore(r.first, single_memory,
-                                   r.second->isConfReported(),
-                                   r.second->isInAddrMap(),
-                                   r.second->isKvmMap());
+
+                createBackingStore(merged_range, curr_memories,
+                                   f->isConfReported(), f->isInAddrMap(),
+                                   f->isKvmMap());
+
+                intlv_ranges.clear();
+                curr_memories.clear();
             }
+            intlv_ranges.push_back(r.first);
+            curr_memories.push_back(r.second);
+        } else {
+            std::vector<AbstractMemory *> single_memory{r.second};
+            createBackingStore(r.first, single_memory,
+                               r.second->isConfReported(),
+                               r.second->isInAddrMap(), r.second->isKvmMap());
         }
     }
 
@@ -184,16 +207,45 @@ PhysicalMemory::PhysicalMemory(const std::string& _name,
                            f->isConfReported(), f->isInAddrMap(),
                            f->isKvmMap());
     }
+
+    warn_if(validAddrMap.empty(),
+            "No valid address ranges found in physical memory\n");
+
+    // Clean up the valid address map
+    // 1. Sort: Pairs are compared by 'first', then 'second'
+    std::sort(validAddrMap.begin(), validAddrMap.end());
+    // 2. Unique: Move consecutive identical duplicates to the end
+    auto last = std::unique(validAddrMap.begin(), validAddrMap.end());
+    // 3. Erase: Shrink the vector to remove the "garbage" at the end
+    validAddrMap.erase(last, validAddrMap.end());
+
+    if (debug::AddrRanges) {
+        for (const auto &r : validAddrMap) {
+            DPRINTF(AddrRanges, "Valid address range: %#x - %#x\n", r.first,
+                    r.second);
+        }
+    }
 }
 
 void
 PhysicalMemory::createBackingStore(
-        AddrRange range, const std::vector<AbstractMemory*>& _memories,
-        bool conf_table_reported, bool in_addr_map, bool kvm_map)
+    AddrRange range, const std::vector<AbstractMemory *> &_memories,
+    bool conf_table_reported, bool in_addr_map, bool kvm_map)
 {
+    if (range.isSparse()) {
+        // If it's sparse, then create a separate backing store for each
+        // subrange. We assume that by this point the subranges are not
+        // interleaved.
+        for (auto const &r : range.subRanges()) {
+            createBackingStore(AddrRange(r.first, r.second), _memories,
+                               conf_table_reported, in_addr_map, kvm_map);
+        }
+        return;
+    }
+
     panic_if(range.interleaved(),
              "Cannot create backing store for interleaved range %s\n",
-              range.to_string());
+             range.to_string());
 
     // perform the actual mmap
     DPRINTF(AddrRanges, "Creating backing store for range %s with size %d\n",
@@ -201,17 +253,24 @@ PhysicalMemory::createBackingStore(
 
     int shm_fd;
     int map_flags;
+    off_t map_offset;
 
     if (sharedBackstore.empty()) {
         shm_fd = -1;
         map_flags =  MAP_ANON | MAP_PRIVATE;
+        map_offset = 0;
     } else {
-        DPRINTF(AddrRanges, "Sharing backing store as %s\n",
-                sharedBackstore.c_str());
+        // Newly create backstore will be located after previous one.
+        map_offset = sharedBackstoreSize;
+        // mmap requires the offset to be multiple of page, so we need to
+        // upscale the range size.
+        sharedBackstoreSize += roundUp(range.size(), pageSize);
+        DPRINTF(AddrRanges, "Sharing backing store as %s at offset %llu\n",
+                sharedBackstore.c_str(), (uint64_t)map_offset);
         shm_fd = shm_open(sharedBackstore.c_str(), O_CREAT | O_RDWR, 0666);
         if (shm_fd == -1)
                panic("Shared memory failed");
-        if (ftruncate(shm_fd, range.size()))
+        if (ftruncate(shm_fd, sharedBackstoreSize))
                panic("Setting size of shared memory failed");
         map_flags = MAP_SHARED;
     }
@@ -224,7 +283,7 @@ PhysicalMemory::createBackingStore(
 
     uint8_t* pmem = (uint8_t*) mmap(NULL, range.size(),
                                     PROT_READ | PROT_WRITE,
-                                    map_flags, shm_fd, 0);
+                                    map_flags, shm_fd, map_offset);
 
     if (pmem == (uint8_t*) MAP_FAILED) {
         perror("mmap");
@@ -235,13 +294,13 @@ PhysicalMemory::createBackingStore(
     // remember this backing store so we can checkpoint it and unmap
     // it appropriately
     backingStore.emplace_back(range, pmem,
-                              conf_table_reported, in_addr_map, kvm_map);
+                              conf_table_reported, in_addr_map, kvm_map,
+                              shm_fd, map_offset);
 
     // point the memories to their backing store
     for (const auto& m : _memories) {
-        DPRINTF(AddrRanges, "Mapping memory %s to backing store\n",
-                m->name());
-        m->setBackingStore(pmem);
+        DPRINTF(AddrRanges, "Mapping memory %s to backing store\n", m->name());
+        m->setBackingStore(pmem, range);
     }
 }
 
@@ -255,7 +314,18 @@ PhysicalMemory::~PhysicalMemory()
 bool
 PhysicalMemory::isMemAddr(Addr addr) const
 {
-    return addrMap.contains(addr) != addrMap.end();
+    // This is a hot function. Instead of doing anything fancy, since we always
+    // have few ranges, we have simple linear scan of the non-interleaved
+    // address ranges.
+    for (const auto &range : validAddrMap) {
+        if (addr >= range.first && addr < range.second) {
+            return true;
+        }
+        if (addr < range.first) {
+            return false;
+        }
+    }
+    return false;
 }
 
 AddrRangeList
@@ -350,7 +420,7 @@ PhysicalMemory::serializeStore(CheckpointOut &cp, unsigned int store_id,
     // memories that are not part of the address map can overlap
     std::string filename =
         name() + ".store" + std::to_string(store_id) + ".pmem";
-    long range_size = range.size();
+    Addr range_size = range.size();
 
     DPRINTF(Checkpoint, "Serializing physical memory %s with size %d\n",
             filename, range_size);
@@ -435,7 +505,7 @@ PhysicalMemory::unserializeStore(CheckpointIn &cp)
     uint8_t* pmem = backingStore[store_id].pmem;
     AddrRange range = backingStore[store_id].range;
 
-    long range_size;
+    Addr range_size;
     UNSERIALIZE_SCALAR(range_size);
 
     DPRINTF(Checkpoint, "Unserializing physical memory %s with size %d\n",
@@ -446,28 +516,41 @@ PhysicalMemory::unserializeStore(CheckpointIn &cp)
               range_size, range.size());
 
     uint64_t curr_size = 0;
-    long* temp_page = new long[chunk_size];
-    long* pmem_current;
     uint32_t bytes_read;
-    while (curr_size < range.size()) {
-        bytes_read = gzread(compressed_mem, temp_page, chunk_size);
-        if (bytes_read == 0)
-            break;
+    if (isSparseRestore) {
+        static_assert(chunk_size >= 4096 && (chunk_size % 4096 == 0),
+                      "chunk_size must be a multiple of the 4KB page size");
+        static_assert(
+            chunk_size <= 65536,
+            "chunk_size too large, smaller chunks improve sparse efficiency");
 
-        assert(bytes_read % sizeof(long) == 0);
-
-        for (uint32_t x = 0; x < bytes_read / sizeof(long); x++) {
-            // Only copy bytes that are non-zero, so we don't give
-            // the VM system hell
-            if (*(temp_page + x) != 0) {
-                pmem_current = (long*)(pmem + curr_size + x * sizeof(long));
-                *pmem_current = *(temp_page + x);
+        uint8_t buffer[chunk_size];
+        uint8_t zeros[chunk_size] = {0};
+        while (curr_size < range.size()) {
+            bytes_read = gzread(compressed_mem, buffer, chunk_size);
+            if (bytes_read == 0) {
+                break;
             }
-        }
-        curr_size += bytes_read;
-    }
 
-    delete[] temp_page;
+            bool all_zero = (memcmp(buffer, zeros, bytes_read) == 0);
+
+            if (!all_zero) {
+                memcpy(pmem, buffer, bytes_read);
+            }
+
+            curr_size += bytes_read;
+            pmem += bytes_read;
+        }
+    } else {
+        while (curr_size < range.size()) {
+            bytes_read = gzread(compressed_mem, pmem, chunk_size);
+            if (bytes_read == 0) {
+                break;
+            }
+            curr_size += bytes_read;
+            pmem += bytes_read;
+        }
+    }
 
     if (gzclose(compressed_mem))
         fatal("Close failed on physical memory checkpoint file '%s'\n",

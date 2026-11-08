@@ -44,28 +44,30 @@ namespace MipsISA
 class SEWorkload : public gem5::SEWorkload
 {
   public:
-    using Params = MipsSEWorkloadParams;
+    PARAMS(MipsSEWorkload);
 
-    SEWorkload(const Params &p) : gem5::SEWorkload(p) {}
+    SEWorkload(const Params &p, Addr page_shift) :
+        gem5::SEWorkload(p, page_shift)
+    {}
 
     void
     setSystem(System *sys) override
     {
         gem5::SEWorkload::setSystem(sys);
-        gdb = BaseRemoteGDB::build<RemoteGDB>(system);
+        gdb = BaseRemoteGDB::build<RemoteGDB>(
+                params().remote_gdb_port, system);
     }
 
     loader::Arch getArch() const override { return loader::Mips; }
 
     struct SyscallABI : public GenericSyscallABI64
     {
-        static const std::vector<int> ArgumentRegs;
+        static const std::vector<RegId> ArgumentRegs;
     };
 };
 
 } // namespace MipsISA
 
-GEM5_DEPRECATED_NAMESPACE(GuestABI, guest_abi);
 namespace guest_abi
 {
 
@@ -75,20 +77,17 @@ struct Result<MipsISA::SEWorkload::SyscallABI, SyscallReturn>
     static void
     store(ThreadContext *tc, const SyscallReturn &ret)
     {
-        if (ret.suppressed() || ret.needsRetry())
-            return;
-
         if (ret.successful()) {
             // no error
-            tc->setIntReg(MipsISA::SyscallSuccessReg, 0);
-            tc->setIntReg(MipsISA::ReturnValueReg, ret.returnValue());
+            tc->setReg(MipsISA::int_reg::SyscallSuccess, (RegVal)0);
+            tc->setReg(MipsISA::int_reg::V0, ret.returnValue());
         } else {
             // got an error, return details
-            tc->setIntReg(MipsISA::SyscallSuccessReg, (uint32_t)(-1));
-            tc->setIntReg(MipsISA::ReturnValueReg, ret.errnoValue());
+            tc->setReg(MipsISA::int_reg::SyscallSuccess, (uint32_t)(-1));
+            tc->setReg(MipsISA::int_reg::V0, ret.errnoValue());
         }
         if (ret.count() > 1)
-            tc->setIntReg(MipsISA::SyscallPseudoReturnReg, ret.value2());
+            tc->setReg(MipsISA::int_reg::V1, ret.value2());
     }
 };
 

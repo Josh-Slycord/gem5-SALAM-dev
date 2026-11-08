@@ -28,6 +28,7 @@
 #include "arch/arm/fastmodel/iris/cpu.hh"
 
 #include "arch/arm/fastmodel/iris/thread_context.hh"
+#include "cpu/thread_context.hh"
 #include "scx/scx.h"
 #include "sim/serialize.hh"
 
@@ -57,6 +58,15 @@ BaseCPU::~BaseCPU()
     threadContexts.clear();
 }
 
+void
+BaseCPU::wakeup(ThreadID tid)
+{
+    auto *tc = threadContexts.at(tid);
+    if (tc->status() == gem5::ThreadContext::Suspended) {
+        tc->activate();
+    }
+}
+
 Counter
 BaseCPU::totalInsts() const
 {
@@ -64,14 +74,6 @@ BaseCPU::totalInsts() const
     for (auto *tc: threadContexts)
         count += tc->getCurrentInstCount();
     return count;
-}
-
-void
-BaseCPU::init()
-{
-    gem5::BaseCPU::init();
-    for (auto *tc: threadContexts)
-        tc->initMemProxies(tc);
 }
 
 void

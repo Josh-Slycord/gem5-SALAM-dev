@@ -56,8 +56,7 @@ namespace gem5
 template<class Base>
 class BitfieldTypeImpl : public Base
 {
-    static_assert(std::is_empty<Base>::value,
-                  "Bitfield base class must be empty.");
+    static_assert(std::is_empty_v<Base>, "Bitfield base class must be empty.");
 
   private:
 
@@ -262,7 +261,7 @@ namespace bitfield_backend
 
         BitUnionOperators(const BitUnionOperators &) = default;
 
-        BitUnionOperators() {}
+        BitUnionOperators() = default;
 
         //Conversion operators.
         operator const typename Base::__StorageType () const

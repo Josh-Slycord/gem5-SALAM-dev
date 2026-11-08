@@ -37,6 +37,7 @@
 
 #include "cpu/minor/decode.hh"
 
+#include "arch/generic/decoder.hh"
 #include "base/logging.hh"
 #include "base/trace.hh"
 #include "cpu/minor/pipeline.hh"
@@ -45,13 +46,12 @@
 namespace gem5
 {
 
-GEM5_DEPRECATED_NAMESPACE(Minor, minor);
 namespace minor
 {
 
 Decode::Decode(const std::string &name,
     MinorCPU &cpu_,
-    const MinorCPUParams &params,
+    const BaseMinorCPUParams &params,
     Latch<ForwardInstData>::Output inp_,
     Latch<ForwardInstData>::Input out_,
     std::vector<InputBuffer<ForwardInstData>> &next_stage_input_buffer) :
@@ -115,7 +115,7 @@ dynInstAddTracing(MinorDynInstPtr inst, StaticInstPtr static_inst,
 {
     inst->traceData = cpu.getTracer()->getInstRecord(curTick(),
         cpu.getContext(inst->id.threadId),
-        inst->staticInst, inst->pc, static_inst);
+        inst->staticInst, *inst->pc, static_inst);
 
     /* Use the execSeqNum as the fetch sequence number as this most closely
      *  matches the other processor models' idea of fetch sequence */
@@ -164,6 +164,9 @@ Decode::evaluate()
                 StaticInstPtr parent_static_inst = NULL;
                 MinorDynInstPtr output_inst = inst;
 
+                auto *dec_ptr =
+                    cpu.getContext(inst->id.threadId)->getDecoderPtr();
+
                 if (inst->isFault()) {
                     DPRINTF(Decode, "Fault being passed: %d\n",
                         inst->fault->name());
@@ -176,43 +179,47 @@ Decode::evaluate()
 
                     /* Set up PC for the next micro-op emitted */
                     if (!decode_info.inMacroop) {
-                        decode_info.microopPC = inst->pc;
+                        set(decode_info.microopPC, *inst->pc);
                         decode_info.inMacroop = true;
                     }
 
-                    /* Get the micro-op static instruction from the
-                     * static_inst. */
-                    static_micro_inst =
-                        static_inst->fetchMicroop(
-                                decode_info.microopPC.microPC());
+                    if (isRomMicroPC(decode_info.microopPC->microPC())) {
+                        static_micro_inst = dec_ptr->fetchRomMicroop(
+                            decode_info.microopPC->microPC(), static_inst);
+                    } else {
+                        /* Get the micro-op static instruction from the
+                         * static_inst. */
+                        static_micro_inst = static_inst->fetchMicroop(
+                            decode_info.microopPC->microPC());
+                    }
 
                     output_inst =
                         new MinorDynInst(static_micro_inst, inst->id);
-                    output_inst->pc = decode_info.microopPC;
+                    set(output_inst->pc, decode_info.microopPC);
                     output_inst->fault = NoFault;
 
                     /* Allow a predicted next address only on the last
                      *  microop */
                     if (static_micro_inst->isLastMicroop()) {
                         output_inst->predictedTaken = inst->predictedTaken;
-                        output_inst->predictedTarget = inst->predictedTarget;
+                        set(output_inst->predictedTarget,
+                                inst->predictedTarget);
                     }
 
                     DPRINTF(Decode, "Microop decomposition inputIndex:"
                         " %d output_index: %d lastMicroop: %s microopPC:"
-                        " %d.%d inst: %d\n",
+                        " %s inst: %d\n",
                         decode_info.inputIndex, output_index,
                         (static_micro_inst->isLastMicroop() ?
                             "true" : "false"),
-                        decode_info.microopPC.instAddr(),
-                        decode_info.microopPC.microPC(),
+                        *decode_info.microopPC,
                         *output_inst);
 
                     /* Acknowledge that the static_inst isn't mine, it's my
                      * parent macro-op's */
                     parent_static_inst = static_inst;
 
-                    static_micro_inst->advancePC(decode_info.microopPC);
+                    static_micro_inst->advancePC(*decode_info.microopPC);
 
                     /* Step input if this is the last micro-op */
                     if (static_micro_inst->isLastMicroop()) {

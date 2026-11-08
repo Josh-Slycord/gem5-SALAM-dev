@@ -1,0 +1,942 @@
+{
+  "schema_version": 2,
+  "kind": "reviewed_track_ab_integration_checkpoint",
+  "state": "passed",
+  "created_utc": "2026-11-06T17:26:49.839446+00:00",
+  "implementation_commit": "13bbe024fd9e480196125eecaf0783435180c029",
+  "branch": "codex/track-ab-integration-20261106",
+  "track_a_input": "1460634fdef5edf20680ea560e07a2e01422e808",
+  "track_b_handoff": "70b817c764438f8b1236ed809a0508bd1a32a048",
+  "integration": "Selected reviewed changes; unsafe B4 global lifetime assertions excluded",
+  "binary": {
+    "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/engine/build/ARM/gem5.opt",
+    "sha256": "b4e59a628c8bc5c0b389c423922166ece9754bb7305ef1e10259ae1c45e4e5ef",
+    "bytes": 1315246232
+  },
+  "compiled_source_sha256": "81df8423fe7e6ca7ec33288756f2287f12b6a1cedbb2cdca44c804c552ba60e0",
+  "source_tests": {
+    "total": 953,
+    "tiers": [
+      {
+        "tier": "fast",
+        "tests_run": 386,
+        "selected": 386,
+        "receipt": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-fast/check.json"
+      },
+      {
+        "tier": "config",
+        "tests_run": 503,
+        "selected": 503,
+        "receipt": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-config/check.json"
+      },
+      {
+        "tier": "gui",
+        "tests_run": 64,
+        "selected": 64,
+        "receipt": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-gui/check.json"
+      }
+    ],
+    "current_source_files_checked": 153,
+    "missing": [],
+    "extra": [],
+    "duplicates": [],
+    "skipped": []
+  },
+  "native_fixtures": {
+    "total": 17,
+    "cases": [
+      {
+        "name": "response_queue",
+        "tests": 13,
+        "binary": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-fixtures/response_queue.test",
+        "binary_sha256": "047c5ebe3ac2a5196cf85e11e6e2dccfce0be982e4c170327c5f66bc848c62ad",
+        "xml": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-fixtures/response_queue-final.xml",
+        "state": "passed"
+      },
+      {
+        "name": "fu_scheduling_pool",
+        "tests": 4,
+        "binary": "/home/jslycord/projects/salam-track-ab-integration-20261106/engine/build/ARM/hwacc/fu_scheduling_pool.test.opt",
+        "binary_sha256": "4e7d22784a957b321c7e47e693e102f2affa3c3b84c50d445b5e0bdea2b2acce",
+        "xml": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-fixtures/fu_scheduling_pool-final.xml",
+        "state": "passed"
+      }
+    ],
+    "scope": "Production queue/FU-pool helper fixtures; no whole SimObject protocol/lifetime claim"
+  },
+  "canonical_default_generation": {
+    "outputs_compared": 129,
+    "mismatches": []
+  },
+  "candidate_inventory": {
+    "blobs": 303,
+    "pinned_commit": "13bbe024fd9e480196125eecaf0783435180c029",
+    "rights_status": "Unverified attribution hints; no governing-rights or legal clearance determination"
+  },
+  "gemm_study": {
+    "counts": {
+      "cases": 9,
+      "positive_simulator_processes": 18,
+      "unique_process_ids": 18,
+      "GEMM_kernel_launches": 36,
+      "Top_controller_invocations": 36,
+      "total_actor_invocations": 72,
+      "observed_output_values_checked": 2304,
+      "positive_mismatch_count": 0,
+      "unique_fixture_identities": 2,
+      "negative_controls": 4
+    },
+    "study": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-generation-study-final/study.json",
+      "sha256": "b81a77c2003aae53653cc97fb4ea13d6d25d3029373e0d50717d6a7cf5fb9fc5",
+      "bytes": 98521
+    },
+    "independent_review": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/NUMERICAL_EVIDENCE_REVIEW_V2.json",
+      "sha256": "e934628e0bd9f96c3e0229abcd6664cb0fa90bdeb95712271ed6d4079ab188cf",
+      "bytes": 14413
+    }
+  },
+  "gui_cases": [
+    {
+      "workload": "gemm",
+      "state": "passed",
+      "output_rows": 64,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/acceptance.json",
+        "sha256": "40cf42e4946ed126e5fc8307be193651e6e97d0ceadeb31ed55771820529e0a1",
+        "bytes": 1603468
+      },
+      "gui_evidence": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T074217-9ce458d8",
+      "configuration_changes": {
+        "mem-size": "2GB",
+        "integer_multiplier.cycles": 1,
+        "integer_multiplier.limit": 2,
+        "mul.runtime_cycles": 16,
+        "fu_trace_event_limit": 1048576
+      },
+      "fresh_profile_rebuild_required": false,
+      "simulator_binary": {
+        "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/engine/build/ARM/gem5.opt",
+        "sha256": "b4e59a628c8bc5c0b389c423922166ece9754bb7305ef1e10259ae1c45e4e5ef",
+        "bytes": 1315246232
+      },
+      "timeline": {
+        "validation": {
+          "state": "passed",
+          "scope": "FU scheduling trace only",
+          "numerical_correctness": "not evaluated",
+          "events_replayed": 41264
+        },
+        "preview": {
+          "rendered_spans": 2176,
+          "total_spans": 2176,
+          "limited": false,
+          "max_spans": 20000
+        },
+        "scope": "Full trace replay validated; visual preview may show a bounded subset"
+      },
+      "metrics": {
+        "rendered_rows": 2179,
+        "available_direct_salam_rows": 260,
+        "status_counts": {
+          "unavailable": 12,
+          "validated_direct_trace": 158,
+          "observed": 102,
+          "present": 1886,
+          "nonfinite": 21
+        },
+        "scope": "Unavailable placeholders and nonfinite counters are not measured values"
+      },
+      "partial_checks": [
+        {
+          "name": "System settings",
+          "status": "partial",
+          "detail": "[]",
+          "source": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T074217-9ce458d8/pipeline/configuration.json"
+        }
+      ]
+    },
+    {
+      "workload": "fft",
+      "state": "passed",
+      "output_rows": 1024,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/acceptance.json",
+        "sha256": "9d002fcb383fe7b10ffc23d62391bfd6fe8e4c3b69f007b1b2163b897164599f",
+        "bytes": 1646564
+      },
+      "gui_evidence": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f",
+      "configuration_changes": {
+        "mem-size": "2GB",
+        "double_multiplier.cycles": 1,
+        "double_multiplier.limit": 2,
+        "fmul.runtime_cycles": 6,
+        "fu_trace_event_limit": 1048576,
+        "compiled_profile": {
+          "double_multiplier": {
+            "area": 7.125,
+            "fu_latency": 7
+          }
+        }
+      },
+      "fresh_profile_rebuild_required": true,
+      "simulator_binary": {
+        "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/gui-variants/5a4296d32fe38325b2517d1229402232260c5ebe55f7ae5cdb764bc234cb95ce/build/ARM/gem5.opt",
+        "sha256": "7c59e06ad521ceb13da9deab58902aed8d7d7d9ebab74b3ac6c3fa61ec794e2d",
+        "bytes": 1315280728
+      },
+      "timeline": {
+        "validation": {
+          "state": "passed",
+          "scope": "FU scheduling trace only",
+          "numerical_correctness": "not evaluated",
+          "events_replayed": 149558
+        },
+        "preview": {
+          "rendered_spans": 20000,
+          "total_spans": 70682,
+          "limited": true,
+          "max_spans": 20000
+        },
+        "scope": "Full trace replay validated; visual preview may show a bounded subset"
+      },
+      "metrics": {
+        "rendered_rows": 2240,
+        "available_direct_salam_rows": 260,
+        "status_counts": {
+          "unavailable": 12,
+          "validated_direct_trace": 158,
+          "observed": 102,
+          "present": 1948,
+          "nonfinite": 20
+        },
+        "scope": "Unavailable placeholders and nonfinite counters are not measured values"
+      },
+      "partial_checks": [
+        {
+          "name": "System settings",
+          "status": "partial",
+          "detail": "[]",
+          "source": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f/pipeline/configuration.json"
+        }
+      ]
+    },
+    {
+      "workload": "stencil3d",
+      "state": "passed",
+      "output_rows": 16384,
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/acceptance.json",
+        "sha256": "78bd607e28aefa8bd4c40bfe61b34dfddbe9c3aa52b9a3ad015dbddb55261a2e",
+        "bytes": 1632262
+      },
+      "gui_evidence": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d",
+      "configuration_changes": {
+        "mem-size": "2GB",
+        "integer_adder.cycles": 1,
+        "integer_adder.limit": 2,
+        "add.runtime_cycles": 4,
+        "fu_trace_event_limit": 4194304,
+        "compiled_profile": {
+          "integer_adder": {
+            "area": 7.125,
+            "fu_latency": 7
+          }
+        },
+        "registerbank_ports": {
+          "name": "C_VAR",
+          "source": 2,
+          "selected": 1,
+          "reason": "Compiled RegisterBank has one scalar private response port"
+        }
+      },
+      "fresh_profile_rebuild_required": true,
+      "simulator_binary": {
+        "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/gui-variants/160cd9673d286a93430bae3ad711d2532b732f307e4688d39494af6cc642e576/build/ARM/gem5.opt",
+        "sha256": "6dd3ab5b35759a3457f8ba1a65d38a7d0dc8e29121d9c35da3d7c27a424e7ea9",
+        "bytes": 1315280816
+      },
+      "timeline": {
+        "validation": {
+          "state": "passed",
+          "scope": "FU scheduling trace only",
+          "numerical_correctness": "not evaluated",
+          "events_replayed": 2112201
+        },
+        "preview": {
+          "rendered_spans": 20000,
+          "total_spans": 205362,
+          "limited": true,
+          "max_spans": 20000
+        },
+        "scope": "Full trace replay validated; visual preview may show a bounded subset"
+      },
+      "metrics": {
+        "rendered_rows": 2204,
+        "available_direct_salam_rows": 260,
+        "status_counts": {
+          "unavailable": 12,
+          "validated_direct_trace": 158,
+          "observed": 102,
+          "present": 1912,
+          "nonfinite": 20
+        },
+        "scope": "Unavailable placeholders and nonfinite counters are not measured values"
+      },
+      "partial_checks": [
+        {
+          "name": "System settings",
+          "status": "partial",
+          "detail": "[]",
+          "source": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/configuration.json"
+        }
+      ]
+    }
+  ],
+  "gui_output_rejection_control_count": 2,
+  "gui_independent_breadth_reviews": [
+    {
+      "workload": "fft",
+      "state": "passed",
+      "outputs_checked": 1024,
+      "scalar_components_checked": 2048,
+      "mismatch_count": 0,
+      "method": "Own direct trigonometric DFT with modulo-reduced phases and math.fsum; bit-reversed DIF frequency order. No production oracle imports.",
+      "numerical_details": {
+        "absolute_tolerance": 1e-06,
+        "relative_tolerance": 1e-09,
+        "max_absolute_component_error": 6.750155989720952e-14,
+        "max_error_to_allowed_ratio": 6.655675782750174e-08,
+        "parseval_absolute_error": 0.0
+      },
+      "fixture": {
+        "sha256": "5ee0546dbf9c9130d4ed233796bcf227865dd1c6128fcd5cabe86cacd291331a",
+        "seed": 47,
+        "dataset": "seeded",
+        "shape": {
+          "samples": 1024
+        }
+      },
+      "source_identity_sha256": "72ed989ed7a13f3969a7cc049c37355f12624a73d06d21ad11f1d03acd37f2fe",
+      "bounded_files_rehashed": 311,
+      "staged_makefile_transition": null,
+      "review": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_FFT_NUMERICAL_REVIEW_V3.json",
+        "sha256": "3d15a7c8088cbfee3c570ee3faab23352895030aede10e9c43e040b3ccfff294",
+        "bytes": 230095
+      },
+      "review_script": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/review_gui_breadth_numerical_v3.py",
+        "sha256": "a4ab06b68a04d617eee5669211e860d188ded30da03b8fa9ed9cd96307457df4",
+        "bytes": 24912
+      },
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/acceptance.json",
+        "sha256": "9d002fcb383fe7b10ffc23d62391bfd6fe8e4c3b69f007b1b2163b897164599f",
+        "bytes": 1646564
+      },
+      "run": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f/pipeline/runs/20261106T163238-4869ad4ed922/run.json",
+        "sha256": "a3ebaba66bb0d4f591132eb9fb0c9ccd244e2685fe71ab4633eadc356d283aa7",
+        "bytes": 285699
+      },
+      "raw_output": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f/pipeline/runs/20261106T163238-4869ad4ed922/simulator/salam-results.txt",
+        "sha256": "0fde05f66fa27a9129ea592bcbecf01ded928e250a0b2e903189d38564c32a95",
+        "bytes": 51326
+      },
+      "binary_sha256": "7c59e06ad521ceb13da9deab58902aed8d7d7d9ebab74b3ac6c3fa61ec794e2d",
+      "compiled_source_sha256": "179361242f3611bf9315e89fdc7001178b8e87c6746b69eea80c1bc7b12c8bd5",
+      "scope": "Own saved-data arithmetic on one seeded GUI6 fixture per workload; no new simulation, independent FU replay or PPA calibration claim"
+    },
+    {
+      "workload": "stencil3d",
+      "state": "passed",
+      "outputs_checked": 16384,
+      "scalar_components_checked": 16384,
+      "mismatch_count": 0,
+      "method": "Own coordinate-defined six-neighbor sum plus center coefficient; explicit boundary preservation and modulo-2^32 comparison. No production oracle imports.",
+      "numerical_details": {
+        "interior_cells_checked": 12600,
+        "boundary_cells_checked": 3784
+      },
+      "fixture": {
+        "sha256": "c7bf31db22f39e132481441d8eaacccd6492a3e1a51ce699778c4532e1dd25c9",
+        "seed": 47,
+        "dataset": "seeded",
+        "shape": {
+          "row": 16,
+          "col": 32,
+          "hyt": 32
+        }
+      },
+      "source_identity_sha256": "72ed989ed7a13f3969a7cc049c37355f12624a73d06d21ad11f1d03acd37f2fe",
+      "bounded_files_rehashed": 313,
+      "staged_makefile_transition": {
+        "state": "passed",
+        "relative_path": "benchmarks/sys_validation/stencil3d/hw/Makefile",
+        "source": {
+          "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/gui-variants/160cd9673d286a93430bae3ad711d2532b732f307e4688d39494af6cc642e576/benchmarks/sys_validation/stencil3d/hw/Makefile",
+          "sha256": "1fcae9e4eebeac8fd0bb69189aae72450da48159110920984fd570ced467e555",
+          "bytes": 169
+        },
+        "staged_before": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/ir-toolchain/Makefile.before",
+          "sha256": "ef0f6d86e721faee12dcd39088ee8cfc21a1c187b790863c64db607c32564d39",
+          "bytes": 196
+        },
+        "adapted_after": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/ir-toolchain/Makefile.after",
+          "sha256": "e0a118ceab7f0fea87b1843cd8ce5490224c79eb1888edb187f9da7ec866cc65",
+          "bytes": 308
+        },
+        "installed": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/workspace/benchmarks/sys_validation/stencil3d/hw/Makefile",
+          "sha256": "e0a118ceab7f0fea87b1843cd8ce5490224c79eb1888edb187f9da7ec866cc65",
+          "bytes": 308
+        },
+        "sidecar": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/ir-toolchain/ir-toolchain.json",
+          "sha256": "b8b9e2a752fd390f63de2f2b664076b0e5e2273f577a58e4c242bbc3f35b0d92",
+          "bytes": 4281
+        },
+        "proof": {
+          "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/STENCIL_MAKEFILE_CHAIN_REVIEW.json",
+          "sha256": "42e4533c07f3f9897175d2979848223eb2fae991efa131876d95959252fe7a88",
+          "bytes": 4847
+        },
+        "actual_make_command": {
+          "argv": [
+            "make",
+            "-B",
+            "-C",
+            "benchmarks/sys_validation/stencil3d/hw",
+            "build"
+          ],
+          "cwd": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/workspace",
+          "state": "completed",
+          "return_code": 0
+        },
+        "actual_build_stdout": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/build-ir.stdout",
+          "sha256": "54ff2a03ca774d4405801e49047189375cf2cd7863878502b8f9b9425f883a9d",
+          "bytes": 665
+        },
+        "actual_build_stderr": {
+          "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/build-ir.stderr",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "actual_compiler_line": "/usr/lib/llvm-14/bin/clang --sysroot=/usr/lib/arm-none-eabi -isystem /usr/lib/arm-none-eabi/include -ffp-contract=off -O1 -S -target armv7-pc-none-eabi -fno-slp-vectorize -fno-vectorize -fno-unroll-loops -fno-inline -fno-builtin -emit-llvm stencil3d.c top.c",
+        "run_input_bindings": [
+          {
+            "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/workspace/benchmarks/sys_validation/stencil3d/hw/Makefile",
+            "sha256": "e0a118ceab7f0fea87b1843cd8ce5490224c79eb1888edb187f9da7ec866cc65",
+            "bytes": 308
+          },
+          {
+            "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/workspace/benchmarks/sys_validation/stencil3d/hw/top.ll",
+            "sha256": "41d4307600ef58d8a7a09e5884720f0ea1504e635001b33b73874128bd25862b",
+            "bytes": 4094
+          },
+          {
+            "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/workspace/benchmarks/sys_validation/stencil3d/hw/stencil3d.ll",
+            "sha256": "aece298cd1782d7a832bdf595c07dcf4bba0be091e519bfbb5ecd59c7a6474d4",
+            "bytes": 31312
+          }
+        ],
+        "historical_failed_review": {
+          "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_STENCIL3D_NUMERICAL_REVIEW_V2.json",
+          "sha256": "3a055b99d591ff6e6e6ce7b2d43ab033fc3983561841a1586db53f8c77a4f19c",
+          "bytes": 227466,
+          "package_file": "HISTORICAL_FAILED_GUI_STENCIL3D_NUMERICAL_REVIEW_V2.json"
+        },
+        "scope": "Only this recorded stencil Makefile transition; all other staged-output hashes remain strict. Full command environments stay local."
+      },
+      "review": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_STENCIL3D_NUMERICAL_REVIEW_V3.json",
+        "sha256": "33365dca61c48d9db7e928ffd3dca87894042a0e9182999037925ac9a869f32c",
+        "bytes": 241957
+      },
+      "review_script": {
+        "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/review_gui_breadth_numerical_v3.py",
+        "sha256": "a4ab06b68a04d617eee5669211e860d188ded30da03b8fa9ed9cd96307457df4",
+        "bytes": 24912
+      },
+      "acceptance": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/acceptance.json",
+        "sha256": "78bd607e28aefa8bd4c40bfe61b34dfddbe9c3aa52b9a3ad015dbddb55261a2e",
+        "bytes": 1632262
+      },
+      "run": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/runs/20261106T165305-0be033ee1d46/run.json",
+        "sha256": "17e808ccddaaf576507b8d5614e3309e00942b9bd9487a0c8aede6b939dac967",
+        "bytes": 282575
+      },
+      "raw_output": {
+        "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/runs/20261106T165305-0be033ee1d46/simulator/salam-results.txt",
+        "sha256": "3fadd2fba1ad3e32fde617b4d9a723bdc12b8a65215828fa82808ddec48005c7",
+        "bytes": 447858
+      },
+      "binary_sha256": "6dd3ab5b35759a3457f8ba1a65d38a7d0dc8e29121d9c35da3d7c27a424e7ea9",
+      "compiled_source_sha256": "6b4e679df5e3ecc905eb8785df31ea35d8d4a016421bb8a61ddfee0b2071661c",
+      "scope": "Own saved-data arithmetic on one seeded GUI6 fixture per workload; no new simulation, independent FU replay or PPA calibration claim"
+    }
+  ],
+  "gui_scope": "Real offscreen Qt/QProcess using retained generated topology; Windows shortcut transport not retested",
+  "preservation": {
+    "state": "passed",
+    "qualified_tag": "f3f437a29bcd1f1cf94a4bafdedcc43f577d3feb",
+    "legacy_main": "48fe84fa2f1c52e95fbc2382d62f26013fa78cd7",
+    "protected_checkouts": [
+      {
+        "path": "/home/jslycord/projects/gem5-salam-gemini-integration",
+        "head": "bcb4fad6b39b23ea671c79eca1a86ff9d883c209",
+        "clean": true
+      },
+      {
+        "path": "/home/jslycord/projects/gem5-salam-track-a",
+        "head": "1460634fdef5edf20680ea560e07a2e01422e808",
+        "clean": true
+      }
+    ],
+    "qualified_binary_sha256": "33d695c20ec5dc47b88bd3170b591fa3e1dbd61ddd5d786b969100090d0e7f91",
+    "official_repository_writes": false,
+    "official_write_commands_executed": []
+  },
+  "relocation": {
+    "state": "moved_and_hash_verified",
+    "approved": true,
+    "distro": "Ubuntu-24.04",
+    "content_sha256_preserved": true,
+    "scope": "Approved WSL storage relocation; detailed host locations and storage audit remain in local Windows records."
+  },
+  "evidence": {
+    "BASE_BUILD.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/build-v2/build.json",
+      "sha256": "fc1481c787beecb3a09293283ded42f2fe270bcfd294f089a6f4aa6496bf0f45",
+      "bytes": 17033,
+      "package_file": "BASE_BUILD.json"
+    },
+    "DEFAULT_GENERATION_PARITY.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/canonical-default-generation/default-parity.json",
+      "sha256": "252866a52cd4d9e46c4ee0d2766cc806a34b50da41665381315babb3e2fa0a7a",
+      "bytes": 36087,
+      "package_file": "DEFAULT_GENERATION_PARITY.json"
+    },
+    "GEMM_STUDY_FINAL.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-generation-study-final/study.json",
+      "sha256": "b81a77c2003aae53653cc97fb4ea13d6d25d3029373e0d50717d6a7cf5fb9fc5",
+      "bytes": 98521,
+      "package_file": "GEMM_STUDY_FINAL.json"
+    },
+    "GUI_BREADTH_ACCEPTANCE_AGGREGATION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-breadth-acceptance.json",
+      "sha256": "ab746dc9831027b6bedea68a6034a670a4f68ef6b4151f25b078af0f5340fc1c",
+      "bytes": 3278060,
+      "package_file": "GUI_BREADTH_ACCEPTANCE_AGGREGATION.json"
+    },
+    "GUI_FFT_ACCEPTANCE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/acceptance.json",
+      "sha256": "9d002fcb383fe7b10ffc23d62391bfd6fe8e4c3b69f007b1b2163b897164599f",
+      "bytes": 1646564,
+      "package_file": "GUI_FFT_ACCEPTANCE.json"
+    },
+    "GUI_FFT_BASE_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab-base-build/build.json",
+      "sha256": "fc1481c787beecb3a09293283ded42f2fe270bcfd294f089a6f4aa6496bf0f45",
+      "bytes": 17033,
+      "package_file": "GUI_FFT_BASE_BUILD.json"
+    },
+    "GUI_FFT_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/hardware-variant-5a4296d32fe38325-e8949ec3/build/build.json",
+      "sha256": "89e2fb7d9321f3b26bf948f4c4f5197dbf1b6fc2fe7621aef3db4c593fa4f92d",
+      "bytes": 17729,
+      "package_file": "GUI_FFT_BUILD.json"
+    },
+    "GUI_FFT_CORRUPT_READER.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-corrupt-output-controls/fft/reader-result.json",
+      "sha256": "74b35b7bc6a408d419b9c513ad4f3ea835d5be16b26a34e14a37bfbcf7403360",
+      "bytes": 1155364,
+      "package_file": "GUI_FFT_CORRUPT_READER.json"
+    },
+    "GUI_FFT_EXECUTION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f/gui-execution.json",
+      "sha256": "dcbe33621374ea99f22c6e47a9ca4450a68136a3de3cabac224d8bd73304013d",
+      "bytes": 464783,
+      "package_file": "GUI_FFT_EXECUTION.json"
+    },
+    "GUI_FFT_GENERATION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/hardware-variant-5a4296d32fe38325-e8949ec3/generation/hardware-codegen.json",
+      "sha256": "a2eb880f656411a207f824932c1e785948bb31df826c74a7935c0d4e42d3e0e0",
+      "bytes": 54591,
+      "package_file": "GUI_FFT_GENERATION.json"
+    },
+    "GUI_FFT_INTEGRATION_DRIVER.py": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/integration-driver.py",
+      "sha256": "d288260ce7f8d6e7cf0762f5d9fe221bb3bd7d99488fc26d2dbc239815541cbe",
+      "bytes": 39160,
+      "package_file": "GUI_FFT_INTEGRATION_DRIVER.py"
+    },
+    "GUI_FFT_NUMERICAL_REVIEW_V3.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_FFT_NUMERICAL_REVIEW_V3.json",
+      "sha256": "3d15a7c8088cbfee3c570ee3faab23352895030aede10e9c43e040b3ccfff294",
+      "bytes": 230095,
+      "package_file": "GUI_FFT_NUMERICAL_REVIEW_V3.json"
+    },
+    "GUI_FFT_PIPELINE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T160757-ed70467f/pipeline/configuration.json",
+      "sha256": "0f0ffcafdd80ea65895cce65d5fc672798f1d7aea952b504f90e6e1b6859ebae",
+      "bytes": 786486,
+      "package_file": "GUI_FFT_PIPELINE.json"
+    },
+    "GUI_FFT_SOURCE_AFTER.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/source-after.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_FFT_SOURCE_AFTER.json"
+    },
+    "GUI_FFT_SOURCE_BEFORE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/source-before.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_FFT_SOURCE_BEFORE.json"
+    },
+    "GUI_GEMM_ACCEPTANCE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/acceptance.json",
+      "sha256": "40cf42e4946ed126e5fc8307be193651e6e97d0ceadeb31ed55771820529e0a1",
+      "bytes": 1603468,
+      "package_file": "GUI_GEMM_ACCEPTANCE.json"
+    },
+    "GUI_GEMM_BASE_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab-base-build/build.json",
+      "sha256": "fc1481c787beecb3a09293283ded42f2fe270bcfd294f089a6f4aa6496bf0f45",
+      "bytes": 17033,
+      "package_file": "GUI_GEMM_BASE_BUILD.json"
+    },
+    "GUI_GEMM_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab-base-build/build.json",
+      "sha256": "fc1481c787beecb3a09293283ded42f2fe270bcfd294f089a6f4aa6496bf0f45",
+      "bytes": 17033,
+      "package_file": "GUI_GEMM_BUILD.json"
+    },
+    "GUI_GEMM_EVIDENCE_REVIEW_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_GEMM_EVIDENCE_REVIEW_V2.json",
+      "sha256": "ed8bc99f304d4ebce0c9878f555781335b1f6892f2b2c3475c25e65c61d6fef3",
+      "bytes": 108921,
+      "package_file": "GUI_GEMM_EVIDENCE_REVIEW_V2.json"
+    },
+    "GUI_GEMM_EXECUTION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T074217-9ce458d8/gui-execution.json",
+      "sha256": "5afe13c511a6bd43377e1dd9dc4d8fbf8e2431472bb039176d86fe71265106cf",
+      "bytes": 419352,
+      "package_file": "GUI_GEMM_EXECUTION.json"
+    },
+    "GUI_GEMM_INTEGRATION_DRIVER.py": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/integration-driver.py",
+      "sha256": "d288260ce7f8d6e7cf0762f5d9fe221bb3bd7d99488fc26d2dbc239815541cbe",
+      "bytes": 39160,
+      "package_file": "GUI_GEMM_INTEGRATION_DRIVER.py"
+    },
+    "GUI_GEMM_PIPELINE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T074217-9ce458d8/pipeline/configuration.json",
+      "sha256": "2daf2220aaa38368356d911d0788f5336fff63f1902276df0cd2eee1963f6e63",
+      "bytes": 752661,
+      "package_file": "GUI_GEMM_PIPELINE.json"
+    },
+    "GUI_GEMM_SOURCE_AFTER.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/source-after.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_GEMM_SOURCE_AFTER.json"
+    },
+    "GUI_GEMM_SOURCE_BEFORE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/source-before.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_GEMM_SOURCE_BEFORE.json"
+    },
+    "GUI_OUTPUT_REJECTION_CONTROLS.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-corrupt-output-controls/controls.json",
+      "sha256": "7a285e21bd35a5b74d0482e13eb35f802f1d58105284c64edb507a9ccadcff21",
+      "bytes": 14666,
+      "package_file": "GUI_OUTPUT_REJECTION_CONTROLS.json"
+    },
+    "GUI_STENCIL3D_ACCEPTANCE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/acceptance.json",
+      "sha256": "78bd607e28aefa8bd4c40bfe61b34dfddbe9c3aa52b9a3ad015dbddb55261a2e",
+      "bytes": 1632262,
+      "package_file": "GUI_STENCIL3D_ACCEPTANCE.json"
+    },
+    "GUI_STENCIL3D_BASE_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab-base-build/build.json",
+      "sha256": "fc1481c787beecb3a09293283ded42f2fe270bcfd294f089a6f4aa6496bf0f45",
+      "bytes": 17033,
+      "package_file": "GUI_STENCIL3D_BASE_BUILD.json"
+    },
+    "GUI_STENCIL3D_BUILD.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/hardware-variant-160cd9673d286a93-552909e5/build/build.json",
+      "sha256": "ea2d1bfeb66010aacaeaae3a30c860ed7c29824ed64b8fdb34aa23dfe8c841fe",
+      "bytes": 17729,
+      "package_file": "GUI_STENCIL3D_BUILD.json"
+    },
+    "GUI_STENCIL3D_CORRUPT_READER.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-corrupt-output-controls/stencil3d/reader-result.json",
+      "sha256": "7d1ee553fe24b0e3c0b1a9e53d509da736586501d7ca7c3d89cba88a8acdef9f",
+      "bytes": 1162858,
+      "package_file": "GUI_STENCIL3D_CORRUPT_READER.json"
+    },
+    "GUI_STENCIL3D_EXECUTION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/gui-execution.json",
+      "sha256": "b092bd2fd6baf3d9df7068f8505b55e66dbed2f8960967a3d2e5949be4ee5c71",
+      "bytes": 462419,
+      "package_file": "GUI_STENCIL3D_EXECUTION.json"
+    },
+    "GUI_STENCIL3D_GENERATION.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/hardware-variant-160cd9673d286a93-552909e5/generation/hardware-codegen.json",
+      "sha256": "045c92050719638ee425f7619c31bfe5fae22f757334605fdbe6c5ed2e180709",
+      "bytes": 54675,
+      "package_file": "GUI_STENCIL3D_GENERATION.json"
+    },
+    "GUI_STENCIL3D_INTEGRATION_DRIVER.py": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/integration-driver.py",
+      "sha256": "d288260ce7f8d6e7cf0762f5d9fe221bb3bd7d99488fc26d2dbc239815541cbe",
+      "bytes": 39160,
+      "package_file": "GUI_STENCIL3D_INTEGRATION_DRIVER.py"
+    },
+    "GUI_STENCIL3D_NUMERICAL_REVIEW_V3.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_STENCIL3D_NUMERICAL_REVIEW_V3.json",
+      "sha256": "33365dca61c48d9db7e928ffd3dca87894042a0e9182999037925ac9a869f32c",
+      "bytes": 241957,
+      "package_file": "GUI_STENCIL3D_NUMERICAL_REVIEW_V3.json"
+    },
+    "GUI_STENCIL3D_PIPELINE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/gui-apply-20261106T163410-735a940d/pipeline/configuration.json",
+      "sha256": "6e9644d702e92a493665e43b9a55e724b5bcefa560cde81375b4282e5feae11a",
+      "bytes": 788896,
+      "package_file": "GUI_STENCIL3D_PIPELINE.json"
+    },
+    "GUI_STENCIL3D_SOURCE_AFTER.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/source-after.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_STENCIL3D_SOURCE_AFTER.json"
+    },
+    "GUI_STENCIL3D_SOURCE_BEFORE.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/source-before.json",
+      "sha256": "a8d9245284163adfc9470ccfac7733663fb08d0fa6e9200e80782161fd32a3f2",
+      "bytes": 16622,
+      "package_file": "GUI_STENCIL3D_SOURCE_BEFORE.json"
+    },
+    "HISTORICAL_FAILED_GUI_STENCIL3D_NUMERICAL_REVIEW_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/GUI_STENCIL3D_NUMERICAL_REVIEW_V2.json",
+      "sha256": "3a055b99d591ff6e6e6ce7b2d43ab033fc3983561841a1586db53f8c77a4f19c",
+      "bytes": 227466,
+      "package_file": "HISTORICAL_FAILED_GUI_STENCIL3D_NUMERICAL_REVIEW_V2.json"
+    },
+    "HISTORICAL_PROVENANCE_INVENTORY_2026-11-05.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/docs/PROVENANCE_INVENTORY_2026-11-05.json",
+      "sha256": "ed6740569546c5736070bade4a79f421dc5f79c353502809d3fca0f25a50ea75",
+      "bytes": 334389,
+      "package_file": "HISTORICAL_PROVENANCE_INVENTORY_2026-11-05.json"
+    },
+    "HISTORICAL_PROVENANCE_INVENTORY_2026-11-05.md": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/docs/PROVENANCE_INVENTORY_2026-11-05.md",
+      "sha256": "dd47e8cfb7e9c3d0b334574a789485b55f278d1120562741726db82998ad0980",
+      "bytes": 22431,
+      "package_file": "HISTORICAL_PROVENANCE_INVENTORY_2026-11-05.md"
+    },
+    "IMPLEMENTATION_FREEZE_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/IMPLEMENTATION_FREEZE_V2.json",
+      "sha256": "370c413ce985307a3ccc9c425ffe5366318024c9408ca7302473b183fe0f2618",
+      "bytes": 1683,
+      "package_file": "IMPLEMENTATION_FREEZE_V2.json"
+    },
+    "NATIVE_FIXTURES_FINAL.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/NATIVE_FIXTURES_FINAL.json",
+      "sha256": "fb54aa79703d3d93bd1d51a3dcd651925c52b66e2d4f334ea524a326e88e3a88",
+      "bytes": 930,
+      "package_file": "NATIVE_FIXTURES_FINAL.json"
+    },
+    "NATIVE_FU_SCHEDULING_POOL.xml": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-fixtures/fu_scheduling_pool-final.xml",
+      "sha256": "ac728278ee149690a95f95caa1a8c3ae0c3ec31038d67ee587dce94164237ffc",
+      "bytes": 1575,
+      "package_file": "NATIVE_FU_SCHEDULING_POOL.xml"
+    },
+    "NATIVE_RESPONSE_QUEUE.xml": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/native-fixtures/response_queue-final.xml",
+      "sha256": "22fffe380c31503ff73a34ef2eaa2f463951816793b51f1065fbafec90bb2db8",
+      "bytes": 4060,
+      "package_file": "NATIVE_RESPONSE_QUEUE.xml"
+    },
+    "NUMERICAL_EVIDENCE_REVIEW_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/NUMERICAL_EVIDENCE_REVIEW_V2.json",
+      "sha256": "e934628e0bd9f96c3e0229abcd6664cb0fa90bdeb95712271ed6d4079ab188cf",
+      "bytes": 14413,
+      "package_file": "NUMERICAL_EVIDENCE_REVIEW_V2.json"
+    },
+    "PRESERVATION_VERIFICATION_POST_MOVE.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/PRESERVATION_VERIFICATION_POST_MOVE.json",
+      "sha256": "0b030b10d2bc97c3e14650a0a96ee0b740f1398b061cef04d3f00543b4ef5a91",
+      "bytes": 670,
+      "package_file": "PRESERVATION_VERIFICATION_POST_MOVE.json"
+    },
+    "PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.json": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/docs/PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.json",
+      "sha256": "be82d4ef691dceb3ae5e77199e8baeda7824d5dfe54ea64b22f15c12a90121d2",
+      "bytes": 472825,
+      "package_file": "PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.json"
+    },
+    "PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.md": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/docs/PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.md",
+      "sha256": "21a654ec505945680fe75200cbe43ab1ad9d56ed211b179c6e614b2368d0c33a",
+      "bytes": 79002,
+      "package_file": "PROVENANCE_INVENTORY_TRACK_AB_2026-11-06.md"
+    },
+    "PROVENANCE_VERIFICATION_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/PROVENANCE_VERIFICATION_V2.json",
+      "sha256": "6729cf26f0071954d56d1f9836bab5612c21a847d6d88ce145ed291341fa3d1d",
+      "bytes": 10447,
+      "package_file": "PROVENANCE_VERIFICATION_V2.json"
+    },
+    "SOURCE_CONFIG_CHECK.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-config/check.json",
+      "sha256": "e89d78744e78f58d6efb197d027ce5081f02054200a9d59e8be282500bdedf98",
+      "bytes": 172595,
+      "package_file": "SOURCE_CONFIG_CHECK.json"
+    },
+    "SOURCE_CONFIG_UNIT_RESULTS.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-config/unit-results.json",
+      "sha256": "0b1fbaa9c898994f826513c26125a4ad84647ee7b6412e89fcb9957201e4c38a",
+      "bytes": 105354,
+      "package_file": "SOURCE_CONFIG_UNIT_RESULTS.json"
+    },
+    "SOURCE_FAST_CHECK.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-fast/check.json",
+      "sha256": "2336474282471027cf141972a2303ec3d887078ec2f7db0ff0327c934a89ee3a",
+      "bytes": 148099,
+      "package_file": "SOURCE_FAST_CHECK.json"
+    },
+    "SOURCE_FAST_UNIT_RESULTS.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-fast/unit-results.json",
+      "sha256": "2ca40b313f9429a7088f4e4618f2b510aa78f260356437db4838c71239d85a39",
+      "bytes": 81285,
+      "package_file": "SOURCE_FAST_UNIT_RESULTS.json"
+    },
+    "SOURCE_GUI_CHECK.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-gui/check.json",
+      "sha256": "87938b31ae76e8407f2e822b451efe9675f519990b287103f04491c3cf4d19b6",
+      "bytes": 82315,
+      "package_file": "SOURCE_GUI_CHECK.json"
+    },
+    "SOURCE_GUI_UNIT_RESULTS.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/source-checks/ab-qualified-gui/unit-results.json",
+      "sha256": "6e9203210ce23215421df70168e68abde53efec9538626e7aaa4f8c25e5f1234",
+      "bytes": 16704,
+      "package_file": "SOURCE_GUI_UNIT_RESULTS.json"
+    },
+    "SOURCE_TEST_INVENTORY_V2.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/SOURCE_TEST_INVENTORY_V2.json",
+      "sha256": "f24adb7bc50f6c1edc0bf3398d54f7786423d624d87e5f69a774db377fd280dd",
+      "bytes": 116910,
+      "package_file": "SOURCE_TEST_INVENTORY_V2.json"
+    },
+    "STENCIL_MAKEFILE_CHAIN_REVIEW.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/STENCIL_MAKEFILE_CHAIN_REVIEW.json",
+      "sha256": "42e4533c07f3f9897175d2979848223eb2fae991efa131876d95959252fe7a88",
+      "bytes": 4847,
+      "package_file": "STENCIL_MAKEFILE_CHAIN_REVIEW.json"
+    },
+    "UART_CONTRACT.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/uart-v5/guest_uart_regression_receipt.json",
+      "sha256": "5e7cd4f1fb5afa49db7b6ef2938cac3ab2a0516b850951201f85c93a25c75ad8",
+      "bytes": 13439,
+      "package_file": "UART_CONTRACT.json"
+    },
+    "UART_LEGACY_ACTUAL_FAILURE.json": {
+      "path": "/home/jslycord/projects/salam-track-ab-integration-20261106/uart-legacy-negative/guest_uart_regression_receipt.json",
+      "sha256": "d706a7be10230af6f72cb15a07195ef67f3722e33a6139df88eaa09d95f1e02b",
+      "bytes": 14226,
+      "package_file": "UART_LEGACY_ACTUAL_FAILURE.json"
+    },
+    "UART_LEGACY_NEGATIVE.json": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/UART_LEGACY_NEGATIVE.json",
+      "sha256": "bf67cc3b10ccf69b51afd5b99f1e0796188026ff51c097ffc59413f4ac8582dc",
+      "bytes": 998,
+      "package_file": "UART_LEGACY_NEGATIVE.json"
+    },
+    "fft-results.png": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-fft/01-configured-fft/results.png",
+      "sha256": "39d0e23632aa0f415b3974a05445fe57c71b446c92117c83c33018c59ef313b0",
+      "bytes": 279986,
+      "package_file": "fft-results.png"
+    },
+    "finish_checkpoint_v7.py": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/finish_checkpoint_v7.py",
+      "sha256": "861b56d2cf9b95c80f7747e230e55eada4064a18674f8ec2a632d0681109c24d",
+      "bytes": 82425,
+      "package_file": "finish_checkpoint_v7.py"
+    },
+    "gemm-results.png": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab4-gui-gemm/01-configured-gemm/results.png",
+      "sha256": "f8385105a9a9044c1408355802e34d063f1852733157134de259d0cd5e679166",
+      "bytes": 281134,
+      "package_file": "gemm-results.png"
+    },
+    "review_gui_breadth_numerical_v3.py": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/review_gui_breadth_numerical_v3.py",
+      "sha256": "a4ab06b68a04d617eee5669211e860d188ded30da03b8fa9ed9cd96307457df4",
+      "bytes": 24912,
+      "package_file": "review_gui_breadth_numerical_v3.py"
+    },
+    "review_numerical_evidence_v2.py": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/review_numerical_evidence_v2.py",
+      "sha256": "af92e1c6179572c657b5dc701bbaf18e4a6cd51315e22cb4d419c116a2d9ef29",
+      "bytes": 28412,
+      "package_file": "review_numerical_evidence_v2.py"
+    },
+    "stencil3d-results.png": {
+      "path": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106/workbench/evidence/ab6-gui-stencil3d/01-configured-stencil3d/results.png",
+      "sha256": "2435b2bd07a4ed09785be252049a92545bfd0847a134625ed746c9c1a7e833e7",
+      "bytes": 286696,
+      "package_file": "stencil3d-results.png"
+    },
+    "verify_provenance_independent_v2.py": {
+      "path": "/mnt/d/kb_local_chatGPT/salam/track-ab-integration-20261106/verify_provenance_independent_v2.py",
+      "sha256": "00a52efd6574beed4f7a654986170844c3092692045483d1f5dfba77bb56b299",
+      "bytes": 7675,
+      "package_file": "verify_provenance_independent_v2.py"
+    }
+  },
+  "reviewed_patch": {
+    "from": "1460634fdef5edf20680ea560e07a2e01422e808",
+    "to": "13bbe024fd9e480196125eecaf0783435180c029",
+    "sha256": "349a48a54ebd0d0e5103f35fc0ea7ed289370e324d48bbc8f91153af731b14b4",
+    "bytes": 495302,
+    "package_file": "TRACK_B_REVIEWED_INTEGRATION.patch"
+  },
+  "source_boundaries": {
+    "full_raw_evidence_kept_local": true,
+    "raw_outputs_or_binaries_added_to_git": false,
+    "fresh_acceptance_attempts": {
+      "gemm": "ab4-gui-gemm",
+      "fft": "ab6-gui-fft",
+      "stencil3d": "ab6-gui-stencil3d"
+    }
+  },
+  "deferred": [
+    "Process-global graph lifetime counters/assertions and associated C++ changes",
+    "Full production SimObject drain/retry/DMA/RegisterBank and multi-accelerator graph-lifetime fixtures",
+    "Original authorship/governing rights remain unresolved",
+    "Synthetic PPA coefficient probes are not physical calibration"
+  ],
+  "preserved_failed_attempts": [
+    "Initial missing toolchain/binding/wrapper prerequisites",
+    "Real profile builds whose benchmark staging rejected missing native model dependencies",
+    "Unexpected WSL exits and host-storage failures interrupting later FFT/stencil attempts; these are excluded from accepted results"
+  ],
+  "runtime": "/home/jslycord/projects/salam-track-ab-integration-20261106",
+  "source_worktree": "/home/jslycord/projects/gem5-salam-track-ab-integration-20261106"
+}

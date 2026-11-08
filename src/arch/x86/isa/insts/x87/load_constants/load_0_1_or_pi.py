@@ -34,21 +34,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-microcode = '''
+microcode = """
 
 def macroop FLDZ {
-    lfpimm ufp1, 0.0
-    movfp st(-1), ufp1, spm=-1
+    lfpimm ufp1, 0.0, dataSize=8
+    movfp st(-1), ufp1, spm=-1, dataSize=8
 };
 
 def macroop FLD1 {
-    lfpimm ufp1, 1.0
-    movfp st(-1), ufp1, spm=-1
+    lfpimm ufp1, 1.0, dataSize=8
+    movfp st(-1), ufp1, spm=-1, dataSize=8
 };
 
 def macroop FLDPI {
-    lfpimm ufp1, 3.14159265359
-    movfp st(-1), ufp1, spm=-1
+    lfpimm ufp1, 3.14159265359, dataSize=8
+    movfp st(-1), ufp1, spm=-1, dataSize=8
 };
 
-'''
+"""

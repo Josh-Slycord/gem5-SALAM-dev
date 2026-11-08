@@ -17,6 +17,8 @@ from pathlib import Path
 ENV_ALLOWLIST = frozenset(
     {
         "PATH",
+        "PYTHONNOUSERSITE",
+        "PYTHONDONTWRITEBYTECODE",
         "M5_PATH",
         "PYTHONPATH",
         "LD_LIBRARY_PATH",

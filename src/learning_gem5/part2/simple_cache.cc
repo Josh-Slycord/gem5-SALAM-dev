@@ -29,7 +29,6 @@
 #include "learning_gem5/part2/simple_cache.hh"
 
 #include "base/compiler.hh"
-#include "base/random.hh"
 #include "debug/SimpleCache.hh"
 #include "sim/system.hh"
 
@@ -233,7 +232,7 @@ SimpleCache::handleResponse(PacketPtr pkt)
         DPRINTF(SimpleCache, "Copying data from new packet to old\n");
         // We had to upgrade a previous packet. We can functionally deal with
         // the cache access now. It better be a hit.
-        GEM5_VAR_USED bool hit = accessFunctional(originalPacket);
+        [[maybe_unused]] bool hit = accessFunctional(originalPacket);
         panic_if(!hit, "Should always hit after inserting");
         originalPacket->makeResponse();
         delete pkt; // We may need to delay this, I'm not sure.
@@ -373,10 +372,10 @@ SimpleCache::insert(PacketPtr pkt)
         // are using a std::unordered_map. See http://bit.ly/2hrnLP2
         int bucket, bucket_size;
         do {
-            bucket = random_mt.random(0, (int)cacheStore.bucket_count() - 1);
+            bucket = rng->random(0, (int)cacheStore.bucket_count() - 1);
         } while ( (bucket_size = cacheStore.bucket_size(bucket)) == 0 );
         auto block = std::next(cacheStore.begin(bucket),
-                               random_mt.random(0, bucket_size - 1));
+                               rng->random(0, bucket_size - 1));
 
         DPRINTF(SimpleCache, "Removing addr %#x\n", block->first);
 

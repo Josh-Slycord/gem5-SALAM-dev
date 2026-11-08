@@ -63,12 +63,12 @@ namespace ArmISA
 class RemoteGDB : public BaseRemoteGDB
 {
   protected:
-    bool acc(Addr addr, size_t len);
+    bool acc(Addr addr, size_t len) override;
 
     class AArch32GdbRegCache : public BaseGdbRegCache
     {
       using BaseGdbRegCache::BaseGdbRegCache;
-      private:
+      protected:
         struct GEM5_PACKED
         {
           uint32_t gpr[16];
@@ -77,12 +77,12 @@ class RemoteGDB : public BaseRemoteGDB
           uint32_t fpscr;
         } r;
       public:
-        char *data() const { return (char *)&r; }
-        size_t size() const { return sizeof(r); }
-        void getRegs(ThreadContext*);
-        void setRegs(ThreadContext*) const;
+        char *data() override { return (char *)&r; }
+        size_t size() const override { return sizeof(r); }
+        void getRegs(ThreadContext*) override;
+        void setRegs(ThreadContext*) const override;
         const std::string
-        name() const
+        name() const override
         {
             return gdb->name() + ".AArch32GdbRegCache";
         }
@@ -91,7 +91,7 @@ class RemoteGDB : public BaseRemoteGDB
     class AArch64GdbRegCache : public BaseGdbRegCache
     {
       using BaseGdbRegCache::BaseGdbRegCache;
-      private:
+      protected:
         struct GEM5_PACKED
         {
           uint64_t x[31];
@@ -103,12 +103,12 @@ class RemoteGDB : public BaseRemoteGDB
           uint32_t fpcr;
         } r;
       public:
-        char *data() const { return (char *)&r; }
-        size_t size() const { return sizeof(r); }
-        void getRegs(ThreadContext*);
-        void setRegs(ThreadContext*) const;
+        char *data() override { return (char *)&r; }
+        size_t size() const override { return sizeof(r); }
+        void getRegs(ThreadContext*) override;
+        void setRegs(ThreadContext*) const override;
         const std::string
-        name() const
+        name() const override
         {
             return gdb->name() + ".AArch64GdbRegCache";
         }
@@ -118,14 +118,16 @@ class RemoteGDB : public BaseRemoteGDB
     AArch64GdbRegCache regCache64;
 
   public:
-    RemoteGDB(System *_system, int _port);
-    BaseGdbRegCache *gdbRegs();
+    RemoteGDB(System *_system, ListenSocketConfig _listen_config);
+    BaseGdbRegCache *gdbRegs() override;
+    bool checkBpKind(size_t kind) override;
     std::vector<std::string>
-    availableFeatures() const
+    availableFeatures() const override
     {
         return {"qXfer:features:read+"};
     };
-    bool getXferFeaturesRead(const std::string &annex, std::string &output);
+    bool getXferFeaturesRead(const std::string &annex,
+                             std::string &output) override;
 };
 
 } // namespace ArmISA

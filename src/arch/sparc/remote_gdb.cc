@@ -148,8 +148,9 @@ namespace gem5
 
 using namespace SparcISA;
 
-RemoteGDB::RemoteGDB(System *_system, int _port)
-    : BaseRemoteGDB(_system, _port), regCache32(this), regCache64(this)
+RemoteGDB::RemoteGDB(System *_system, ListenSocketConfig _listen_config)
+    : BaseRemoteGDB(_system, _listen_config),
+    regCache32(this), regCache64(this)
 {}
 
 ///////////////////////////////////////////////////////////
@@ -176,41 +177,45 @@ void
 RemoteGDB::SPARCGdbRegCache::getRegs(ThreadContext *context)
 {
     DPRINTF(GDBAcc, "getRegs in remotegdb \n");
-    for (int i = 0; i < 32; i++) r.gpr[i] = htobe((uint32_t)context->readIntReg(i));
-    PCState pc = context->pcState();
+    for (int i = 0; i < 32; i++)
+        r.gpr[i] = htobe((uint32_t)context->getReg(intRegClass[i]));
+    auto &pc = context->pcState().as<SparcISA::PCState>();
     r.pc = htobe((uint32_t)pc.pc());
     r.npc = htobe((uint32_t)pc.npc());
-    r.y = htobe((uint32_t)context->readIntReg(INTREG_Y));
+    r.y = htobe((uint32_t)context->getReg(int_reg::Y));
     PSTATE pstate = context->readMiscReg(MISCREG_PSTATE);
     r.psr = htobe((uint32_t)pstate);
     r.fsr = htobe((uint32_t)context->readMiscReg(MISCREG_FSR));
-    r.csr = htobe((uint32_t)context->readIntReg(INTREG_CCR));
+    r.csr = htobe((uint32_t)context->getReg(int_reg::Ccr));
 }
 
 void
 RemoteGDB::SPARC64GdbRegCache::getRegs(ThreadContext *context)
 {
     DPRINTF(GDBAcc, "getRegs in remotegdb \n");
-    for (int i = 0; i < 32; i++) r.gpr[i] = htobe(context->readIntReg(i));
-    for (int i = 0; i < 32; i++) r.fpr[i] = 0;
-    PCState pc = context->pcState();
+    for (int i = 0; i < 32; i++)
+        r.gpr[i] = htobe(context->getReg(intRegClass[i]));
+    for (int i = 0; i < 32; i++)
+        r.fpr[i] = 0;
+    auto &pc = context->pcState().as<SparcISA::PCState>();
     r.pc = htobe(pc.pc());
     r.npc = htobe(pc.npc());
     r.fsr = htobe(context->readMiscReg(MISCREG_FSR));
     r.fprs = htobe(context->readMiscReg(MISCREG_FPRS));
-    r.y = htobe(context->readIntReg(INTREG_Y));
+    r.y = htobe(context->getReg(int_reg::Y));
     PSTATE pstate = context->readMiscReg(MISCREG_PSTATE);
     r.state = htobe(
         context->readMiscReg(MISCREG_CWP) |
         pstate << 8 |
         context->readMiscReg(MISCREG_ASI) << 24 |
-        context->readIntReg(INTREG_CCR) << 32);
+        context->getReg(int_reg::Ccr) << 32);
 }
 
 void
 RemoteGDB::SPARCGdbRegCache::setRegs(ThreadContext *context) const
 {
-    for (int i = 0; i < 32; i++) context->setIntReg(i, r.gpr[i]);
+    for (int i = 0; i < 32; i++)
+        context->setReg(intRegClass[i], r.gpr[i]);
     PCState pc;
     pc.pc(r.pc);
     pc.npc(r.npc);
@@ -226,7 +231,8 @@ RemoteGDB::SPARCGdbRegCache::setRegs(ThreadContext *context) const
 void
 RemoteGDB::SPARC64GdbRegCache::setRegs(ThreadContext *context) const
 {
-    for (int i = 0; i < 32; i++) context->setIntReg(i, r.gpr[i]);
+    for (int i = 0; i < 32; i++)
+        context->setReg(intRegClass[i], r.gpr[i]);
     PCState pc;
     pc.pc(r.pc);
     pc.npc(r.npc);

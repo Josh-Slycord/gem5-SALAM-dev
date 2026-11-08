@@ -86,6 +86,23 @@ class WorkbenchJobsTests(unittest.TestCase):
         ):
             return jobs.launch_reference(name, project=self.project, progress=progress)
 
+    def test_modern_reference_refuses_before_allocating_evidence(self):
+        (self.project / "workspace.json").write_text(
+            json.dumps(
+                {
+                    "engine": {"path": str(self.engine)},
+                    "configuration_engine": {
+                        "toolchain_profile": {"id": "gem5-26-retained-salam"}
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "not validated for gem5 26"):
+            self.launch()
+        self.verify.assert_not_called()
+        self.assertFalse((self.project / "evidence").exists())
+
     def test_fixed_reference_uses_manifest_engine_and_private_runs_root(self):
         events = []
         result = self.launch("benchmarks/sys_validation/fft", progress=events.append)

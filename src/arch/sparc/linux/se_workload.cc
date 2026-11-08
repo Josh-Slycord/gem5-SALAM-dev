@@ -30,7 +30,9 @@
 
 #include <sys/syscall.h>
 
+#include "arch/sparc/page_size.hh"
 #include "arch/sparc/process.hh"
+#include "arch/sparc/regs/int.hh"
 #include "base/loader/object_file.hh"
 #include "base/trace.hh"
 #include "cpu/thread_context.hh"
@@ -76,7 +78,7 @@ LinuxLoader linuxLoader;
 namespace SparcISA
 {
 
-EmuLinux::EmuLinux(const Params &p) : SEWorkload(p)
+EmuLinux::EmuLinux(const Params &p) : SEWorkload(p, PageShift)
 {}
 
 void
@@ -116,7 +118,7 @@ EmuLinux::syscall32(ThreadContext *tc)
     // This will move into the base SEWorkload function at some point.
     process->Process::syscall(tc);
 
-    syscall32Descs.get(tc->readIntReg(1))->doSyscall(tc);
+    syscall32Descs.get(tc->getReg(int_reg::G1))->doSyscall(tc);
 }
 
 void
@@ -127,7 +129,7 @@ EmuLinux::syscall64(ThreadContext *tc)
     // This will move into the base SEWorkload function at some point.
     process->Process::syscall(tc);
 
-    syscallDescs.get(tc->readIntReg(1))->doSyscall(tc);
+    syscallDescs.get(tc->getReg(int_reg::G1))->doSyscall(tc);
 }
 
 void

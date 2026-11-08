@@ -27,3 +27,6 @@ Makefile text eol=lf
 docs/LEGACY_SIMULATOR_SETUP.md -text -whitespace
 # Exact historical CI before-images.
 docs/ci/legacy-* -text -whitespace
+
+# Handwritten LLVM regression kernels remain reviewable source.
+tests/gem5/salam/*.ll -binary text diff merge eol=lf

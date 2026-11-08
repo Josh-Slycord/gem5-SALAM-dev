@@ -21,6 +21,15 @@ SALAM::BasicBlock::~BasicBlock()
     //// if (DTRACE(SALAM_Debug)) delete bb_dbg;
 }
 
+void
+SALAM::BasicBlock::releaseGraphEdges()
+{
+    predecessors.clear();
+    for (auto &inst : instructions) {
+        inst->releaseGraphEdges();
+    }
+}
+
 SALAM::BasicBlock::BasicBlock_Debugger::BasicBlock_Debugger()
 {
     // if (DTRACE(Trace)) DPRINTF(Runtime, "Trace: %s \n", __PRETTY_FUNCTION__);

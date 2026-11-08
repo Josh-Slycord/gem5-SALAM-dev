@@ -1,4 +1,16 @@
 /*
+ * Copyright (c) 2026 Arm Limited
+ * All rights reserved
+ *
+ * The license below extends only to copyright in the software and shall
+ * not be construed as granting a license to any other intellectual
+ * property including but not limited to intellectual property relating
+ * to a hardware implementation of the functionality of the software
+ * licensed hereunder.  You may use the software subject to the license
+ * terms below provided that you ensure that this notice is replicated
+ * unmodified and in its entirety in all distributions of the software,
+ * modified or unmodified, in source code or in binary form.
+ *
  * Copyright (c) 2010 Advanced Micro Devices, Inc.
  * All rights reserved.
  *
@@ -70,7 +82,8 @@ class WireBuffer : public SimObject
 
     void wakeup();
 
-    void setConsumer(Consumer* consumer_ptr)
+    void
+    setConsumer(Consumer *consumer_ptr, bool is_inport = false)
     {
         m_consumer_ptr = consumer_ptr;
     }
@@ -78,7 +91,10 @@ class WireBuffer : public SimObject
     void setDescription(const std::string& name) { m_description = name; };
     std::string getDescription() { return m_description; };
 
-    void enqueue(MsgPtr message, Tick current_time, Tick delta);
+    // ruby_is_random and ruby_warmup are not used, but this method signature
+    // must match that of MessageBuffer.
+    void enqueue(MsgPtr message, Tick current_time, Tick delta,
+                 bool ruby_is_random = false, bool ruby_warmup = false);
     void dequeue(Tick current_time);
     const Message* peek();
     void recycle(Tick current_time, Tick recycle_latency);

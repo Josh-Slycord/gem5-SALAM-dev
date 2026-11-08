@@ -67,7 +67,6 @@ constexpr auto Nan = std::numeric_limits<float>::quiet_NaN();
 
 } // anonymous namespace
 
-GEM5_DEPRECATED_NAMESPACE(Stats, statistics);
 namespace statistics
 {
 
@@ -128,9 +127,16 @@ Text::valid() const
 }
 
 void
-Text::begin()
+Text::begin(const std::string &message)
 {
-    ccprintf(*stream, "\n---------- Begin Simulation Statistics ----------\n");
+    if (message.empty()) {
+        ccprintf(*stream,
+                 "\n---------- Begin Simulation Statistics ----------\n");
+    } else {
+        ccprintf(*stream,
+                 "\n---------- Begin Simulation Statistics : %s ----------\n",
+                 message);
+    }
 }
 
 void
@@ -307,7 +313,7 @@ ScalarPrint::operator()(std::ostream &stream, bool oneLine) const
                 ccprintf(stream, " # %s", desc);
         }
         printUnits(stream);
-        stream << std::endl;
+        stream << "\n";
     }
 }
 
@@ -391,7 +397,7 @@ VectorPrint::operator()(std::ostream &stream) const
                     ccprintf(stream, " # %s", desc);
             }
             printUnits(stream);
-            stream << std::endl;
+            stream << "\n";
         }
     }
 
@@ -465,6 +471,7 @@ DistPrint::operator()(std::ostream &stream) const
     print.flags = flags;
     print.descriptions = descriptions;
     print.desc = desc;
+    print.enableUnits = enableUnits;
     print.unitStr = unitStr;
     print.pdf = Nan;
     print.cdf = Nan;
@@ -498,9 +505,12 @@ DistPrint::operator()(std::ostream &stream) const
     }
 
     Result stdev = Nan;
-    if (data.samples)
-        stdev = sqrt((data.samples * data.squares - data.sum * data.sum) /
-                     (data.samples * (data.samples - 1.0)));
+    if (data.samples) {
+        if (data.samples * (data.samples - 1.0) != 0.0) {
+            stdev = sqrt((data.samples * data.squares - data.sum * data.sum) /
+                         (data.samples * (data.samples - 1.0)));
+        }
+    }
     print.name = base + "stdev";
     print.value = stdev;
     print(stream);
@@ -554,7 +564,7 @@ DistPrint::operator()(std::ostream &stream) const
                 ccprintf(stream, " # %s", desc);
         }
         printUnits(stream);
-        stream << std::endl;
+        stream << "\n";
     }
 
     if (data.type == Dist && data.overflow != Nan) {

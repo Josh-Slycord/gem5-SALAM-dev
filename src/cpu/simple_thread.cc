@@ -42,14 +42,12 @@
 
 #include <string>
 
+#include "arch/generic/decoder.hh"
 #include "base/callback.hh"
 #include "base/compiler.hh"
 #include "base/cprintf.hh"
 #include "base/output.hh"
 #include "base/trace.hh"
-#include "config/the_isa.hh"
-#include "cpu/base.hh"
-#include "cpu/simple/base.hh"
 #include "cpu/thread_context.hh"
 #include "mem/se_translating_port_proxy.hh"
 #include "mem/translating_port_proxy.hh"
@@ -67,34 +65,36 @@ namespace gem5
 // constructor
 SimpleThread::SimpleThread(BaseCPU *_cpu, int _thread_num, System *_sys,
                            Process *_process, BaseMMU *_mmu,
-                           BaseISA *_isa)
+                           BaseISA *_isa, InstDecoder *_decoder)
     : ThreadState(_cpu, _thread_num, _process),
-      isa(dynamic_cast<TheISA::ISA *>(_isa)),
+      regFiles{{
+          {*_isa->regClasses().at(IntRegClass)},
+          {*_isa->regClasses().at(FloatRegClass)},
+          {*_isa->regClasses().at(VecRegClass)},
+          {*_isa->regClasses().at(VecElemClass)},
+          {*_isa->regClasses().at(VecPredRegClass)},
+          {*_isa->regClasses().at(MatRegClass)},
+          {*_isa->regClasses().at(CCRegClass)}
+      }},
+      isa(_isa),
       predicate(true), memAccPredicate(true),
       comInstEventQueue("instruction-based event queue"),
-      system(_sys), mmu(_mmu), decoder(isa),
+      system(_sys), mmu(_mmu), decoder(_decoder),
       htmTransactionStarts(0), htmTransactionStops(0)
 {
-    assert(isa);
-    const auto &regClasses = isa->regClasses();
-    intRegs.resize(regClasses.at(IntRegClass).size());
-    floatRegs.resize(regClasses.at(FloatRegClass).size());
-    vecRegs.resize(regClasses.at(VecRegClass).size());
-    vecPredRegs.resize(regClasses.at(VecPredRegClass).size());
-    ccRegs.resize(regClasses.at(CCRegClass).size());
     clearArchRegs();
 }
 
 SimpleThread::SimpleThread(BaseCPU *_cpu, int _thread_num, System *_sys,
-                           BaseMMU *_mmu, BaseISA *_isa)
-    : SimpleThread(_cpu, _thread_num, _sys, nullptr, _mmu, _isa)
+                           BaseMMU *_mmu, BaseISA *_isa, InstDecoder *_decoder)
+    : SimpleThread(_cpu, _thread_num, _sys, nullptr, _mmu, _isa, _decoder)
 {}
 
 void
 SimpleThread::takeOverFrom(ThreadContext *oldContext)
 {
     gem5::takeOverFrom(*this, *oldContext);
-    decoder.takeOverFrom(oldContext->getDecoderPtr());
+    decoder->takeOverFrom(oldContext->getDecoderPtr());
 
     isa->takeOverFrom(this, oldContext);
 
@@ -171,10 +171,7 @@ SimpleThread::copyArchRegs(ThreadContext *src_tc)
 void
 SimpleThread::htmAbortTransaction(uint64_t htm_uid, HtmFailureFaultCause cause)
 {
-    BaseSimpleCPU *baseSimpleCpu = dynamic_cast<BaseSimpleCPU*>(baseCpu);
-    assert(baseSimpleCpu);
-
-    baseSimpleCpu->htmSendAbortSignal(cause);
+    baseCpu->htmSendAbortSignal(threadId(), htm_uid, cause);
 
     // these must be reset after the abort signal has been sent
     htmTransactionStarts = 0;

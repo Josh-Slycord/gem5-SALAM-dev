@@ -59,7 +59,11 @@
 #include "debug/Quiesce.hh"
 #include "debug/WorkItems.hh"
 #include "dev/net/dist_iface.hh"
+#include "mem/se_translating_port_proxy.hh"
+#include "mem/translating_port_proxy.hh"
 #include "params/BaseCPU.hh"
+#include "sim/eventq.hh"
+#include "sim/full_system.hh"
 #include "sim/process.hh"
 #include "sim/serialize.hh"
 #include "sim/sim_events.hh"
@@ -73,7 +77,6 @@ namespace gem5
 
 using namespace statistics;
 
-GEM5_DEPRECATED_NAMESPACE(PseudoInst, pseudo_inst);
 namespace pseudo_inst
 {
 
@@ -98,6 +101,26 @@ const std::string DIST_RANK = "dist-rank";
  *  Unique key for "size" param (distributed gem5 runs)
  */
 const std::string DIST_SIZE = "dist-size";
+
+void
+fullSystemWriteBlob(ThreadContext *tc, Addr addr, const void *data,
+                    uint64_t size)
+{
+    auto gen = tc->getMMUPtr()->translateFunctional(addr, size, tc,
+                                                    BaseMMU::Write, 0);
+    auto *ptr = static_cast<const uint8_t *>(data);
+
+    for (const auto &range : *gen) {
+        if (range.fault) {
+            fatal("pseudo_inst::readfile failed to write to %#llx",
+                  (unsigned long long)addr);
+        }
+
+        tc->getSystemPtr()->physProxy.writeBlobPhys(range.paddr, range.flags,
+                                                    ptr, range.size);
+        ptr += range.size;
+    }
+}
 
 } // anonymous namespace
 
@@ -178,7 +201,8 @@ m5exit(ThreadContext *tc, Tick delay)
     DPRINTF(PseudoInst, "pseudo_inst::m5exit(%i)\n", delay);
     if (DistIface::readyToExit(delay)) {
         Tick when = curTick() + delay * sim_clock::as_int::ns;
-        exitSimLoop("m5_exit instruction encountered", 0, when, 0, true);
+        exitSimulationLoopClassic("m5_exit instruction encountered", 0, when,
+                                  0, true);
     }
 }
 
@@ -197,7 +221,8 @@ m5fail(ThreadContext *tc, Tick delay, uint64_t code)
 {
     DPRINTF(PseudoInst, "pseudo_inst::m5fail(%i, %i)\n", delay, code);
     Tick when = curTick() + delay * sim_clock::as_int::ns;
-    exitSimLoop("m5_fail instruction encountered", code, when, 0, true);
+    exitSimulationLoopClassic("m5_fail instruction encountered", code, when, 0,
+                              true);
 }
 
 void
@@ -242,9 +267,10 @@ loadsymbol(ThreadContext *tc)
             continue;
 
         if (!tc->getSystemPtr()->workload->insertSymbol(
-                    { loader::Symbol::Binding::Global, symbol, addr })) {
-            continue;
-        }
+            { loader::Symbol::Binding::Global,
+              loader::Symbol::SymbolType::Function, symbol, addr })) {
+                continue;
+              }
 
 
         DPRINTF(Loader, "Loaded symbol: %s @ %#llx\n", symbol, addr);
@@ -253,20 +279,28 @@ loadsymbol(ThreadContext *tc)
 }
 
 void
-addsymbol(ThreadContext *tc, Addr addr, Addr symbolAddr)
+addsymbol(ThreadContext *tc, GuestAddr addr, GuestAddr symbolAddr)
 {
     DPRINTF(PseudoInst, "pseudo_inst::addsymbol(0x%x, 0x%x)\n",
-            addr, symbolAddr);
+            addr.addr, symbolAddr.addr);
 
     std::string symbol;
-    tc->getVirtProxy().readString(symbol, symbolAddr);
+    TranslatingPortProxy fs_proxy(tc);
+    SETranslatingPortProxy se_proxy(tc);
+    PortProxy &virt_proxy = FullSystem ? fs_proxy : se_proxy;
 
-    DPRINTF(Loader, "Loaded symbol: %s @ %#llx\n", symbol, addr);
+    virt_proxy.readString(symbol, symbolAddr.addr);
+
+    DPRINTF(Loader, "Loaded symbol: %s @ %#llx\n", symbol, addr.addr);
 
     tc->getSystemPtr()->workload->insertSymbol(
-            { loader::Symbol::Binding::Global, symbol, addr });
+        { loader::Symbol::Binding::Global,
+          loader::Symbol::SymbolType::Function, symbol, addr.addr }
+    );
     loader::debugSymbolTable.insert(
-            { loader::Symbol::Binding::Global, symbol, addr });
+        { loader::Symbol::Binding::Global,
+          loader::Symbol::SymbolType::Function, symbol, addr.addr }
+    );
 }
 
 uint64_t
@@ -352,15 +386,17 @@ m5checkpoint(ThreadContext *tc, Tick delay, Tick period)
     if (DistIface::readyToCkpt(delay, period)) {
         Tick when = curTick() + delay * sim_clock::as_int::ns;
         Tick repeat = period * sim_clock::as_int::ns;
-        exitSimLoop("checkpoint", 0, when, repeat);
+        exitSimulationLoopClassic("checkpoint", 0, when, repeat);
     }
 }
 
 uint64_t
-readfile(ThreadContext *tc, Addr vaddr, uint64_t len, uint64_t offset)
+readfile(ThreadContext *tc, GuestAddr vaddr, uint64_t len, uint64_t offset)
 {
-    DPRINTF(PseudoInst, "pseudo_inst::readfile(0x%x, 0x%x, 0x%x)\n",
-            vaddr, len, offset);
+    DPRINTF(PseudoInst, "pseudo_inst::readfile(%#llx, %#llx, %#llx)\n",
+            static_cast<unsigned long long>(vaddr.addr),
+            static_cast<unsigned long long>(len),
+            static_cast<unsigned long long>(offset));
 
     const std::string &file = tc->getSystemPtr()->params().readfile;
     if (file.empty()) {
@@ -389,21 +425,33 @@ readfile(ThreadContext *tc, Addr vaddr, uint64_t len, uint64_t offset)
     }
 
     close(fd);
-    tc->getVirtProxy().writeBlob(vaddr, buf, result);
-    delete [] buf;
+    if (FullSystem) {
+        fullSystemWriteBlob(tc, vaddr.addr, buf, result);
+    } else {
+        SETranslatingPortProxy se_proxy(tc);
+        se_proxy.writeBlob(vaddr.addr, buf, result);
+    }
+    DPRINTF(PseudoInst, "pseudo_inst::readfile wrote %llu bytes to %#llx\n",
+            static_cast<unsigned long long>(result),
+            static_cast<unsigned long long>(vaddr.addr));
+    delete[] buf;
     return result;
 }
 
 uint64_t
-writefile(ThreadContext *tc, Addr vaddr, uint64_t len, uint64_t offset,
-            Addr filename_addr)
+writefile(ThreadContext *tc, GuestAddr vaddr, uint64_t len, uint64_t offset,
+            GuestAddr filename_addr)
 {
     DPRINTF(PseudoInst, "pseudo_inst::writefile(0x%x, 0x%x, 0x%x, 0x%x)\n",
-            vaddr, len, offset, filename_addr);
+            vaddr.addr, len, offset, filename_addr.addr);
 
     // copy out target filename
     std::string filename;
-    tc->getVirtProxy().readString(filename, filename_addr);
+    TranslatingPortProxy fs_proxy(tc);
+    SETranslatingPortProxy se_proxy(tc);
+    PortProxy &virt_proxy = FullSystem ? fs_proxy : se_proxy;
+
+    virt_proxy.readString(filename, filename_addr.addr);
 
     OutputStream *out;
     if (offset == 0) {
@@ -428,14 +476,15 @@ writefile(ThreadContext *tc, Addr vaddr, uint64_t len, uint64_t offset,
 
     // copy out data and write to file
     char *buf = new char[len];
-    tc->getVirtProxy().readBlob(vaddr, buf, len);
+
+    virt_proxy.readBlob(vaddr.addr, buf, len);
     os->write(buf, len);
     if (os->fail() || os->bad())
         panic("Error while doing writefile!\n");
 
     simout.close(out);
 
-    delete [] buf;
+    delete[] buf;
 
     return len;
 }
@@ -451,7 +500,7 @@ void
 switchcpu(ThreadContext *tc)
 {
     DPRINTF(PseudoInst, "pseudo_inst::switchcpu()\n");
-    exitSimLoop("switchcpu");
+    exitSimulationLoopClassic("switchcpu");
 }
 
 void
@@ -481,7 +530,7 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
     const System::Params &params = sys->params();
 
     if (params.exit_on_work_items) {
-        exitSimLoop("workbegin", static_cast<int>(workid));
+        exitSimulationLoopClassic("workbegin", static_cast<int>(workid));
         return;
     }
 
@@ -504,7 +553,7 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
             //
             // If active cpus equals checkpoint count, create checkpoint
             //
-            exitSimLoop("checkpoint");
+            exitSimulationLoopClassic("checkpoint");
         }
 
         if (systemWorkBeginCount == params.work_begin_ckpt_count) {
@@ -512,21 +561,21 @@ workbegin(ThreadContext *tc, uint64_t workid, uint64_t threadid)
             // Note: the string specified as the cause of the exit event must
             // exactly equal "checkpoint" inorder to create a checkpoint
             //
-            exitSimLoop("checkpoint");
+            exitSimulationLoopClassic("checkpoint");
         }
 
         if (systemWorkBeginCount == params.work_begin_exit_count) {
             //
             // If a certain number of work items started, exit simulation
             //
-            exitSimLoop("work started count reach");
+            exitSimulationLoopClassic("work started count reach");
         }
 
         if (cpuId == params.work_begin_cpu_id_exit) {
             //
             // If work started on the cpu id specified, exit simulation
             //
-            exitSimLoop("work started on specific cpu");
+            exitSimulationLoopClassic("work started on specific cpu");
         }
     }
 }
@@ -544,7 +593,7 @@ workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
     const System::Params &params = sys->params();
 
     if (params.exit_on_work_items) {
-        exitSimLoop("workend", static_cast<int>(workid));
+        exitSimulationLoopClassic("workend", static_cast<int>(workid));
         return;
     }
 
@@ -566,7 +615,7 @@ workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
             //
             // If active cpus equals checkpoint count, create checkpoint
             //
-            exitSimLoop("checkpoint");
+            exitSimulationLoopClassic("checkpoint");
         }
 
         if (params.work_end_ckpt_count != 0 &&
@@ -575,7 +624,7 @@ workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
             // If total work items completed equals checkpoint count, create
             // checkpoint
             //
-            exitSimLoop("checkpoint");
+            exitSimulationLoopClassic("checkpoint");
         }
 
         if (params.work_end_exit_count != 0 &&
@@ -583,9 +632,16 @@ workend(ThreadContext *tc, uint64_t workid, uint64_t threadid)
             //
             // If total work items completed equals exit count, exit simulation
             //
-            exitSimLoop("work items exit count reached");
+            exitSimulationLoopClassic("work items exit count reached");
         }
     }
+}
+
+void
+m5Hypercall(ThreadContext *tc, uint64_t hypercall_id)
+{
+    DPRINTF(PseudoInst, "pseudo_inst::m5Hypercall(%i)\n", hypercall_id);
+    exitSimulationLoop(hypercall_id, ExitPayload(), curTick() + simQuantum);
 }
 
 } // namespace pseudo_inst

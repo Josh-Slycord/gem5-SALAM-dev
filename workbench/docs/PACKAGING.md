@@ -1,5 +1,13 @@
 # Packaging the SALAM Research Workbench
 
+> **Historical recommendations, 29 October 2026.** Current main uses the
+> explicit Ubuntu 24.04 / LLVM 14 profile in the
+> [modern setup guide](GEM5_26_UPGRADE.md). Current
+> [appliance sources and usage](../../docker/README.md) are documented
+> separately. Source and packaging-contract checks do not establish a
+> clean-host image build, WSL import or WSLg GUI acceptance. The commands
+> below retain the original Ubuntu 20.04 recommendation and evidence scope.
+
 Status: packaging recommendations, 2026-10-29. No installer, container, WSL export, or VM was built for this note. The verified simulator environment is Ubuntu 20.04 under WSL 2 with LLVM/Clang 12, Python 3.8, GCC 9, and ARM GCC 9. A current upstream gem5 container or a newer Linux base has not been shown to build this SALAM fork.
 
 ## Recommended sequence

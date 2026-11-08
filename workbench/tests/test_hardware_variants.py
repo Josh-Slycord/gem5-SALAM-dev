@@ -8,10 +8,13 @@ from unittest import mock
 
 from salam_workbench.hardware_codegen import _normalize_profile_overrides
 from salam_workbench.hardware_variants import (
+    _configuration_hashes,
     _copy_engine,
     _fingerprint,
+    _fingerprint_inputs,
     _link_plan,
     _profile_hashes,
+    _verify_variant,
     ensure_hardware_variant,
 )
 
@@ -208,6 +211,7 @@ class HardwareVariantsTests(unittest.TestCase):
                     "state": "built",
                     "fingerprint": "current-fingerprint",
                     "engine_path": str(existing),
+                    "fingerprint_inputs": {"selected_profile_inputs": {}},
                 }
             ),
             encoding="utf-8",
@@ -246,6 +250,280 @@ class HardwareVariantsTests(unittest.TestCase):
         self.assertEqual(result["state"], "reused")
         verify.assert_called_once()
         generate.assert_not_called()
+
+    def configuration_fixture(self):
+        base = self.root / "config-engine"
+        for relative in (
+            "configs/common/Simulation.py",
+            "configs/SALAM/HWAccConfig.py",
+            "SALAM-Configurator/fs_template.py",
+            "SALAM-Configurator/systembuilder.py",
+            "SALAM-Configurator/parser.py",
+        ):
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# actual configuration fixture\n")
+        return base
+
+    def native_configuration_fixture(self):
+        base = self.configuration_fixture()
+        for relative in (
+            "configs/SALAM/native_factory.py",
+            "workbench/salam_workbench/__init__.py",
+            "workbench/salam_workbench/native_config.py",
+            "workbench/salam_workbench/unrelated.py",
+            "workbench/evidence/old-result.json",
+        ):
+            path = base / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# native fixture: " + relative + "\n")
+        return base
+
+    def test_native_runtime_package_is_copied_and_hashed_without_workbench_results(
+        self,
+    ):
+        base = self.native_configuration_fixture()
+        sources = _configuration_hashes(base)
+        expected = (
+            "workbench/salam_workbench/__init__.py",
+            "workbench/salam_workbench/native_config.py",
+        )
+        self.assertEqual(
+            sorted(name for name in sources if name.startswith("workbench/")),
+            list(expected),
+        )
+        variant = self.root / "variant"
+        _copy_engine(base, variant, _link_plan(base))
+        self.assertEqual(_configuration_hashes(variant), sources)
+        for relative in expected:
+            self.assertEqual(
+                (variant / relative).read_bytes(), (base / relative).read_bytes()
+            )
+        self.assertFalse((variant / "workbench/salam_workbench/unrelated.py").exists())
+        self.assertFalse((variant / "workbench/evidence").exists())
+
+    def test_native_package_changes_invalidate_fingerprint_without_cpp_changes(self):
+        base = self.native_configuration_fixture()
+        receipt = self.root / "build.json"
+        receipt.write_text("{}")
+        with mock.patch(
+            "salam_workbench.hardware_variants.compiled_identity",
+            return_value={"sha256": "unchanged-compiled-source"},
+        ), mock.patch(
+            "salam_workbench.hardware_variants._profile_hashes", return_value={}
+        ), mock.patch(
+            "salam_workbench.hardware_variants._toolchain_hashes", return_value={}
+        ):
+            previous = _fingerprint_inputs(
+                base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+            )
+            for name in ("__init__.py", "native_config.py"):
+                path = base / "workbench/salam_workbench" / name
+                path.write_text(path.read_text() + "# edited runtime source\n")
+                current = _fingerprint_inputs(
+                    base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+                )
+                self.assertEqual(
+                    previous["base_compiled_source_sha256"],
+                    current["base_compiled_source_sha256"],
+                )
+                self.assertNotEqual(_fingerprint(previous), _fingerprint(current))
+                previous = current
+
+    def test_missing_native_dependency_rejects_before_copy_or_expensive_work(self):
+        base = self.native_configuration_fixture()
+        receipt = self.root / "build.json"
+        receipt.write_text("{}")
+        for name in ("__init__.py", "native_config.py"):
+            with self.subTest(name=name):
+                path = base / "workbench/salam_workbench" / name
+                preserved = path.with_suffix(".saved")
+                path.rename(preserved)
+                try:
+                    with self.assertRaisesRegex(
+                        ValueError, "Missing.*native configuration"
+                    ):
+                        _configuration_hashes(base)
+                    variant = self.root / ("variant-" + name)
+                    with self.assertRaisesRegex(
+                        ValueError, "Missing.*native configuration"
+                    ):
+                        _copy_engine(base, variant, _link_plan(base))
+                    self.assertFalse(variant.exists())
+                    with ExitStack() as stack:
+                        for target, value in (
+                            ("verify_engine", None),
+                            ("compiled_identity", {"sha256": "cpp"}),
+                            ("_profile_hashes", {}),
+                            ("_toolchain_hashes", {}),
+                        ):
+                            stack.enter_context(
+                                mock.patch(
+                                    "salam_workbench.hardware_variants." + target,
+                                    return_value=value,
+                                )
+                            )
+                        generate = stack.enter_context(
+                            mock.patch(
+                                "salam_workbench.hardware_variants.hardware_codegen.generate_hardware_code"
+                            )
+                        )
+                        build = stack.enter_context(
+                            mock.patch("salam_workbench.hardware_variants.build_engine")
+                        )
+                        with self.assertRaisesRegex(
+                            ValueError, "Missing.*native configuration"
+                        ):
+                            ensure_hardware_variant(
+                                base,
+                                self.root / "variants",
+                                self.root / "evidence",
+                                "gemm",
+                                base_build_receipt=receipt,
+                            )
+                        generate.assert_not_called()
+                        build.assert_not_called()
+                    self.assertFalse((self.root / "variants").exists())
+                    self.assertFalse((self.root / "evidence").exists())
+                finally:
+                    preserved.rename(path)
+
+    def test_native_module_and_parent_symlinks_fail_preflight(self):
+        base = self.native_configuration_fixture()
+        path = base / "workbench/salam_workbench/native_config.py"
+        preserved = path.with_suffix(".saved")
+        path.rename(preserved)
+        path.symlink_to(preserved)
+        with self.assertRaisesRegex(ValueError, "Symlinked.*native configuration"):
+            _configuration_hashes(base)
+        with self.assertRaisesRegex(ValueError, "Symlinked.*native configuration"):
+            _copy_engine(base, self.root / "variant", _link_plan(base))
+        self.assertFalse((self.root / "variant").exists())
+        path.rename(path.with_suffix(".saved-link"))
+        preserved.rename(path)
+        folder = path.parent
+        stored = folder.with_name("preserved-package")
+        folder.rename(stored)
+        folder.symlink_to(stored, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "Symlinked.*native configuration"):
+            _configuration_hashes(base)
+
+    def test_native_source_mutation_during_copy_is_rejected(self):
+        base = self.native_configuration_fixture()
+        import shutil
+
+        actual_copy = shutil.copyfile
+
+        def drifting_copy(source, target, *args, **kwargs):
+            result = actual_copy(source, target, *args, **kwargs)
+            if Path(source) == base / "workbench/salam_workbench/native_config.py":
+                Path(source).write_text("# source changed during clone\n")
+            return result
+
+        with mock.patch(
+            "salam_workbench.hardware_variants.shutil.copyfile",
+            side_effect=drifting_copy,
+        ), self.assertRaisesRegex(ValueError, "Native configuration source changed"):
+            _copy_engine(base, self.root / "variant", _link_plan(base))
+
+    def test_native_cached_module_tampering_rejects_before_engine_verification(self):
+        variant = self.native_configuration_fixture()
+        manifest = {
+            "state": "built",
+            "fingerprint": "key",
+            "fingerprint_inputs": {
+                "configuration_source_inputs": _configuration_hashes(variant)
+            },
+        }
+        (variant / "workbench/salam_workbench/native_config.py").write_text(
+            "# stale model\n"
+        )
+        with mock.patch("salam_workbench.hardware_variants.verify_engine") as verify:
+            with self.assertRaisesRegex(ValueError, "configuration source identity"):
+                _verify_variant(variant, manifest, "key", {})
+        verify.assert_not_called()
+
+    def test_runtime_configuration_change_invalidates_variant_fingerprint(self):
+        base = self.configuration_fixture()
+        receipt = self.root / "build.json"
+        receipt.write_text("{}")
+        with mock.patch(
+            "salam_workbench.hardware_variants.compiled_identity",
+            return_value={"sha256": "unchanged-compiled-source"},
+        ), mock.patch(
+            "salam_workbench.hardware_variants._profile_hashes", return_value={}
+        ), mock.patch(
+            "salam_workbench.hardware_variants._toolchain_hashes", return_value={}
+        ):
+            before = _fingerprint_inputs(
+                base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+            )
+            (base / "configs/common/Simulation.py").write_text(
+                "# changed final native clock adapter\n"
+            )
+            after = _fingerprint_inputs(
+                base, "gemm", "40nm_model", "5ns", "default_profile", {}, receipt
+            )
+        self.assertEqual(
+            before["base_compiled_source_sha256"], after["base_compiled_source_sha256"]
+        )
+        self.assertNotEqual(_fingerprint(before), _fingerprint(after))
+
+    def test_configuration_identity_requires_runtime_and_builder_sources(self):
+        base = self.configuration_fixture()
+        (base / "configs/common/Simulation.py").rename(
+            base / "configs/common/Simulation.py.saved"
+        )
+        with self.assertRaisesRegex(
+            ValueError, "Missing hardware variant configuration"
+        ):
+            _configuration_hashes(base)
+
+    def test_generated_configuration_outputs_do_not_invalidate_source_identity(self):
+        base = self.configuration_fixture()
+        before = _configuration_hashes(base)
+        generated = base / "configs/SALAM/generated/fs_gemm.py"
+        generated.parent.mkdir()
+        generated.write_text("# generated per request\n")
+        self.assertEqual(before, _configuration_hashes(base))
+        helper = base / "configs/common/new_runtime_helper.py"
+        helper.write_text("# newly imported runtime helper\n")
+        self.assertNotEqual(before, _configuration_hashes(base))
+
+    def test_variant_configuration_tampering_is_rejected_on_reuse(self):
+        variant = self.configuration_fixture()
+        sources = _configuration_hashes(variant)
+        generation = self.root / "generation.json"
+        generation.write_text(
+            json.dumps({"state": "generated", "valid": True, "outputs": []})
+        )
+        build = self.root / "build.json"
+        build.write_text("{}")
+        manifest = {
+            "state": "built",
+            "fingerprint": "key",
+            "build_receipt": str(build),
+            "generation_receipt": str(generation),
+            "fingerprint_inputs": {"configuration_source_inputs": sources},
+        }
+        with mock.patch("salam_workbench.hardware_variants.verify_engine"):
+            self.assertEqual(_verify_variant(variant, manifest, "key", {}), manifest)
+            (variant / "configs/common/Simulation.py").write_text(
+                "# stale/corrupted cached runtime\n"
+            )
+            with self.assertRaisesRegex(ValueError, "configuration source identity"):
+                _verify_variant(variant, manifest, "key", {})
+
+    def test_symlinked_runtime_configuration_is_rejected(self):
+        base = self.configuration_fixture()
+        path = base / "configs/common/Simulation.py"
+        preserved = path.with_suffix(".saved")
+        path.rename(preserved)
+        path.symlink_to(preserved)
+        with self.assertRaisesRegex(
+            ValueError, "Symlinked hardware variant configuration"
+        ):
+            _configuration_hashes(base)
 
 
 if __name__ == "__main__":

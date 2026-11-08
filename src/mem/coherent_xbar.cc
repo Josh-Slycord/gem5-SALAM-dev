@@ -159,7 +159,7 @@ CoherentXBar::recvTimingReq(PacketPtr pkt, PortID cpu_side_port_id)
     assert(is_express_snoop == cache_responding);
 
     // determine the destination based on the destination address range
-    PortID mem_side_port_id = findPort(pkt->getAddrRange());
+    PortID mem_side_port_id = findPort(pkt);
 
     // test if the crossbar should be considered occupied for the current
     // port, and exclude express snoops from the check
@@ -563,7 +563,7 @@ CoherentXBar::recvTimingSnoopReq(PacketPtr pkt, PortID mem_side_port_id)
     // device responsible for the address range something is
     // wrong, hence there is nothing further to do as the packet
     // would be going back to where it came from
-    assert(findPort(pkt->getAddrRange()) == mem_side_port_id);
+    assert(findPort(pkt) == mem_side_port_id);
 }
 
 bool
@@ -643,7 +643,7 @@ CoherentXBar::recvTimingSnoopResp(PacketPtr pkt, PortID cpu_side_port_id)
                             *memSidePorts[dest_port_id]);
         }
 
-        GEM5_VAR_USED bool success =
+        [[maybe_unused]] bool success =
             memSidePorts[dest_port_id]->sendTimingSnoopResp(pkt);
         pktCount[cpu_side_port_id][dest_port_id]++;
         pktSize[cpu_side_port_id][dest_port_id] += pkt_size;
@@ -799,7 +799,7 @@ CoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
 
     // even if we had a snoop response, we must continue and also
     // perform the actual request at the destination
-    PortID mem_side_port_id = findPort(pkt->getAddrRange());
+    PortID mem_side_port_id = findPort(pkt);
 
     if (sink_packet) {
         DPRINTF(CoherentXBar, "%s: Not forwarding %s\n", __func__,
@@ -815,9 +815,10 @@ CoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
 
             // forward the request to the appropriate destination
             auto mem_side_port = memSidePorts[mem_side_port_id];
-            response_latency = backdoor ?
-                mem_side_port->sendAtomicBackdoor(pkt, *backdoor) :
-                mem_side_port->sendAtomic(pkt);
+            response_latency =
+                (enableBackdoor && backdoor)
+                    ? mem_side_port->sendAtomicBackdoor(pkt, *backdoor)
+                    : mem_side_port->sendAtomic(pkt);
         } else {
             // if it does not need a response we sink the packet above
             assert(pkt->needsResponse());
@@ -863,7 +864,7 @@ CoherentXBar::recvAtomicBackdoor(PacketPtr pkt, PortID cpu_side_port_id,
         // if this is the destination of the operation, the xbar
         // sends the responce to the cache clean operation only
         // after having encountered the cache clean request
-        GEM5_VAR_USED auto ret = outstandingCMO.emplace(pkt->id, nullptr);
+        [[maybe_unused]] auto ret = outstandingCMO.emplace(pkt->id, nullptr);
         // in atomic mode we know that the WriteClean packet should
         // precede the clean request
         assert(ret.second);
@@ -998,6 +999,16 @@ CoherentXBar::forwardAtomic(PacketPtr pkt, PortID exclude_cpu_side_port_id,
 }
 
 void
+CoherentXBar::recvMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &backdoor)
+{
+    if (enableBackdoor) {
+        PortID dest_id = findPort(req.range());
+        memSidePorts[dest_id]->sendMemBackdoorReq(req, backdoor);
+    }
+}
+
+void
 CoherentXBar::recvFunctional(PacketPtr pkt, PortID cpu_side_port_id)
 {
     if (!pkt->isPrint()) {
@@ -1027,7 +1038,7 @@ CoherentXBar::recvFunctional(PacketPtr pkt, PortID cpu_side_port_id)
             }
         }
 
-        PortID dest_id = findPort(pkt->getAddrRange());
+        PortID dest_id = findPort(pkt);
 
         memSidePorts[dest_id]->sendFunctional(pkt);
     }

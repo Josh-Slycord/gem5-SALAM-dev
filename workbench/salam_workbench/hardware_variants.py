@@ -14,20 +14,13 @@ from pathlib import Path
 from . import hardware_codegen
 from .configurator import (
     PROJECT,
-    PYTHON,
     build_engine,
     compiled_identity,
     install_hardware_overlay,
     verify_engine,
 )
+from .toolchain_profile import load_toolchain, record_toolchain
 
-_TOOLCHAIN = (
-    PYTHON,
-    "/usr/bin/scons",
-    "/usr/bin/g++",
-    "/usr/bin/python3.8-config",
-    "/usr/bin/ld",
-)
 _SKIP_COPY = {
     ".git",
     "__pycache__",
@@ -53,22 +46,31 @@ def _save(path, record):
 
 
 def _toolchain_hashes():
-    paths = [Path(p).resolve(strict=True) for p in _TOOLCHAIN]
+    profile = load_toolchain(PROJECT)
+    selection = record_toolchain(profile)
+    selected_files = list(selection["tools"].values()) + selection.get(
+        "llvm_shared_libraries", {}
+    ).get("libraries", [])
+    paths = [Path(item["path"]).resolve(strict=True) for item in selected_files]
     paths.extend(
         (
             PROJECT / "evidence/toolchain.json",
             Path(hardware_codegen.__file__).resolve(strict=True),
+            Path(__file__).resolve(strict=True),
             PROJECT / "salam_workbench/regression.py",
             PROJECT / "salam_workbench/runner.py",
+            PROJECT / "salam_workbench/toolchain_profile.py",
         )
     )
     result = {str(path): _sha(path) for path in paths}
+    result["selected_toolchain_profile"] = selection["profile_sha256"]
     source_path = PROJECT / "salam_workbench/configurator.py"
     source = source_path.read_text(encoding="utf-8")
     names = {
         "_record",
         "compiled_identity",
         "build_engine",
+        "_modern_build_configuration",
         "_safe_generated_debug_object",
         "_debug_label_recovery_objects",
         "_archive_debug_label_objects",
@@ -130,6 +132,67 @@ def _profile_hashes(base, benchmark, model, period, profile):
     return result
 
 
+_CONFIGURATION_REQUIRED = (
+    "configs/common/Simulation.py",
+    "configs/SALAM/HWAccConfig.py",
+    "SALAM-Configurator/fs_template.py",
+    "SALAM-Configurator/systembuilder.py",
+    "SALAM-Configurator/parser.py",
+)
+
+
+_NATIVE_CONFIGURATION_REQUIRED = (
+    "workbench/salam_workbench/__init__.py",
+    "workbench/salam_workbench/native_config.py",
+)
+
+
+def _native_configuration_sources(base):
+    """Select the package sources staged whenever the native factory exists."""
+    if not (base / "configs/SALAM/native_factory.py").is_file():
+        return ()
+    sources = []
+    for relative in _NATIVE_CONFIGURATION_REQUIRED:
+        path = base / relative
+        if any(part.is_symlink() for part in (path, *path.parents) if part != base):
+            raise ValueError(
+                "Symlinked hardware variant native configuration source: " + relative
+            )
+        if not path.is_file():
+            raise ValueError(
+                "Missing hardware variant native configuration source: " + relative
+            )
+        path.resolve(strict=True).relative_to(base)
+        sources.append(path)
+    return tuple(sources)
+
+
+def _configuration_hashes(base):
+    """Bind copied runtime configuration, separately from compiled C++ inputs."""
+    base = Path(base).resolve(strict=True)
+    files = set()
+    for folder in ("configs", "SALAM-Configurator"):
+        for path in (base / folder).rglob("*.py"):
+            if not {"generated", "__pycache__"} & set(path.relative_to(base).parts):
+                files.add(path)
+    for relative in _CONFIGURATION_REQUIRED:
+        path = base / relative
+        if path not in files or not path.is_file():
+            raise ValueError(
+                "Missing hardware variant configuration source: " + relative
+            )
+    files.update(_native_configuration_sources(base))
+    result = {}
+    for path in sorted(files):
+        if path.is_symlink():
+            raise ValueError(
+                "Symlinked hardware variant configuration source: " + str(path)
+            )
+        path.resolve(strict=True).relative_to(base)
+        result[path.relative_to(base).as_posix()] = _sha(path)
+    return result
+
+
 def _link_plan(base):
     """Preflight all symlinks so a copied build tree cannot write through base."""
     plan = {}
@@ -155,12 +218,27 @@ def _link_plan(base):
 
 
 def _copy_engine(base, variant, links):
+    native_sources = _native_configuration_sources(base)
+    native_hashes = {path.relative_to(base): _sha(path) for path in native_sources}
     shutil.copytree(
         str(base),
         str(variant),
         symlinks=True,
         ignore=lambda parent, names: _SKIP_COPY & set(names),
     )
+    # Keep workbench evidence/results excluded; copy only native runtime inputs.
+    for relative in native_hashes:
+        destination = variant / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(base / relative, destination)
+    current_native = {
+        path.relative_to(base): _sha(path)
+        for path in _native_configuration_sources(base)
+    }
+    if current_native != native_hashes or any(
+        _sha(variant / relative) != digest for relative, digest in native_hashes.items()
+    ):
+        raise ValueError("Native configuration source changed during variant copy")
     history = variant / ".workbench-link-history"
     for relative, entry in links.items():
         if entry["absolute"]:
@@ -194,6 +272,7 @@ def _fingerprint_inputs(
         "selected_profile_inputs": _profile_hashes(
             base, benchmark, model, period, profile
         ),
+        "configuration_source_inputs": _configuration_hashes(base),
         "selection": {
             "benchmark": benchmark,
             "model": model,
@@ -213,6 +292,11 @@ def _fingerprint(inputs):
 def _verify_variant(variant, manifest, fingerprint, profile_inputs):
     if manifest.get("fingerprint") != fingerprint or manifest.get("state") != "built":
         raise ValueError("Existing variant has a different or incomplete fingerprint")
+    configurations = manifest.get("fingerprint_inputs", {}).get(
+        "configuration_source_inputs"
+    )
+    if not configurations or _configuration_hashes(variant) != configurations:
+        raise ValueError("Existing variant configuration source identity differs")
     build_path = Path(manifest["build_receipt"]).resolve(strict=True)
     verify_engine(variant, build_path)
     generation = json.loads(Path(manifest["generation_receipt"]).read_text())
@@ -294,6 +378,10 @@ def ensure_hardware_variant(
         if not marker.is_file():
             raise ValueError("Existing variant is incomplete: " + str(variant))
         saved = json.loads(marker.read_text(encoding="utf-8"))
+        if saved.get("fingerprint_inputs") != inputs:
+            raise ValueError(
+                "Existing variant fingerprint inputs differ from current base"
+            )
         _verify_variant(variant, saved, fingerprint, inputs["selected_profile_inputs"])
         return dict(saved, state="reused")
     links = _link_plan(base)
@@ -324,6 +412,7 @@ def ensure_hardware_variant(
             period=period,
             profile=profile,
             profile_overrides=overrides,
+            python_executable=load_toolchain(PROJECT)["python"],
         )
         record["generation_receipt"] = str(
             evidence / "generation/hardware-codegen.json"
@@ -342,6 +431,10 @@ def ensure_hardware_variant(
             != inputs["base_compiled_source_sha256"]
         ):
             raise ValueError("Variant source copy differs from verified base")
+        if _configuration_hashes(variant) != inputs["configuration_source_inputs"]:
+            raise ValueError(
+                "Variant configuration source copy differs from fingerprint"
+            )
         overlay = install_hardware_overlay(
             record["generation_receipt"], variant, evidence / "overlay"
         )

@@ -1,3 +1,15 @@
+# Copyright (c) 2025 Arm Limited
+# All rights reserved.
+#
+# The license below extends only to copyright in the software and shall
+# not be construed as granting a license to any other intellectual
+# property including but not limited to intellectual property relating
+# to a hardware implementation of the functionality of the software
+# licensed hereunder.  You may use the software subject to the license
+# terms below provided that you ensure that this notice is replicated
+# unmodified and in its entirety in all distributions of the software,
+# modified or unmodified, in source code or in binary form.
+#
 # Copyright (c) 2021 The Regents of The University of California
 # All rights reserved.
 #
@@ -25,32 +37,42 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
-from .jsonserializable import JsonSerializable
 from .group import Group
 from .statistic import Statistic
 from .timeconversion import TimeConversion
 
-class SimStat(JsonSerializable):
+
+class SimStat(Group):
     """
     Contains all the statistics for a given simulation.
     """
 
-    creation_time: Optional[datetime]
-    time_conversion: Optional[TimeConversion]
-    simulated_begin_time: Optional[Union[int, float]]
-    simulated_end_time: Optional[Union[int, float]]
+    creation_time: datetime | None
+    simulated_begin_time: int | float | None
+    simulated_end_time: int | float | None
 
-    def __init__(self, creation_time: Optional[datetime] = None,
-                 time_conversion: Optional[TimeConversion] = None,
-                 simulated_begin_time: Optional[Union[int, float]] = None,
-                 simulated_end_time: Optional[Union[int, float]] = None,
-                 **kwargs: Dict[str, Union[Group,Statistic,List[Group]]]):
+    def __init__(
+        self,
+        creation_time: datetime | None = None,
+        time_conversion: TimeConversion | None = None,
+        simulated_begin_time: int | float | None = None,
+        simulated_end_time: int | float | None = None,
+        name: str | None = None,
+        **kwargs: dict[str, Group | Statistic | list[Group]],
+    ):
         self.creation_time = creation_time
-        self.time_conversion = time_conversion
         self.simulated_begin_time = simulated_begin_time
         self.simulated_end_time = simulated_end_time
-
-        for key,value in kwargs.items():
-            setattr(self, key, value)
+        super().__init__(
+            time_conversion=time_conversion,
+            type="SimObject",
+            name=name,
+            **kwargs,
+        )

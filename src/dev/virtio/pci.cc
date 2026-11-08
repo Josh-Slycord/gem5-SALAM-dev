@@ -47,11 +47,11 @@ namespace gem5
 {
 
 PciVirtIO::PciVirtIO(const Params &params)
-    : PciDevice(params), queueNotify(0), interruptDeliveryPending(false),
+    : PciEndpoint(params), queueNotify(0), interruptDeliveryPending(false),
       vio(*params.vio)
 {
     // Override the subsystem ID with the device ID from VirtIO
-    config.subsystemID = htole(vio.deviceId);
+    config().subsystemID = htole(vio.deviceId);
 
     // The kernel driver expects the BAR size to be an exact power of
     // two. Nothing else is supported. Therefore, we need to force
@@ -67,9 +67,9 @@ PciVirtIO::~PciVirtIO()
 }
 
 Tick
-PciVirtIO::read(PacketPtr pkt)
+PciVirtIO::readDevice(PacketPtr pkt)
 {
-    GEM5_VAR_USED const unsigned size(pkt->getSize());
+    [[maybe_unused]] const unsigned size(pkt->getSize());
     int bar;
     Addr offset;
     if (!getBAR(pkt->getAddr(), bar, offset))
@@ -148,9 +148,9 @@ PciVirtIO::read(PacketPtr pkt)
 }
 
 Tick
-PciVirtIO::write(PacketPtr pkt)
+PciVirtIO::writeDevice(PacketPtr pkt)
 {
-    GEM5_VAR_USED const unsigned size(pkt->getSize());
+    [[maybe_unused]] const unsigned size(pkt->getSize());
     int bar;
     Addr offset;
     if (!getBAR(pkt->getAddr(), bar, offset))

@@ -10,6 +10,7 @@
 # unmodified and in its entirety in all distributions of the software,
 # modified or unmodified, in source code or in binary form.
 #
+# Copyright (c) 2026 The Regents of the University of California
 # Copyright (c) 2017 Mark D. Hill and David A. Wood
 # All rights reserved.
 #
@@ -36,28 +37,48 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-'''
-Test file for the util m5 exit assembly instruction.
-'''
+"""
+Tests the m5-exit magic instruction in SE mode for X86, RISCV and ARM.
+"""
+
 import re
-import os
-from testlib import *
+from pathlib import Path
 
-m5_exit_regex = re.compile(
-r'Exiting @ tick \d* because m5_exit instruction encountered'
+from testlib import (
+    config,
+    constants,
+    gem5_verify_config,
+    verifier,
 )
 
-path = joinpath(config.bin_path, 'test-progs', 'hello', 'bin', 'x86', 'linux')
-filename = 'm5_exit'
-url = (config.resource_url + '/test-progs/m5-exit/bin/x86/linux/m5_exit')
-test_program = DownloadedProgram(url, path, filename)
+m5_exit_regex = re.compile(r"Exit cause: 'm5_exit instruction encountered'")
 
-a = verifier.MatchRegex(m5_exit_regex)
-gem5_verify_config(
-    name='m5_exit_test',
-    verifiers=[a],
-    fixtures=(test_program,),
-    config=os.path.join(config.base_dir, 'configs', 'example','se.py'),
-    config_args=['--cmd', joinpath(test_program.path, filename)],
-    valid_isas=(constants.gcn3_x86_tag,)
+resource_directory = (
+    config.bin_path
+    if config.bin_path
+    else str(Path(Path(__file__).parent, "resources"))
 )
+
+exit_cause_verifier = verifier.MatchRegex(
+    re.compile(r"Exit cause: 'm5_exit instruction encountered'")
+)
+
+for isa in ["x86", "arm", "riscv"]:
+    gem5_verify_config(
+        name=f"m5-inst-exit-{isa}-se-mode",
+        verifiers=(exit_cause_verifier,),
+        fixtures=tuple(),
+        config=str(
+            Path(
+                Path(__file__).parent,
+                "configs",
+                "se-m5-exit.py",
+            )
+        ),
+        config_args=[
+            isa,
+            f"--resource-directory={resource_directory}",
+        ],
+        valid_isas=(constants.all_compiled_tag,),
+        length=constants.quick_tag,
+    )

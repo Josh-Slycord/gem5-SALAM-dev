@@ -3,6 +3,7 @@
 //------------------------------------------//
 #include "hwacc/LLVMRead/src/debug_flags.hh"
 #include "dev/dma_device.hh"
+#include <functional>
 //------------------------------------------//
 
 using namespace gem5;
@@ -10,10 +11,13 @@ using namespace gem5;
 class DmaWriteFifo : public Drainable, public Serializable
 {
   public:
+    using WriteIssuedCallback = std::function<void(size_t)>;
+
     DmaWriteFifo(DmaPort &port, size_t size,
                 unsigned max_req_size,
                 unsigned max_pending,
-                Request::Flags flags = 0);
+                Request::Flags flags = 0,
+                WriteIssuedCallback on_write = {});
 
     ~DmaWriteFifo();
 
@@ -154,6 +158,7 @@ class DmaWriteFifo : public Drainable, public Serializable
     const Request::Flags reqFlags;
 
     DmaPort &port;
+    WriteIssuedCallback onWriteIssued;
 
   private:
     class DmaDoneEvent : public Event

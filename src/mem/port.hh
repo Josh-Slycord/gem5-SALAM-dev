@@ -46,7 +46,15 @@
 #ifndef __MEM_PORT_HH__
 #define __MEM_PORT_HH__
 
+#include <memory>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "base/addr_range.hh"
+#include "base/trace.hh"
+#include "debug/PortTrace.hh"
 #include "mem/packet.hh"
 #include "mem/protocol/atomic.hh"
 #include "mem/protocol/functional.hh"
@@ -63,6 +71,86 @@ class MasterPort;
 class SlavePort;
 
 class ResponsePort;
+
+/**
+ * TracingExtension is an Extension of the Packet for recording the trace
+ * of the Packet. The vector in the TracingExtension holds the name of the
+ * ports that the Packet has passed through.
+ */
+class TracingExtension : public gem5::Extension<Packet, TracingExtension>
+{
+  public:
+    TracingExtension() = default;
+    TracingExtension(const std::vector<std::string> &q) { trace_ = q; }
+
+    std::unique_ptr<ExtensionBase>
+    clone() const override
+    { return std::make_unique<TracingExtension>(trace_); }
+
+    void
+    add(std::string request_port, std::string response_port, gem5::Addr addr)
+    {
+        trace_.push_back(request_port + csprintf(" addr=%#llx", addr));
+        trace_.push_back(response_port);
+    }
+
+    void
+    remove()
+    {
+        trace_.pop_back(); // Remove the response port name.
+        trace_.pop_back(); // Remove the request port name.
+    }
+
+    bool
+    empty()
+    { return trace_.empty(); }
+
+    std::vector<std::string> &
+    getTrace()
+    { return trace_; }
+
+    std::string
+    getTraceInString() const
+    {
+        std::stringstream port_trace;
+        port_trace << "Port trace of the Packet (" << std::endl
+                   << "[Destination] ";
+        for (auto rit = trace_.rbegin(); rit != trace_.rend(); rit++) {
+            if (std::next(rit) == trace_.rend()) {
+                port_trace << "[Source] ";
+            }
+            port_trace << *rit << std::endl;
+        }
+        port_trace << ")";
+        return port_trace.str();
+    }
+
+    /**
+     * @return the source port of the trace, return std::nullopt if the trace
+     * is empty
+     */
+    std::optional<std::string>
+    getTraceSource() const
+    {
+        if (trace_.empty()) {
+            return std::nullopt;
+        }
+        return trace_[0];
+    }
+
+    static void
+    dumpPortTrace(const gem5::PacketPtr pkt)
+    {
+        auto ext = pkt->getExtension<gem5::TracingExtension>();
+        if (ext) {
+            DPRINTF(PortTrace, "%s\n", ext->getTraceInString());
+        }
+    }
+
+  private:
+    // Ordered from the original source to the current point in the trace
+    std::vector<std::string> trace_;
+};
 
 /**
  * A RequestPort is a specialisation of a Port, which
@@ -82,12 +170,9 @@ class RequestPort: public Port, public AtomicRequestProtocol,
   private:
     ResponsePort *_responsePort;
 
-  protected:
-    SimObject &owner;
-
   public:
-    RequestPort(const std::string& name, SimObject* _owner,
-               PortID id=InvalidPortID);
+    RequestPort(const std::string& name, PortID id=InvalidPortID);
+
     virtual ~RequestPort();
 
     /**
@@ -160,6 +245,21 @@ class RequestPort: public Port, public AtomicRequestProtocol,
      * @param pkt Packet to send.
      */
     void sendFunctional(PacketPtr pkt) const;
+
+    /**
+     * Send a request for a back door to a range of memory.
+     *
+     * @param req An object which describes what back door is being requested.
+     * @param backdoor Can be set to a back door pointer by the target to let
+     *        caller have direct access to the requested range. The original
+     *        caller should initialize this pointer to nullptr. If a receiver
+     *        does not want to provide a back door, they should leave this
+     *        value. If an intermediary wants to support a back door across it,
+     *        it should pass this pointer through, or if not, return without
+     *        passing the request further downstream.
+     */
+    void sendMemBackdoorReq(const MemBackdoorReq &req,
+            MemBackdoorPtr &backdoor);
 
   public:
     /* The timing protocol. */
@@ -246,14 +346,16 @@ class RequestPort: public Port, public AtomicRequestProtocol,
     {
         panic("%s was not expecting a snoop retry.\n", name());
     }
+
+  private:
+    void addTrace(PacketPtr pkt) const;
+    void removeTrace(PacketPtr pkt) const;
 };
 
 class [[deprecated]] MasterPort : public RequestPort
 {
   public:
-    MasterPort(const std::string& name, SimObject* _owner,
-               PortID id=InvalidPortID) : RequestPort(name, _owner, id)
-               {}
+    using RequestPort::RequestPort;
 };
 
 /**
@@ -275,12 +377,9 @@ class ResponsePort : public Port, public AtomicResponseProtocol,
 
     bool defaultBackdoorWarned;
 
-  protected:
-    SimObject& owner;
-
   public:
-    ResponsePort(const std::string& name, SimObject* _owner,
-              PortID id=InvalidPortID);
+    ResponsePort(const std::string& name, PortID id=InvalidPortID);
+
     virtual ~ResponsePort();
 
     /**
@@ -370,7 +469,11 @@ class ResponsePort : public Port, public AtomicResponseProtocol,
     sendTimingResp(PacketPtr pkt)
     {
         try {
-            return TimingResponseProtocol::sendResp(_requestPort, pkt);
+            _requestPort->removeTrace(pkt);
+            bool succ = TimingResponseProtocol::sendResp(_requestPort, pkt);
+            if (!succ)
+                _requestPort->addTrace(pkt);
+            return succ;
         } catch (UnboundPortException) {
             reportUnbound();
         }
@@ -438,6 +541,8 @@ class ResponsePort : public Port, public AtomicResponseProtocol,
      * Default implementations.
      */
     Tick recvAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &backdoor) override;
+    void recvMemBackdoorReq(const MemBackdoorReq &req,
+            MemBackdoorPtr &backdoor) override;
 
     bool
     tryTiming(PacketPtr pkt) override
@@ -455,16 +560,17 @@ class ResponsePort : public Port, public AtomicResponseProtocol,
 class [[deprecated]] SlavePort : public ResponsePort
 {
   public:
-    SlavePort(const std::string& name, SimObject* _owner,
-              PortID id=InvalidPortID) : ResponsePort(name, _owner, id)
-              {}
+    using ResponsePort::ResponsePort;
 };
 
 inline Tick
 RequestPort::sendAtomic(PacketPtr pkt)
 {
     try {
-        return AtomicRequestProtocol::send(_responsePort, pkt);
+        addTrace(pkt);
+        Tick tick = AtomicRequestProtocol::send(_responsePort, pkt);
+        removeTrace(pkt);
+        return tick;
     } catch (UnboundPortException) {
         reportUnbound();
     }
@@ -474,8 +580,11 @@ inline Tick
 RequestPort::sendAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &backdoor)
 {
     try {
-        return AtomicRequestProtocol::sendBackdoor(_responsePort,
-                                                    pkt, backdoor);
+        addTrace(pkt);
+        Tick tick = AtomicRequestProtocol::sendBackdoor(_responsePort,
+                                                        pkt, backdoor);
+        removeTrace(pkt);
+        return tick;
     } catch (UnboundPortException) {
         reportUnbound();
     }
@@ -485,7 +594,21 @@ inline void
 RequestPort::sendFunctional(PacketPtr pkt) const
 {
     try {
-        return FunctionalRequestProtocol::send(_responsePort, pkt);
+        addTrace(pkt);
+        FunctionalRequestProtocol::send(_responsePort, pkt);
+        removeTrace(pkt);
+    } catch (UnboundPortException) {
+        reportUnbound();
+    }
+}
+
+inline void
+RequestPort::sendMemBackdoorReq(const MemBackdoorReq &req,
+        MemBackdoorPtr &backdoor)
+{
+    try {
+        return FunctionalRequestProtocol::sendMemBackdoorReq(
+                _responsePort, req, backdoor);
     } catch (UnboundPortException) {
         reportUnbound();
     }
@@ -495,7 +618,11 @@ inline bool
 RequestPort::sendTimingReq(PacketPtr pkt)
 {
     try {
-        return TimingRequestProtocol::sendReq(_responsePort, pkt);
+        addTrace(pkt);
+        bool succ = TimingRequestProtocol::sendReq(_responsePort, pkt);
+        if (!succ)
+            removeTrace(pkt);
+        return succ;
     } catch (UnboundPortException) {
         reportUnbound();
     }

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 Arm Limited
+# Copyright (c) 2020-2021,2024 Arm Limited
 # All rights reserved.
 #
 # The license below extends only to copyright in the software and shall
@@ -35,16 +35,19 @@
 
 from m5.objects.AbstractMemory import AbstractMemory
 
+
 class QoSMemSinkInterface(AbstractMemory):
-    type = 'QoSMemSinkInterface'
+    type = "QoSMemSinkInterface"
     cxx_header = "mem/qos/mem_sink.hh"
-    cxx_class = 'gem5::memory::qos::MemSinkInterface'
+    cxx_class = "gem5::memory::qos::MemSinkInterface"
 
     def controller(self):
         """
         Instantiate the memory controller and bind it to
         the current interface.
         """
+        from m5.objects.QoSMemSinkCtrl import QoSMemSinkCtrl
+
         controller = QoSMemSinkCtrl()
         controller.interface = self
         return controller

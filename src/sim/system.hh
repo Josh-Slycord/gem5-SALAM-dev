@@ -48,11 +48,9 @@
 #include <utility>
 #include <vector>
 
-#include "arch/page_size.hh"
 #include "base/loader/memory_image.hh"
 #include "base/loader/symtab.hh"
 #include "base/statistics.hh"
-#include "config/the_isa.hh"
 #include "cpu/pc_event.hh"
 #include "enums/MemoryMode.hh"
 #include "mem/mem_requestor.hh"
@@ -61,7 +59,6 @@
 #include "mem/port_proxy.hh"
 #include "params/System.hh"
 #include "sim/futex_map.hh"
-#include "sim/mem_pool.hh"
 #include "sim/redirect_path.hh"
 #include "sim/se_signal.hh"
 #include "sim/sim_object.hh"
@@ -90,8 +87,8 @@ class System : public SimObject, public PCEventScope
         /**
          * Create a system port with a name and an owner.
          */
-        SystemPort(const std::string &_name, SimObject *_owner)
-            : RequestPort(_name, _owner)
+        SystemPort(const std::string &_name)
+            : RequestPort(_name)
         { }
 
         bool
@@ -113,6 +110,11 @@ class System : public SimObject, public PCEventScope
     // Map of memory address ranges for devices with their own backing stores
     std::unordered_map<RequestorID, std::vector<memory::AbstractMemory *>>
         deviceMemMap;
+
+    // List of address ranges that are have valid physical addresses but
+    // don't appear in the physical memory map. Note that these are assumed
+    // to be coherent addresses, not I/O or device addresses
+    AddrRangeList externalMemRanges;
 
   public:
 
@@ -146,7 +148,7 @@ class System : public SimObject, public PCEventScope
             return threads[id];
         }
 
-        void insert(ThreadContext *tc, ContextID id=InvalidContextID);
+        void insert(ThreadContext *tc);
         void replace(ThreadContext *tc, ContextID id);
 
         friend class System;
@@ -155,19 +157,16 @@ class System : public SimObject, public PCEventScope
         class const_iterator
         {
           private:
-            const Threads &threads;
+            Threads const* threads;
             int pos;
 
             friend class Threads;
 
             const_iterator(const Threads &_threads, int _pos) :
-                threads(_threads), pos(_pos)
+                threads(&_threads), pos(_pos)
             {}
 
           public:
-            const_iterator(const const_iterator &) = default;
-            const_iterator &operator = (const const_iterator &) = default;
-
             using iterator_category = std::forward_iterator_tag;
             using value_type = ThreadContext *;
             using difference_type = int;
@@ -184,16 +183,16 @@ class System : public SimObject, public PCEventScope
             const_iterator
             operator ++ (int)
             {
-                return const_iterator(threads, pos++);
+                return const_iterator(*threads, pos++);
             }
 
-            reference operator * () { return threads.thread(pos).context; }
-            pointer operator -> () { return &threads.thread(pos).context; }
+            reference operator * () { return threads->thread(pos).context; }
+            pointer operator -> () { return &threads->thread(pos).context; }
 
             bool
             operator == (const const_iterator &other) const
             {
-                return &threads == &other.threads && pos == other.pos;
+                return threads == other.threads && pos == other.pos;
             }
 
             bool
@@ -311,7 +310,7 @@ class System : public SimObject, public PCEventScope
     /**
      * Get the cache line size of the system.
      */
-    unsigned int cacheLineSize() const { return _cacheLineSize; }
+    Addr cacheLineSize() const { return _cacheLineSize; }
 
     Threads threads;
 
@@ -321,9 +320,6 @@ class System : public SimObject, public PCEventScope
 
     bool schedule(PCEvent *event) override;
     bool remove(PCEvent *event) override;
-
-    /** Memory allocation objects for all physical memories in the system. */
-    std::vector<MemPool> memPools;
 
     uint64_t init_param;
 
@@ -339,19 +335,20 @@ class System : public SimObject, public PCEventScope
      * Get a pointer to the Kernel Virtual Machine (KVM) SimObject,
      * if present.
      */
-    KvmVM *getKvmVM() { return kvmVM; }
+    KvmVM *getKvmVM() const { return kvmVM; }
 
-    /** Verify gem5 configuration will support KVM emulation */
-    bool validKvmEnvironment() const;
+    /**
+     * Set the pointer to the Kernel Virtual Machine (KVM) SimObject. For use
+     * by that object to declare itself to the system.
+     */
+    void setKvmVM(KvmVM *const vm) { kvmVM = vm; }
 
     /** Get a pointer to access the physical memory of the system */
     memory::PhysicalMemory& getPhysMem() { return physmem; }
-
-    /** Amount of physical memory that is still free */
-    Addr freeMemSize(int poolID = 0) const;
+    const memory::PhysicalMemory& getPhysMem() const { return physmem; }
 
     /** Amount of physical memory that exists */
-    Addr memSize(int poolID = 0) const;
+    Addr memSize() const;
 
     /**
      * Check if a physical address is within a range of a memory that
@@ -382,36 +379,14 @@ class System : public SimObject, public PCEventScope
      */
     memory::AbstractMemory *getDeviceMemory(const PacketPtr& pkt) const;
 
-    /*
-     * Return the list of address ranges backed by a shadowed ROM.
-     *
-     * @return List of address ranges backed by a shadowed ROM
-     */
-    AddrRangeList getShadowRomRanges() const { return ShadowRomRanges; }
-
-    /**
-     * Get the architecture.
-     */
-    Arch getArch() const { return Arch::TheISA; }
-
     /**
      * Get the guest byte order.
      */
     ByteOrder
     getGuestByteOrder() const
     {
-        return params().byte_order;
+        return workload->byteOrder();
     }
-
-     /**
-     * Get the page bytes for the ISA.
-     */
-    Addr getPageBytes() const { return TheISA::PageBytes; }
-
-    /**
-     * Get the number of bits worth of in-page address for the ISA.
-     */
-    Addr getPageShift() const { return TheISA::PageShift; }
 
     /**
      * The thermal model used for this system (if any).
@@ -420,15 +395,13 @@ class System : public SimObject, public PCEventScope
 
   protected:
 
-    KvmVM *const kvmVM = nullptr;
+    KvmVM *kvmVM = nullptr;
 
     memory::PhysicalMemory physmem;
 
-    AddrRangeList ShadowRomRanges;
-
     enums::MemoryMode memoryMode;
 
-    const unsigned int _cacheLineSize;
+    const Addr _cacheLineSize;
 
     uint64_t workItemsBegin = 0;
     uint64_t workItemsEnd = 0;
@@ -574,7 +547,7 @@ class System : public SimObject, public PCEventScope
     void workItemEnd(uint32_t tid, uint32_t workid);
 
     /* Returns whether we successfully trapped into GDB. */
-    bool trapToGdb(int signal, ContextID ctx_id) const;
+    bool trapToGdb(GDBSignal signal, ContextID ctx_id) const;
 
   protected:
     /**
@@ -597,12 +570,7 @@ class System : public SimObject, public PCEventScope
 
   public:
 
-    /// Allocate npages contiguous unused physical pages
-    /// @return Starting address of first page
-    Addr allocPhysPages(int npages, int poolID = 0);
-
-    void registerThreadContext(
-            ThreadContext *tc, ContextID assigned=InvalidContextID);
+    void registerThreadContext(ThreadContext *tc);
     void replaceThreadContext(ThreadContext *tc, ContextID context_id);
 
     void serialize(CheckpointOut &cp) const override;
