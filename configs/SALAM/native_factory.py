@@ -248,15 +248,12 @@ def _build_clusters(options, system, model):
                     "path": dma_path,
                     "type": "NoncoherentDma",
                     "params": {
-                        key: dma[key]
-                        for key in (
-                            "pio_addr",
-                            "pio_size",
-                            "max_req_size",
-                            "buffer_size",
-                        )
-                    }
-                    | {"int_num": dma["interrupt_num"]},
+                        "pio_addr": dma["pio_addr"],
+                        "pio_size": dma["pio_size"],
+                        "max_req_size": dma["max_req_size"],
+                        "buffer_size": dma["buffer_size"],
+                        "int_num": dma["interrupt_num"],
+                    },
                 }
             )
             edge(dma_path + ".cluster_dma", path + ".local_bus.cpu_side_ports")
