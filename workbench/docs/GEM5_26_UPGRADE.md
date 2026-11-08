@@ -113,7 +113,7 @@ PowerShell in its `workbench` directory, use:
 .\workbench.ps1 -Action configurator
 ```
 
-The existing desktop shortcut still opens the preserved gem5 21 installation.
+Bind the modern desktop shortcut explicitly to its isolated workspace and Python environment, retaining a separate shortcut for the preserved gem5 21 runtime.
 The recorded modern GUI tests use the actual Qt Run action and backend in
 offscreen mode; a manual Windows desktop review is separate.
 

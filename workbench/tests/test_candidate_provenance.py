@@ -22,10 +22,12 @@ class CandidateProvenanceTests(unittest.TestCase):
         self.root = Path(self.temporary.name) / "repo"
         self.root.mkdir()
         subprocess.run(
-            ["git", "init", "--quiet", "-b", "main", str(self.root)],
+            ["git", "init", "--quiet", str(self.root)],
             check=True,
             capture_output=True,
         )
+        # Git 2.25 on Ubuntu 20.04 predates init -b; select the same branch.
+        self.git("symbolic-ref", "HEAD", "refs/heads/main")
         # Use ordinary committed LF bytes on either Linux or Windows.
         (self.root / ".gitattributes").write_bytes(b"* -text\n")
         self.path = "src/hwacc/example.py"
