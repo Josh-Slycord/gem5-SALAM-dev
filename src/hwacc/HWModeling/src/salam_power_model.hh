@@ -1,6 +1,11 @@
 #ifndef __HWMODEL_SALAM_POWER_MODEL_HH__
 #define __HWMODEL_SALAM_POWER_MODEL_HH__
 
+/**
+ * @file
+ * @brief Declares the SALAMPowerModel SimObject for power and area estimation.
+ */
+
 #include "params/SALAMPowerModel.hh"
 #include "sim/sim_object.hh"
 
@@ -10,6 +15,9 @@
 
 using namespace gem5;
 
+/**
+ * @brief SimObject storing power, energy, area, and timing coefficients.
+ */
 class SALAMPowerModel : public SimObject
 {
     private:

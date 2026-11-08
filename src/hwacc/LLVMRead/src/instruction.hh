@@ -1,6 +1,21 @@
 #ifndef __HWACC_LLVM_INSTRUCTION_HH__
 #define __HWACC_LLVM_INSTRUCTION_HH__
 
+/**
+ * @file
+ * @brief Declares SALAM::Instruction base class and LLVM IR instruction
+ * specializations.
+ *
+ * In the SALAM CDFG execution model, instructions represent nodes in the
+ * dynamic
+ * dataflow graph. Each instruction tracks static operands, dynamic
+ * dependencies
+ * and consumers, hardware functional unit allocation, latency cycle counts,
+ * and computation state (ready, launched, computed, committed). Specialized
+ * classes model specific LLVM IR opcodes for control flow, integer/FP math,
+ * memory operations, bit manipulation, and conversions.
+ */
+
 #include <cstdlib>
 #include <iostream>
 #include <llvm/IR/Value.h>
@@ -22,6 +37,14 @@ class BasicBlock; // Required Declaration
 //---------------------------------------------------------------------------//
 
 
+/**
+ * @brief Base class for all executable instructions in the SALAM CDFG.
+ *
+ * Extends SALAM::Value to represent an instruction node in the CDFG. Tracks
+ * static operands, dynamic dependencies (predecessor instructions), dynamic
+ * users (consumer instructions), latency cycle budgets, and execution states
+ * (ready, launch, compute, commit).
+ */
 class Instruction : public Value
 {
     private:
@@ -39,6 +62,9 @@ class Instruction : public Value
         std::vector<SALAM::Operand> operands;
 
         bool running = false;
+        /**
+         * @brief Debug helper for printing instruction execution state.
+         */
         class Instruction_Debugger: public Debugger
         {
             public:
@@ -51,62 +77,291 @@ class Instruction : public Value
         bool committed = false;
         bool isready = false;
     public:
+        /**
+         * @brief Constructs an Instruction node.
+         *
+         * @param id Unique identifier.
+         * @param owner Pointer to the owning gem5 SimObject.
+         * @param dbg Flag indicating whether debug logging is enabled.
+         */
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg); //
+        /**
+         * @brief Constructs an Instruction node with opcode.
+         *
+         * @param id Unique identifier.
+         * @param owner Pointer to the owning gem5 SimObject.
+         * @param dbg Flag indicating whether debug logging is enabled.
+         * @param OpCode LLVM opcode identifier.
+         */
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode); //
+        /**
+         * @brief Constructs an Instruction node with opcode and cycle count.
+         *
+         * @param id Unique identifier.
+         * @param owner Pointer to the owning gem5 SimObject.
+         * @param dbg Flag indicating whether debug logging is enabled.
+         * @param OpCode LLVM opcode identifier.
+         * @param cycles Latency in compute cycles.
+         */
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles); //
+        /**
+         * @brief Constructs an Instruction node with opcode, cycles, and FU
+         * type.
+         *
+         * @param id Unique identifier.
+         * @param owner Pointer to the owning gem5 SimObject.
+         * @param dbg Flag indicating whether debug logging is enabled.
+         * @param OpCode LLVM opcode identifier.
+         * @param cycles Latency in compute cycles.
+         * @param functional_unit Functional unit type ID.
+         */
         Instruction(uint64_t id, gem5::SimObject * owner, bool dbg, uint64_t OpCode, uint64_t cycles, uint64_t functional_unit); //
+        /**
+         * @brief Destructor for Instruction.
+         */
         ~Instruction(); //
+        /**
+         * @brief Releases shared pointer cycles in the CDFG before
+         * destruction.
+         */
         void releaseGraphEdges() override;
+        /**
+         * @brief Equality operator comparing instruction UIDs.
+         */
         bool operator == (const std::shared_ptr<SALAM::Instruction> inst) const { return this->getUID() == inst->getUID(); }
+        /**
+         * @brief Inequality operator comparing instruction UIDs.
+         */
         bool operator != (const std::shared_ptr<SALAM::Instruction> inst) const { return !operator==(inst); }
+        /**
+         * @brief Initializes the instruction from an LLVM IR Value and value
+         * map.
+         *
+         * @param irval Underlying LLVM IR Value.
+         * @param irmap Map resolving LLVM Values to SALAM Values.
+         * @param valueList Global list of values in the CDFG.
+         */
         virtual void initialize(llvm::Value * irval, irvmap * irmap, SALAM::valueListTy * valueList); //
+        /**
+         * @brief Returns the target basic block for branch/control
+         * instructions.
+         *
+         * @return Pointer to target BasicBlock, or nullptr if non-branching.
+         */
         virtual std::shared_ptr<SALAM::BasicBlock> getTarget()  { return nullptr; }
+        /**
+         * @brief Returns the count of remaining unresolved dynamic
+         * dependencies.
+         *
+         * @return Number of unsatisfied predecessor dependencies.
+         */
         uint64_t getDependencyCount() { return dynamicDependencies.size(); }
+        /**
+         * @brief Returns the total cycle latency for this instruction.
+         *
+         * @return Latency in cycles.
+         */
         virtual uint64_t getCycleCount() { return cycleCount; }
+        /**
+         * @brief Returns the LLVM opcode for this instruction.
+         *
+         * @return Opcode identifier.
+         */
         virtual uint64_t getOpode() { return llvmOpCode; }
+        /**
+         * @brief Returns the current execution cycle progress.
+         *
+         * @return Elapsed cycles since launch.
+         */
         uint64_t getCurrentCycle() { return currentCycle; }
+        /**
+         * @brief Returns the list of static CDFG dependencies.
+         *
+         * @return Vector of Value shared pointers.
+         */
         virtual valueListTy getStaticDependencies() const { return staticDependencies; }
+        /**
+         * @brief Returns the map of unresolved dynamic dependencies.
+         *
+         * @return Map of UID to Instruction shared pointers.
+         */
         std::map<uint64_t, std::shared_ptr<SALAM::Instruction>> getDynamicDependencies() const { return dynamicDependencies; }
+        /**
+         * @brief Returns a specific static dependency by index.
+         *
+         * @param i Index into static dependency vector.
+         * @return Shared pointer to dependency Value.
+         */
         std::shared_ptr<SALAM::Value> getStaticDependencies(int i) const { return staticDependencies.at(i); }
+        /**
+         * @brief Returns a specific dynamic dependency by UID.
+         *
+         * @param i UID key of dynamic dependency.
+         * @return Shared pointer to dependency Value.
+         */
         std::shared_ptr<SALAM::Value> getDynamicDependencies(int i) const { return dynamicDependencies.at(i); }
+        /**
+         * @brief Initializes dynamic runtime state when basic block becomes
+         * active.
+         *
+         * @return Vector of dynamic dependency UIDs.
+         */
         virtual std::vector<uint64_t> runtimeInitialize();
+        /**
+         * @brief Removes a resolved dynamic predecessor dependency.
+         *
+         * @param opuid UID of the completed predecessor instruction.
+         */
         void removeDynamicDependency(uint64_t opuid);
+        /**
+         * @brief Registers a dynamic predecessor dependency for this
+         * instruction.
+         *
+         * @param dep Shared pointer to dependency instruction.
+         */
         void addRuntimeDependency(std::shared_ptr<SALAM::Instruction> dep) {
             dynamicDependencies.insert({dep->getUID(),dep});
         }
+        /**
+         * @brief Registers a downstream consumer instruction to notify on
+         * commit.
+         *
+         * @param dep Shared pointer to user instruction.
+         */
         void addRuntimeUser(std::shared_ptr<SALAM::Instruction> dep) { dynamicUsers.push_back(dep); }
+        /**
+         * @brief Signals all downstream dynamic users that this instruction
+         * has committed.
+         */
         void signalUsers();
+        /**
+         * @brief Returns whether this instruction has committed its result.
+         *
+         * @return True if committed.
+         */
         bool isCommitted() { return committed; }
         //bool hasFunctionalUnit() { return (functional_unit != 0); }
+        /**
+         * @brief Checks if this instruction requires a functional unit lease.
+         *
+         * @return False under default scalar model.
+         */
         bool hasFunctionalUnit() { return false; }
+        /**
+         * @brief Returns whether debug logging is active.
+         *
+         * @return True if debug enabled.
+         */
         bool debug() { return dbg; }
+        /**
+         * @brief Appends an operand to the instruction's operand list.
+         *
+         * @param newOp Operand to attach.
+         */
         void linkOperands(const SALAM::Operand &newOp);
+        /**
+         * @brief Returns a pointer to the operand list.
+         *
+         * @return Pointer to vector of operands.
+         */
         std::vector<SALAM::Operand> * getOperands() { return &operands; }
+        /**
+         * @brief Returns the functional unit type ID for this instruction.
+         *
+         * @return FU identifier.
+         */
         uint64_t getFunctionalUnit() { return functional_unit; }
+        /** @brief Predicate indicating return instruction. */
         virtual bool isReturn() { return false; }
+        /** @brief Predicate indicating basic block terminator instruction. */
         virtual bool isTerminator() { return false; }
+        /** @brief Predicate indicating PHI node instruction. */
         virtual bool isPhi() { return false; }
+        /** @brief Predicate indicating function call instruction. */
         virtual bool isCall() { return false; }
+        /** @brief Predicate indicating branch instruction. */
         virtual bool isBr() { return false; }
+        /** @brief Predicate indicating memory load instruction. */
         virtual bool isLoad() { return false; }
+        /** @brief Predicate indicating memory store instruction. */
         virtual bool isStore() {return false; }
+        /** @brief Predicate indicating getelementptr address calculation. */
         virtual bool isGEP() { return false; }
+        /**
+         * @brief Transitions instruction from ready to launched state.
+         *
+         * @return True if launch succeeded.
+         */
         virtual bool launch();
+        /**
+         * @brief Commits the computed result to return register and signals
+         * users.
+         *
+         * @return True if commit succeeded.
+         */
         virtual bool commit();
+        /**
+         * @brief Evaluates whether all preconditions and dependencies are
+         * satisfied.
+         *
+         * @return True if instruction is ready to launch.
+         */
         virtual bool ready();
+        /**
+         * @brief Executes the functional logic of the instruction.
+         */
         virtual void compute() { }
+        /**
+         * @brief Resets dynamic execution state for re-execution.
+         */
         virtual void reset();
+        /**
+         * @brief Propagates computed operand values to dynamic users.
+         *
+         * @param uid UID of the operand.
+         */
         virtual void setOperandValue(uint64_t uid);
+        /**
+         * @brief Dumps debug state for this instruction.
+         */
         virtual void dump() { if (dbg) inst_dbg->dumper(this); }
+        /** @brief Identifies whether this Value is an Instruction. */
         virtual bool isInstruction() { return true; }
+        /** @brief Predicate for internal pipeline load state. */
         virtual bool isLoadingInternal() { return false; }
+        /** @brief Predicate for latching loop branch exit. */
         virtual bool isLatchingBrExiting() { return false; }
         // virtual void linkFunctionalUnit(HWInterface * hw_interface);
+        /**
+         * @brief Clones this instruction for dynamic loop unrolling or
+         * pipelining.
+         *
+         * @return Shared pointer to cloned instruction.
+         */
         std::shared_ptr<SALAM::Instruction> clone() const { return std::static_pointer_cast<SALAM::Instruction>(createClone()); }
+        /**
+         * @brief Factory method for creating polymorphic instruction clones.
+         *
+         * @return Shared pointer to cloned Value instance.
+         */
         virtual std::shared_ptr<SALAM::Value> createClone() const override { return std::shared_ptr<SALAM::Instruction>(new SALAM::Instruction(*this)); }
+        /**
+         * @brief Creates a MemoryRequest descriptor for memory-accessing
+         * instructions.
+         *
+         * @return Pointer to MemoryRequest, or nullptr if not a memory
+         * instruction.
+         */
         virtual MemoryRequest * createMemoryRequest() { return nullptr; }
 
         // Functions for getting data from operands
+        /**
+         * @brief Reads a pointer/address value from a specific operand
+         * register.
+         *
+         * @param op_num Index of the operand.
+         * @return 64-bit pointer address.
+         */
         uint64_t getPtrOperandValue(uint64_t op_num) { return (operands.at(op_num).getPtrRegValue()); }
 };
 
@@ -115,6 +370,9 @@ class Instruction : public Value
 //---------------------------------------------------------------------------//
 
 // SALAM-BadInstruction // --------------------------------------------------//
+/**
+ * @brief Placeholder instruction used to establish dependency barriers.
+ */
 class BadInstruction : public Instruction {
     // Used to draw hard dependencies, ie: ret
     private:
@@ -150,6 +408,9 @@ createBadInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Ret // -------------------------------------------------------------//
 
+/**
+ * @brief Models the LLVM 'ret' return instruction.
+ */
 class Ret : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -184,6 +445,9 @@ createRetInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Br // --------------------------------------------------------------//
 
+/**
+ * @brief Models unconditional and conditional branch instructions ('br').
+ */
 class Br : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -234,6 +498,9 @@ createBrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 typedef std::pair<std::shared_ptr<SALAM::Value>, std::shared_ptr<SALAM::BasicBlock>> caseArgs;
 typedef std::vector< caseArgs> switchArgs;
 
+/**
+ * @brief Models the LLVM multi-way conditional 'switch' instruction.
+ */
 class Switch : public Instruction {
     public:
         static constexpr size_t kSwitchConditionOperandIndex = 0;
@@ -283,6 +550,9 @@ createSwitchInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Add // -------------------------------------------------------------//
 
+/**
+ * @brief Models 2's complement integer addition ('add') instruction.
+ */
 class Add : public Instruction
 {
     private:
@@ -317,6 +587,9 @@ createAddInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-FAdd // ------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point addition ('fadd') instruction.
+ */
 class FAdd : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -349,6 +622,9 @@ createFAddInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Sub // -------------------------------------------------------------//
 
+/**
+ * @brief Models 2's complement integer subtraction ('sub') instruction.
+ */
 class Sub : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -381,6 +657,9 @@ createSubInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FSub // -------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point subtraction ('fsub') instruction.
+ */
 class FSub : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -413,6 +692,9 @@ createFSubInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Mul // -------------------------------------------------------------//
 
+/**
+ * @brief Models integer multiplication ('mul') instruction.
+ */
 class Mul : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -446,6 +728,9 @@ createMulInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FMul // ------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point multiplication ('fmul') instruction.
+ */
 class FMul : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -478,6 +763,9 @@ createFMulInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-UDiv // ------------------------------------------------------------//
 
+/**
+ * @brief Models unsigned integer division ('udiv') instruction.
+ */
 class UDiv : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -510,6 +798,9 @@ createUDivInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-SDiv // ------------------------------------------------------------//
 
+/**
+ * @brief Models signed integer division ('sdiv') instruction.
+ */
 class SDiv : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -542,6 +833,9 @@ createSDivInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FDiv // ------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point division ('fdiv') instruction.
+ */
 class FDiv : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -574,6 +868,9 @@ createFDivInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-URem // ------------------------------------------------------------//
 
+/**
+ * @brief Models unsigned integer remainder ('urem') instruction.
+ */
 class URem : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -606,6 +903,9 @@ createURemInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-SRem // ------------------------------------------------------------//
 
+/**
+ * @brief Models signed integer remainder ('srem') instruction.
+ */
 class SRem : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -638,6 +938,9 @@ createSRemInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FRem // ------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point remainder ('frem') instruction.
+ */
 class FRem : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -674,6 +977,9 @@ createFRemInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Shl // -------------------------------------------------------------//
 
+/**
+ * @brief Models bitwise shift left ('shl') instruction.
+ */
 class Shl : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -706,6 +1012,9 @@ createShlInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-LShr // ------------------------------------------------------------//
 
+/**
+ * @brief Models logical (zero-fill) shift right ('lshr') instruction.
+ */
 class LShr : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -738,6 +1047,9 @@ createLShrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-AShr // ------------------------------------------------------------//
 
+/**
+ * @brief Models arithmetic (sign-extended) shift right ('ashr') instruction.
+ */
 class AShr : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -770,6 +1082,9 @@ createAShrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-And // -------------------------------------------------------------//
 
+/**
+ * @brief Models bitwise AND ('and') instruction.
+ */
 class And : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -802,6 +1117,9 @@ createAndInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Or // --------------------------------------------------------------//
 
+/**
+ * @brief Models bitwise OR ('or') instruction.
+ */
 class Or : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -834,6 +1152,9 @@ createOrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Xor // -------------------------------------------------------------//
 
+/**
+ * @brief Models bitwise XOR ('xor') instruction.
+ */
 class Xor : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -870,6 +1191,9 @@ createXorInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Load // ------------------------------------------------------------//
 
+/**
+ * @brief Models memory read ('load') instruction.
+ */
 class Load : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -909,6 +1233,9 @@ createLoadInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Store // -----------------------------------------------------------//
 
+/**
+ * @brief Models memory write ('store') instruction.
+ */
 class Store : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -952,6 +1279,10 @@ The GEP indecies will by APSInts, so cast to int64_t for calculating offset insi
 
 */
 
+/**
+ * @brief Models pointer address arithmetic ('getelementptr' / GEP)
+ * instruction.
+ */
 class GetElementPtr : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -994,6 +1325,9 @@ createGetElementPtrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-Trunc // -----------------------------------------------------------//
 
+/**
+ * @brief Models integer bit-width truncation ('trunc') instruction.
+ */
 class Trunc : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1026,6 +1360,9 @@ createTruncInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-ZExt // ------------------------------------------------------------//
 
+/**
+ * @brief Models zero extension ('zext') instruction.
+ */
 class ZExt : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1058,6 +1395,9 @@ createZExtInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-SExt // ------------------------------------------------------------//
 
+/**
+ * @brief Models sign extension ('sext') instruction.
+ */
 class SExt : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1092,6 +1432,9 @@ createSExtInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 class FPToUI;
 void initializeFPToUIInst(SALAM::FPToUI &salamInstruction);
 
+/**
+ * @brief Models floating-point to unsigned integer conversion ('fptoui').
+ */
 class FPToUI : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1124,6 +1467,9 @@ createFPToUIInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FPToSI // ----------------------------------------------------------//
 
+/**
+ * @brief Models floating-point to signed integer conversion ('fptosi').
+ */
 class FPToSI : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1157,6 +1503,9 @@ createFPToSIInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-UIToFP // ----------------------------------------------------------//
 
+/**
+ * @brief Models unsigned integer to floating-point conversion ('uitofp').
+ */
 class UIToFP : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1189,6 +1538,9 @@ createUIToFPInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-SIToFP // ----------------------------------------------------------//
 
+/**
+ * @brief Models signed integer to floating-point conversion ('sitofp').
+ */
 class SIToFP : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1221,6 +1573,9 @@ createSIToFPInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FPTrunc // ---------------------------------------------------------//
 
+/**
+ * @brief Models floating-point precision truncation ('fptrunc').
+ */
 class FPTrunc : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1253,6 +1608,9 @@ createFPTruncInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FPExt // -----------------------------------------------------------//
 
+/**
+ * @brief Models floating-point precision extension ('fpext').
+ */
 class FPExt : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1285,6 +1643,9 @@ createFPExtInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-PtrToInt // --------------------------------------------------------//
 
+/**
+ * @brief Models pointer-to-integer cast ('ptrtoint') instruction.
+ */
 class PtrToInt : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1318,6 +1679,9 @@ createPtrToIntInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-IntToPtr // --------------------------------------------------------//
 
+/**
+ * @brief Models integer-to-pointer cast ('inttoptr') instruction.
+ */
 class IntToPtr : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1349,6 +1713,9 @@ createIntToPtrInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t cycles,
               uint64_t fu);
 
+/**
+ * @brief Models bit-level type reinterpretation ('bitcast') instruction.
+ */
 class BitCast : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1386,6 +1753,9 @@ createBitCastInst(uint64_t id, gem5::SimObject * owner, bool dbg,
 
 // SALAM-ICmp // ------------------------------------------------------------//
 
+/**
+ * @brief Models integer comparison ('icmp') instruction.
+ */
 class ICmp : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1420,6 +1790,9 @@ createICmpInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-FCmp // ------------------------------------------------------------//
 
+/**
+ * @brief Models floating-point comparison ('fcmp') instruction.
+ */
 class FCmp : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1463,6 +1836,10 @@ typedef std::pair<std::shared_ptr<SALAM::BasicBlock>, std::shared_ptr<SALAM::Val
 //typedef std::pair<std::shared_ptr<SALAM::Value>, std::shared_ptr<SALAM::Value> > phiNode;
 typedef std::map<std::shared_ptr<SALAM::BasicBlock>, std::shared_ptr<SALAM::Value>> phiArgsTy;
 
+/**
+ * @brief Models SSA PHI node ('phi') selecting values based on active basic
+ * block.
+ */
 class Phi : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1504,6 +1881,9 @@ createPHIInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Call // ------------------------------------------------------------//
 
+/**
+ * @brief Models subroutine/kernel invocation ('call') instruction.
+ */
 class Call : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
@@ -1539,6 +1919,9 @@ createCallInst(uint64_t id, gem5::SimObject * owner, bool dbg,
               uint64_t fu);
 // SALAM-Select // ----------------------------------------------------------//
 
+/**
+ * @brief Models ternary conditional value selection ('select') instruction.
+ */
 class Select : public Instruction {
     private:
         std::vector< std::vector<uint64_t> > conditions;
