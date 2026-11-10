@@ -4,13 +4,9 @@
 File Index
 ==========
 
-This page lists all C++ source files documented in gem5-SALAM.
-
-.. note::
-
-   This file index is automatically generated from Doxygen.
-   If files appear missing, ensure they have Doxygen documentation
-   comments and rebuild the documentation.
+This page highlights selected SALAM C++ headers. Brief descriptions are
+rendered from Doxygen where present; the complete XML index covers the
+configured ``src/hwacc`` source tree.
 
 Header Files
 ============
@@ -105,8 +101,8 @@ LLVMRead Headers (src/hwacc/LLVMRead/src/)
 .. doxygenfile:: ir_parse.hh
    :sections: briefdescription
 
-.. doxygenfile:: debug_flags.hh
-   :sections: briefdescription
+.. literalinclude:: ../../../src/hwacc/LLVMRead/src/debug_flags.hh
+   :language: cpp
 
 HWModeling Headers (src/hwacc/HWModeling/src/)
 ----------------------------------------------
@@ -150,7 +146,5 @@ Verification Headers (src/hwacc/tests/)
 All Files
 =========
 
-For a complete list of all files with full documentation:
-
-.. doxygenindex::
-   :outline:
+The complete Doxygen XML index is available in the build output as
+``doxygen/xml/index.xml``. This page highlights the headers above.

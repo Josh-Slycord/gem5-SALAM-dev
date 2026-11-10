@@ -83,3 +83,29 @@ gem5-SALAM-dev/
 | LeNet5 | Config Valid |
 
 See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for md_grid details.
+
+## Strict SALAM API documentation build
+
+Install Doxygen and Graphviz, then create a Python environment and install
+`docs/requirements-strict.txt`. From the repository root, choose a new output
+folder outside the checkout whose parent already exists:
+
+```sh
+python -m pip install -r docs/requirements-strict.txt
+python scripts/build_salam_docs.py --output /path/to/new/docs-run
+```
+
+Use `--doxygen /path/to/doxygen` to select a specific executable and `--python`
+to select the Python interpreter containing Sphinx and Breathe. The builder
+refuses an existing output directory, saves its configuration and logs, checks
+representative XML classes and HTML pages, and fails on Doxygen or Sphinx
+warnings. It leaves failed output in place for diagnosis. Its XML covers the
+C/C++ files under `src/hwacc`; the Python reference embeds selected actual
+SimObject source files and does not require the gem5 runtime. The generated
+Params factory in `io_acc.cc` is omitted from source-only Doxygen extraction
+because its declaration is build-generated. Sphinx is not run in nitpicky mode:
+SALAM-only XML does not contain all external gem5 and LLVM type definitions.
+
+The older `generate_docs.py` supports a fallback documentation index when tools
+are missing; its fallback is not a successful strict API build. Do not use the
+shell helper's `--clean` option if existing documentation output must be kept.

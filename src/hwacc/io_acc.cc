@@ -371,10 +371,13 @@ IOAcc::processData() {
     prepWrite(mmrval, data, 4);
 }
 
+/// @cond GEM5_GENERATED_PARAMS
+/// gem5 generates the Params declaration; exclude its factory from source-only docs.
 IOAcc *
 IOAccParams::create() {
     return new IOAcc(this);
 }
+/// @endcond
 
 Port&
 IOAcc::getPort(const std::string& if_name, PortID idx) {

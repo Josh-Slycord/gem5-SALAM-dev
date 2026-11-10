@@ -652,3 +652,93 @@ jobs:
           path: '${{ runner.temp }}/salam-packaging-contracts/'
           if-no-files-found: error
           retention-days: 14
+
+  salam-api-docs:
+    name: SALAM API documentation
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      SALAM_DOCS_CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Install isolated documentation system dependencies
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git python3 python3-venv doxygen graphviz
+
+      - name: Check out the exact documentation candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify and record the candidate source identity
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p "$RUNNER_TEMP/salam-api-docs-environment"
+          actual="$(git --no-optional-locks -c core.fsmonitor=false rev-parse HEAD)"
+          printf '%s\n' "$actual" > "$RUNNER_TEMP/salam-api-docs-environment/candidate-sha.txt"
+          test "$actual" = "$SALAM_DOCS_CANDIDATE"
+          dpkg-query -W doxygen graphviz python3 > "$RUNNER_TEMP/salam-api-docs-environment/system-packages.txt"
+
+      - name: Install pinned documentation dependencies in an isolated environment
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/salam-api-docs-venv"
+          "$RUNNER_TEMP/salam-api-docs-venv/bin/python" -m pip install --no-input pip==24.3.1
+          "$RUNNER_TEMP/salam-api-docs-venv/bin/python" -m pip install --no-input -r docs/requirements-strict.txt
+          "$RUNNER_TEMP/salam-api-docs-venv/bin/python" -m pip freeze > "$RUNNER_TEMP/salam-api-docs-environment/python-freeze.txt"
+
+      - name: Build warning-fatal Doxygen XML and Sphinx Breathe HTML
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/salam-api-docs-venv/bin/python" -B scripts/build_salam_docs.py \
+            --doxygen /usr/bin/doxygen \
+            --output "$RUNNER_TEMP/salam-api-docs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          "$RUNNER_TEMP/salam-api-docs-venv/bin/python" -B - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP']) / (
+              'salam-api-docs-' + os.environ['GITHUB_RUN_ID'] + '-' +
+              os.environ['GITHUB_RUN_ATTEMPT'])
+          record = json.loads((output / 'build.json').read_text(encoding='utf-8'))
+          if record.get('state') != 'passed':
+              raise SystemExit('Strict documentation receipt did not pass')
+          for relative in ('doxygen/xml/index.xml', 'html/index.html',
+                           'html/api/cpp/index.html'):
+              artifact = output / relative
+              if not artifact.is_file() or artifact.stat().st_size == 0:
+                  raise SystemExit('Required documentation output missing: ' + relative)
+          print('Verified strict documentation receipt and required XML/HTML outputs')
+          PY
+
+      - name: Verify documentation left source unchanged
+        run: |
+          set -euo pipefail
+          git --no-optional-locks -c core.fsmonitor=false diff --check
+          git --no-optional-locks -c core.fsmonitor=false diff --exit-code
+          test -z "$(git --no-optional-locks -c core.fsmonitor=false status --porcelain --untracked-files=normal)"
+
+      - name: Preserve documentation, warnings and environment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: salam-api-documentation
+          path: |
+            ${{ runner.temp }}/salam-api-docs-${{ github.run_id }}-${{ github.run_attempt }}/
+            ${{ runner.temp }}/salam-api-docs-environment/
+          if-no-files-found: error
+          retention-days: 14

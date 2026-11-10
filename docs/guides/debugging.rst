@@ -97,20 +97,20 @@ SALAM GDB Commands
 
 Once in GDB with the SALAM init file loaded:
 
-==================  =========================================
-Command             Description
-==================  =========================================
-salam-help          Show all SALAM GDB commands
-salam-break-compute Break at accelerator compute entry
-salam-break-dma     Break on DMA response
-salam-break-start   Break at accelerator start
-salam-break-finish  Break at accelerator finish
-salam-break-all     Set all common breakpoints
-salam-events        Dump event queue
-salam-tick          Print current tick
-salam-flag-on       Enable debug flag at runtime
-salam-flag-off      Disable debug flag at runtime
-==================  =========================================
+===================  =========================================
+Command              Description
+===================  =========================================
+salam-help           Show all SALAM GDB commands
+salam-break-compute  Break at accelerator compute entry
+salam-break-dma      Break on DMA response
+salam-break-start    Break at accelerator start
+salam-break-finish   Break at accelerator finish
+salam-break-all      Set all common breakpoints
+salam-events         Dump event queue
+salam-tick           Print current tick
+salam-flag-on        Enable debug flag at runtime
+salam-flag-off       Disable debug flag at runtime
+===================  =========================================
 
 Example Session
 ---------------

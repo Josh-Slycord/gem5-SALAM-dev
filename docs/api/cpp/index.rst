@@ -61,7 +61,7 @@ FUSchedulingPool
 
 Non-pipelined functional unit capacity scheduler and diagnostic trace engine.
 
-.. doxygenclass:: gem5::salam::FUSchedulingPool
+.. doxygenclass:: FUSchedulingPool
    :members:
    :undoc-members:
 

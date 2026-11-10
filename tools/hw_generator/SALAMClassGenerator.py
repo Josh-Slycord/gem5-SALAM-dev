@@ -107,6 +107,14 @@ class FunctionalUnitGenerator():
         with open(self.cxx_header, 'w+') as self.fu_list_header_file:
             self.fu_list_header_file.write("#ifndef __HWMODEL_FUNCTIONAL_UNITS_HH__\n")
             self.fu_list_header_file.write("#define __HWMODEL_FUNCTIONAL_UNITS_HH__\n\n")
+            self.fu_list_header_file.write(
+                "/**\n"
+                " * @file\n"
+                " * @brief Declares the FunctionalUnits SimObject aggregating hardware FU\n"
+                " * models.\n"
+                " */\n"
+                "\n"
+            )
             self.fu_list_header_file.write("#include \"params/FunctionalUnits.hh\"\n")
             self.fu_list_header_file.write("#include \"sim/sim_object.hh\"\n")
 
@@ -125,6 +133,11 @@ class FunctionalUnitGenerator():
 
             self.fu_list_header_file.write("class FunctionalUnitBase;\n\n")
 
+            self.fu_list_header_file.write(
+                "/**\n"
+                " * @brief SimObject grouping functional unit models and instance limits.\n"
+                " */\n"
+            )
             self.fu_list_header_file.write("class FunctionalUnits : public SimObject\n")
             self.fu_list_header_file.write("{\n")
             self.fu_list_header_file.write("\tprivate:\n")
@@ -424,6 +437,14 @@ class FunctionalUnitGenerator():
         with open("src/hwacc/HWModeling/src/instruction_config.hh", 'w+') as self.inst_config_header_file:
             self.inst_config_header_file.write("#ifndef __HWMODEL_INSTRUCTION_CONFIG_HH__\n")
             self.inst_config_header_file.write("#define __HWMODEL_INSTRUCTION_CONFIG_HH__\n\n")
+            self.inst_config_header_file.write(
+                "/**\n"
+                " * @file\n"
+                " * @brief Declares the InstConfig SimObject grouping instruction configuration\n"
+                " * models.\n"
+                " */\n"
+                "\n"
+            )
             self.inst_config_header_file.write("#include \"params/InstConfig.hh\"\n")
             self.inst_config_header_file.write("#include \"sim/sim_object.hh\"\n")
 
@@ -442,6 +463,12 @@ class FunctionalUnitGenerator():
 
             self.inst_config_header_file.write("class InstConfigBase;\n\n")
 
+            self.inst_config_header_file.write(
+                "/**\n"
+                " * @brief SimObject grouping per-instruction hardware parameters and\n"
+                " * configurations.\n"
+                " */\n"
+            )
             self.inst_config_header_file.write("class InstConfig : public SimObject\n")
             self.inst_config_header_file.write("{\n")
             self.inst_config_header_file.write("\tprivate:\n")
