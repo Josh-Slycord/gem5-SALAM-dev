@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "repository": "Josh-Slycord/gem5-SALAM-dev",
+  "repository_id": 536408321,
+  "pinned_refs": {
+    "refs/heads/legacy/gem5-21.1-workbench-20261107": "48fe84fa2f1c52e95fbc2382d62f26013fa78cd7",
+    "refs/heads/codex/simobject-lifecycle-20261107": "81cb2734f0faa96d24dde4a970c8dc82a77ff38d",
+    "refs/heads/codex/track-ab-integration-20261106": "1f4e6225dc04d305bdf2a2be424fab029d471d4e",
+    "refs/tags/gem5-26-checkpoint-20261105": "38c99ba353116039cd72e2d3c225304f93a3ce44",
+    "refs/tags/gem5-26-integration-checkpoint-20261105": "43cb531d14a46bb5694cbc601e0241fa3295b836"
+  },
+  "rulesets": [
+    {
+      "name": "SALAM main",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "ref_name": {
+          "include": ["refs/heads/main"],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {"type": "deletion"},
+        {"type": "non_fast_forward"},
+        {
+          "type": "pull_request",
+          "parameters": {
+            "dismiss_stale_reviews_on_push": true,
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_approving_review_count": 0,
+            "required_review_thread_resolution": true
+          }
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "do_not_enforce_on_create": false,
+            "strict_required_status_checks_policy": true,
+            "required_status_checks": [
+              {
+                "context": "Python contracts and SALAM source generation",
+                "integration_id": 15368
+              },
+              {
+                "context": "Python 3.12 contracts and explicit gem5 26 source generation",
+                "integration_id": 15368
+              },
+              {
+                "context": "PowerShell syntax and packaging failure controls",
+                "integration_id": 15368
+              },
+              {
+                "context": "Repository hygiene",
+                "integration_id": 15368
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SALAM frozen branches",
+      "target": "branch",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "refs/heads/codex/simobject-lifecycle-20261107",
+            "refs/heads/codex/track-ab-integration-20261106",
+            "refs/heads/legacy/gem5-21.1-workbench-20261107"
+          ],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {
+          "type": "update",
+          "parameters": {"update_allows_fetch_and_merge": false}
+        },
+        {"type": "deletion"},
+        {"type": "non_fast_forward"}
+      ]
+    },
+    {
+      "name": "SALAM frozen tags",
+      "target": "tag",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "refs/tags/gem5-26-checkpoint-20261105",
+            "refs/tags/gem5-26-integration-checkpoint-20261105"
+          ],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {
+          "type": "update",
+          "parameters": {"update_allows_fetch_and_merge": false}
+        },
+        {"type": "deletion"},
+        {"type": "non_fast_forward"}
+      ]
+    }
+  ]
+}
