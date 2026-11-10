@@ -1,6 +1,15 @@
 #ifndef __HWMODEL_HW_STATISTICS_HH__
 #define __HWMODEL_HW_STATISTICS_HH__
 
+/**
+ * @file
+ * @brief Declares data structures and SimObject for accelerator runtime
+ * statistics.
+ *
+ * Tracks per-cycle instruction pipeline state (in flight, active, stalled,
+ * committed) and simulation summary parameters.
+ */
+
 #include "params/HWStatistics.hh"
 #include "sim/sim_object.hh"
 
@@ -13,8 +22,9 @@
 
 using namespace gem5;
 
-
-// Things here are output only once at end of simulation
+/**
+ * @brief Summary statistics recorded at the conclusion of simulation.
+ */
 struct HW_Params {
     int run_end;
 
@@ -24,7 +34,10 @@ struct HW_Params {
 
 };
 
-// These are outputs that are stored each cycle
+/**
+ * @brief Fine-grained pipeline occupancy and stall statistics sampled per
+ * cycle.
+ */
 struct HW_Cycle_Stats {
     int cycle;
 
@@ -43,8 +56,6 @@ struct HW_Cycle_Stats {
     int compActive;
     int compFUStall;
     int compCommited;
-
-
 
     HW_Cycle_Stats() { reset(); }
 
@@ -65,6 +76,9 @@ struct HW_Cycle_Stats {
     }
 };
 
+/**
+ * @brief SimObject collecting and buffering hardware pipeline statistics.
+ */
 class HWStatistics : public SimObject
 {
     private:
@@ -80,10 +94,8 @@ class HWStatistics : public SimObject
         int statBufferSize;
         int statBufferPreDefine;
 
-
         // Class Only
         int current_buffer_index = 0;
-
 
     public:
         HWStatistics();

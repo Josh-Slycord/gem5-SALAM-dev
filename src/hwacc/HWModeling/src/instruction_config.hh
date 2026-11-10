@@ -1,6 +1,12 @@
 #ifndef __HWMODEL_INSTRUCTION_CONFIG_HH__
 #define __HWMODEL_INSTRUCTION_CONFIG_HH__
 
+/**
+ * @file
+ * @brief Declares the InstConfig SimObject grouping instruction configuration
+ * models.
+ */
+
 #include "params/InstConfig.hh"
 #include "sim/sim_object.hh"
 // GENERATED HEADERS - DO NOT MODIFY
@@ -63,6 +69,10 @@ using namespace gem5;
 
 class InstConfigBase;
 
+/**
+ * @brief SimObject grouping per-instruction hardware parameters and
+ * configurations.
+ */
 class InstConfig : public SimObject
 {
 	private:

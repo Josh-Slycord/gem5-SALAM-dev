@@ -1,5 +1,17 @@
 #ifndef __HWACC_OPERAND_HH__
 #define __HWACC_OPERAND_HH__
+
+/**
+ * @file
+ * @brief Defines SALAM::Operand and constant/argument specializations of
+ * SALAM::Value.
+ *
+ * An Operand wraps an input value to an instruction, providing snapshotting
+ * and register value locking at launch time. Constant, GlobalConstant, and
+ * Argument model static literals, global memory references, and function
+ * arguments respectively.
+ */
+
 //------------------------------------------//
 #include "llvm/IR/Value.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -18,7 +30,10 @@
 namespace SALAM
 {
 
-
+/**
+ * @brief Instruction operand wrapper managing input values and register
+ * locking.
+ */
 class Operand: public Value
 {
     private:
@@ -26,6 +41,9 @@ class Operand: public Value
         bool set = false;
 
     protected:
+        /**
+         * @brief Debug helper for printing operand state.
+         */
         class Operand_Debugger: public Debugger
         {
             public:
@@ -67,6 +85,10 @@ class Operand: public Value
         std::shared_ptr<SALAM::Register> getOpRegister() { return lockedValue; }
 };
 
+/**
+ * @brief Represents compile-time scalar or aggregate constant values in the
+ * CDFG.
+ */
 class Constant: public Value {
     private:
     protected:
@@ -79,6 +101,9 @@ class Constant: public Value {
         virtual void initialize(llvm::Value * irval, irvmap * irmap, SALAM::valueListTy * values);
 };
 
+/**
+ * @brief Represents global constant structures or arrays allocated in memory.
+ */
 class GlobalConstant : public Constant {
     private:
     protected:
@@ -90,6 +115,10 @@ class GlobalConstant : public Constant {
         virtual void initialize(llvm::Value * irval, irvmap * irmap, SALAM::valueListTy * values) override;
 };
 
+/**
+ * @brief Represents function formal parameters bound from hardware registers
+ * or memory.
+ */
 class Argument : public Value {
     private:
     protected:

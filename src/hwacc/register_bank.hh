@@ -1,6 +1,16 @@
 #ifndef __HWACC_REGISTER_BANK_HH__
 #define __HWACC_REGISTER_BANK_HH__
 
+/**
+ * @file register_bank.hh
+ * @brief Register file storage model with delta-cycle staging for gem5-SALAM.
+ *
+ * RegisterBank provides high-bandwidth, cycle-isolated register storage for
+ * hardware accelerators. It features delta-cycle write staging (isolating in-
+ * cycle
+ * updates until clock transitions) and multi-port timing response management.
+ */
+
 #include "mem/abstract_mem.hh"
 #include "mem/port.hh"
 #include "mem/tport.hh"
@@ -12,14 +22,39 @@ using namespace memory;
 
 #include "params/RegisterBank.hh"
 
+/**
+ * @class RegisterBank
+ * @brief Memory-backed register file SimObject with delta-cycle update
+ * isolation.
+ *
+ * Inherits from AbstractMemory. Writes are staged to an internal buffer
+ * (`deltaAddr`)
+ * during an active clock cycle, preventing write-after-read hazards within the
+ * same delta cycle. At cycle boundaries (`deltaEvent`), staged values commit
+ * to
+ * committed storage buffer (`pmemAddr`) and response packets are dispatched.
+ */
 class RegisterBank : public AbstractMemory
 {
   public:
     PARAMS(RegisterBank);
+    /**
+     * @brief Construct a new RegisterBank object.
+     * @param p SimObject configuration parameters.
+     */
     RegisterBank(const RegisterBankParams &p);
+    /**
+     * @brief Direct register read/write access routine.
+     * @param pkt Memory packet to process.
+     */
     void registerAccess(PacketPtr pkt);
 
   private:
+    /**
+     * @class DeferredPacket
+     * @brief Encapsulates a deferred response packet with its scheduled
+     * delivery tick.
+     */
     class DeferredPacket
     {
       public:
@@ -30,6 +65,11 @@ class RegisterBank : public AbstractMemory
         { }
     };
 
+    /**
+     * @class RegPort
+     * @brief Primary timing/atomic ResponsePort connecting to CommInterface or
+     * compute units.
+     */
     class RegPort : public ResponsePort
     {
       private:
@@ -53,6 +93,11 @@ class RegisterBank : public AbstractMemory
 
     RegPort port;
 
+    /**
+     * @class LoadPort
+     * @brief Auxiliary SimpleTimingPort for bulk loading accelerator register
+     * contents.
+     */
     class LoadPort : public SimpleTimingPort
     {
       private:
@@ -75,41 +120,52 @@ class RegisterBank : public AbstractMemory
     LoadPort load;
 
     /**
-     * Container for register deltas. Copied to pmem on delta events.
+     * Container for register deltas. Staged writes update this buffer
+     * and are committed to physical storage (`pmemAddr`) on delta events.
      */
     uint8_t* deltaAddr;
     /**
-     * Latency of a delta cycle in the register bank
+     * Latency of a delta cycle in the register bank.
      */
     const Tick deltaTime;
     /**
-     * Internal (unbounded) storage to mimic the delay caused by the
-     * delta timing of writes. Note that this is where the packet spends
-     * the memory latency.
+     * Internal FIFO of deferred packets awaiting delivery.
      */
     std::list<DeferredPacket> packetQueue;
 
     /**
-     * Remember if we failed to send a response and are awaiting a
-     * retry. This is only used as a check.
+     * Indicates whether the downstream receiver was busy and a retry is
+     * awaited.
      */
     bool retryResp;
 
     /**
-     * Dequeue a packet from our internal packet queue and move it to
-     * the port where it will be sent as soon as possible.
+     * Dequeue a packet from the internal queue and attempt port delivery.
      */
     void dequeue();
+    /**
+     * Determine and schedule the next response event.
+     */
     void scheduleNextResponse();
+    /**
+     * In-flight delivery flag preventing synchronous reentrant displacement.
+     */
     bool responseInProgress = false;
     EventFunctionWrapper dequeueEvent;
 
     /**
-     * Handle the delta cycle of the registers in the bank.
-     * Copies updated data at deltaAddr to the storage buffer in pmemAddr.
-     * Calls dequeue() to send packet responses.
+     * Handle the delta cycle: commit staged delta bytes to storage and trigger
+     * dequeues.
      */
     void delta();
+    /**
+     * @brief Signals drain completion when all register bank events and
+     * response queues are quiescent.
+     *
+     * Verifies that deltaEvent, responseQueue, responseRetry,
+     * responseInProgress, and responseEvent have all completed before
+     * calling signalDrainDone().
+     */
     void tryCompleteDrain();
     EventFunctionWrapper deltaEvent;
 
@@ -119,6 +175,10 @@ class RegisterBank : public AbstractMemory
     Port &getPort(const std::string &if_name,
                   PortID idx=InvalidPortID) override;
     void init() override;
+    /**
+     * @brief Query the configured delta-cycle time period.
+     * @return Tick duration of a single delta step.
+     */
     Tick getDeltaTime() { return deltaTime; }
 
   protected:

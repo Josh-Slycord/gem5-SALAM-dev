@@ -1,5 +1,15 @@
 #ifndef __HWMODEL_CYCLE_COUNTS_HH__
 #define __HWMODEL_CYCLE_COUNTS_HH__
+
+/**
+ * @file
+ * @brief Declares the CycleCounts SimObject specifying instruction execution
+ * latencies.
+ *
+ * Maps per-opcode latency settings from configuration YAML into runtime cycle
+ * parameters for instruction scheduling.
+ */
+
 //------------------------------------------//
 //#include "debug_flags.hh"
 #include "params/CycleCounts.hh"
@@ -10,6 +20,10 @@
 
 using namespace gem5;
 
+/**
+ * @brief SimObject holding latency cycle counts for all supported
+ * instructions.
+ */
 class CycleCounts : public SimObject
 {
     public:

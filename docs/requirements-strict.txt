@@ -1,0 +1,3 @@
+# Exact versions used by the strict SALAM documentation build.
+Sphinx==9.1.1
+breathe==5.1.0

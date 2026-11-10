@@ -18,9 +18,11 @@ Core Components
 LLVMInterface
 -------------
 
-The central execution engine that processes LLVM IR instructions.
+The central execution engine that processes LLVM IR instructions, manages the
+dynamic Control-Data Flow Graph (CDFG), enforces functional unit capacity, and
+implements ``Drainable`` and per-instance graph teardown semantics.
 
-.. doxygenclass:: gem5::LLVMInterface
+.. doxygenclass:: LLVMInterface
    :members:
    :protected-members:
    :undoc-members:
@@ -28,9 +30,10 @@ The central execution engine that processes LLVM IR instructions.
 CommInterface
 -------------
 
-Communication interface between the accelerator and the system bus.
+Communication interface between the accelerator compute unit and local/global
+memory ports, scratchpad memories, register banks, and streaming endpoints.
 
-.. doxygenclass:: gem5::CommInterface
+.. doxygenclass:: CommInterface
    :members:
    :protected-members:
    :undoc-members:
@@ -40,7 +43,7 @@ AccCluster
 
 Container for accelerator components (compute units, memory, DMA).
 
-.. doxygenclass:: gem5::AccCluster
+.. doxygenclass:: AccCluster
    :members:
    :undoc-members:
 
@@ -49,19 +52,37 @@ ComputeUnit
 
 Base class for compute units within an accelerator.
 
-.. doxygenclass:: gem5::ComputeUnit
+.. doxygenclass:: ComputeUnit
+   :members:
+   :undoc-members:
+
+FUSchedulingPool
+----------------
+
+Non-pipelined functional unit capacity scheduler and diagnostic trace engine.
+
+.. doxygenclass:: FUSchedulingPool
+   :members:
+   :undoc-members:
+
+WorkbenchStatistics
+-------------------
+
+Observation-only runtime statistics collector for memory and compute activity.
+
+.. doxygenclass:: gem5::salam::WorkbenchStatistics
    :members:
    :undoc-members:
 
 LLVM IR Representation
 ======================
 
-These classes represent the parsed LLVM IR structure.
+These classes represent the parsed LLVM IR structure and dynamic CDFG nodes.
 
 Instruction
 -----------
 
-Base class for all LLVM instructions.
+Base class for all executable LLVM instructions in the SALAM CDFG.
 
 .. doxygenclass:: SALAM::Instruction
    :members:
@@ -71,7 +92,7 @@ Base class for all LLVM instructions.
 BasicBlock
 ----------
 
-Represents a basic block containing instructions.
+Represents a basic block containing instructions and control-flow predecessors.
 
 .. doxygenclass:: SALAM::BasicBlock
    :members:
@@ -80,7 +101,7 @@ Represents a basic block containing instructions.
 Function
 --------
 
-Represents a function containing basic blocks.
+Represents a function containing basic blocks and formal arguments.
 
 .. doxygenclass:: SALAM::Function
    :members:
@@ -89,7 +110,7 @@ Represents a function containing basic blocks.
 Value
 -----
 
-Base class for all values (instructions, arguments, constants).
+Base class for all CDFG values (instructions, arguments, constants, blocks).
 
 .. doxygenclass:: SALAM::Value
    :members:
@@ -98,9 +119,27 @@ Base class for all values (instructions, arguments, constants).
 Operand
 -------
 
-Represents instruction operands.
+Represents instruction operands and register-locking snapshots.
 
 .. doxygenclass:: SALAM::Operand
+   :members:
+   :undoc-members:
+
+Register
+--------
+
+Data storage container for ``SALAM::Value`` instances with read/write tracking.
+
+.. doxygenclass:: SALAM::Register
+   :members:
+   :undoc-members:
+
+MemoryRequest
+-------------
+
+Descriptor managing multi-word read and write transactions across ports.
+
+.. doxygenclass:: MemoryRequest
    :members:
    :undoc-members:
 
@@ -110,9 +149,9 @@ Hardware Modeling
 HWInterface
 -----------
 
-Interface for querying hardware characteristics.
+Interface aggregating hardware timing, functional units, and power models.
 
-.. doxygenclass:: gem5::HWInterface
+.. doxygenclass:: HWInterface
    :members:
    :undoc-members:
 
@@ -121,7 +160,7 @@ FunctionalUnits
 
 Models functional unit availability and allocation.
 
-.. doxygenclass:: gem5::FunctionalUnits
+.. doxygenclass:: FunctionalUnits
    :members:
    :undoc-members:
 
@@ -130,7 +169,7 @@ CycleCounts
 
 Tracks cycle counts for instructions and operations.
 
-.. doxygenclass:: gem5::CycleCounts
+.. doxygenclass:: CycleCounts
    :members:
    :undoc-members:
 
@@ -139,7 +178,7 @@ HWStatistics
 
 Collects and reports hardware statistics.
 
-.. doxygenclass:: gem5::HWStatistics
+.. doxygenclass:: HWStatistics
    :members:
    :undoc-members:
 
@@ -149,18 +188,18 @@ Memory Components
 ScratchpadMemory
 ----------------
 
-On-chip scratchpad memory for accelerator data.
+Multi-port, bank-interleaved on-chip scratchpad memory for accelerator data.
 
-.. doxygenclass:: gem5::ScratchpadMemory
+.. doxygenclass:: ScratchpadMemory
    :members:
    :undoc-members:
 
 RegisterBank
 ------------
 
-Register file for accelerator state.
+Delta-cycled hardware register file for accelerator state.
 
-.. doxygenclass:: gem5::RegisterBank
+.. doxygenclass:: RegisterBank
    :members:
    :undoc-members:
 
@@ -172,37 +211,57 @@ NoncoherentDma
 
 Non-coherent DMA controller for bulk data transfers.
 
-.. doxygenclass:: gem5::NoncoherentDma
+.. doxygenclass:: NoncoherentDma
    :members:
    :undoc-members:
 
 StreamDma
 ---------
 
-Streaming DMA controller for continuous data flow.
+Streaming DMA controller supporting MM2S and S2MM transfers.
 
-.. doxygenclass:: gem5::StreamDma
+.. doxygenclass:: StreamDma
    :members:
    :undoc-members:
 
 StreamBuffer
 ------------
 
-Buffer for streaming data operations.
+Clocked FIFO buffer for streaming data operations.
 
-.. doxygenclass:: gem5::StreamBuffer
+.. doxygenclass:: StreamBuffer
    :members:
    :undoc-members:
 
-I/O Components
-==============
+I/O & Verification Components
+=============================
 
 IOAcc
 -----
 
 I/O accelerator interface.
 
-.. doxygenclass:: gem5::IOAcc
+.. doxygenclass:: IOAcc
+   :members:
+   :undoc-members:
+
+SalamLifecycleTester
+--------------------
+
+Protocol and lifecycle verification harness exercising port backpressure,
+``Drainable`` transitions, and per-instance CDFG teardown.
+
+.. doxygenclass:: SalamLifecycleTester
+   :members:
+   :undoc-members:
+
+SalamRegisterBankTester
+-----------------------
+
+Protocol verification SimObject exercising ``RegisterBank`` delta writes,
+response retry ordering, and drain completion.
+
+.. doxygenclass:: SalamRegisterBankTester
    :members:
    :undoc-members:
 
@@ -218,6 +277,5 @@ For a complete list of all documented files:
 
 .. note::
 
-   If classes appear empty, the C++ source files may not have Doxygen
-   documentation comments yet. See the :ref:`contributing` guide for
-   documentation standards.
+   If classes appear empty, ensure Doxygen XML has been generated via
+   ``doxygen docs/Doxyfile.salam`` before running Sphinx.

@@ -40,3 +40,18 @@ html_static_path = ["_static"]
 # https://www.sphinx-doc.org/en/master/usage/extensions/todo.html#configuration
 
 todo_include_todos = True
+
+# -- Options for Breathe (C++ Doxygen XML integration) -----------------------
+import os as _os
+
+try:
+    import breathe as _breathe  # noqa: F401
+    extensions.append("breathe")
+    breathe_projects = {
+        "gem5-SALAM": _os.environ.get(
+            "SALAM_DOXYGEN_XML", "_build/doxygen/xml"
+        )
+    }
+    breathe_default_project = "gem5-SALAM"
+except ImportError:
+    pass

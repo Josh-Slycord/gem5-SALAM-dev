@@ -1,235 +1,66 @@
 .. _python-api:
 
-====================
-Python API Reference
-====================
+=======================
+Python SimObject source
+=======================
 
-This section documents the Python components of gem5-SALAM, including
-SimObject definitions, configuration modules, and the SALAM GUI.
-
-.. contents:: Contents
-   :local:
-   :depth: 2
-
-SimObject Classes
-=================
-
-These Python classes define the gem5 SimObjects for SALAM components.
-They are used in configuration scripts to instantiate accelerator hardware.
-
-Core SimObjects
----------------
-
-LLVMInterface
-~~~~~~~~~~~~~
-
-.. automodule:: LLVMInterface
-   :members:
-   :show-inheritance:
-   :undoc-members:
+The files below declare gem5-SALAM SimObjects and their configurable
+parameters. They are included directly from the source tree: a standalone
+documentation build does not import gem5's embedded ``m5`` runtime, and does
+not claim to document every Python module or GUI component.
 
 CommInterface
-~~~~~~~~~~~~~
+=============
 
-.. automodule:: CommInterface
-   :members:
-   :show-inheritance:
-   :undoc-members:
+.. literalinclude:: ../../../src/hwacc/CommInterface.py
+   :language: python
+   :linenos:
+
+LLVMInterface
+=============
+
+.. literalinclude:: ../../../src/hwacc/LLVMInterface.py
+   :language: python
+   :linenos:
 
 AccCluster
-~~~~~~~~~~
+==========
 
-.. automodule:: AccCluster
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-ComputeUnit
-~~~~~~~~~~~
-
-.. automodule:: ComputeUnit
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Memory SimObjects
------------------
+.. literalinclude:: ../../../src/hwacc/AccCluster.py
+   :language: python
+   :linenos:
 
 ScratchpadMemory
-~~~~~~~~~~~~~~~~
+================
 
-.. automodule:: ScratchpadMemory
-   :members:
-   :show-inheritance:
-   :undoc-members:
+.. literalinclude:: ../../../src/hwacc/ScratchpadMemory.py
+   :language: python
+   :linenos:
 
 RegisterBank
-~~~~~~~~~~~~
+============
 
-.. automodule:: RegisterBank
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-DMA SimObjects
---------------
+.. literalinclude:: ../../../src/hwacc/RegisterBank.py
+   :language: python
+   :linenos:
 
 NoncoherentDma
-~~~~~~~~~~~~~~
-
-.. automodule:: NoncoherentDma
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-StreamDma
-~~~~~~~~~
-
-.. automodule:: StreamDma
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-StreamBuffer
-~~~~~~~~~~~~
-
-.. automodule:: StreamBuffer
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Hardware Modeling SimObjects
-----------------------------
-
-HWInterface
-~~~~~~~~~~~
-
-.. automodule:: HWInterface
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-FunctionalUnits
-~~~~~~~~~~~~~~~
-
-.. automodule:: FunctionalUnits
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-CycleCounts
-~~~~~~~~~~~
-
-.. automodule:: CycleCounts
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-HWStatistics
-~~~~~~~~~~~~
-
-.. automodule:: HWStatistics
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Configuration Modules
-=====================
-
-These modules provide configuration helpers for setting up SALAM simulations.
-
-HWAcc Configuration
--------------------
-
-.. automodule:: HWAcc
-   :members:
-   :undoc-members:
-
-SALAM GUI
-=========
-
-The SALAM GUI provides a graphical interface for configuring and running
-accelerator simulations.
-
-Main Application
-----------------
-
-.. automodule:: salam_gui.app
-   :members:
-   :undoc-members:
-
-Widgets
--------
-
-Simulation Panel
-~~~~~~~~~~~~~~~~
-
-.. automodule:: salam_gui.widgets.simulation_panel
-   :members:
-   :undoc-members:
-
-Hardware Configuration
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: salam_gui.widgets.hardware_config
-   :members:
-   :undoc-members:
-
-Benchmark Selection
-~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: salam_gui.widgets.benchmark_panel
-   :members:
-   :undoc-members:
-
-.. note::
-
-   If modules appear empty, they may not have docstrings yet. See the
-   :ref:`contributing` guide for documentation standards.
-
-Usage Examples
 ==============
 
-Creating an Accelerator Cluster
--------------------------------
+.. literalinclude:: ../../../src/hwacc/NoncoherentDma.py
+   :language: python
+   :linenos:
 
-.. code-block:: python
+StreamDma
+=========
 
-   from m5.objects import *
+.. literalinclude:: ../../../src/hwacc/StreamDma.py
+   :language: python
+   :linenos:
 
-   # Create the accelerator cluster
-   cluster = AccCluster()
-   cluster.local_bus = NoncoherentXBar()
+StreamBuffer
+============
 
-   # Create communication interface
-   cluster.comm = CommInterface()
-   cluster.comm.pio_addr = 0x2f100000
-   cluster.comm.pio_size = 64
-
-   # Create LLVM interface (compute engine)
-   cluster.llvm = LLVMInterface()
-   cluster.llvm.ir_file = "benchmark.ll"
-
-   # Create scratchpad memory
-   cluster.spm = ScratchpadMemory()
-   cluster.spm.size = "64kB"
-
-   # Create DMA controller
-   cluster.dma = NoncoherentDma()
-
-Configuring Hardware Parameters
--------------------------------
-
-.. code-block:: python
-
-   # Configure functional units
-   hw = HWInterface()
-   hw.fu = FunctionalUnits()
-   hw.fu.num_adders = 4
-   hw.fu.num_multipliers = 2
-
-   # Configure cycle counts
-   hw.cycles = CycleCounts()
-   hw.cycles.add_latency = 1
-   hw.cycles.mul_latency = 3
-   hw.cycles.load_latency = 2
+.. literalinclude:: ../../../src/hwacc/StreamBuffer.py
+   :language: python
+   :linenos:

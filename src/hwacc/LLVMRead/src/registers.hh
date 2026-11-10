@@ -1,6 +1,15 @@
 #ifndef __HWACC_REGISTERS_HH__
 #define __HWACC_REGISTERS_HH__
 
+/**
+ * @file
+ * @brief Data storage containers and access tracking for SALAM values.
+ *
+ * Defines the SALAM::Register base class and specialized register types
+ * (APFloatRegister, APIntRegister, PointerRegister). Tracks dynamic read
+ * and write access counts for hardware power, area, and timing modeling.
+ */
+
 #include "debug_flags.hh"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -13,12 +22,13 @@
 
 namespace SALAM
 {
-/*****************************************************************************
-* Register is the data storage container for SALAM::Values.
-* Every instruction and function argument has a corresponding register that
-* is tracked for power/area/timing. Additionally Constants have corresponding
-* registers, which are not tracked, since they do not have a timing component.
-*****************************************************************************/
+/**
+ * @brief Data storage container for SALAM::Values with access tracking.
+ *
+ * Every instruction and function argument has a corresponding register that
+ * is tracked for power/area/timing. Additionally Constants have corresponding
+ * registers, which are not tracked, since they do not have a timing component.
+ */
 class Register
 {
     protected:
@@ -29,6 +39,9 @@ class Register
         uint64_t writes = 0;
         uint64_t regdata;
 
+        /**
+         * @brief Debug helper for printing register contents.
+         */
         class Register_Debugger: public Debugger
         {
             public:
@@ -40,8 +53,18 @@ class Register
         Register_Debugger reg_dbg;
 
     public:
+        /**
+         * @brief Constructs a Register.
+         *
+         * @param trk Whether accesses to this register are tracked for PPA.
+         * @param nul Whether this register represents a null pointer.
+         */
         Register(bool trk=true,
                  bool nul=false);
+
+        /**
+         * @brief Destructor for Register.
+         */
         ~Register();
     #if USE_LLVM_AP_VALUES
         virtual llvm::APFloat getFloatData(bool incReads=true) {
@@ -113,6 +136,9 @@ class Register
         virtual std::string dataString() = 0;
 };
 
+/**
+ * @brief Floating-point register specialization (single and double precision).
+ */
 class APFloatRegister : public Register
 {
     private:
@@ -149,6 +175,9 @@ class APFloatRegister : public Register
         virtual std::string dataString() override;
 };
 
+/**
+ * @brief Integer register specialization supporting arbitrary bit-widths.
+ */
 class APIntRegister : public Register
 {
     private:
@@ -185,6 +214,9 @@ class APIntRegister : public Register
         virtual std::string dataString() override;
 };
 
+/**
+ * @brief Pointer register specialization holding 64-bit accelerator addresses.
+ */
 class PointerRegister : public Register
 {
     private:

@@ -1,6 +1,11 @@
 #ifndef __HWACC_WORKBENCH_STATISTICS_HH__
 #define __HWACC_WORKBENCH_STATISTICS_HH__
 
+/**
+ * @file
+ * @brief Observation-only statistical collector for SALAM execution profiling.
+ */
+
 // A deliberately small observation-only collector. This header has no gem5,
 // LLVM, GUI, power-model, or recovered statistics-schema dependency.
 #include <algorithm>
@@ -14,11 +19,20 @@
 namespace gem5 {
 namespace salam {
 
+/**
+ * @brief Non-intrusive runtime statistics collector for memory and compute.
+ */
 class WorkbenchStatistics
 {
   public:
+    /**
+     * @brief Categories of observed instruction commit events.
+     */
     enum class Commit { QueuedCompute, MemoryRead, MemoryWrite };
 
+    /**
+     * @brief Aggregated request counts, byte volumes, and tick latencies.
+     */
     struct MemoryTotals {
         uint64_t started = 0;
         uint64_t completed = 0;
@@ -29,6 +43,9 @@ class WorkbenchStatistics
         uint64_t latencyMax = 0;
     };
 
+    /**
+     * @brief Streaming sum and maximum depth across tick samples.
+     */
     struct DepthTotals {
         uint64_t sum = 0;
         uint64_t max = 0;
@@ -102,6 +119,10 @@ class WorkbenchStatistics
     }
 
   public:
+    /**
+     * @brief Resets and starts statistics collection for a new
+     * invocation.
+     */
     bool begin(const std::string &name, uint64_t tick, uint64_t period,
                uint64_t frequency)
     {
@@ -125,6 +146,10 @@ class WorkbenchStatistics
     // Called exactly once at CommInterface enqueue, before register bypass.
     // A logical request may later split into packets or retry; neither creates
     // another collector event. IDs are opaque, invocation-local identities.
+    /**
+     * @brief Records the enqueue of a logical memory read or write
+     * request.
+     */
     void memoryStarted(uintptr_t id, bool write, uint64_t bytes, uint64_t tick)
     {
         if (!active) return;
@@ -140,6 +165,9 @@ class WorkbenchStatistics
 
     // Called only at the existing final logical-completion callback boundary,
     // immediately before cu->readCommit/writeCommit, never per packet response.
+    /**
+     * @brief Records logical completion of a tracked memory request.
+     */
     void memoryCompleted(uintptr_t id, uint64_t tick)
     {
         if (!active) return;
@@ -162,6 +190,9 @@ class WorkbenchStatistics
 
     // Only successful existing commit() calls at the three documented sites.
     // This is not a count of every instruction retired by the accelerator.
+    /**
+     * @brief Records a selected compute or memory instruction commit.
+     */
     void recordCommit(Commit kind)
     {
         if (!active) return;
@@ -175,6 +206,10 @@ class WorkbenchStatistics
 
     // One sample at each LLVMInterface::tick entry, before any function runs.
     // Arguments are sums across the functions active at that instant.
+    /**
+     * @brief Samples queue depths across all active functions at tick
+     * entry.
+     */
     void sampleQueues(uint64_t reservation, uint64_t read, uint64_t write,
                       uint64_t compute, uint64_t functions)
     {
@@ -187,6 +222,9 @@ class WorkbenchStatistics
         sampleDepth(activeFunctionCount, functions);
     }
 
+    /**
+     * @brief Finalizes collection for the current accelerator invocation.
+     */
     void end(uint64_t tick)
     {
         if (!active || tick < startTick) {
@@ -198,6 +236,10 @@ class WorkbenchStatistics
         active = false;
     }
 
+    /**
+     * @brief Checks whether the invocation completed with zero invalid
+     * events or leaked pending requests.
+     */
     bool valid() const
     {
         return completed && invalidEvents == 0 && pending.empty();

@@ -1,5 +1,11 @@
 #ifndef MACROS_HH
 #define MACROS_HH
+
+/**
+ * @file
+ * @brief Opcode definitions and utility macros mapping LLVM IR to SALAM
+ * instructions.
+ */
 //____________________________________________________________________________
 
 // Function Macros

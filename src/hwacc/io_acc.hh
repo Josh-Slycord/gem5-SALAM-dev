@@ -1,5 +1,10 @@
 #ifndef __HWACC_IO_ACC_HH__
 #define __HWACC_IO_ACC_HH__
+
+/**
+ * @file
+ * @brief Memory-mapped I/O accelerator interface device.
+ */
 //------------------------------------------//
 #include "base/trace.hh"
 #include "mem/packet.hh"
@@ -15,6 +20,10 @@
 #include <queue>
 //------------------------------------------//
 
+/**
+ * @brief PIO device handling control registers and MMIO access for
+ * accelerators.
+ */
 class IOAcc : public BasicPioDevice
 {
   private:
@@ -24,6 +33,9 @@ class IOAcc : public BasicPioDevice
     BaseGic *gic;
     uint32_t int_num;
 
+    /**
+     * @brief RequestPort managing memory transactions for IOAcc.
+     */
     class MemSidePort : public RequestPort
     {
       friend class IOAcc;
@@ -51,6 +63,9 @@ class IOAcc : public BasicPioDevice
         void sendPacket(PacketPtr pkt);
     };
 
+    /**
+     * @brief Periodic tick event driving IOAcc execution.
+     */
     class TickEvent : public Event
     {
       private:
@@ -108,20 +123,42 @@ class IOAcc : public BasicPioDevice
       return dynamic_cast<const Params *>(_params);
     }
 
+    /**
+     * @brief Constructs an IOAcc device.
+     * @param p Configuration parameters.
+     */
     IOAcc(Params *p);
 
+    /**
+     * @brief Services MMIO read requests.
+     */
     virtual Tick read(PacketPtr pkt);
 
+    /**
+     * @brief Services MMIO write requests.
+     */
     virtual Tick write(PacketPtr pkt);
 
+    /**
+     * @brief Resolves memory and PIO port bindings by name.
+     */
     Port& getPort(const std::string& if_name,
                                   PortID idk = InvalidPortID) override;
 
     void recvPacket(PacketPtr pkt);
 
+    /**
+     * @brief Stages a memory read transfer from src of given length.
+     */
     int prepRead(Addr src, size_t length);
+    /**
+     * @brief Stages a memory write transfer to dst of given length.
+     */
     int prepWrite(Addr dst, uint8_t* value, size_t length);
     int getCacheSize() { return cacheSize; }
+    /**
+     * @brief Executes accelerator computation on staged buffer data.
+     */
     void processData();
 
     uint8_t* getCurData() { return curData; }
@@ -141,5 +178,6 @@ class IOAcc : public BasicPioDevice
 
 /*
 * MM Register Layout
-* | Location of Data 32bits | Compute Finished 1bit | Unused 30bits | Start Operation 1bit |
+* | Location of Data 32bits | Compute Finished 1bit | Unused 30bits | Start
+* Operation 1bit |
 */

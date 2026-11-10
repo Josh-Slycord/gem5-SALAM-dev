@@ -3,6 +3,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,6 +27,115 @@ class HardwareCodegenTests(unittest.TestCase):
         self.engine = self.root / "engine"
         self.engine.mkdir()
         self.output = self.root / "evidence"
+
+    def _write_actual_aggregate_headers(self, directory, units, instructions):
+        """Run the real writers without changing the unittest process cwd."""
+        directory.mkdir(parents=True, exist_ok=True)
+        generator = Path(__file__).resolve().parents[2] / "SALAMClassGenerator.py"
+        program = """
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("aggregate_writer_under_test", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+Path("src/hwacc/HWModeling/src").mkdir(parents=True, exist_ok=True)
+writer = module.FunctionalUnitGenerator()
+writer.initalize_fu_list_header(json.loads(sys.argv[2]))
+writer.initalize_inst_config_header(
+    {"instructions": {name: {} for name in json.loads(sys.argv[3])}}
+)
+"""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                "-c",
+                program,
+                str(generator),
+                json.dumps(units),
+                json.dumps(instructions),
+            ],
+            cwd=str(directory),
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        generated = directory / "src/hwacc/HWModeling/src"
+        return {
+            name: (generated / name).read_bytes()
+            for name in ("functional_units.hh", "instruction_config.hh")
+        }
+
+    def _assert_aggregate_doxygen(self, payload, class_name):
+        header = payload.decode("utf-8")
+        blocks = re.findall(r"/\*\*.*?\*/", header, re.S)
+        file_blocks = [block for block in blocks if "@file" in block]
+        self.assertEqual(len(file_blocks), 1)
+        self.assertIn("@brief", file_blocks[0])
+        self.assertIn(class_name, file_blocks[0])
+        self.assertLess(header.index(file_blocks[0]), header.index("#include"))
+        class_doc = re.search(
+            r"(/\*\*(?:(?!\*/).)*\*/)\s*class " + re.escape(class_name) + r"\s*:",
+            header,
+            re.S,
+        )
+        self.assertIsNotNone(class_doc, "Class Doxygen block was lost")
+        self.assertIn("@brief", class_doc.group(1))
+        self.assertNotIn("@file", class_doc.group(1))
+        return header
+
+    def test_actual_fu_aggregate_writer_preserves_doxygen_and_custom_units(self):
+        units = ["integer_multiplier", "float_divider"]
+        outputs = self._write_actual_aggregate_headers(
+            self.root / "custom-fu-headers", units, ["select", "fsub"]
+        )
+        header = self._assert_aggregate_doxygen(
+            outputs["functional_units.hh"], "FunctionalUnits"
+        )
+        includes = re.findall(
+            r'^#include "../generated/functionalunits/([a-z_]+)\.hh"$',
+            header,
+            re.M,
+        )
+        self.assertEqual(includes, ["base"] + units)
+        self.assertIn("IntegerMultiplier* _integer_multiplier;", header)
+        self.assertIn("FloatDivider* _float_divider;", header)
+        self.assertNotIn("BitRegister* _bit_register;", header)
+
+    def test_actual_instruction_aggregate_writer_preserves_doxygen_and_selection(self):
+        instructions = ["fsub", "select"]
+        outputs = self._write_actual_aggregate_headers(
+            self.root / "custom-instruction-headers",
+            ["float_divider", "integer_multiplier"],
+            instructions,
+        )
+        header = self._assert_aggregate_doxygen(
+            outputs["instruction_config.hh"], "InstConfig"
+        )
+        includes = re.findall(
+            r'^#include "../generated/instructions/([a-z_]+)\.hh"$',
+            header,
+            re.M,
+        )
+        self.assertEqual(includes, ["base"] + instructions)
+        self.assertIn("Fsub* _fsub;", header)
+        self.assertIn("Select* _select;", header)
+        self.assertNotIn("Add* _add;", header)
+
+    def test_actual_aggregate_documentation_is_deterministic_on_rewrite(self):
+        directory = self.root / "repeat-aggregate-headers"
+        units = ["float_divider", "integer_multiplier"]
+        instructions = ["select", "fsub"]
+        first = self._write_actual_aggregate_headers(directory, units, instructions)
+        second = self._write_actual_aggregate_headers(directory, units, instructions)
+        self.assertEqual(first, second)
+        self._assert_aggregate_doxygen(second["functional_units.hh"], "FunctionalUnits")
+        self._assert_aggregate_doxygen(second["instruction_config.hh"], "InstConfig")
 
     def test_rejects_unsafe_selection_before_creating_evidence(self):
         with self.assertRaises(ValueError):

@@ -1,5 +1,11 @@
 #ifndef __HWMODEL_INSTOPCODES_HH__
 #define __HWMODEL_INSTOPCODES_HH__
+
+/**
+ * @file
+ * @brief Declares the InstOpCodes SimObject defining instruction opcode
+ * mappings.
+ */
 //------------------------------------------//
 //#include "debug_flags.hh"
 #include "params/InstOpCodes.hh"
@@ -11,6 +17,9 @@
 
 using namespace gem5;
 
+/**
+ * @brief SimObject mapping instruction names to numeric opcode values.
+ */
 class InstOpCodes : public SimObject
 {
     public:

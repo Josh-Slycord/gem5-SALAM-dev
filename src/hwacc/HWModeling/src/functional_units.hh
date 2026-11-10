@@ -1,6 +1,12 @@
 #ifndef __HWMODEL_FUNCTIONAL_UNITS_HH__
 #define __HWMODEL_FUNCTIONAL_UNITS_HH__
 
+/**
+ * @file
+ * @brief Declares the FunctionalUnits SimObject aggregating hardware FU
+ * models.
+ */
+
 #include "params/FunctionalUnits.hh"
 #include "sim/sim_object.hh"
 // GENERATED HEADERS - DO NOT MODIFY
@@ -25,6 +31,9 @@ using namespace gem5;
 
 class FunctionalUnitBase;
 
+/**
+ * @brief SimObject grouping functional unit models and instance limits.
+ */
 class FunctionalUnits : public SimObject
 {
 	private:
