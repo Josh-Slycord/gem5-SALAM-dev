@@ -64,7 +64,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request", required=True, type=Path)
     parser.add_argument(
-        "--benchmark", choices=("gemm", "fft", "stencil3d"), default="gemm"
+        "--benchmark", choices=("gemm", "fft", "stencil3d", "vadd"), default="gemm"
     )
     parser.add_argument("--evidence-dir")
     parser.add_argument("--jobs", type=int, default=8)

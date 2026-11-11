@@ -15,7 +15,7 @@ from .benchmark_oracles import reference_outputs, validate_fixture
 
 PROJECT = Path(__file__).resolve().parents[1]
 OVERLAYS = PROJECT / "experiments" / "breadth" / "overlays"
-SUPPORTED = frozenset(("gemm", "fft", "stencil3d"))
+SUPPORTED = frozenset(("gemm", "fft", "stencil3d", "vadd"))
 SHAPES = {
     "gemm": {"ROW": "8", "COL": "8"},
     "fft": {"FFT_SIZE": "1024"},
@@ -147,12 +147,16 @@ def _array(name, values, kind):
     return "\n".join(lines)
 
 
-def render_input_header(fixture, *, inject_mismatch=False, force_guest_pass=False):
+def render_input_header(
+    fixture, *, inject_mismatch=False, force_guest_pass=False, verbose=False
+):
     """Render deterministic input and gold data; never substitute observed data."""
     validate_fixture(fixture)
     if type(inject_mismatch) is not bool or type(force_guest_pass) is not bool:
         raise ValueError("Negative-control flags must be booleans")
     benchmark = fixture["benchmark"]
+    if type(verbose) is not bool or (benchmark != "vadd" and verbose):
+        raise ValueError("Verbosity control requires VADD and a boolean value")
     if benchmark not in SUPPORTED:
         raise ValueError("Unsupported breadth benchmark")
     outputs = reference_outputs(fixture)
@@ -172,7 +176,18 @@ def render_input_header(fixture, *, inject_mismatch=False, force_guest_pass=Fals
         "#define SALAM_INJECT_MISMATCH {}".format(int(inject_mismatch)),
         "#define SALAM_FORCE_GUEST_PASS {}".format(int(force_guest_pass)),
     ]
-    if benchmark == "gemm":
+    if benchmark == "vadd":
+        if type(verbose) is not bool:
+            raise ValueError("VADD verbosity must be a boolean")
+        lines.extend(
+            (
+                "#define SALAM_VADD_VERBOSE {}".format(int(verbose)),
+                _array("salam_a", data["a"], "int32_t"),
+                _array("salam_b", data["b"], "int32_t"),
+                _array("salam_expected", outputs, "int32_t"),
+            )
+        )
+    elif benchmark == "gemm":
         lines.extend(
             (
                 _array("salam_a", data["a"], "int32_t"),
@@ -271,6 +286,27 @@ def render_result_header(template, output_abi=LEGACY_WRITEFILE_ABI):
     return template[:first] + _MODERN_WRITEFILE_BODY + "\n" + template[last:]
 
 
+def _uart_result_header(source):
+    """Select UART explicitly; never fall back from failed file transport."""
+    start = "static void salam_result_end() {"
+    end = "static void salam_result_int("
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError("Result serializer has changed")
+    first, last = source.index(start), source.index(end)
+    body = """static void salam_result_end() {
+    if (salam_result_rows != SALAM_OUTPUT_COUNT) salam_result_failed = true;
+    salam_append_identity("SALAM_RESULT_END");
+    if (salam_result_failed ||
+        std::fwrite(salam_result_buffer, 1, salam_result_length, stdout) !=
+            salam_result_length || std::fflush(stdout) != 0) {
+        printf("Check Failed\\n");
+    }
+}
+
+"""
+    return source[:first] + body + source[last:]
+
+
 def stage_benchmark_inputs(
     workspace,
     benchmark,
@@ -279,6 +315,8 @@ def stage_benchmark_inputs(
     inject_mismatch=False,
     force_guest_pass=False,
     output_abi=LEGACY_WRITEFILE_ABI,
+    output_transport="file",
+    verbose=False,
 ):
     """Apply a reproducible guest-only overlay to one staged benchmark.
 
@@ -299,6 +337,10 @@ def stage_benchmark_inputs(
         raise ValueError(
             "Breadth input adapter requires a supported sys_validation path"
         )
+    if output_transport not in ("file", "uart") or type(verbose) is not bool:
+        raise ValueError("Unsupported diagnostic output controls")
+    if name != "vadd" and (output_transport != "file" or verbose):
+        raise ValueError("Output controls require the VADD diagnostic")
     validate_fixture(fixture)
     if fixture["benchmark"] != name:
         raise ValueError("Fixture benchmark does not match configured benchmark")
@@ -311,7 +353,12 @@ def stage_benchmark_inputs(
             re.M,
         )
     )
-    for macro, expected in SHAPES[name].items():
+    expected_shape = (
+        {"VADD_ELEMENT_BYTES": "4", "TYPE": "int32_t"}
+        if name == "vadd"
+        else SHAPES[name]
+    )
+    for macro, expected in expected_shape.items():
         if macros.get(macro, "").strip() != expected:
             raise ValueError("Unsupported benchmark dimension: " + macro)
     main = _safe_file(base / "sw" / "main.cpp", workspace)
@@ -339,7 +386,10 @@ def stage_benchmark_inputs(
         for path in (definitions, main, bench, kernel, header, syscalls, m5ops)
     ]
     payload = render_input_header(
-        fixture, inject_mismatch=inject_mismatch, force_guest_pass=force_guest_pass
+        fixture,
+        inject_mismatch=inject_mismatch,
+        force_guest_pass=force_guest_pass,
+        verbose=verbose,
     )
     generated = base / "sw" / "workbench_input.h"
     if generated.exists():
@@ -353,6 +403,11 @@ def stage_benchmark_inputs(
     common_header = base / "sw" / "workbench_result.h"
     if common_header.exists():
         raise ValueError("Refusing to overwrite an existing breadth result header")
+    result_header = render_result_header(
+        common_template.read_text(encoding="utf-8"), output_abi
+    )
+    if output_transport == "uart":
+        result_header = _uart_result_header(result_header)
     planned = [
         (generated, payload),
         (main, source),
@@ -360,11 +415,18 @@ def stage_benchmark_inputs(
         (m5ops, m5ops_source),
         (
             common_header,
-            render_result_header(
-                common_template.read_text(encoding="utf-8"), output_abi
-            ),
+            result_header,
         ),
     ]
+    if name == "vadd":
+        updated, count = re.subn(
+            r"(?m)^#define VADD_LENGTH [0-9]+$",
+            "#define VADD_LENGTH {}".format(fixture["shape"]["length"]),
+            definitions.read_text(encoding="utf-8"),
+        )
+        if count != 1:
+            raise ValueError("VADD requires one literal shared VADD_LENGTH")
+        planned.append((definitions, updated))
     changed = [path for path, _ in planned]
     templates = [template, common_template]
     if name == "stencil3d":
@@ -400,11 +462,17 @@ def stage_benchmark_inputs(
         "outputs": [_record(path, workspace) for path in changed],
         "kernel_preserved": True,
         "protocol": "salam_result_hex_v1",
-        "output_transport": "gem5_semihosting_writefile_text_v1",
-        "output_transport_abi": output_abi,
+        "output_transport": "uart_text_v1"
+        if output_transport == "uart"
+        else "gem5_semihosting_writefile_text_v1",
+        "output_transport_abi": "uart_newlib_length_delimited_v1"
+        if output_transport == "uart"
+        else output_abi,
         "output_transport_header": _record(common_header, workspace),
         "output_transport_template_sha256": _hash(common_template),
-        "output_relative": "simulator/salam-results.txt",
+        "output_relative": "simulator/system.terminal"
+        if output_transport == "uart"
+        else "simulator/salam-results.txt",
         "uart_write_contract": "newlib_length_delimited_bytes",
         "m5_exit_contract": "arm32_zero_delay_r0_r1_with_register_memory_clobbers",
         "measurement_scope": "Explicit guest stats dump follows completion and guest checker, before raw-output serialization; direct SALAM lifecycle is a separate accelerator interval.",

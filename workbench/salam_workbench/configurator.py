@@ -102,6 +102,13 @@ def validate_spec(data):
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", data.get("name", "")):
         raise ValueError("name must be a Python identifier")
     benchmark = _relative(data.get("benchmark"))
+    if (
+        data.get("benchmark") == "benchmarks/sys_validation/vadd"
+        and "benchmark_input" not in data
+    ):
+        raise ValueError(
+            "The VADD diagnostic requires independent benchmark_input checks"
+        )
     if "benchmark_input" in data:
         from .benchmark_validation import validate_input_case
 
@@ -914,6 +921,7 @@ def wire_runtime(workspace, spec, evidence):
             "toolchain_profile": system_configuration["toolchain_profile"],
             "result_file_transport": "gem5_semihosting_writefile_text_v1"
             if "benchmark_input" in spec
+            and spec["benchmark_input"].get("output_transport", "file") != "uart"
             else None,
         },
     )
@@ -1231,6 +1239,10 @@ def run_configuration(
                 output_abi=MODERN_WRITEFILE_ABI
                 if is_modern(load_toolchain(PROJECT))
                 else LEGACY_WRITEFILE_ABI,
+                output_transport=spec["benchmark_input"].get(
+                    "output_transport", "file"
+                ),
+                verbose=spec["benchmark_input"].get("verbose", False),
             )
             _save(directory / "benchmark-inputs.json", result["benchmark_inputs"])
         if not native:
@@ -1293,6 +1305,14 @@ def run_configuration(
             directory / "build-input-witness.json",
             result["build_input_witness"],
         )
+        if spec["benchmark"] == "benchmarks/sys_validation/vadd":
+            result["stage"] = "vadd_build_witness"
+            from .vadd_diagnostic import witness_vadd_build
+
+            result["vadd_build_witness"] = witness_vadd_build(
+                workspace, spec, contract, directory, result["build_input_witness"]
+            )
+            _save(directory / "vadd-build-witness.json", result["vadd_build_witness"])
         if native:
             from .native_generation import finalize_wrapper
 
@@ -1326,7 +1346,12 @@ def run_configuration(
                 "simulator/stats.txt",
             ]
             if "benchmark_input" in spec:
-                required.append("simulator/salam-results.txt")
+                from .benchmark_validation import numerical_output_relative
+
+                numerical_artifact = numerical_output_relative(result)
+                # UART output is already required for guest correctness markers.
+                if numerical_artifact not in required:
+                    required.append(numerical_artifact)
             if native:
                 required.extend(
                     [
@@ -1410,7 +1435,7 @@ def run_configuration(
                 result["stage"] = "independent_numerical_validation"
                 result["independent_oracle"] = assess_configured_output(
                     spec,
-                    Path(run["run_directory"]) / "simulator/salam-results.txt",
+                    Path(run["run_directory"]) / numerical_output_relative(result),
                     directory / "benchmark-fixture.json",
                 )
                 _save(
@@ -1455,9 +1480,29 @@ def run_configuration(
                     raise ValueError(
                         "Direct functional-unit scheduling evidence failed independent replay"
                     )
+            if spec["benchmark"] == "benchmarks/sys_validation/vadd":
+                from .vadd_diagnostic import witness_vadd_execution
+
+                result["stage"] = "vadd_execution_witness"
+                result["vadd_execution_witness"] = witness_vadd_execution(
+                    Path(run["run_directory"]),
+                    spec,
+                    result.get("fu_scheduling_witness", {}),
+                )
+                _save(
+                    directory / "vadd-execution-witness.json",
+                    result["vadd_execution_witness"],
+                )
+                if result["vadd_execution_witness"]["state"] != "passed":
+                    raise ValueError(
+                        "VADD direct accelerator activity was not verified"
+                    )
             applied = json.loads((directory / "runtime-applied.json").read_text())
             result["parameter_witness"] = witness_parameters(ini, applied)
-            if "benchmark_input" in spec:
+            if (
+                "benchmark_input" in spec
+                and result["benchmark_inputs"]["output_transport"] != "uart_text_v1"
+            ):
                 result["output_transport_witness"] = witness_parameters(
                     ini,
                     {
@@ -1478,6 +1523,36 @@ def run_configuration(
                 if result["output_transport_witness"]["state"] != "passed":
                     raise ValueError(
                         "Guest result file transport is not instantiated as requested"
+                    )
+            if (
+                "benchmark_input" in spec
+                and result["benchmark_inputs"]["output_transport"] == "uart_text_v1"
+            ):
+                result["output_transport_witness"] = witness_parameters(
+                    ini,
+                    {
+                        "parameters": [
+                            {
+                                "section": "system.realview.uart0",
+                                "parameter": "type",
+                                "normalized": "Pl011",
+                            },
+                            {
+                                "section": "system.realview.uart0",
+                                "parameter": "pio_addr",
+                                "normalized": "470351872",
+                            },
+                            {
+                                "section": "system.realview.uart0",
+                                "parameter": "device",
+                                "normalized": "system.terminal",
+                            },
+                        ]
+                    },
+                )
+                if result["output_transport_witness"]["state"] != "passed":
+                    raise ValueError(
+                        "Requested UART result transport is not instantiated"
                     )
             effective = analyze_configuration(
                 config,

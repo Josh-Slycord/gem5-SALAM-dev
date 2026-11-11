@@ -22,7 +22,9 @@ SPEC.loader.exec_module(verifier)
 
 def fixture(benchmark):
     shape, kind, count = verifier.CONTRACTS[benchmark]
-    if benchmark == "gemm":
+    if benchmark == "vadd":
+        inputs = {"a": list(range(count)), "b": [-1] * count}
+    elif benchmark == "gemm":
         inputs = {"a": [int(i // 8 == i % 8) for i in range(64)], "b": list(range(64))}
     elif benchmark == "fft":
         real = [0.0] * 1024
@@ -68,6 +70,95 @@ def wire(value, outputs):
 
 
 class IndependentNumericalTests(unittest.TestCase):
+    def _vadd_fixture(self, a, b):
+        value = {
+            "schema_version": 1,
+            "benchmark": "vadd",
+            "dataset": "custom",
+            "seed": 0,
+            "shape": {"length": len(a)},
+            "inputs": {"a": a, "b": b},
+            "output_kind": "int32",
+            "output_count": len(a),
+        }
+        value["fixture_sha256"] = verifier.fixture_digest(value)
+        return value
+
+    def test_vadd_widened_addition_handles_signed_extremes_and_each_output(self):
+        value = self._vadd_fixture([-2147483648, 2147483647, -5], [1, -1, 9])
+        loaded = verifier.load_fixture(json.dumps(value).encode())
+        expected = verifier.expected_outputs(loaded)
+        np.testing.assert_array_equal(expected, [-2147483647, 2147483646, 4])
+        observed, _ = verifier.parse_observed(
+            wire(value, [-2147483647, 2147483646, 4]), value
+        )
+        self.assertEqual(
+            verifier.compare_vectors(expected, observed, "int32")["state"], "passed"
+        )
+        observed[-1] += 1
+        result = verifier.compare_vectors(expected, observed, "int32")
+        self.assertEqual(result["state"], "failed")
+        self.assertEqual(result["compared_count"], 3)
+        self.assertEqual(result["first_mismatches"][0]["index"], 2)
+
+    def test_vadd_custom_contract_rejects_overflow_lengths_booleans_and_bad_shapes(
+        self,
+    ):
+        cases = [
+            self._vadd_fixture([2147483647], [1]),
+            self._vadd_fixture([-2147483648], [-1]),
+            self._vadd_fixture([True], [1]),
+            self._vadd_fixture([], []),
+            self._vadd_fixture([0] * 257, [0] * 257),
+        ]
+        changed = self._vadd_fixture([1], [2])
+        changed["shape"]["length"] = True
+        cases.append(changed)
+        for value in cases:
+            value["fixture_sha256"] = verifier.fixture_digest(value)
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                verifier.load_fixture(json.dumps(value).encode())
+
+    def test_vadd_uart_selection_is_explicit_and_rejects_repeated_blocks(self):
+        value = self._vadd_fixture([1, -3], [2, 4])
+        block = wire(value, [3, 1])
+        uart = b"Booted\n" + block + b"Check Passed\n"
+        with self.assertRaises(ValueError):
+            verifier.parse_observed(uart, value)
+        observed, _ = verifier.parse_observed(uart, value, "uart")
+        np.testing.assert_array_equal(observed, [3, 1])
+        for payload in (
+            uart + block,
+            uart + b"SALAM_RESULT 2 00000000\n",
+            uart.replace(b"SALAM_RESULT 1 00000001\n", b""),
+        ):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                verifier.parse_observed(payload, value, "uart")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "fixture.json").write_text(json.dumps(value))
+            (root / "terminal").write_bytes(uart)
+            self.assertEqual(
+                verifier.verify_files(root / "fixture.json", root / "terminal")[
+                    "state"
+                ],
+                "rejected",
+            )
+            self.assertEqual(
+                verifier.verify_files(
+                    root / "fixture.json", root / "terminal", output_transport="uart"
+                )["state"],
+                "passed",
+            )
+            (root / "terminal").write_bytes(
+                b"Booted\n" + wire(value, [3, 9]) + b"Check Passed\n"
+            )
+            wrong = verifier.verify_files(
+                root / "fixture.json", root / "terminal", output_transport="uart"
+            )
+            self.assertEqual(wrong["state"], "failed")
+            self.assertEqual(wrong["mismatch_count"], 1)
+
     def test_small_matrix_product_has_manual_expected_values(self):
         result = verifier.numpy_gemm([1, 2, 3, 4], [5, 6, 7, 8], 2, 2, 2)
         np.testing.assert_array_equal(result, [19, 22, 43, 50])
@@ -165,7 +256,9 @@ class IndependentNumericalTests(unittest.TestCase):
                 benchmark=benchmark
             ), tempfile.TemporaryDirectory() as temporary:
                 value = fixture(benchmark)
-                if benchmark == "gemm":
+                if benchmark == "vadd":
+                    expected = list(range(-1, 7))
+                elif benchmark == "gemm":
                     expected = list(range(64))  # Identity A times B.
                 elif benchmark == "fft":
                     expected = [1 + 0j] * 1024  # Unit impulse at time zero.
