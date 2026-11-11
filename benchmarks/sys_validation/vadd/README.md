@@ -9,7 +9,9 @@ shared `VADD_LENGTH` define, host ELF, accelerator IR and DMA byte count must
 agree. Inputs and sums must fit signed int32; overflow is rejected, not wrapped.
 Each scratchpad has 1024 bytes of physical capacity by default, even when the
 selected vector uses fewer bytes. A smaller configured memory must still fit
-all selected elements. Three argument slots and the flag use 25 logical bytes;
+all selected elements. The study keeps the standard 4 GB simulated ARM
+memory map for the linked bare-metal image; the vectors themselves stay tiny.
+Three argument slots and the flag use 25 logical bytes;
 the existing allocator reserves a 64-byte aligned top-level register window.
 
 Use the Workbench pipeline to stage inputs and serializer headers before

@@ -457,7 +457,7 @@ def run_study(engine, receipt, output, *, simulate=False, include_max=False):
                         {"output_transport": "file", "verbose": False}, **case
                     ),
                     "system": {
-                        "mem-size": "64MB",
+                        "mem-size": "4GB",
                         "cpu-clock": "2GHz",
                         "sys-clock": "1GHz",
                         "cacheline_size": 64,
