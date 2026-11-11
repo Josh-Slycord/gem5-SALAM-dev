@@ -134,6 +134,95 @@ class VaddStudyClassifierTests(unittest.TestCase):
             )
         )
 
+    def test_only_bare_metal_gap_can_be_closed_with_bound_arm_elf(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            elf = directory / "workspace/benchmarks/sys_validation/vadd/sw/main.elf"
+            elf.parent.mkdir(parents=True)
+            elf.write_bytes(bytes.fromhex("7f454c4601010100000000000000000002002800"))
+            digest = study._hash(elf)
+            run_directory = directory / "runs/trial"
+            config = run_directory / "simulator/config.ini"
+            config.parent.mkdir(parents=True)
+            config.write_text(
+                "[system]\nworkload=system.workload\n"
+                "[system.workload]\ntype=ArmFsWorkload\nobject_file="
+                + str(elf)
+                + "\nboot_loader=\ndtb_filename=\ninitrd_filename=\n",
+                encoding="utf-8",
+            )
+            relative = "inputs/0001-main.elf"
+            snapshot = run_directory / relative
+            snapshot.parent.mkdir()
+            snapshot.write_bytes(elf.read_bytes())
+            identity = {
+                "sha256": digest,
+                "sha256_after_run": digest,
+                "unchanged_after_run": True,
+            }
+            run = {
+                "argv": ["gem5.opt", "--bare-metal", "--kernel=" + str(elf)],
+                "inputs": [
+                    dict(
+                        identity, path=str(elf), snapshot=dict(identity, path=relative)
+                    )
+                ],
+                "artifacts": [
+                    {"path": relative, "sha256": digest},
+                    {"path": "simulator/config.ini", "sha256": study._hash(config)},
+                ],
+            }
+            pipeline = {
+                "run_directory": str(run_directory),
+                "vadd_build_witness": {
+                    "guest_elf": {"path": str(elf), "sha256": digest}
+                },
+                "system_configuration": {
+                    "effective": {"bare-metal": True, "mem-size": "64MB"}
+                },
+                "system_witness": {
+                    "state": "partial",
+                    "issues": [],
+                    "unmapped_options": ["bare-metal"],
+                    "checks": {
+                        "bare-metal": {
+                            "status": "unwitnessed",
+                            "requested": True,
+                            "observed": None,
+                        },
+                        "mem-size": {"status": "passed", "requested": "64MB"},
+                    },
+                },
+            }
+            accepted = study._witness_study_system(pipeline, directory, run)
+            self.assertEqual(accepted["state"], "passed")
+            self.assertEqual(accepted["pipeline_state"], "partial")
+            self.assertEqual(accepted["bare_metal"]["guest_elf"]["sha256"], digest)
+
+            altered = copy.deepcopy(pipeline)
+            altered["system_witness"]["checks"]["mem-size"]["status"] = "unwitnessed"
+            altered["system_witness"]["unmapped_options"].append("mem-size")
+            with self.assertRaisesRegex(ValueError, "gap outside"):
+                study._witness_study_system(altered, directory, run)
+            altered = dict(
+                run, argv=[arg for arg in run["argv"] if arg != "--bare-metal"]
+            )
+            with self.assertRaisesRegex(ValueError, "argv"):
+                study._witness_study_system(pipeline, directory, altered)
+            original_config = config.read_text(encoding="utf-8")
+            config.write_text(
+                original_config.replace("dtb_filename=\n", "dtb_filename=wrong.dtb\n"),
+                encoding="utf-8",
+            )
+            altered = copy.deepcopy(run)
+            altered["artifacts"][1]["sha256"] = study._hash(config)
+            with self.assertRaisesRegex(ValueError, "does not boot"):
+                study._witness_study_system(pipeline, directory, altered)
+            config.write_text(original_config, encoding="utf-8")
+            snapshot.write_bytes(b"changed ELF snapshot")
+            with self.assertRaisesRegex(ValueError, "stale recorded artifact"):
+                study._witness_study_system(pipeline, directory, run)
+
     def test_existing_output_is_retained_before_any_pipeline_execution(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

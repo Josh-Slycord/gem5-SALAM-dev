@@ -6,6 +6,7 @@ Every simulation must pass independent output and direct SALAM activity checks.
 The two negative controls must fail for their intended numerical reasons.
 """
 import argparse
+import configparser
 import copy
 import datetime
 import hashlib
@@ -202,6 +203,106 @@ def _checked_artifact(run_directory, run, relative):
     return path
 
 
+def _witness_study_system(pipeline, directory, run):
+    """Supplement the generic witness's single unmapped bare-metal option."""
+    witness = pipeline["system_witness"]
+    effective = pipeline["system_configuration"]["effective"]
+    checks = witness["checks"]
+    if witness.get("issues") != [] or set(checks) != set(effective):
+        raise ValueError("System witness has issues or omits an effective option")
+    if any(checks[key].get("requested") != value for key, value in effective.items()):
+        raise ValueError("System witness options differ from the effective request")
+    unmapped = witness.get("unmapped_options")
+    if witness.get("state") == "passed" and unmapped == []:
+        if not all(row.get("status") == "passed" for row in checks.values()):
+            raise ValueError("An effective system option did not pass")
+        return {"state": "passed", "pipeline_state": "passed"}
+
+    bare = checks.get("bare-metal", {})
+    if (
+        witness.get("state") != "partial"
+        or unmapped != ["bare-metal"]
+        or effective.get("bare-metal") is not True
+        or bare.get("status") != "unwitnessed"
+        or bare.get("requested") is not True
+        or bare.get("observed") is not None
+        or any(
+            row.get("status") != "passed"
+            for key, row in checks.items()
+            if key != "bare-metal"
+        )
+    ):
+        raise ValueError("System witness has a gap outside the bare-metal mapping")
+
+    elf = directory / "workspace/benchmarks/sys_validation/vadd/sw/main.elf"
+    build = pipeline["vadd_build_witness"]["guest_elf"]
+    digest = _hash(elf)
+    if build.get("path") != str(elf) or build.get("sha256") != digest:
+        raise ValueError("Staged ARM ELF differs from the build witness")
+    with elf.open("rb") as stream:
+        header = stream.read(20)
+    if (
+        header[:7] != b"\x7fELF\x01\x01\x01"
+        or int.from_bytes(header[16:18], "little") != 2  # ET_EXEC
+        or int.from_bytes(header[18:20], "little") != 40  # EM_ARM
+    ):
+        raise ValueError("Staged guest is not a little-endian ARM32 ELF executable")
+
+    argv = run["argv"]
+    for option, expected in (
+        ("--bare-metal", "--bare-metal"),
+        ("--kernel", "--kernel=" + str(elf)),
+    ):
+        if [arg for arg in argv if arg.split("=", 1)[0] == option] != [expected]:
+            raise ValueError("Simulator argv lacks the expected " + option)
+    run_directory = Path(pipeline["run_directory"]).resolve(strict=True)
+    run_directory.relative_to(directory)
+    config = _checked_artifact(run_directory, run, "simulator/config.ini")
+    ini = configparser.ConfigParser(interpolation=None)
+    ini.read_string(config.read_text(encoding="utf-8"))
+    workload = ini["system.workload"]
+    if (
+        ini["system"].get("workload") != "system.workload"
+        or workload.get("type") != "ArmFsWorkload"
+        or workload.get("object_file") != str(elf)
+        or any(
+            workload.get(field) != ""
+            for field in ("boot_loader", "dtb_filename", "initrd_filename")
+        )
+    ):
+        raise ValueError("Effective ARM workload does not boot the staged ELF directly")
+
+    entries = [item for item in run["inputs"] if item.get("path") == str(elf)]
+    if len(entries) != 1:
+        raise ValueError("Run receipt lacks one staged guest ELF input")
+    record = entries[0]
+    snapshot = record.get("snapshot", {})
+    relative = snapshot.get("path", "")
+    if (
+        record.get("sha256") != digest
+        or record.get("sha256_after_run") != digest
+        or record.get("unchanged_after_run") is not True
+        or snapshot.get("sha256") != digest
+        or snapshot.get("sha256_after_run") != digest
+        or snapshot.get("unchanged_after_run") is not True
+        or Path(relative).parent != Path("inputs")
+        or _hash(_checked_artifact(run_directory, run, relative)) != digest
+    ):
+        raise ValueError("Recorded guest ELF or its archived snapshot changed")
+    return {
+        "state": "passed",
+        "pipeline_state": "partial",
+        "mapped_options": sorted(set(checks) - {"bare-metal"}),
+        "bare_metal": {
+            "argv_flag": "--bare-metal",
+            "workload_type": workload["type"],
+            "guest_elf": {"path": str(elf), "sha256": digest},
+            "archived_elf": {"path": relative, "sha256": digest},
+            "config": {"path": str(config), "sha256": _hash(config)},
+        },
+    }
+
+
 def _run_evidence(pipeline, directory, spec):
     from salam_workbench.benchmark_validation import (
         assess_configured_output,
@@ -356,6 +457,7 @@ def run_study(engine, receipt, output, *, simulate=False, include_max=False):
                         {"output_transport": "file", "verbose": False}, **case
                     ),
                     "system": {
+                        "mem-size": "64MB",
                         "cpu-clock": "2GHz",
                         "sys-clock": "1GHz",
                         "cacheline_size": 64,
@@ -442,7 +544,6 @@ def run_study(engine, receipt, output, *, simulate=False, include_max=False):
                         "vadd_execution_witness",
                         "fu_scheduling_witness",
                         "parameter_witness",
-                        "system_witness",
                         "profile_witness",
                         "output_transport_witness",
                     ):
@@ -450,6 +551,9 @@ def run_study(engine, receipt, output, *, simulate=False, include_max=False):
                             raise ValueError(
                                 name + ": required pipeline witness failed: " + key
                             )
+                    system = _witness_study_system(pipeline, directory, run)
+                    _save(directory / "study-system-replay.json", system)
+                    entry["system_witness"] = system
                     if (
                         oracle.get("state") != "passed"
                         or numpy_check.get("state") != "passed"
