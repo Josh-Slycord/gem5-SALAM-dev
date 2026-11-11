@@ -1348,7 +1348,10 @@ def run_configuration(
             if "benchmark_input" in spec:
                 from .benchmark_validation import numerical_output_relative
 
-                required.append(numerical_output_relative(result))
+                numerical_artifact = numerical_output_relative(result)
+                # UART output is already required for guest correctness markers.
+                if numerical_artifact not in required:
+                    required.append(numerical_artifact)
             if native:
                 required.extend(
                     [
