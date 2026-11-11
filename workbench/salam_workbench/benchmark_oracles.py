@@ -1,4 +1,4 @@
-"""Independent, fixed-shape input and all-output contracts for configured runs.
+"""Independent input and all-output contracts for configured runs.
 
 The host references deliberately use a direct DFT, ordinary matrix product and
 coordinate-based stencil, rather than the recovered accelerator algorithms.
@@ -58,13 +58,58 @@ class _DeterministicIntegers:
         return lower + self.state % (upper - lower + 1)
 
 
-def make_fixture(benchmark, dataset="seeded", seed=1):
-    if benchmark not in SHAPES or dataset not in DATASETS:
+def make_fixture(benchmark, dataset="seeded", seed=1, *, length=8, inputs=None):
+    if benchmark not in SHAPES and benchmark != "vadd":
+        raise ValueError("Unsupported benchmark or dataset")
+    allowed_datasets = DATASETS + (("custom",) if benchmark == "vadd" else ())
+    if dataset not in allowed_datasets:
         raise ValueError("Unsupported benchmark or dataset")
     if type(seed) is not int or not 0 <= seed <= 0xFFFFFFFF:
         raise ValueError("Seed must be an unsigned 32-bit integer")
+    if benchmark != "vadd" and (length != 8 or inputs is not None):
+        raise ValueError("Length and custom inputs are VADD-only options")
+    if benchmark == "vadd":
+        if type(length) is not int or not 1 <= length <= 256:
+            raise ValueError("VADD length must be an integer from 1 to 256")
+        if dataset == "custom":
+            if not isinstance(inputs, dict) or set(inputs) != {"a", "b"}:
+                raise ValueError("Custom VADD inputs must contain only a and b")
+            inputs = {
+                key: list(value) if isinstance(value, list) else value
+                for key, value in inputs.items()
+            }
+        elif inputs is not None:
+            raise ValueError("Explicit VADD inputs require the custom dataset")
     random = _DeterministicIntegers(seed)
-    if benchmark == "gemm":
+    if benchmark == "vadd":
+        if dataset == "seeded":
+            inputs = {
+                "a": [random.draw(-128, 128) for _ in range(length)],
+                "b": [random.draw(-128, 128) for _ in range(length)],
+            }
+        elif dataset == "zeros":
+            inputs = {"a": [0] * length, "b": [0] * length}
+        elif dataset == "boundary":
+            pairs = (
+                (-0x80000000, 0),
+                (0x7FFFFFFF, 0),
+                (-1, 1),
+                (0, -1),
+                (1, -1),
+                (0x7FFFFFFE, 1),
+                (-0x7FFFFFFF, -1),
+                (0, 0),
+            )
+            inputs = {
+                "a": [pairs[i % len(pairs)][0] for i in range(length)],
+                "b": [pairs[i % len(pairs)][1] for i in range(length)],
+            }
+        elif dataset == "baseline":
+            inputs = {
+                "a": [(i * 5) % 17 - 8 for i in range(length)],
+                "b": [(i * 7 + 3) % 19 - 9 for i in range(length)],
+            }
+    elif benchmark == "gemm":
         if dataset == "seeded":
             a = [random.draw(-8, 8) for _ in range(64)]
             b = [random.draw(-8, 8) for _ in range(64)]
@@ -111,13 +156,13 @@ def make_fixture(benchmark, dataset="seeded", seed=1):
             "input": values,
             "coefficients": [-2, 3] if dataset == "boundary" else [2, 3],
         }
-    kind, count = OUTPUTS[benchmark]
+    kind, count = ("int32", length) if benchmark == "vadd" else OUTPUTS[benchmark]
     fixture = {
         "schema_version": SCHEMA_VERSION,
         "benchmark": benchmark,
         "dataset": dataset,
         "seed": seed,
-        "shape": dict(SHAPES[benchmark]),
+        "shape": {"length": length} if benchmark == "vadd" else dict(SHAPES[benchmark]),
         "inputs": inputs,
         "output_kind": kind,
         "output_count": count,
@@ -142,28 +187,35 @@ def validate_fixture(fixture):
     if not isinstance(fixture, dict) or set(fixture) != fields:
         raise ValueError("Fixture fields are incomplete or unsupported")
     benchmark = fixture["benchmark"]
+    shape = fixture["shape"]
+    vadd_length = shape.get("length") if isinstance(shape, dict) else None
+    is_vadd = benchmark == "vadd"
     if (
         type(fixture["schema_version"]) is not int
         or fixture["schema_version"] != SCHEMA_VERSION
         or not isinstance(benchmark, str)
-        or benchmark not in SHAPES
-        or fixture["dataset"] not in DATASETS
+        or (benchmark not in SHAPES and not is_vadd)
+        or fixture["dataset"] not in DATASETS + (("custom",) if is_vadd else ())
         or type(fixture["seed"]) is not int
         or not 0 <= fixture["seed"] <= 0xFFFFFFFF
-        or fixture["shape"] != SHAPES[benchmark]
-        or fixture["output_kind"] != OUTPUTS[benchmark][0]
+        or (is_vadd and (type(vadd_length) is not int or not 1 <= vadd_length <= 256))
+        or fixture["shape"]
+        != ({"length": vadd_length} if is_vadd else SHAPES[benchmark])
+        or fixture["output_kind"] != ("int32" if is_vadd else OUTPUTS[benchmark][0])
         or type(fixture["output_count"]) is not int
-        or fixture["output_count"] != OUTPUTS[benchmark][1]
+        or fixture["output_count"]
+        != (vadd_length if is_vadd else OUTPUTS[benchmark][1])
     ):
         raise ValueError("Fixture identity, dimensions or output contract is invalid")
-    shape = fixture["shape"]
     if not isinstance(shape, dict) or any(
         type(value) is not int for value in shape.values()
     ):
         raise ValueError("Fixture dimensions must be integers")
     inputs = fixture["inputs"]
     counts = (
-        {"a": 64, "b": 64}
+        {"a": vadd_length, "b": vadd_length}
+        if is_vadd
+        else {"a": 64, "b": 64}
         if benchmark == "gemm"
         else {"real": 1024, "imag": 1024, "real_twid": 512, "imag_twid": 512}
         if benchmark == "fft"
@@ -181,12 +233,21 @@ def validate_fixture(fixture):
                 for v in values
             ):
                 raise ValueError("FFT inputs must be finite and bounded")
+        elif is_vadd:
+            if any(
+                type(v) is not int or not -0x80000000 <= v <= 0x7FFFFFFF for v in values
+            ):
+                raise ValueError("VADD inputs must be signed 32-bit integers")
         else:
             bound = 16 if key == "coefficients" else 32767
             if any(type(v) is not int or abs(v) > bound for v in values):
                 raise ValueError("Integer input is outside the no-overflow contract")
     # Eight int16 products fit in signed int32 only for the generated <=8 inputs.
     # Broader custom fixtures are accepted only with a conservative safe bound.
+    if is_vadd and any(
+        not -0x80000000 <= a + b <= 0x7FFFFFFF for a, b in zip(inputs["a"], inputs["b"])
+    ):
+        raise ValueError("VADD input pair causes signed int32 overflow")
     if benchmark == "gemm":
         max_a = max(abs(v) for v in inputs["a"])
         max_b = max(abs(v) for v in inputs["b"])
@@ -210,6 +271,8 @@ def reference_outputs(fixture):
     """Compute every expected output from attributable input arrays."""
     validate_fixture(fixture)
     name, data = fixture["benchmark"], fixture["inputs"]
+    if name == "vadd":
+        return [a + b for a, b in zip(data["a"], data["b"])]
     if name == "gemm":
         return [
             sum(data["a"][row * 8 + k] * data["b"][k * 8 + col] for k in range(8))
@@ -297,6 +360,7 @@ def assess_output(text, fixture):
         "absolute_tolerance": FFT_ABS_TOLERANCE if fixture["benchmark"] == "fft" else 0,
         "relative_tolerance": FFT_REL_TOLERANCE if fixture["benchmark"] == "fft" else 0,
         "method": {
+            "vadd": "independent signed int32 elementwise addition",
             "gemm": "independent integer matrix product",
             "fft": "direct complex DFT in bit-reversed output order",
             "stencil3d": "independent coordinate-based seven-point stencil",

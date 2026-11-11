@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "vadd_tiny",
+  "benchmark": "benchmarks/sys_validation/vadd",
+  "builder": "native",
+  "benchmark_input": {
+    "dataset": "seeded",
+    "seed": 1,
+    "length": 8,
+    "verbose": false,
+    "output_transport": "file"
+  },
+  "system": {
+    "mem-size": "64MB",
+    "cpu-clock": "2GHz",
+    "sys-clock": "1GHz",
+    "cacheline_size": 64
+  },
+  "correctness": {
+    "expected_passed_markers": 1
+  },
+  "timeout_seconds": 60
+}

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLineEdit,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QTreeWidget,
@@ -229,10 +230,30 @@ def _editor_snapshot(dialog):
         "source_legacy_cycle_time": deepcopy(dialog._legacy_cycle_times),
     }
     if dialog.input_case_combo.currentData() is not None:
-        snapshot["benchmark_input"] = {
+        case = {
             "dataset": dialog.input_case_combo.currentData(),
             "seed": dialog.input_seed_spin.value(),
         }
+        if (
+            dialog.bench_dir_combo.currentText() == "benchmarks/sys_validation"
+            and dialog.benchmark_combo.currentData() == "vadd"
+        ):
+            case.update(
+                length=dialog.vadd_length_spin.value(),
+                verbose=dialog.vadd_verbose_check.isChecked(),
+                output_transport=dialog.vadd_transport_combo.currentData(),
+            )
+            if case["dataset"] == "custom":
+                payload = dialog.vadd_inputs_edit.toPlainText()
+                if len(payload) > 65536:
+                    raise ValueError("VADD custom JSON exceeds the 64 KiB editor limit")
+                try:
+                    case["inputs"] = json.loads(payload)
+                except (ValueError, TypeError) as error:
+                    raise ValueError(
+                        "VADD custom input must be JSON with a and b arrays"
+                    ) from error
+        snapshot["benchmark_input"] = case
     if dialog.trace_budget_check.isChecked():
         snapshot["trace_event_limit"] = dialog.trace_budget_spin.value()
     return snapshot
@@ -368,6 +389,39 @@ def install_editor(dialog_class):
         self.input_seed_spin = QSpinBox()
         self.input_seed_spin.setRange(0, 2147483647)
         self.input_seed_spin.setValue(1)
+        self.vadd_input_group = QGroupBox("VADD diagnostic controls")
+        vadd_form = QFormLayout(self.vadd_input_group)
+        self.vadd_length_spin = QSpinBox()
+        self.vadd_length_spin.setRange(1, 256)
+        self.vadd_length_spin.setValue(8)
+        self.vadd_length_spin.setToolTip(
+            "Vector length compiled into both guest and accelerator IR; every output is checked"
+        )
+        self.vadd_inputs_edit = QPlainTextEdit()
+        self.vadd_inputs_edit.setPlaceholderText('{"a": [1, 2, 3], "b": [4, 5, 6]}')
+        self.vadd_inputs_edit.setMaximumHeight(100)
+        self.vadd_inputs_edit.setToolTip(
+            "Custom dataset only: exactly a and b arrays, each matching vector length; signed int32 sums must fit"
+        )
+        self.vadd_verbose_check = QCheckBox("Print input and observed output values")
+        self.vadd_transport_combo = QComboBox()
+        self.vadd_transport_combo.addItem("Dedicated result file", "file")
+        self.vadd_transport_combo.addItem("UART terminal output", "uart")
+        self.vadd_transport_combo.setToolTip(
+            "Select the actual raw-output transport; missing file output never falls back to UART"
+        )
+        vadd_form.addRow("Vector length:", self.vadd_length_spin)
+        vadd_form.addRow("Custom input JSON:", self.vadd_inputs_edit)
+        vadd_form.addRow("Raw output:", self.vadd_transport_combo)
+        vadd_form.addRow(self.vadd_verbose_check)
+        input_form.addRow(self.vadd_input_group)
+        for widget, signal in (
+            (self.vadd_length_spin, "valueChanged"),
+            (self.vadd_inputs_edit, "textChanged"),
+            (self.vadd_verbose_check, "toggled"),
+            (self.vadd_transport_combo, "currentIndexChanged"),
+        ):
+            getattr(widget, signal).connect(self.update_preview)
         self.trace_budget_spin = QSpinBox()
         self.trace_budget_spin.setRange(1, 4194304)
         self.trace_budget_spin.setValue(262144)
@@ -384,8 +438,9 @@ def install_editor(dialog_class):
             "Maximum recorded functional-unit events per accelerator invocation. Truncated traces fail validation. Requires the updated simulator; full-size stencil studies use 1048576."
         )
         self.input_seed_spin.setToolTip(
-            "Deterministic input seed; supported for sys_validation GEMM, FFT and stencil3d at their current fixed dimensions"
+            "Deterministic input seed; fixed-size GEMM/FFT/stencil3d and configurable-length VADD support independent full-output checks"
         )
+        self.input_case_combo.currentIndexChanged.connect(self._refresh_input_controls)
         self.input_case_combo.currentIndexChanged.connect(self.update_preview)
         self.input_seed_spin.valueChanged.connect(self.update_preview)
         self.trace_budget_spin.valueChanged.connect(self.update_preview)
@@ -393,7 +448,44 @@ def install_editor(dialog_class):
         input_form.addRow("Seed:", self.input_seed_spin)
         input_form.addRow(self.trace_budget_check, self.trace_budget_spin)
         layout.insertWidget(0, input_group)
+        self._refresh_input_controls()
         self._refresh_periods(preferred="5ns")
+
+    def _refresh_input_controls(self, *_args):
+        if not hasattr(self, "vadd_input_group"):
+            return
+        vadd = (
+            self.bench_dir_combo.currentText() == "benchmarks/sys_validation"
+            and self.benchmark_combo.currentData() == "vadd"
+        )
+        current = self.input_case_combo.currentData()
+        self.input_case_combo.blockSignals(True)
+        self.input_case_combo.clear()
+        if not vadd:
+            self.input_case_combo.addItem("Original source input / guest checker", None)
+        for label, dataset in (
+            ("Generated input / independent full-output check", "seeded"),
+            ("Zero input / independent full-output check", "zeros"),
+            ("Boundary input / independent full-output check", "boundary"),
+        ):
+            self.input_case_combo.addItem(label, dataset)
+        if vadd:
+            self.input_case_combo.addItem(
+                "Baseline diagnostic input / full-output check", "baseline"
+            )
+            self.input_case_combo.addItem(
+                "Custom JSON input / independent full-output check", "custom"
+            )
+        selected = self.input_case_combo.findData(current)
+        if selected < 0:
+            selected = self.input_case_combo.findData("seeded") if vadd else 0
+        self.input_case_combo.setCurrentIndex(selected)
+        self.input_case_combo.blockSignals(False)
+        self.vadd_input_group.setVisible(vadd)
+        self.vadd_input_group.setEnabled(vadd)
+        self.vadd_inputs_edit.setEnabled(
+            vadd and self.input_case_combo.currentData() == "custom"
+        )
 
     def _refresh_periods(self, *_args, preferred=None):
         current = (
@@ -561,6 +653,7 @@ def install_editor(dialog_class):
                 self.inst_tree.clear()
         finally:
             self._editor_loading = False
+        self._refresh_input_controls()
         self.update_preview()
 
     def _select_hardware_target(self, target):
@@ -1097,6 +1190,7 @@ def install_editor(dialog_class):
     dialog_class.__init__ = init
     dialog_class.setup_basic_tab = setup_basic_tab
     dialog_class._refresh_periods = _refresh_periods
+    dialog_class._refresh_input_controls = _refresh_input_controls
     dialog_class.setup_accelerator_tab = setup_accelerator_tab
     dialog_class.setup_hw_config_tab = setup_hw_config_tab
     dialog_class._add_instruction_row = _add_instruction_row

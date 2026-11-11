@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 
 from salam_workbench.benchmark_inputs import (
+    LEGACY_WRITEFILE_ABI,
+    MODERN_WRITEFILE_ABI,
     OVERLAYS,
     render_input_header,
     repair_arm_exit,
@@ -52,6 +54,10 @@ static void m5_exit(void) {
         definitions = {
             "gemm": "#define ROW 8\n#define COL 8\n#define TYPE int\n",
             "fft": "#define FFT_SIZE 1024\n",
+            "vadd": (
+                "#include <stdint.h>\n#define TYPE int32_t\n"
+                "#define VADD_LENGTH 8\n#define VADD_ELEMENT_BYTES 4\n"
+            ),
             "stencil3d": "#define ROW 16\n#define COL 32\n#define HYT 32\n#define C_SIZE 2\n",
         }
         (base / "defines.h").write_text(definitions[benchmark], encoding="utf-8")
@@ -72,6 +78,291 @@ static void m5_exit(void) {
             encoding="utf-8",
         )
         return base
+
+    def _vadd_fixture(self):
+        return make_fixture(
+            "vadd",
+            "custom",
+            37,
+            length=7,
+            inputs={
+                "a": [1, -3, 4, 0, 2147483647, -2147483648, 17],
+                "b": [2, -4, 6, -1, -1, 1, -17],
+            },
+        )
+
+    def test_vadd_staging_rewrites_shared_length_before_guest_and_kernel_preprocessing(
+        self,
+    ):
+        compiler = shutil.which("g++") or shutil.which("clang++")
+        if not compiler:
+            self.skipTest("A host compiler is required to witness shared dimensions")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            base = self._source(root, "vadd", cluster="vadd_clstr")
+            actual = (
+                Path(__file__).resolve().parents[2] / "benchmarks/sys_validation/vadd"
+            )
+            for filename in ("vadd.c", "top.c", "hw_defines.h"):
+                shutil.copyfile(actual / "hw" / filename, base / "hw" / filename)
+            kernel = base / "hw/vadd.c"
+            top = base / "hw/top.c"
+            original_top = top.read_bytes()
+            original_kernel = kernel.read_bytes()
+            original_definitions = (base / "defines.h").read_bytes()
+            fixture = self._vadd_fixture()
+            receipt = stage_benchmark_inputs(
+                root,
+                "benchmarks/sys_validation/vadd",
+                fixture,
+                output_abi=MODERN_WRITEFILE_ABI,
+                verbose=True,
+            )
+            self.assertEqual(kernel.read_bytes(), original_kernel)
+            self.assertEqual(top.read_bytes(), original_top)
+            self.assertTrue(receipt["kernel_preserved"])
+            self.assertIn("#define VADD_LENGTH 7\n", (base / "defines.h").read_text())
+            self.assertEqual(receipt["dimensions"], {"length": 7})
+            before = next(
+                item
+                for item in receipt["source_inputs"]
+                if item["path"].endswith("/defines.h")
+            )
+            after = next(
+                item
+                for item in receipt["outputs"]
+                if item["path"].endswith("/defines.h")
+            )
+            self.assertEqual(
+                before["sha256"], hashlib.sha256(original_definitions).hexdigest()
+            )
+            self.assertEqual(
+                after["sha256"],
+                hashlib.sha256((base / "defines.h").read_bytes()).hexdigest(),
+            )
+            self.assertNotEqual(before["sha256"], after["sha256"])
+            for source, language in (
+                (base / "sw/main.cpp", "c++"),
+                (kernel, "c"),
+                (top, "c"),
+            ):
+                witness = subprocess.run(
+                    [
+                        compiler,
+                        "-x",
+                        language,
+                        "-E",
+                        "-dM",
+                        "-DSALAM_HOST_TEST_WRITEFILE=0",
+                        str(source),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(witness.returncode, 0, witness.stderr)
+                macros = dict(
+                    line.split(maxsplit=2)[1:]
+                    for line in witness.stdout.splitlines()
+                    if line.startswith("#define ") and len(line.split(maxsplit=2)) == 3
+                )
+                self.assertEqual(macros["VADD_LENGTH"], "7")
+                self.assertEqual(macros["VADD_ELEMENT_BYTES"], "4")
+                self.assertEqual(macros["TYPE"], "int32_t")
+            header = (base / "sw/workbench_input.h").read_text()
+            self.assertIn("#define SALAM_OUTPUT_COUNT 7", header)
+            self.assertIn("#define SALAM_VADD_VERBOSE 1", header)
+            self.assertIn("static const int32_t salam_a[7]", header)
+            self.assertIn("static const int32_t salam_b[7]", header)
+            quiet = render_input_header(fixture)
+            self.assertEqual(
+                header.replace(
+                    "#define SALAM_VADD_VERBOSE 1", "#define SALAM_VADD_VERBOSE 0"
+                ),
+                quiet,
+            )
+            with self.assertRaisesRegex(ValueError, "boolean"):
+                render_input_header(fixture, verbose=1)
+
+    def test_vadd_explicit_transport_selects_source_receipt_path_and_abi(self):
+        for transport, abi, protocol_abi, relative in (
+            (
+                "file",
+                MODERN_WRITEFILE_ABI,
+                MODERN_WRITEFILE_ABI,
+                "simulator/salam-results.txt",
+            ),
+            (
+                "file",
+                LEGACY_WRITEFILE_ABI,
+                LEGACY_WRITEFILE_ABI,
+                "simulator/salam-results.txt",
+            ),
+            (
+                "uart",
+                MODERN_WRITEFILE_ABI,
+                "uart_newlib_length_delimited_v1",
+                "simulator/system.terminal",
+            ),
+        ):
+            with self.subTest(
+                transport=transport, abi=abi
+            ), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                base = self._source(root, "vadd")
+                receipt = stage_benchmark_inputs(
+                    root,
+                    "vadd",
+                    self._vadd_fixture(),
+                    output_abi=abi,
+                    output_transport=transport,
+                )
+                self.assertEqual(
+                    receipt["output_transport"],
+                    "uart_text_v1"
+                    if transport == "uart"
+                    else "gem5_semihosting_writefile_text_v1",
+                )
+                self.assertEqual(receipt["output_transport_abi"], protocol_abi)
+                self.assertEqual(receipt["output_relative"], relative)
+                source = (base / "sw/workbench_result.h").read_text()
+                end = source[
+                    source.index("static void salam_result_end()") : source.index(
+                        "static void salam_result_int("
+                    )
+                ]
+                if transport == "uart":
+                    self.assertIn("std::fwrite(salam_result_buffer", end)
+                    self.assertIn("std::fflush(stdout)", end)
+                    self.assertNotIn("salam_write_result_file", end)
+                else:
+                    self.assertIn("salam_write_result_file", end)
+                    self.assertNotIn("std::fwrite", end)
+                if abi == MODERN_WRITEFILE_ABI:
+                    self.assertIn("alignas(4) uint32_t arguments[5]", source)
+                else:
+                    self.assertIn("alignas(8) uint64_t arguments[5]", source)
+                self.assertEqual(
+                    receipt["output_transport_header"]["sha256"],
+                    hashlib.sha256(
+                        (base / "sw/workbench_result.h").read_bytes()
+                    ).hexdigest(),
+                )
+
+    def test_non_vadd_diagnostic_controls_reject_without_staging_changes(self):
+        for options in (
+            {"verbose": True},
+            {"output_transport": "uart"},
+            {"verbose": 1},
+            {"output_transport": "auto"},
+        ):
+            with self.subTest(
+                options=options
+            ), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                base = self._source(root, "gemm")
+                original = (base / "sw/main.cpp").read_bytes()
+                with self.assertRaises(ValueError):
+                    stage_benchmark_inputs(
+                        root, "gemm", make_fixture("gemm"), **options
+                    )
+                self.assertEqual((base / "sw/main.cpp").read_bytes(), original)
+                self.assertFalse((base / "sw/workbench_input.h").exists())
+                self.assertFalse((base / "sw/workbench_result.h").exists())
+
+    def test_actual_staged_vadd_cpp_serializers_emit_every_observed_word(self):
+        compiler = shutil.which("g++") or shutil.which("clang++")
+        if not compiler:
+            self.skipTest("A host C++ compiler is required for transport behavior")
+        for transport in ("file", "uart"):
+            for corrupt in (False, True):
+                with self.subTest(
+                    transport=transport, corrupt=corrupt
+                ), tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary).resolve()
+                    base = self._source(root, "vadd")
+                    fixture = self._vadd_fixture()
+                    stage_benchmark_inputs(
+                        root,
+                        "vadd",
+                        fixture,
+                        output_abi=MODERN_WRITEFILE_ABI,
+                        output_transport=transport,
+                    )
+                    # This executes the actual staged serializer with manually
+                    # calculated observed values, not its expected-data array.
+                    source = base / "sw/transport.cpp"
+                    source.write_text(
+                        "#include <cstdio>\n#include <cstdint>\n#include <cstring>\n"
+                        "static unsigned file_calls = 0;\n"
+                        "static uint64_t host_write(const char *b, uint32_t n, const char *name) {\n"
+                        "    ++file_calls;\n"
+                        '    if (std::strcmp(name, "salam-results.txt")) return 0;\n'
+                        "    return std::fwrite(b, 1, n, stdout);\n"
+                        "}\n"
+                        "#define SALAM_HOST_TEST_WRITEFILE(b,n,name) host_write(b,n,name)\n"
+                        '#include "workbench_result.h"\n'
+                        "int main() {\n"
+                        '    static_assert(sizeof(salam_a[0]) == 4, "int32 input width");\n'
+                        "    int32_t observed[] = {3,-7,10,-1,2147483646,-2147483647,0};\n"
+                        + ("    observed[6] = 99;\n" if corrupt else "")
+                        + "    salam_result_begin();\n"
+                        "    for (int i=0; i<SALAM_OUTPUT_COUNT; ++i) salam_result_int(i, observed[i]);\n"
+                        "    salam_result_end();\n"
+                        + "    return file_calls == "
+                        + ("0" if transport == "uart" else "1")
+                        + " ? 0 : 9;\n"
+                        "}\n",
+                        encoding="utf-8",
+                    )
+                    binary = root / (
+                        "transport.exe" if os.name == "nt" else "transport"
+                    )
+                    build = subprocess.run(
+                        [compiler, "-std=c++11", str(source), "-o", str(binary)],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                    self.assertEqual(build.returncode, 0, build.stderr)
+                    run = subprocess.run(
+                        [str(binary)], capture_output=True, text=True, timeout=20
+                    )
+                    self.assertEqual(run.returncode, 0, run.stderr)
+                    rows = [
+                        line
+                        for line in run.stdout.splitlines()
+                        if line.startswith("SALAM_RESULT ")
+                    ]
+                    self.assertEqual(len(rows), 7)
+                    self.assertEqual(
+                        len(
+                            [
+                                line
+                                for line in run.stdout.splitlines()
+                                if line.startswith("SALAM_RESULT_BEGIN")
+                            ]
+                        ),
+                        1,
+                    )
+                    self.assertEqual(
+                        len(
+                            [
+                                line
+                                for line in run.stdout.splitlines()
+                                if line.startswith("SALAM_RESULT_END")
+                            ]
+                        ),
+                        1,
+                    )
+                    assessment = assess_output(run.stdout, fixture)
+                    self.assertEqual(
+                        assessment["state"],
+                        "failed" if corrupt else "passed",
+                        assessment,
+                    )
+                    self.assertEqual(assessment["compared_count"], 7)
+                    self.assertEqual(assessment["mismatch_count"], 1 if corrupt else 0)
 
     def test_all_supported_workloads_preserve_kernels_and_bind_header_identity(self):
         for benchmark in ("gemm", "fft", "stencil3d"):

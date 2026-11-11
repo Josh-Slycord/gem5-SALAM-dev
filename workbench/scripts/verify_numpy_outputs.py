@@ -21,6 +21,7 @@ import numpy as np
 
 CONTRACTS = {
     "gemm": ({"rows": 8, "inner": 8, "cols": 8}, "int32", 64),
+    "vadd": ({"length": 8}, "int32", 8),
     "fft": ({"samples": 1024}, "complex128", 1024),
     "stencil3d": ({"row": 16, "col": 32, "hyt": 32}, "int32", 16384),
 }
@@ -119,12 +120,24 @@ def load_fixture(payload):
     if not isinstance(benchmark, str) or benchmark not in CONTRACTS:
         raise ValueError("Unsupported benchmark")
     shape, kind, count = CONTRACTS[benchmark]
+    datasets = ("baseline", "seeded", "zeros", "boundary")
+    if benchmark == "vadd":
+        shape = fixture["shape"]
+        if (
+            not isinstance(shape, dict)
+            or set(shape) != {"length"}
+            or type(shape["length"]) is not int
+            or not 1 <= shape["length"] <= 256
+        ):
+            raise ValueError("VADD length must be an integer from 1 to 256")
+        count = shape["length"]
+        datasets += ("custom",)
     if (
         type(fixture["schema_version"]) is not int
         or fixture["schema_version"] != 1
         or type(fixture["seed"]) is not int
         or not 0 <= fixture["seed"] <= 0xFFFFFFFF
-        or fixture["dataset"] not in ("baseline", "seeded", "zeros", "boundary")
+        or fixture["dataset"] not in datasets
         or fixture["shape"] != shape
         or not isinstance(fixture["shape"], dict)
         or any(type(value) is not int for value in fixture["shape"].values())
@@ -143,7 +156,9 @@ def load_fixture(payload):
     ):
         raise ValueError("Canonical fixture SHA-256 mismatch")
     lengths = (
-        {"a": 64, "b": 64}
+        {"a": count, "b": count}
+        if benchmark == "vadd"
+        else {"a": 64, "b": 64}
         if benchmark == "gemm"
         else {"real": 1024, "imag": 1024, "real_twid": 512, "imag_twid": 512}
         if benchmark == "fft"
@@ -163,11 +178,18 @@ def load_fixture(payload):
                 and abs(value) <= 16
                 for value in values
             )
+        elif benchmark == "vadd":
+            valid = all(
+                type(value) is int and -0x80000000 <= value <= 0x7FFFFFFF
+                for value in values
+            )
         else:
             limit = 16 if name == "coefficients" else 32767
             valid = all(type(value) is int and abs(value) <= limit for value in values)
         if not valid:
             raise ValueError("Input outside finite/no-overflow contract: " + name)
+    if benchmark == "vadd":
+        numpy_vadd(inputs["a"], inputs["b"])
     if benchmark == "gemm":
         if max(map(abs, inputs["a"])) * max(map(abs, inputs["b"])) * 8 > 0x7FFFFFFF:
             raise ValueError("GEMM inputs can overflow signed int32 accumulation")
@@ -180,6 +202,14 @@ def load_fixture(payload):
         if np.any(np.abs(supplied - roots) > 1.0e-12):
             raise ValueError("FFT twiddles do not describe the forward transform")
     return fixture
+
+
+def numpy_vadd(a, b):
+    """Use widened NumPy arithmetic independently of the Workbench oracle."""
+    result = np.asarray(a, dtype=np.int64) + np.asarray(b, dtype=np.int64)
+    if np.any(result < -0x80000000) or np.any(result > 0x7FFFFFFF):
+        raise ValueError("VADD inputs can overflow signed int32 addition")
+    return result
 
 
 def numpy_gemm(a, b, rows, inner, columns):
@@ -227,6 +257,8 @@ def numpy_stencil(values, coefficients, rows, columns, height):
 
 def expected_outputs(fixture):
     inputs = fixture["inputs"]
+    if fixture["benchmark"] == "vadd":
+        return numpy_vadd(inputs["a"], inputs["b"])
     if fixture["benchmark"] == "gemm":
         return numpy_gemm(inputs["a"], inputs["b"], 8, 8, 8)
     if fixture["benchmark"] == "fft":
@@ -234,14 +266,33 @@ def expected_outputs(fixture):
     return numpy_stencil(inputs["input"], inputs["coefficients"], 16, 32, 32)
 
 
-def parse_observed(payload, fixture):
-    """Parse a dedicated result file, not a console log or saved assessment."""
+def parse_observed(payload, fixture, output_transport="file"):
+    """Parse the explicitly selected transport, never infer it from contents."""
+    if output_transport not in ("file", "uart"):
+        raise ValueError("Unknown output transport")
+    if output_transport == "uart" and fixture["benchmark"] != "vadd":
+        raise ValueError("UART numerical transport is supported only for VADD")
     if not payload.endswith(b"\n"):
         raise ValueError("Result file lacks its final newline")
     # Only the writer's LF and a normal archival CRLF conversion are accepted.
     # str.splitlines() would also accept VT/FF/ASCII record separators.
     lines = payload.decode("ascii").split("\n")[:-1]
     lines = [line[:-1] if line.endswith("\r") else line for line in lines]
+    if output_transport == "uart":
+        starts = [
+            i for i, line in enumerate(lines) if line.startswith("SALAM_RESULT_BEGIN")
+        ]
+        ends = [
+            i for i, line in enumerate(lines) if line.startswith("SALAM_RESULT_END")
+        ]
+        if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
+            raise ValueError("Expected exactly one complete UART output block")
+        if any(
+            line.startswith("SALAM_RESULT")
+            for line in lines[: starts[0]] + lines[ends[0] + 1 :]
+        ):
+            raise ValueError("UART protocol record occurs outside the output block")
+        lines = lines[starts[0] : ends[0] + 1]
     count = fixture["output_count"]
     suffix = "v1 {} {} {} {}".format(
         fixture["benchmark"], fixture["fixture_sha256"], count, fixture["output_kind"]
@@ -328,11 +379,14 @@ def verify_files(
     output_path,
     expected_fixture_file_hash=None,
     expected_output_hash=None,
+    *,
+    output_transport="file",
 ):
     report = {
         "schema_version": 1,
         "kind": "independent_numpy_numerical_crosscheck",
         "state": "rejected",
+        "output_transport": output_transport,
         "scope": "All raw output elements against NumPy algorithms on saved input arrays; no simulator execution/build/GUI attestation",
         "started_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "implementation": {
@@ -373,7 +427,7 @@ def verify_files(
             output_kind=fixture["output_kind"],
         )
         report["stage"] = "parse_raw_observed_values"
-        observed, bits = parse_observed(output_bytes, fixture)
+        observed, bits = parse_observed(output_bytes, fixture, output_transport)
         report["observed_count"] = int(observed.size)
         report["observed_bits_sha256"] = _sha(bits)
         report["stage"] = "numpy_numerical_comparison"
@@ -386,6 +440,7 @@ def verify_files(
         ] = "Row-major big-endian signed int32, or binary64 real then imaginary per row; FFT hashes need not match under numerical tolerances"
         report["method"] = {
             "gemm": "NumPy int64 dot with int32 range check",
+            "vadd": "NumPy int64 elementwise addition with int32 range check",
             "fft": "NumPy forward FFT followed by binary-axis transpose for DIF bit-reversed order",
             "stencil3d": "NumPy int64 seven-point slicing with copied six-face boundary and int32 range check",
         }[fixture["benchmark"]]
@@ -402,8 +457,11 @@ def main(argv=None):
         "--fixture", required=True, help="Saved benchmark-fixture.json input arrays"
     )
     parser.add_argument(
-        "--raw-output", required=True, help="Dedicated salam-results.txt protocol file"
+        "--raw-output",
+        required=True,
+        help="Selected salam-results.txt or VADD UART terminal file",
     )
+    parser.add_argument("--output-transport", choices=("file", "uart"), default="file")
     parser.add_argument("--expected-fixture-file-sha256")
     parser.add_argument("--expected-output-sha256")
     parser.add_argument(
@@ -416,6 +474,7 @@ def main(argv=None):
         options.raw_output,
         options.expected_fixture_file_sha256,
         options.expected_output_sha256,
+        output_transport=options.output_transport,
     )
     payload = json.dumps(report, indent=2, allow_nan=False) + "\n"
     if options.receipt:

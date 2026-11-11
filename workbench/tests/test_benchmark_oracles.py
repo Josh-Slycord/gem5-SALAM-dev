@@ -211,5 +211,106 @@ class BenchmarkOracleTests(unittest.TestCase):
         self.assertEqual(assess_output(text, fixture)["state"], "failed")
 
 
+class VaddOracleTests(unittest.TestCase):
+    def test_datasets_lengths_and_determinism(self):
+        for length in (1, 7, 8, 16, 256):
+            for dataset in ("baseline", "seeded", "zeros", "boundary"):
+                with self.subTest(length=length, dataset=dataset):
+                    fixture = make_fixture("vadd", dataset, 17, length=length)
+                    self.assertEqual(
+                        fixture, make_fixture("vadd", dataset, 17, length=length)
+                    )
+                    self.assertEqual(fixture["shape"], {"length": length})
+                    self.assertEqual(fixture["output_count"], length)
+                    self.assertEqual(len(reference_outputs(fixture)), length)
+                    result = assess_output(render_output(fixture), fixture)
+                    self.assertEqual(result["state"], "passed", result["issues"])
+                    self.assertEqual(result["compared_count"], length)
+        self.assertNotEqual(
+            make_fixture("vadd", seed=11)["inputs"],
+            make_fixture("vadd", seed=29)["inputs"],
+        )
+
+    def test_custom_int32_edges_and_input_copy(self):
+        values = {"a": [-2147483648, 2147483647, 100, 0, -1], "b": [0, 0, -200, -1, 1]}
+        fixture = make_fixture("vadd", "custom", length=5, inputs=values)
+        values["a"][0] = 0
+        expected = [-2147483648, 2147483647, -100, -1, 0]
+        self.assertEqual(reference_outputs(fixture), expected)
+        text = render_output(fixture)
+        self.assertIn("SALAM_RESULT 0 80000000", text)
+        self.assertIn("SALAM_RESULT 1 7fffffff", text)
+        self.assertEqual(assess_output(text, fixture)["state"], "passed")
+
+    def test_custom_input_and_length_fail_closed(self):
+        invalid = (
+            {"dataset": "custom", "inputs": None},
+            {"dataset": "custom", "inputs": {"a": [1], "b": [2], "c": [3]}},
+            {"dataset": "custom", "length": 1, "inputs": {"a": [1], "b": []}},
+            {"dataset": "custom", "length": 1, "inputs": {"a": [True], "b": [0]}},
+            {"dataset": "custom", "length": 1, "inputs": {"a": [2147483648], "b": [0]}},
+            {"dataset": "custom", "length": 1, "inputs": {"a": [2147483647], "b": [1]}},
+            {
+                "dataset": "custom",
+                "length": 1,
+                "inputs": {"a": [-2147483648], "b": [-1]},
+            },
+            {"dataset": "seeded", "inputs": {"a": [], "b": []}},
+            {"length": 0},
+            {"length": 257},
+            {"length": True},
+            {"length": 1.0},
+        )
+        for arguments in invalid:
+            with self.subTest(arguments=arguments), self.assertRaises(ValueError):
+                make_fixture("vadd", **arguments)
+        with self.assertRaises(ValueError):
+            make_fixture("gemm", length=7)
+        with self.assertRaises(ValueError):
+            make_fixture("gemm", inputs={"a": [], "b": []})
+        with self.assertRaises(ValueError):
+            make_fixture("gemm", "custom")
+
+    def test_tampered_fixture_invalid_even_if_rehashed(self):
+        for key, value in (
+            ("shape", {"length": True}),
+            ("shape", {"length": 2, "x": 1}),
+            ("output_count", 1),
+            ("output_kind", "uint32"),
+            ("dataset", "unknown"),
+        ):
+            fixture = make_fixture("vadd", length=2)
+            fixture[key] = value
+            fixture["fixture_sha256"] = fixture_sha256(fixture)
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                validate_fixture(fixture)
+        fixture = make_fixture("vadd", length=2)
+        fixture["inputs"]["a"][0] += 1
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            validate_fixture(fixture)
+
+    def test_wrong_words_and_malformed_blocks_fail(self):
+        fixture = make_fixture(
+            "vadd", "custom", length=3, inputs={"a": [1, -2, 3], "b": [4, 5, -6]}
+        )
+        text = render_output(fixture)
+        wrong = text.replace("SALAM_RESULT 1 00000003", "SALAM_RESULT 1 00000004")
+        result = assess_output(wrong + "Check Passed\n", fixture)
+        self.assertEqual(result["state"], "failed")
+        self.assertEqual(result["mismatch_count"], 1)
+        lines = text.splitlines()
+        invalid = (
+            "\n".join(lines[:-1]),
+            "\n".join(lines[:2] + [lines[2], lines[2]] + lines[3:]),
+            "\n".join(lines[:2] + [lines[3], lines[2]] + lines[4:]),
+            text.replace("SALAM_RESULT 0 00000005", "SALAM_RESULT 0 000000005"),
+            text.replace(fixture["fixture_sha256"], "0" * 64),
+            text + text,
+        )
+        for changed in invalid:
+            with self.subTest(changed=changed):
+                self.assertEqual(assess_output(changed, fixture)["state"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()

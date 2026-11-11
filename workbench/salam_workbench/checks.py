@@ -54,6 +54,8 @@ FAST_MODULES = (
     "test_workbench_tier_coverage",
 )
 CONFIG_MODULES = (
+    "test_vadd_diagnostic",
+    "test_vadd_diagnostic_study",
     "test_benchmark_validation",
     "test_registerbank_adapter",
     "test_config",

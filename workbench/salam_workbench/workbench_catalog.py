@@ -23,6 +23,7 @@ _NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 _FIXED_CHECKS = frozenset(("gemm", "bfs", "nw", "fft", "stencil3d"))
 _TITLES = {
     "gemm": "GEMM",
+    "vadd": "Vector addition (diagnostic)",
     "bfs": "Breadth-first search",
     "nw": "Needleman–Wunsch",
     "fft": "FFT",

@@ -69,10 +69,125 @@ class BenchmarkValidationTests(unittest.TestCase):
             "text",
             {"output_transport": None},
             {"output_transport": "unknown"},
+            {"output_transport": []},
+            {"output_transport": {}},
         ):
             with self.subTest(inputs=inputs), self.assertRaises(ValueError):
                 numerical_output_relative({"benchmark_inputs": inputs})
         self.assertEqual(numerical_output_relative({}), "simulator/system.terminal")
+
+    def test_vadd_dimensions_custom_inputs_and_output_flags_are_source_bound(self):
+        case = {
+            "dataset": "custom",
+            "seed": 29,
+            "length": 3,
+            "inputs": {"a": [-2147483648, 2, 2147483647], "b": [1, -3, -1]},
+            "verbose": True,
+            "output_transport": "uart",
+        }
+        spec = {"benchmark": "benchmarks/sys_validation/vadd", "benchmark_input": case}
+        fixture = fixture_for_spec(spec)
+        self.assertEqual(fixture["shape"], {"length": 3})
+        self.assertEqual(reference_outputs(fixture), [-2147483647, -1, 2147483646])
+        original = copy.deepcopy(fixture)
+        # Presentation/transport controls cannot change numerical fixture identity.
+        changed = copy.deepcopy(spec)
+        changed["benchmark_input"].update(verbose=False, output_transport="file")
+        self.assertEqual(fixture_for_spec(changed), original)
+        checked = validate_input_case(spec["benchmark"], case, allow_controls=False)
+        case["inputs"]["a"][0] = 0
+        self.assertEqual(checked["inputs"]["a"][0], -2147483648)
+
+    def test_vadd_only_options_are_bounded_and_do_not_expand_legacy_contracts(self):
+        benchmark = "benchmarks/sys_validation/vadd"
+        base = {"dataset": "seeded", "seed": 1}
+        self.assertEqual(
+            fixture_for_spec({"benchmark": benchmark, "benchmark_input": base})[
+                "output_count"
+            ],
+            8,
+        )
+        for options in (
+            {"length": 0},
+            {"length": 257},
+            {"length": True},
+            {"verbose": 1},
+            {"output_transport": "auto"},
+            {"dataset": "custom", "inputs": {"a": [1], "b": [2]}},
+            {"inputs": {"a": [0] * 8, "b": [0] * 8}},
+            {"dataset": "custom", "length": 1, "inputs": {"a": [2147483647], "b": [1]}},
+        ):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                validate_input_case(benchmark, dict(base, **options))
+        for key, value in (
+            ("length", 8),
+            ("verbose", False),
+            ("output_transport", "file"),
+            ("dataset", "custom"),
+            ("dataset", "baseline"),
+        ):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                validate_input_case(self.spec["benchmark"], dict(base, **{key: value}))
+
+    def test_vadd_output_is_complete_even_with_a_false_guest_pass(self):
+        spec = {
+            "benchmark": "benchmarks/sys_validation/vadd",
+            "benchmark_input": {"dataset": "boundary", "seed": 1, "length": 5},
+        }
+        fixture = fixture_for_spec(spec)
+        output = reference_outputs(fixture)
+        output[-1] += 1
+        _write(
+            self.terminal,
+            "Booted\n" + render_output(fixture, output) + "Check Passed\n",
+        )
+        checked = assess_configured_output(spec, self.terminal)
+        self.assertEqual(checked["state"], "failed")
+        self.assertEqual(checked["compared_count"], 5)
+        self.assertEqual(checked["mismatch_count"], 1)
+
+    def test_explicit_numerical_transport_never_falls_back(self):
+        for transport, relative in (
+            ("gem5_semihosting_writefile_text_v1", "simulator/salam-results.txt"),
+            ("uart_text_v1", "simulator/system.terminal"),
+        ):
+            self.assertEqual(
+                numerical_output_relative(
+                    {
+                        "benchmark_inputs": {
+                            "output_transport": transport,
+                            "output_relative": relative,
+                        }
+                    }
+                ),
+                relative,
+            )
+            for wrong in ("simulator/missing.txt", None):
+                with self.subTest(transport=transport, wrong=wrong), self.assertRaises(
+                    ValueError
+                ):
+                    numerical_output_relative(
+                        {
+                            "benchmark_inputs": {
+                                "output_transport": transport,
+                                "output_relative": wrong,
+                            }
+                        }
+                    )
+
+    def test_configured_cli_accepts_vadd_without_running_a_simulator(self):
+        from unittest.mock import patch
+
+        from salam_workbench.configured_run import main
+
+        with patch(
+            "salam_workbench.configured_run.run_saved_request",
+            return_value={"state": "passed"},
+        ) as run:
+            self.assertEqual(
+                main(["--request", "request.json", "--benchmark", "vadd"]), 0
+            )
+        self.assertEqual(run.call_args.kwargs["benchmark"], "vadd")
 
     def test_guest_templates_are_restorable_source_and_midrun_changes_reject(self):
         from unittest.mock import patch

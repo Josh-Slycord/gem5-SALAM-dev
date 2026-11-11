@@ -101,6 +101,67 @@ class GuiEditorQtTests(unittest.TestCase):
         self.dialog.input_case_combo.setCurrentIndex(0)
         self.assertNotIn("benchmark_input", self.dialog._make_request())
 
+    def test_vadd_live_length_custom_inputs_verbose_and_uart_reach_request(self):
+        self._select_workload("vadd")
+        self.assertEqual(self.dialog.input_case_combo.currentData(), "seeded")
+        self.assertEqual(self.dialog.input_case_combo.findData(None), -1)
+        self.assertEqual(self.dialog.vadd_length_spin.value(), 8)
+        self.assertTrue(self.dialog.vadd_input_group.isEnabled())
+        self.dialog.vadd_length_spin.setValue(3)
+        self.dialog.input_seed_spin.setValue(17)
+        self.dialog.input_case_combo.setCurrentIndex(
+            self.dialog.input_case_combo.findData("custom")
+        )
+        inputs = {"a": [-2147483648, 0, 2147483647], "b": [1, 9, -1]}
+        self.dialog.vadd_inputs_edit.setPlainText(json.dumps(inputs))
+        self.dialog.vadd_verbose_check.setChecked(True)
+        self.dialog.vadd_transport_combo.setCurrentIndex(
+            self.dialog.vadd_transport_combo.findData("uart")
+        )
+        from salam_workbench.gui_execution import read_request, validate_request
+
+        request = read_request(json.dumps(self.dialog._make_request()))
+        validate_request(request)
+        expected = {
+            "dataset": "custom",
+            "seed": 17,
+            "length": 3,
+            "inputs": inputs,
+            "verbose": True,
+            "output_transport": "uart",
+        }
+        self.assertEqual(request["benchmark_input"], expected)
+        self.assertEqual(
+            request["provenance"]["editor_snapshot"]["benchmark_input"], expected
+        )
+        changed = deepcopy(request)
+        changed["benchmark_input"]["length"] = 2
+        with self.assertRaises(ValueError):
+            validate_request(changed)
+        self._select_workload("gemm")
+        self.assertFalse(self.dialog.vadd_input_group.isEnabled())
+        self.assertEqual(self.dialog.input_case_combo.findData("custom"), -1)
+        self.assertEqual(self.dialog.input_case_combo.findData("baseline"), -1)
+        self.dialog.input_case_combo.setCurrentIndex(1)
+        self.assertEqual(
+            set(self.dialog._make_request()["benchmark_input"]), {"dataset", "seed"}
+        )
+
+    def test_vadd_gui_rejects_invalid_custom_input_and_keeps_checks_mandatory(self):
+        self._select_workload("vadd")
+        defaults = self.dialog._make_request()["benchmark_input"]
+        self.assertEqual(defaults["length"], 8)
+        self.assertEqual(defaults["output_transport"], "file")
+        self.assertFalse(defaults["verbose"])
+        self.dialog.input_case_combo.setCurrentIndex(
+            self.dialog.input_case_combo.findData("custom")
+        )
+        for payload in ("not json", '{"a": [1], "b": [2]}'):
+            self.dialog.vadd_inputs_edit.setPlainText(payload)
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                self.dialog._make_request()
+        self.assertEqual(self.dialog.input_case_combo.findData(None), -1)
+
     def test_supported_trace_budget_control_reaches_every_accelerator(self):
         from salam_workbench.benchmark_validation import trace_budget_source_supported
 
